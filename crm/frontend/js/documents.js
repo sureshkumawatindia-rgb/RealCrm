@@ -1,18 +1,16 @@
 /**
  * documents.js — Documents module (Grid + Table library)
- * Persists to localStorage under 'crm_documents'. Small files are stored
- * inline as base64 data URLs (browser storage only, no real backend);
- * anything bigger should be added as an external link instead.
+ * Documents live on the CRM backend (getDocuments, saveDocument,
+ * removeDocument, downloadDocument in app.js). Uploaded files are kept in
+ * the server's private storage and open as downloads; a document can be a
+ * web link instead. The server checks the size limit and file type.
  * Reuses shared helpers from app.js (getAgents, getCustomers, getLeads,
  * getAccounts, showToast, renderSidebarUser, initSidebarToggle,
- * requireAuth, getCurrentUser).
+ * requireAuth).
  */
 
 requireAuth();
 renderSidebarUser();
-
-const DOCUMENTS_KEY = "crm_documents";
-const MAX_FILE_BYTES = 1.5 * 1024 * 1024; // ~1.5MB — localStorage is small
 
 const CATEGORIES = [
   "Contract",
@@ -42,41 +40,10 @@ const CATEGORY_BADGE_CLASS = {
 let currentView = "grid";
 let activeCategoryFilter = null; // set by the nav-bar-kanban-card pills
 let sourceMode = "file"; // "file" | "link" — modal toggle
-let pendingFile = null; // { name, size, type, dataUrl } staged before save
+let pendingFile = null; // the File picked in the modal, sent on save
 
-// ---------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------
-function getDocuments() {
-  const raw = localStorage.getItem(DOCUMENTS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveDocuments(list) {
-  localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(list));
-}
-function addDocument(doc) {
-  const list = getDocuments();
-  doc.id =
-    "doc_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  doc.createdAt = new Date().toISOString();
-  list.unshift(doc);
-  saveDocuments(list);
-  return doc;
-}
-function updateDocumentRecord(id, patch) {
-  const list = getDocuments();
-  const idx = list.findIndex((d) => d.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveDocuments(list);
-  }
-  return list[idx];
-}
-function deleteDocumentRecord(id) {
-  saveDocuments(getDocuments().filter((d) => d.id !== id));
-}
 function getDocumentById(id) {
-  return getDocuments().find((d) => d.id === id);
+  return getDocuments().find((d) => String(d.id) === String(id));
 }
 
 // ---------------------------------------------------------------
@@ -405,13 +372,10 @@ function openDocument(id) {
     window.open(doc.linkUrl, "_blank", "noopener");
     return;
   }
-  if (doc.fileData) {
-    const a = document.createElement("a");
-    a.href = doc.fileData;
-    a.download = doc.fileName || doc.name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  if (doc.hasFile) {
+    downloadDocument(doc).catch((error) =>
+      showToast(apiErrorMessage(error, "Couldn't download the file."), "error"),
+    );
     return;
   }
   showToast("This document has no file or link attached.", "error");
@@ -522,28 +486,8 @@ function showFilePreview(name, size) {
 document.getElementById("fFile").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > MAX_FILE_BYTES) {
-    showToast(
-      `That file is ${formatBytes(file.size)} — over the ~1.5MB limit for local storage. Use an external link instead.`,
-      "error",
-    );
-    e.target.value = "";
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    pendingFile = {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      dataUrl: reader.result,
-    };
-    showFilePreview(file.name, file.size);
-  };
-  reader.onerror = () => {
-    showToast("Couldn't read that file. Please try again.", "error");
-  };
-  reader.readAsDataURL(file);
+  pendingFile = file;
+  showFilePreview(file.name, file.size);
 });
 document.getElementById("removeFileBtn").addEventListener("click", resetFilePreview);
 
@@ -634,9 +578,10 @@ function confirmDelete(id) {
   const doc = getDocumentById(id);
   if (!doc) return;
   if (confirm(`Delete "${doc.name}"? This can't be undone.`)) {
-    deleteDocumentRecord(id);
-    showToast("Document deleted", "success");
-    renderAll();
+    removeDocument(id)
+      .then(() => showToast("Document deleted", "success"))
+      .catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the document."), "error"))
+      .finally(renderAll);
   }
 }
 
@@ -659,7 +604,7 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 initSidebarToggle();
-crmReady(["leads", "contacts", "products", "members"], renderAll);
+crmReady(["documents", "leads", "contacts", "products", "members"], renderAll);
 initCategoryButtons();
 
 // Search & filters
@@ -759,7 +704,7 @@ document.getElementById("deleteBtn").addEventListener("click", () => {
 });
 
 // Save (create / update)
-document.getElementById("documentForm").addEventListener("submit", (e) => {
+document.getElementById("documentForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("editId").value;
   const name = document.getElementById("fName").value.trim();
@@ -785,6 +730,7 @@ document.getElementById("documentForm").addEventListener("submit", (e) => {
     return;
   }
 
+  let file = null;
   if (sourceMode === "link") {
     const linkUrl = document.getElementById("fLinkUrl").value.trim();
     if (!linkUrl) {
@@ -792,36 +738,24 @@ document.getElementById("documentForm").addEventListener("submit", (e) => {
       return;
     }
     payload.linkUrl = linkUrl;
-    payload.fileName = null;
-    payload.fileType = null;
-    payload.fileSize = null;
-    payload.fileData = null;
-  } else {
-    payload.linkUrl = null;
-    if (pendingFile) {
-      payload.fileName = pendingFile.name;
-      payload.fileType = pendingFile.type;
-      payload.fileSize = pendingFile.size;
-      payload.fileData = pendingFile.dataUrl;
-    } else if (id) {
-      // Editing without picking a new file — keep whatever was there before.
-      const existing = getDocumentById(id);
-      payload.fileName = existing?.fileName || null;
-      payload.fileType = existing?.fileType || null;
-      payload.fileSize = existing?.fileSize || null;
-      payload.fileData = existing?.fileData || null;
-    } else {
-      showToast("Attach a file, or switch to External Link.", "error");
-      return;
-    }
+  } else if (pendingFile) {
+    file = pendingFile;
+  } else if (!id || !getDocumentById(id)?.hasFile) {
+    // Editing without picking a new file keeps the current one.
+    showToast("Attach a file, or switch to External Link.", "error");
+    return;
   }
 
-  if (id) {
-    updateDocumentRecord(id, payload);
-    showToast("Document updated", "success");
-  } else {
-    addDocument(payload);
-    showToast("Document created", "success");
+  const saveBtn = e.submitter;
+  if (saveBtn) saveBtn.disabled = true;
+  try {
+    await saveDocument(id || null, payload, file);
+    showToast(id ? "Document updated" : "Document created", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the document."), "error");
+    return;
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
   }
   closeModal();
   renderAll();

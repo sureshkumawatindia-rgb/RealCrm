@@ -680,10 +680,10 @@ const IMPORT_SECTION_LABELS = {
   tickets: "Support tickets",
   ticketNotes: "Ticket replies",
   customerNotes: "Customer notes",
+  documents: "Documents",
 };
 const LATER_LABELS = {
   crm_agents: "Account Champions",
-  crm_documents: "Documents",
   crm_campaigns: "Campaigns",
   crm_workflows: "Workflows",
   crm_sequences: "Sequences",

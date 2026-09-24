@@ -1,8 +1,8 @@
 /**
  * app.js — shared helpers for every page.
  * Sign-in, the company profile, the team, contacts, leads/deals, products, quotations, tasks,
- * calendar events, support tickets and notes live on the CRM backend (crmApi, crmLoad).
- * Documents, campaigns and automations are still stored in this browser's localStorage until
+ * calendar events, support tickets, notes and documents live on the CRM backend (crmApi,
+ * crmLoad). Campaigns and automations are still stored in this browser's localStorage until
  * they move too.
  */
 
@@ -53,8 +53,9 @@ function refreshAccessToken(staleToken) {
   return refreshInFlight;
 }
 
-// Returns the whole response body ({ data, pagination, ... }); throws with status/code/errors.
-async function crmRequest(path, options = {}, { retried = false } = {}) {
+// Returns the whole response body ({ data, pagination, ... }), or a Blob for { blob: true }
+// (file downloads); throws with status/code/errors.
+async function crmRequest(path, options = {}, { retried = false, blob = false } = {}) {
   const headers = new Headers(options.headers || {});
   const session = localStorage.getItem(KEYS.SESSION);
   if (session) headers.set("Authorization", `Bearer ${session}`);
@@ -64,9 +65,10 @@ async function crmRequest(path, options = {}, { retried = false } = {}) {
   } catch (error) {
     throw new Error(`CRM API is unreachable at ${CRM_API_BASE}. Start the backend and verify its port.`);
   }
+  if (blob && response.ok) return response.blob();
   const body = await response.json().catch(() => ({}));
   if (response.status === 401 && !retried && !sessionEnded && !NO_REFRESH_PATHS.has(path)) {
-    if (await refreshAccessToken(session)) return crmRequest(path, options, { retried: true });
+    if (await refreshAccessToken(session)) return crmRequest(path, options, { retried: true, blob });
     endSession();
   }
   if (!response.ok) {
@@ -81,6 +83,19 @@ async function crmRequest(path, options = {}, { retried = false } = {}) {
 
 async function crmApi(path, options = {}) {
   return (await crmRequest(path, options)).data;
+}
+
+// Downloads a file the API only gives to signed-in members (a plain link can't send the token).
+async function crmDownload(path, fileName) {
+  const file = await crmRequest(path, {}, { blob: true });
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName || "download";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 // ---------------------------------------------------------------
@@ -324,7 +339,7 @@ function renderCompanyDashboardCard() {
 
 // ---------------------------------------------------------------
 // Server data — contacts, leads (also shown as deals), products, quotations,
-// the team, tasks, calendar events and tickets. Pages call crmLoad([...]) (or crmReady) once,
+// the team, tasks, calendar events, tickets and documents. Pages call crmLoad([...]) (or crmReady) once,
 // then read synchronously with the getters below; changes go through
 // the async save/remove helpers, which update the in-memory copy.
 // ---------------------------------------------------------------
@@ -337,6 +352,7 @@ const CRM_SOURCES = {
   tasks: "/tasks",
   events: "/events",
   tickets: "/tickets",
+  documents: "/documents",
 };
 const crmCache = {};
 const MAX_LOAD_PAGES = 50; // 50 pages × 100 records per resource
@@ -694,6 +710,46 @@ async function getContactNotes(contactId) {
 }
 async function addContactNote(contactId, text) {
   return toLegacyNote(await crmApi(`/contacts/${contactId}/notes`, jsonRequest("POST", { text })));
+}
+
+// --- documents ------------------------------------------------------
+// The file stays on the server; open it with downloadDocument.
+const toLegacyDocument = (doc) => ({ ...doc, owner: memberName(doc.ownerId), fileType: doc.mimeType, fileSize: doc.sizeBytes });
+
+function getDocuments() {
+  return cached("documents").map(toLegacyDocument);
+}
+// "drive.google.com/x" → "https://drive.google.com/x" (the server accepts web links only).
+function webAddress(value) {
+  const link = String(value || "").trim();
+  return !link || /^[a-z][a-z0-9+.-]*:/i.test(link) ? link : `https://${link}`;
+}
+// Sent as form data so a newly picked file can go along. Without a new file or a link, the
+// document keeps its current file.
+async function saveDocument(id, form, file) {
+  const data = new FormData();
+  ["name", "category", "description"].forEach((key) => {
+    if (key in form) data.append(key, form[key] ?? "");
+  });
+  if ("tags" in form) data.append("tags", (form.tags || []).join(","));
+  if ("owner" in form) data.append("ownerId", agentIdByName(form.owner) || "");
+  if ("relatedType" in form) {
+    const relatedName = form.relatedType ? form.relatedName || "" : "";
+    data.append("relatedType", form.relatedType || "");
+    data.append("relatedName", relatedName);
+    data.append("relatedId", relatedIdByName(form.relatedType, relatedName) || "");
+  }
+  if (form.linkUrl) data.append("linkUrl", webAddress(form.linkUrl));
+  if (file) data.append("file", file, file.name);
+  const doc = await crmApi(id ? `/documents/${id}` : "/documents", { method: id ? "PATCH" : "POST", body: data });
+  return toLegacyDocument(cacheUpsert("documents", doc));
+}
+async function removeDocument(id) {
+  await crmApi(`/documents/${id}`, { method: "DELETE" });
+  cacheDrop("documents", id);
+}
+async function downloadDocument(doc) {
+  await crmDownload(`/documents/${doc.id}/download`, doc.fileName || doc.name);
 }
 
 // Items use the form's rupee values; the server computes every total.

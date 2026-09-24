@@ -1,8 +1,8 @@
 /**
  * customer-360.js — Customer 360° Profile
  *
- * Read-only aggregation of everything about one customer, plus the
- * customer's notes (on the CRM backend: getContactNotes / addContactNote).
+ * Read-only aggregation of everything about one customer (all on the CRM
+ * backend), plus the customer's notes (getContactNotes / addContactNote).
  * Nothing else is changed here — records stay owned by their own pages.
  *
  * Matching is best-effort by name where records store only a name:
@@ -38,8 +38,7 @@ function readTickets() {
   return getTickets();
 }
 function readDocuments() {
-  const raw = localStorage.getItem("crm_documents");
-  return raw ? JSON.parse(raw) : [];
+  return getDocuments();
 }
 
 // ---------------------------------------------------------------
@@ -113,7 +112,9 @@ function relatedTickets(customer) {
 }
 function relatedDocuments(customer) {
   return readDocuments().filter(
-    (d) => d.relatedType === "Customer" && d.relatedName === customer.name,
+    (d) =>
+      d.relatedType === "Customer" &&
+      (d.relatedId ? String(d.relatedId) === String(customer.id) : d.relatedName === customer.name),
   );
 }
 function customerNotes() {
@@ -465,7 +466,7 @@ function initTabs() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-crmReady(["leads", "contacts", "products", "members", "tasks", "events", "tickets"], async () => {
+crmReady(["leads", "contacts", "products", "members", "tasks", "events", "tickets", "documents"], async () => {
   const customerId = getCustomerIdFromUrl();
   const customer = customerId ? findCustomer(customerId) : null;
 
