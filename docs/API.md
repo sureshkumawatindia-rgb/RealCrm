@@ -78,10 +78,60 @@ The browser never receives or stores Gmail access or refresh tokens; they are en
 
 In Google Cloud Console, enable the Gmail API and add the exact `GOOGLE_REDIRECT_URI` (default `PUBLIC_URL/api/v1/gmail/oauth/callback`) to the OAuth client's authorized redirect URIs. Sign-in from a page address also needs that origin (for example `http://127.0.0.1:3000`) under "Authorized JavaScript origins". Scope: `https://www.googleapis.com/auth/gmail.readonly`.
 
+## Sales core (Phase 2)
+
+Module permissions: contacts need `customers`; leads and quotations need `leads` or `deals`; products are readable by every member and writable with `products`. Agents and viewers only see records they own unless they have `<module>:view_all`. Only owners/admins can set `ownerId`; everyone else owns what they create. Money is integer paise.
+
+### Contacts
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/contacts?q=&lifecycle=lead\|customer&status=&ownerId=&tag=&sort=&page=&limit=` | Search name/email/phone/company/city. |
+| `POST` | `/contacts` | `{ name, email?, phone?, company?, gstin?, state?, city?, address?, tags?, source?, lifecycle?, status?, productIds?, notes?, ownerId? }`. The phone is stored as entered and as E.164 (`+91` added to 10-digit numbers); an invalid phone is 400 `INVALID_PHONE`, a number that another contact has is 409 `DUPLICATE_CONTACT`. |
+| `GET/PATCH/DELETE` | `/contacts/:id` | Delete is a soft delete and frees the phone number. |
+
+### Products
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/products?q=&category=&active=&sort=` | Catalog (any member). |
+| `POST` | `/products` | `{ name, sku?, category?, description?, unit?, hsnSac?, pricePaise?, gstRatePct?, moq?, stockQty?, images?, active? }` — tax-exclusive price in paise. |
+| `GET/PATCH/DELETE` | `/products/:id` | |
+
+### Leads (the single pipeline; the Deals page is its Kanban)
+
+Stages: `New → Contacted → Quote Sent → Negotiation → Won / Lost`. The server sets `probability` from the stage (10/25/50/75/100/0) and never accepts it from the browser.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/leads?q=&stage=&ownerId=&productId=&contactId=&followUpFrom=&followUpTo=&sort=` | Each lead includes a `contact` summary. `q` also searches the contact's name, email, phone and company. |
+| `POST` | `/leads` | `{ contactId }` or `{ contact: { name, email?, phone?, company? } }` (reuses the contact with the same phone, else the same email) plus `title?, stage?, lostReason?, source?, productId?, quantity?, expectedValuePaise?, expectedCloseDate?, followUpAt?, ownerId?, notes?, noteEntries? }`. Accepts `Idempotency-Key`. A lead created as Won converts. |
+| `GET/PATCH/DELETE` | `/leads/:id` | PATCH may include `contact: {...}` (updates the linked contact), `stage`, and `version` (409 `VERSION_CONFLICT` if someone else changed the lead). |
+| `POST` | `/leads/:id/stage` | `{ stage, lostReason?, version? }`. Lost without a reason is 422 `LOST_REASON_REQUIRED`. Won makes the contact a customer. |
+| `POST` | `/leads/:id/convert` | Idempotent: moves to Won and marks the contact as customer once. |
+| `GET/POST` | `/leads/:id/activities` | Timeline (created, stage changes, notes, quotations); POST `{ text, type? }` adds a note. |
+| `POST` | `/leads/:id/quotations` | `{ items: [{ productId?, name?, quantity, unitPricePaise, discountPaise?, taxRatePct? }], validUntil? }` — creates the lead's draft quotation (201) or updates it (200). Totals are computed on the server. |
+
+### Quotations
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/quotations?leadId=&contactId=&status=` | Numbers per financial year: `QT/2026-27/0001`. |
+| `GET` | `/quotations/:id` | |
+| `PATCH` | `/quotations/:id` | `{ status }` (Draft, Sent, Viewed, Accepted, Rejected, Expired). |
+| `DELETE` | `/quotations/:id` | Soft delete. |
+
+### Moving browser data to the server
+
+| Method | Route | Role | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities and quotations; contacts are matched by phone, then email (deals: name + company). Old ids are kept, so running it again creates nothing new. Returns a report per section (`found, created, alreadyImported, merged, rejected`), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
+| `GET` | `/imports/:id` | owner, admin | A previous run and its report. |
+
 ## Idempotency
 
 `POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.
 
 ## Planned
 
-Phase 2 onwards adds the CRM resources (contacts, leads, products, tasks, events, tickets, documents, campaigns, workflows, sequences), then WhatsApp, lead sources, quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.
+The rest of Phase 2 adds tasks, events, tickets (with notes), documents, campaigns, workflows and sequences, then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.

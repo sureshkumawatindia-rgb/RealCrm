@@ -4,7 +4,7 @@ Turning YELLOW CRM into a WhatsApp-first CRM for Indian SMBs (IndiaMART sellers,
 
 - Brief: [BIZNUMA_CRM_MASTER_PROMPT.md](BIZNUMA_CRM_MASTER_PROMPT.md)
 - Canonical backend spec: [../BACKEND-AUDIT-SPEC.md](../BACKEND-AUDIT-SPEC.md) (this roadmap extends it; where they differ, the decision log in section 9 wins and the spec gets updated in the phase that implements it)
-- Status: **Phase 1 done on 2026-09-24** (branch `feature/phase-1-foundation`), except one check that needs a real Google account (see the Phase 1 list). Waiting for "go" to start Phase 2.
+- Status: **Phase 2 in progress** (branch `feature/phase-2-core-crm`, built on the Phase 1 branch). Checkpoint A (sales core) done on 2026-09-24; resume at checkpoint B (tasks + calendar). Phase 1 still waits for one check with a real Google account.
 
 ---
 
@@ -31,11 +31,13 @@ Tick a box only when its acceptance check passes and the full test suite is gree
 - [ ] Nothing that works today is broken. Verified: org profile + logo, health, the VS Code task backend (restarted and migrated on Atlas), sign-in/invite/refresh flows with a test verifier. **Needs your check with a real Google account: Google sign-in and Gmail connect.**
 
 ### Phase 2 — Core CRM moves to the server
-- [ ] Contacts, Leads (+activities, idempotent convert), Products, Tasks, Events, Tickets (+notes, atomic numbers), Documents (storage abstraction), Campaign/Workflow/Sequence config
-- [ ] Deals page becomes the Kanban view of Leads; old deals imported as leads (D13)
-- [ ] Account Champions page uses the members/invites API (Settings → Team & Access already does); crm_agents imported as invites
-- [ ] Every page uses `crmApi` instead of localStorage; UI looks the same
-- [ ] `POST /imports/localstorage` with preview + report; Settings button "Move my browser data to server"
+Checkpoints: **A sales core (done)** → B tasks + calendar → C tickets + notes → D documents → E campaigns + automation config → F Account Champions on the team API → G final acceptance.
+- [x] (A) Contacts, Leads (+activities, idempotent convert, version check), Products, Quotations (server totals, FY numbers)
+- [ ] (B–E) Tasks, Events, Tickets (+notes, atomic numbers), Documents (storage abstraction), Campaign/Workflow/Sequence config
+- [x] (A) Deals page becomes the Kanban view of Leads; old deals imported as leads (D13)
+- [ ] (F) Account Champions page uses the members/invites API (Settings → Team & Access already does); crm_agents imported as invites
+- [ ] Every page uses `crmApi` instead of localStorage; UI looks the same — done for the sales pages and every page that reads sales data (A)
+- [x] (A) `POST /imports/localstorage` with preview + report; Settings button "Move my browser data to server" (grows with each checkpoint)
 - [ ] Accept: two members of one org see the same data; another org sees none
 - [ ] Accept: grep finds no `crm_*` business keys in the frontend (only session/user keys)
 
@@ -56,7 +58,7 @@ Tick a box only when its acceptance check passes and the full test suite is gree
 - [ ] Accept: simulated IndiaMART lead → inbox + auto-reply + correct assignment, all within 60 s
 
 ### Phase 5 — Pipeline, GST quotations, orders
-- [ ] New lead stages + data migration, lead Kanban, "Quote Sent, no reply for N days" view
+- [ ] "Quote Sent, no reply for N days" view (the new stages and the lead Kanban arrived in Phase 2 with D13)
 - [ ] Organization settings: GSTIN, state code, bank, UPI ID, terms, number prefixes
 - [ ] Quotations.html: items, discounts, GST breakup, validity, terms, revisions, PDF, send in chat, "Viewed" tracking
 - [ ] Orders.html: from accepted quote, stage pipeline, dispatch details, optional WhatsApp updates
@@ -428,7 +430,7 @@ Re-check each page again right before writing that integration (rule from the br
 |---|---|---|
 | D1 | Money | INR only; integer paise; round each line to 2 decimals |
 | D2 | GST | Tax-exclusive prices; place of supply = customer state (GSTIN state code, else address); same state → CGST+SGST, else IGST; products get hsnSac, unit, moq, images |
-| D3 | Contact model | One Contact per E.164 phone (default +91), unique per org; optional email, company, GSTIN, state, city, tags, source, owner, lifecycle lead/customer; everything references contactId; migrate customers + leads; legacy Accounts merge into `Contact.company`; "Account Champions" stays the team page |
+| D3 | Contact model | One Contact per E.164 phone (default +91), unique per org when a phone is given (phone stays optional, like the current forms); optional email, company, GSTIN, state, city, tags, source, owner, lifecycle lead/customer; everything references contactId; migrate customers + leads; legacy Accounts merge into `Contact.company`; "Account Champions" stays the team page |
 | D4 | Lead stages | New → Contacted → Quote Sent → Negotiation → Won / Lost (Lost needs a reason); map In Progress → Contacted, Qualified/Proposal → Quote Sent; per-org configurable later |
 | D5 | Lead sources | WhatsApp, IndiaMART, JustDial, TradeIndia, Facebook, Google Ads, Website, Manual, Import |
 | D6 | Quotations | Types Quotation / Estimate / Proforma Invoice; Draft → Sent → Viewed → Accepted / Rejected / Expired; numbers per financial year (April–March) e.g. `QT/2026-27/0001` from an atomic counter; revisions kept |
@@ -529,5 +531,6 @@ Rough engineering days (AI-assisted), plus the number of working sessions. Exter
 
 ## 14. Changelog
 
+- **2026-09-24 — Phase 2, checkpoint A (sales core).** Contacts, products, leads (one pipeline with the Deals Kanban, stage probabilities, Lost reasons, idempotent Won conversion, version checks), lead activities and server-computed quotations with financial-year numbers; agent record scope. Importer for the old browser data (preview, merge by phone/email, idempotent re-runs) and the Settings button. All sales pages and the pages that read sales data now use the server through a shared data layer in app.js; the sidebar hides modules an agent cannot open. 105 tests, including a check that each page's scripts compile together.
 - **2026-09-24 — Phase 1.** Memberships (owner/admin/agent/viewer + module permissions), invites with shareable links, multi-organization switching, 15-minute access tokens with rotating httpOnly refresh cookies and reuse detection, env validation, CORS allowlist, rate limits, operator-key rejection, Joi validation, audit log, idempotency keys, counters, soft delete, tenant repository, `DATA_ENCRYPTION_KEY`, organization fields renamed by migration 001 (applied on Atlas). Frontend: token refresh across tabs, invite sign-in, company profile and team on the server (Settings → Team & Access), defects fixed (lead quotations, deal wipe, marketing script split, accounts legacy form, brand name, a pre-existing accounts.js error). 54 backend tests.
 - **2026-09-24 — Phase 0.** Audit and this roadmap. Decided: D10 Agenda on MongoDB, D11 inner RealCrm repo, D12 multi-org membership, D13 one pipeline. No application code changed in Phase 0. (Earlier the same day, outside the phase plan: the backend started serving the CRM pages at `/crm/frontend`, `start-crm.vbs` / `stop-crm.vbs` launchers and the VS Code "CRM backend" task were added.)

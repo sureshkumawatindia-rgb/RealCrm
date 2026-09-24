@@ -4,7 +4,24 @@
 
 `backend/src/migrations/` holds data migrations that run once, in order, when the server starts (after connecting to MongoDB). Each one is recorded in the `migrations` collection and must be idempotent, so a crash halfway is safe. Current list: `001-organization-field-names` (see [DATABASE.md](DATABASE.md)).
 
-Browser data (localStorage) is per address: data entered on VS Code Live Server (`127.0.0.1:5501`) is not visible at `127.0.0.1:3000`. Until the importer below exists, move it with Settings → Data & Privacy → Export on the old address and Import on the new one.
+Browser data (localStorage) is per address: data entered on VS Code Live Server (`127.0.0.1:5501`) is not visible at `127.0.0.1:3000`. The server importer reads the browser it runs in, so run it on the address where the data was entered.
+
+## 0b. Status of the importer (Phase 2)
+
+Settings → Data & Privacy → **Move my browser data to server** (owners/admins) calls `POST /imports/localstorage`, first as a preview, then for real after confirmation.
+
+| Browser key | Moves to | Since |
+|---|---|---|
+| `crm_products` | products (price → paise, gst → rate, quantity → stock) | Phase 2 checkpoint A |
+| `crm_customers` | contacts, lifecycle customer | A |
+| `crm_accounts` | contacts (company = account name) | A |
+| `crm_leads` | leads + contacts (status mapped: In Progress → Contacted) | A |
+| `crm_deals` | leads (D13; Qualified/Proposal → Quote Sent; timeline notes → activities) | A |
+| `crm_lead_activities` | lead activities | A |
+| `crm_quotations` | quotations (new FY numbers, old number kept as `legacyNumber`, totals recomputed) | A |
+| `crm_tasks`, `crm_deal_tasks`, `crm_calendar_events`, `crm_tickets`, `crm_documents`, `crm_campaigns`, `crm_workflows`, `crm_sequences`, `crm_customer_notes`, `crm_agents` | reported as "later", still used from the browser | next checkpoints |
+
+Every imported record keeps its old id in `legacyIds`, so the import can be run again after each checkpoint: it only adds what is new.
 
 ## 1. Overview
 The current CRM operates entirely on `localStorage`. A one-time migration API will allow users to upload their `localStorage` state to the new backend.
