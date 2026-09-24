@@ -1,11 +1,13 @@
 /**
  * app.js — shared helpers for every page.
- * Everything is stored in localStorage. No backend anywhere.
+ * Sign-in, the company profile and the team live on the CRM backend (crmApi);
+ * the other CRM records are still stored in this browser's localStorage.
  */
 
 const KEYS = {
   SESSION: "crm_session",
   USER: "crm_user",
+  MEMBER: "crm_member",
   COMPANY: "crm_company",
   CUSTOMERS: "crm_customers",
   LEADS: "crm_leads",
@@ -16,21 +18,67 @@ const KEYS = {
   LEAD_ACTIVITIES: "crm_lead_activities",
 };
 
-const CRM_API_BASE = "http://127.0.0.1:3000/api/v1";
+// When the backend serves this page (http://127.0.0.1:3000/crm/frontend/ or a real domain) the
+// API is on the same origin. VS Code Live Server (ports 5500/5501) falls back to the local backend.
+const CRM_API_BASE =
+  /^https?:$/.test(window.location.protocol) && !["5500", "5501"].includes(window.location.port)
+    ? `${window.location.origin}/api/v1`
+    : "http://127.0.0.1:3000/api/v1";
 
-async function crmApi(path, options = {}) {
+// Auth endpoints answer 401 for their own reasons; never try a token refresh for them.
+const NO_REFRESH_PATHS = new Set(["/auth/google", "/auth/refresh", "/auth/logout"]);
+let refreshInFlight = null;
+let sessionEnded = false;
+
+// Exchanges the httpOnly refresh cookie for a new access token. Tabs take turns (Web Locks),
+// so two tabs never present the same refresh token (the server treats that as theft).
+async function requestNewAccessToken(staleToken) {
+  const refresh = async () => {
+    const current = localStorage.getItem(KEYS.SESSION);
+    if (current && current !== staleToken) return current; // another tab refreshed already
+    try {
+      const response = await fetch(`${CRM_API_BASE}/auth/refresh`, { method: "POST", credentials: "include" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.data?.token) return null;
+      localStorage.setItem(KEYS.SESSION, body.data.token);
+      return body.data.token;
+    } catch {
+      return null;
+    }
+  };
+  return navigator.locks?.request ? navigator.locks.request("crm-token-refresh", refresh) : refresh();
+}
+
+function refreshAccessToken(staleToken) {
+  if (!refreshInFlight) {
+    refreshInFlight = requestNewAccessToken(staleToken).finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function crmApi(path, options = {}, { retried = false } = {}) {
   const headers = new Headers(options.headers || {});
   const session = localStorage.getItem(KEYS.SESSION);
   if (session) headers.set("Authorization", `Bearer ${session}`);
   let response;
   try {
-    response = await fetch(`${CRM_API_BASE}${path}`, { ...options, headers });
+    response = await fetch(`${CRM_API_BASE}${path}`, { credentials: "include", ...options, headers });
   } catch (error) {
     throw new Error(`CRM API is unreachable at ${CRM_API_BASE}. Start the backend and verify its port.`);
   }
   const body = await response.json().catch(() => ({}));
+  if (response.status === 401 && !retried && !sessionEnded && !NO_REFRESH_PATHS.has(path)) {
+    if (await refreshAccessToken(session)) return crmApi(path, options, { retried: true });
+    endSession();
+  }
   if (!response.ok) {
-    throw new Error(body.message || "Request failed.");
+    const error = new Error(body.message || "Request failed.");
+    error.status = response.status;
+    error.code = body.code;
+    error.errors = body.errors;
+    throw error;
   }
   return body.data;
 }
@@ -38,6 +86,12 @@ async function crmApi(path, options = {}) {
 // ---------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------
+const PUBLIC_PAGES = new Set(["", "index.html", "login.html"]);
+
+function currentPageName() {
+  return decodeURIComponent(window.location.pathname.split("/").pop()).toLowerCase();
+}
+
 function isAuthenticated() {
   const session = localStorage.getItem(KEYS.SESSION);
   return !!session && session.split(".").length === 3;
@@ -48,20 +102,57 @@ function getCurrentUser() {
   return raw ? JSON.parse(raw) : null;
 }
 
+// { id, role, modules, permissions } in the active organization, saved at sign-in.
+function getCurrentMember() {
+  try {
+    return JSON.parse(localStorage.getItem(KEYS.MEMBER)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function isOrgManager() {
+  return ["owner", "admin"].includes(getCurrentMember()?.role);
+}
+
 function requireAuth() {
   if (!isAuthenticated()) {
     window.location.replace("login.html");
   }
 }
 
-function logout() {
+// Shared guard: every page except login/index needs a session.
+if (!PUBLIC_PAGES.has(currentPageName()) && !isAuthenticated()) {
+  window.location.replace("login.html");
+}
+
+function clearSession() {
   localStorage.removeItem(KEYS.SESSION);
   localStorage.removeItem(KEYS.USER);
+  localStorage.removeItem(KEYS.MEMBER);
+  localStorage.removeItem(KEYS.COMPANY);
+}
+
+// The session can no longer be refreshed (expired, signed out elsewhere, removed from the team).
+function endSession() {
+  sessionEnded = true;
+  clearSession();
+  if (currentPageName() !== "login.html") window.location.replace("login.html?expired=1");
+}
+
+async function logout() {
+  try {
+    await fetch(`${CRM_API_BASE}/auth/logout`, { method: "POST", credentials: "include" });
+  } catch {
+    // Offline: the refresh token expires on its own; still sign out locally.
+  }
+  clearSession();
   window.location.href = "login.html";
 }
 
 // ---------------------------------------------------------------
-// Storage — company profile
+// Company profile (organization on the backend, cached in localStorage
+// so the dashboard card and company modal can render synchronously)
 // ---------------------------------------------------------------
 const COMPANY_FIELDS = [
   { key: "name", label: "Company Name" },
@@ -69,27 +160,110 @@ const COMPANY_FIELDS = [
   { key: "email", label: "Company Email" },
   { key: "phone", label: "Phone" },
   { key: "website", label: "Website" },
-  { key: "logo", label: "Logo URL" },
   { key: "address", label: "Address" },
   { key: "city", label: "City" },
   { key: "state", label: "State" },
   { key: "country", label: "Country" },
-  { key: "zip", label: "Postal Code" },
-  { key: "taxId", label: "Tax / GST ID" },
-  { key: "employees", label: "Employees" },
-  { key: "founded", label: "Founded Year" },
+  { key: "postalCode", label: "Pincode" },
+  { key: "gstin", label: "GSTIN" },
+  { key: "size", label: "Company Size" },
+  { key: "foundedYear", label: "Founded Year" },
   { key: "description", label: "Description", full: true },
 ];
 
+// Company form inputs (company.html and Settings) → organization fields.
+const COMPANY_FORM_FIELDS = {
+  cName: "name",
+  cIndustry: "industry",
+  cSize: "size",
+  cFounded: "foundedYear",
+  cWebsite: "website",
+  cEmail: "email",
+  cPhone: "phone",
+  cGst: "gstin",
+  cAddress: "address",
+  cCity: "city",
+  cState: "state",
+  cCountry: "country",
+  cPincode: "postalCode",
+  cDescription: "description",
+};
+
+// Older versions saved gst / pincode / founded (company form) or taxId / zip / employees.
+function normalizeCompany(raw) {
+  if (!raw) return null;
+  const company = { ...raw };
+  const legacy = { gst: "gstin", taxId: "gstin", pincode: "postalCode", zip: "postalCode", founded: "foundedYear", employees: "size", logo: "logoUrl" };
+  Object.entries(legacy).forEach(([oldKey, newKey]) => {
+    if (company[oldKey] && !company[newKey]) company[newKey] = company[oldKey];
+    delete company[oldKey];
+  });
+  return company;
+}
+
+function companyHasDetails(company) {
+  return ["industry", "email", "phone", "website", "gstin", "address", "city", "state", "postalCode", "description"]
+    .some((key) => company?.[key]);
+}
+
 function getCompanyInfo() {
-  const raw = localStorage.getItem(KEYS.COMPANY);
-  return raw ? JSON.parse(raw) : null;
+  try {
+    return normalizeCompany(JSON.parse(localStorage.getItem(KEYS.COMPANY)));
+  } catch {
+    return null;
+  }
 }
 function saveCompanyInfo(data) {
-  localStorage.setItem(KEYS.COMPANY, JSON.stringify(data));
+  const company = normalizeCompany(data);
+  // company.html's inline guard reads setupComplete before app.js loads.
+  localStorage.setItem(KEYS.COMPANY, JSON.stringify({ ...company, setupComplete: companyHasDetails(company) }));
 }
 function hasCompanyInfo() {
-  return !!localStorage.getItem(KEYS.COMPANY);
+  return companyHasDetails(getCompanyInfo());
+}
+
+// Fetches the organization and refreshes the cache. If the server profile is still empty but
+// this browser has details from before, the browser copy is kept (and localOnly is reported)
+// until an owner/admin saves it to the server.
+async function loadCompanyProfile() {
+  const organization = await crmApi("/organization");
+  const cached = getCompanyInfo();
+  const localOnly = !companyHasDetails(organization) && companyHasDetails(cached);
+  if (!localOnly) saveCompanyInfo(organization);
+  return { organization, company: localOnly ? { ...cached, id: organization.id, logoUrl: organization.logoUrl } : organization, localOnly };
+}
+
+async function saveCompanyProfile(data) {
+  const organization = await crmApi("/organization", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  saveCompanyInfo(organization);
+  return organization;
+}
+
+function fillCompanyForm(company) {
+  Object.entries(COMPANY_FORM_FIELDS).forEach(([id, key]) => {
+    const input = document.getElementById(id);
+    if (input) input.value = company?.[key] ?? "";
+  });
+}
+
+function readCompanyForm() {
+  const data = {};
+  Object.entries(COMPANY_FORM_FIELDS).forEach(([id, key]) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const value = input.value.trim();
+    data[key] = key === "foundedYear" && value ? Number(value) : value;
+  });
+  return data;
+}
+
+// The first validation message from the API (e.g. "GSTIN must be 15 characters ...").
+function apiErrorMessage(error, fallback) {
+  return error?.errors?.[0]?.message || error?.message || fallback;
 }
 
 function escapeHtml(str) {
@@ -596,4 +770,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Dashboard company summary card (no-op if the panel isn't on this page)
   renderCompanyDashboardCard();
+
+  // Keep the cached company profile in step with what teammates saved on the server.
+  const showsCompany = document.getElementById("company-dashboard-panel") || document.getElementById("company-modal-body");
+  if (showsCompany && isAuthenticated()) {
+    loadCompanyProfile().then(renderCompanyDashboardCard).catch(() => {});
+  }
 });

@@ -1,14 +1,12 @@
 /**
  * settings.js — Settings module
- * - Your Profile: edits 'crm_user' (the object app.js's getCurrentUser reads).
- * - Company Profile: edits 'crm_company' via the shared getCompanyInfo/
- *   saveCompanyInfo helpers already in app.js (same object company.html uses).
- * - Team & Access: read-only snapshot pulled from getAgents(); actual
- *   management stays on Account Champions (accounts.html).
+ * - Your Profile: edits 'crm_user' (the object app.js's getCurrentUser reads), uploads the
+ *   company logo, connects Gmail and switches between companies.
+ * - Company Profile: the organization on the backend (loadCompanyProfile/saveCompanyProfile).
+ * - Team & Access: members and invites on the backend; owners/admins manage them.
  * - Data & Privacy: export/import/reset every 'crm_*' key in localStorage.
- * Reuses shared helpers from app.js (getAgents, getCustomers, getLeads,
- * getAccounts, getProducts, getCompanyInfo, saveCompanyInfo, showToast,
- * renderSidebarUser, initSidebarToggle, requireAuth, getCurrentUser).
+ * Reuses shared helpers from app.js (crmApi, getCompanyInfo, fillCompanyForm, readCompanyForm,
+ * getCurrentMember, isOrgManager, showToast, renderSidebarUser, initSidebarToggle, requireAuth).
  */
 
 requireAuth();
@@ -29,7 +27,7 @@ let organization = null;
 
 // Keys not touched by Export / Import / Reset — session token stays put
 // so importing a backup or resetting data never logs the user out.
-const PROTECTED_KEYS = new Set([SESSION_KEY]);
+const PROTECTED_KEYS = new Set([SESSION_KEY, "crm_member"]);
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -312,95 +310,296 @@ document.getElementById("profileForm").addEventListener("submit", async (e) => {
 });
 
 // ---------------------------------------------------------------
-// Company Profile (reuses getCompanyInfo / saveCompanyInfo from app.js)
+// Company Profile (the organization on the backend)
 // ---------------------------------------------------------------
-function loadCompanyForm() {
-  const company = getCompanyInfo();
-  document.getElementById("cName").value = company?.name || "";
-  document.getElementById("cIndustry").value = company?.industry || "";
-  document.getElementById("cSize").value = company?.size || "";
-  document.getElementById("cFounded").value = company?.founded || "";
-  document.getElementById("cLogo").value = company?.logo || "";
-  document.getElementById("cWebsite").value = company?.website || "";
-  document.getElementById("cEmail").value = company?.email || "";
-  document.getElementById("cPhone").value = company?.phone || "";
-  document.getElementById("cGst").value = company?.gst || "";
-  document.getElementById("cAddress").value = company?.address || "";
-  document.getElementById("cCity").value = company?.city || "";
-  document.getElementById("cState").value = company?.state || "";
-  document.getElementById("cCountry").value = company?.country || "";
-  document.getElementById("cPincode").value = company?.pincode || "";
-  document.getElementById("cDescription").value = company?.description || "";
-
-  const savedLabel = document.getElementById("companyLastSaved");
-  savedLabel.textContent = company ? "Saved" : "Not set up yet";
+function setCompanyNote(message) {
+  const note = document.getElementById("companyFormNote");
+  note.textContent = message;
+  note.hidden = !message;
 }
 
-document.getElementById("companyForm").addEventListener("submit", (e) => {
+async function loadCompanyForm() {
+  const savedLabel = document.getElementById("companyLastSaved");
+  savedLabel.textContent = "Loading…";
+  try {
+    const { company, localOnly } = await loadCompanyProfile();
+    fillCompanyForm(company);
+    savedLabel.textContent = localOnly ? "Only in this browser" : companyHasDetails(company) ? "Saved" : "Not set up yet";
+    if (localOnly) setCompanyNote("These details are only saved in this browser. Click Save Company Profile to share them with your team.");
+  } catch (error) {
+    fillCompanyForm(getCompanyInfo());
+    savedLabel.textContent = "";
+    setCompanyNote(apiErrorMessage(error, "Couldn't load the company profile."));
+  }
+  if (!isOrgManager()) {
+    document.querySelectorAll("#companyForm input, #companyForm select, #companyForm textarea, #companyForm button")
+      .forEach((input) => { input.disabled = true; });
+    setCompanyNote("Only an owner or admin can edit the company profile.");
+  }
+}
+
+document.getElementById("companyForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const name = document.getElementById("cName").value.trim();
-  if (!name) {
+  const data = readCompanyForm();
+  if (!data.name) {
     showToast("Company name is required.", "error");
     return;
   }
-  const data = {
-    name,
-    industry: document.getElementById("cIndustry").value.trim(),
-    size: document.getElementById("cSize").value,
-    founded: document.getElementById("cFounded").value,
-    logo: document.getElementById("cLogo").value.trim(),
-    website: document.getElementById("cWebsite").value.trim(),
-    email: document.getElementById("cEmail").value.trim(),
-    phone: document.getElementById("cPhone").value.trim(),
-    gst: document.getElementById("cGst").value.trim(),
-    address: document.getElementById("cAddress").value.trim(),
-    city: document.getElementById("cCity").value.trim(),
-    state: document.getElementById("cState").value.trim(),
-    country: document.getElementById("cCountry").value.trim(),
-    pincode: document.getElementById("cPincode").value.trim(),
-    description: document.getElementById("cDescription").value.trim(),
-  };
-  saveCompanyInfo(data);
-  document.getElementById("companyLastSaved").textContent = "Saved";
-  renderCompanyDashboardCard(); // no-op unless this ran on dashboard.html
-  showToast("Company profile saved.", "success");
+  try {
+    await saveCompanyProfile(data);
+    document.getElementById("companyLastSaved").textContent = "Saved";
+    setCompanyNote("");
+    renderCompanyDashboardCard(); // no-op unless this ran on dashboard.html
+    showToast("Company profile saved.", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the company profile."), "error");
+  }
 });
 
 // ---------------------------------------------------------------
-// Team & Access — read-only snapshot
+// Team & Access — members and invites (owners/admins manage them)
 // ---------------------------------------------------------------
-function renderTeamSummary() {
-  const agents = getAgents();
-  const el = document.getElementById("teamSummaryList");
+const ROLE_LABELS = { owner: "Owner", admin: "Admin", agent: "Agent", viewer: "Viewer" };
 
-  if (!agents.length) {
-    el.innerHTML = `
-      <div class="empty-state">
-        <i class="fa-solid fa-user-plus"></i>
-        <p>No agents yet. Add your first one from Account Champions.</p>
-      </div>`;
-    return;
-  }
+// Refreshes the saved membership (role may have changed) and returns /auth/me.
+async function refreshMembership() {
+  const me = await crmApi("/auth/me");
+  localStorage.setItem("crm_member", JSON.stringify({ ...me.member, organizationId: me.organization.id }));
+  return me;
+}
 
-  el.innerHTML = agents
-    .map((a) => {
-      const moduleCount = (a.modules || []).length;
-      const perms = a.permissions || [];
+function roleOptions(current) {
+  const assignable = getCurrentMember()?.role === "owner" ? ["owner", "admin", "agent", "viewer"] : ["agent", "viewer"];
+  return assignable
+    .map((role) => `<option value="${role}"${role === current ? " selected" : ""}>${ROLE_LABELS[role]}</option>`)
+    .join("");
+}
+
+function renderMembers(members) {
+  const me = getCurrentMember();
+  const el = document.getElementById("teamMemberList");
+  document.getElementById("teamCount").textContent = `${members.length} member${members.length === 1 ? "" : "s"}`;
+
+  el.innerHTML = members
+    .map((m) => {
+      const isSelf = String(m.id) === String(me?.id);
+      const editable = isOrgManager() && !isSelf && (me.role === "owner" || !["owner", "admin"].includes(m.role));
+      const access = ["owner", "admin"].includes(m.role)
+        ? "All modules"
+        : `${m.modules.length} module${m.modules.length === 1 ? "" : "s"}`;
       return `
       <div class="settings-summary-row">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div class="team-avatar" style="width:38px;height:38px;border-radius:50%;background:var(--brand-light,#eef2ff);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:var(--brand-darker,#4338ca);">${initials(a.name)}</div>
-          <div class="info">
-            <div class="name">${escapeHtml(a.name)}</div>
-            <div class="sub">${escapeHtml(a.role || "Agent")} · ${moduleCount} module${moduleCount === 1 ? "" : "s"}</div>
+        <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+          <div class="team-avatar" style="width:38px;height:38px;flex-shrink:0;border-radius:50%;background:var(--brand-light,#eef2ff);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:var(--brand-darker,#4338ca);">${escapeHtml(initials(m.name || m.email))}</div>
+          <div class="info" style="min-width:0;">
+            <div class="name">${escapeHtml(m.name || m.email)}${isSelf ? ' <span class="badge badge-neutral">You</span>' : ""}${m.status === "disabled" ? ' <span class="badge badge-danger">Disabled</span>' : ""}</div>
+            <div class="sub">${escapeHtml(m.email)} · ${access}</div>
           </div>
         </div>
-        <div>
-          ${perms.map((p) => `<span class="badge badge-brand" style="margin-left:4px;">${escapeHtml(p)}</span>`).join("") || '<span class="badge badge-neutral">No permissions</span>'}
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${editable
+            ? `<select data-member-role="${escapeHtml(m.id)}" aria-label="Role">${roleOptions(m.role)}</select>
+               <button class="icon-btn danger" type="button" data-remove-member="${escapeHtml(m.id)}" data-member-name="${escapeHtml(m.name || m.email)}" title="Remove from team"><i class="fa-solid fa-user-minus"></i></button>`
+            : `<span class="badge badge-brand">${ROLE_LABELS[m.role] || escapeHtml(m.role)}</span>`}
         </div>
       </div>`;
     })
     .join("");
+}
+
+async function loadTeam() {
+  const el = document.getElementById("teamMemberList");
+  el.innerHTML = `<p class="settings-hint">Loading team…</p>`;
+  try {
+    renderMembers(await crmApi("/members?limit=100"));
+  } catch (error) {
+    el.innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, "Couldn't load the team."))}</p>`;
+  }
+  document.getElementById("inviteSection").hidden = !isOrgManager();
+  if (isOrgManager()) loadInvites();
+}
+
+document.getElementById("teamMemberList").addEventListener("change", async (e) => {
+  const select = e.target.closest("[data-member-role]");
+  if (!select) return;
+  try {
+    await crmApi(`/members/${select.dataset.memberRole}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: select.value }),
+    });
+    showToast(`Role changed to ${ROLE_LABELS[select.value]}.`, "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't change the role."), "error");
+  }
+  loadTeam();
+});
+
+document.getElementById("teamMemberList").addEventListener("click", async (e) => {
+  const button = e.target.closest("[data-remove-member]");
+  if (!button) return;
+  if (!confirm(`Remove ${button.dataset.memberName} from the team? They will lose access right away.`)) return;
+  try {
+    await crmApi(`/members/${button.dataset.removeMember}`, { method: "DELETE" });
+    showToast("Member removed.", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't remove the member."), "error");
+  }
+  loadTeam();
+});
+
+function showInviteLink(email, link) {
+  const companyName = getCompanyInfo()?.name || "our company";
+  document.getElementById("inviteLinkEmail").textContent = email;
+  document.getElementById("inviteLinkText").textContent = link;
+  document.getElementById("whatsappInviteLink").href =
+    `https://wa.me/?text=${encodeURIComponent(`Join ${companyName} on YELLOW CRM: ${link}`)}`;
+  document.getElementById("inviteLinkBox").hidden = false;
+}
+
+document.getElementById("copyInviteBtn").addEventListener("click", async () => {
+  const link = document.getElementById("inviteLinkText").textContent;
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast("Invite link copied.", "success");
+  } catch {
+    showToast("Copy failed — select the link and copy it by hand.", "error");
+  }
+});
+
+function renderInvites(invites) {
+  const el = document.getElementById("pendingInviteList");
+  if (!invites.length) {
+    el.innerHTML = `<p class="settings-hint" style="margin:0">No pending invites.</p>`;
+    return;
+  }
+  el.innerHTML = invites
+    .map((invite) => {
+      const expired = invite.status === "expired";
+      const when = new Date(invite.expiresAt).toLocaleDateString();
+      return `
+      <div class="settings-summary-row">
+        <div class="info" style="min-width:0;">
+          <div class="name">${escapeHtml(invite.email)}</div>
+          <div class="sub">${ROLE_LABELS[invite.role] || escapeHtml(invite.role)} · ${expired ? "Expired" : `Link valid until ${escapeHtml(when)}`}</div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline" type="button" data-resend-invite="${escapeHtml(invite.id)}" data-invite-email="${escapeHtml(invite.email)}">
+            <i class="fa-solid fa-link"></i> New Link
+          </button>
+          <button class="icon-btn danger" type="button" data-revoke-invite="${escapeHtml(invite.id)}" title="Cancel invite"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+async function loadInvites() {
+  const el = document.getElementById("pendingInviteList");
+  try {
+    renderInvites(await crmApi("/invites?status=pending&limit=100"));
+  } catch (error) {
+    el.innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, "Couldn't load invites."))}</p>`;
+  }
+}
+
+document.getElementById("pendingInviteList").addEventListener("click", async (e) => {
+  const resend = e.target.closest("[data-resend-invite]");
+  const revoke = e.target.closest("[data-revoke-invite]");
+  try {
+    if (resend) {
+      const result = await crmApi(`/invites/${resend.dataset.resendInvite}/resend`, { method: "POST" });
+      showInviteLink(resend.dataset.inviteEmail, result.link);
+      showToast("New invite link created. The old link no longer works.", "success");
+    } else if (revoke) {
+      if (!confirm("Cancel this invite? The link will stop working.")) return;
+      await crmApi(`/invites/${revoke.dataset.revokeInvite}`, { method: "DELETE" });
+      showToast("Invite cancelled.", "success");
+    } else {
+      return;
+    }
+  } catch (error) {
+    showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+  }
+  loadInvites();
+});
+
+document.getElementById("inviteForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("inviteEmail").value.trim();
+  const role = document.getElementById("inviteRole").value;
+  const button = document.getElementById("inviteSubmitBtn");
+  button.disabled = true;
+  try {
+    const result = await crmApi("/invites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({ email, role }),
+    });
+    showInviteLink(email, result.link);
+    document.getElementById("inviteForm").reset();
+    showToast("Invite created. Share the link with them.", "success");
+    loadInvites();
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't create the invite."), "error");
+  } finally {
+    button.disabled = false;
+  }
+});
+
+// ---------------------------------------------------------------
+// Your Companies — switch between organizations
+// ---------------------------------------------------------------
+function renderCompanySwitcher(me) {
+  const section = document.getElementById("companySwitchSection");
+  if (me.memberships.length < 2) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  document.getElementById("companySwitchList").innerHTML = me.memberships
+    .map((m) => {
+      const active = String(m.organizationId) === String(me.organization.id);
+      return `
+      <div class="settings-summary-row">
+        <div class="info">
+          <div class="name">${escapeHtml(m.organizationName)}</div>
+          <div class="sub">${ROLE_LABELS[m.role] || escapeHtml(m.role)}</div>
+        </div>
+        ${active
+          ? '<span class="badge badge-success">Current</span>'
+          : `<button class="btn btn-outline" type="button" data-switch-org="${escapeHtml(m.organizationId)}">Switch</button>`}
+      </div>`;
+    })
+    .join("");
+}
+
+document.getElementById("companySwitchList").addEventListener("click", async (e) => {
+  const button = e.target.closest("[data-switch-org]");
+  if (!button) return;
+  try {
+    const result = await crmApi("/auth/switch-organization", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId: button.dataset.switchOrg }),
+    });
+    localStorage.setItem("crm_session", result.token);
+    localStorage.setItem("crm_member", JSON.stringify({ ...result.member, organizationId: result.organizationId }));
+    localStorage.removeItem("crm_company");
+    window.location.href = "dashboard.html";
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't switch company."), "error");
+  }
+});
+
+async function loadMembershipSections() {
+  try {
+    renderCompanySwitcher(await refreshMembership());
+  } catch {
+    // Keep the saved membership; the team list below reports API problems.
+  }
+  loadCompanyForm();
+  loadTeam();
 }
 
 // ---------------------------------------------------------------
@@ -550,10 +749,9 @@ initTabs();
 activateRequestedTab();
 showGmailCallbackResult();
 loadProfileForm();
-loadCompanyForm();
+loadMembershipSections();
 document.getElementById("connectGmailBtn").addEventListener("click", connectGmail);
 loadGmailConnection();
-renderTeamSummary();
 renderStorageSummary();
 
 document.getElementById("exportBtn").addEventListener("click", exportAllData);

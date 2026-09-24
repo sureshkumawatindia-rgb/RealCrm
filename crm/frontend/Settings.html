@@ -443,6 +443,11 @@
                   <p class="logo-upload-error" id="gmailConnectionError" role="alert" hidden></p>
                   <div id="gmailMessageList" style="margin-top:12px"></div>
                 </div>
+                <div class="settings-section" id="companySwitchSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Your Companies</div>
+                  <p class="settings-hint">You are a member of more than one company. Switch to work in another one.</p>
+                  <div id="companySwitchList"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -459,6 +464,7 @@
                 ></span>
               </div>
               <div style="padding: 20px">
+                <p class="settings-hint" id="companyFormNote" hidden></p>
                 <form id="companyForm">
                   <div class="settings-section-label">Basics</div>
                   <div class="field">
@@ -501,12 +507,10 @@
                       />
                     </div>
                     <div class="field">
-                      <label>Logo URL</label>
-                      <input
-                        type="text"
-                        id="cLogo"
-                        placeholder="https://.../logo.png"
-                      />
+                      <label>Logo</label>
+                      <p class="text-muted" style="font-size: 12.5px; margin: 10px 0 0">
+                        Upload the logo in the Your Profile tab.
+                      </p>
                     </div>
                   </div>
 
@@ -539,10 +543,11 @@
                       />
                     </div>
                     <div class="field">
-                      <label>GST / Tax ID</label>
+                      <label>GSTIN</label>
                       <input
                         type="text"
                         id="cGst"
+                        maxlength="15"
                         placeholder="e.g. 23AAAAA0000A1Z5"
                       />
                     </div>
@@ -607,16 +612,56 @@
             <div class="panel">
               <div class="panel-head">
                 <h3>Team & Access</h3>
-                <a href="accounts.html" class="btn btn-outline">
-                  <i class="fa-solid fa-user-plus"></i> Manage Agents
-                </a>
+                <span class="text-muted" style="font-size: 12px" id="teamCount"></span>
               </div>
               <div style="padding: 20px">
                 <p class="settings-hint">
-                  Agents, roles, module access, and permissions are managed
-                  from Account Champions. Here's a quick snapshot.
+                  Everyone listed here signs in with Google and works in this
+                  company's CRM. Owners and admins manage roles and invites.
                 </p>
-                <div id="teamSummaryList"></div>
+                <div id="teamMemberList"></div>
+
+                <div class="settings-section" id="inviteSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Invite a teammate</div>
+                  <form id="inviteForm">
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="inviteEmail">Their Google email</label>
+                        <input type="email" id="inviteEmail" placeholder="name@gmail.com" required />
+                      </div>
+                      <div class="field">
+                        <label for="inviteRole">Role</label>
+                        <select id="inviteRole">
+                          <option value="agent">Agent — works on their own leads and chats</option>
+                          <option value="viewer">Viewer — can only look</option>
+                          <option value="admin">Admin — manages the team and settings</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end">
+                      <button class="btn btn-primary" type="submit" id="inviteSubmitBtn">
+                        <i class="fa-solid fa-user-plus"></i> Create Invite Link
+                      </button>
+                    </div>
+                  </form>
+                  <div class="settings-summary-row" id="inviteLinkBox" hidden style="margin-top: 14px">
+                    <div class="info" style="min-width: 0">
+                      <div class="name">Share this link with <span id="inviteLinkEmail"></span></div>
+                      <div class="sub" id="inviteLinkText" style="word-break: break-all"></div>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-shrink: 0">
+                      <button class="btn btn-outline" type="button" id="copyInviteBtn">
+                        <i class="fa-solid fa-copy"></i> Copy
+                      </button>
+                      <a class="btn btn-outline" id="whatsappInviteLink" target="_blank" rel="noopener">
+                        <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="settings-section-label" style="margin-top: 20px">Pending invites</div>
+                  <div id="pendingInviteList"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -631,8 +676,9 @@
                 <div class="settings-section">
                   <div class="settings-section-label">Storage</div>
                   <p class="settings-hint">
-                    CRM records are stored locally in this browser. Your account
-                    and company logo are securely persisted by the CRM backend.
+                    Your account, company profile, logo and team are stored on
+                    the CRM server. The other CRM records below are still stored
+                    in this browser.
                   </p>
                   <div id="storageSummaryList"></div>
                 </div>

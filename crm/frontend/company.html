@@ -26,8 +26,12 @@
       // user skips, this page should still show again the next time
       // something redirects here (e.g. next login), until real info is saved.
       const __params = new URLSearchParams(window.location.search);
-      if (localStorage.getItem("crm_company") && !__params.has("edit")) {
-        window.location.replace("dashboard.html");  
+      let __company = null;
+      try {
+        __company = JSON.parse(localStorage.getItem("crm_company"));
+      } catch {}
+      if (__company && __company.setupComplete !== false && !__params.has("edit")) {
+        window.location.replace("dashboard.html");
       }
     </script>
     <style>
@@ -190,12 +194,10 @@
                 />
               </div>
               <div class="field">
-                <label>Logo URL</label>
-                <input
-                  type="text"
-                  id="cLogo"
-                  placeholder="https://.../logo.png"
-                />
+                <label>Logo</label>
+                <p class="text-muted" style="font-size: 12.5px; margin: 10px 0 0">
+                  Upload your logo later in Settings → Your Profile.
+                </p>
               </div>
             </div>
 
@@ -224,10 +226,11 @@
                 <input type="text" id="cPhone" placeholder="+91 98765 43210" />
               </div>
               <div class="field">
-                <label>GST / Tax ID</label>
+                <label>GSTIN</label>
                 <input
                   type="text"
                   id="cGst"
+                  maxlength="15"
                   placeholder="e.g. 23AAAAA0000A1Z5"
                 />
               </div>
@@ -298,74 +301,6 @@
     <div class="toast-stack" id="toast-stack"></div>
 
     <script src="./js/app.js"></script>
-    <script>
-      /**
-       * company.js — Company Profile page
-       * Persists a single object to localStorage under 'crm_company'.
-       * Reuses shared helpers from app.js (requireAuth, showToast, saveCompanyInfo, getCompanyInfo).
-       */
-
-      requireAuth();
-
-      const companyForm = document.getElementById("companyForm");
-
-      // If a profile already exists (user came back to edit it), prefill the form.
-      function prefillForm() {
-        const company = getCompanyInfo();
-        if (!company) return;
-        document.getElementById("cName").value = company.name || "";
-        document.getElementById("cIndustry").value = company.industry || "";
-        document.getElementById("cSize").value = company.size || "";
-        document.getElementById("cFounded").value = company.founded || "";
-        document.getElementById("cLogo").value = company.logo || "";
-        document.getElementById("cWebsite").value = company.website || "";
-        document.getElementById("cEmail").value = company.email || "";
-        document.getElementById("cPhone").value = company.phone || "";
-        document.getElementById("cGst").value = company.gst || "";
-        document.getElementById("cAddress").value = company.address || "";
-        document.getElementById("cCity").value = company.city || "";
-        document.getElementById("cState").value = company.state || "";
-        document.getElementById("cCountry").value = company.country || "";
-        document.getElementById("cPincode").value = company.pincode || "";
-        document.getElementById("cDescription").value =
-          company.description || "";
-      }
-      prefillForm();
-
-      companyForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const name = document.getElementById("cName").value.trim();
-        if (!name) {
-          showToast("Company name is required.", "error");
-          return;
-        }
-
-        const data = {
-          name,
-          industry: document.getElementById("cIndustry").value.trim(),
-          size: document.getElementById("cSize").value,
-          founded: document.getElementById("cFounded").value,
-          logo: document.getElementById("cLogo").value.trim(),
-          website: document.getElementById("cWebsite").value.trim(),
-          email: document.getElementById("cEmail").value.trim(),
-          phone: document.getElementById("cPhone").value.trim(),
-          gst: document.getElementById("cGst").value.trim(),
-          address: document.getElementById("cAddress").value.trim(),
-          city: document.getElementById("cCity").value.trim(),
-          state: document.getElementById("cState").value.trim(),
-          country: document.getElementById("cCountry").value.trim(),
-          pincode: document.getElementById("cPincode").value.trim(),
-          description: document.getElementById("cDescription").value.trim(),
-        };
-
-        saveCompanyInfo(data);
-        showToast("Company profile saved.", "success");
-        window.location.href = "dashboard.html";
-      });
-
-      document.getElementById("skipBtn").addEventListener("click", () => {
-        window.location.href = "dashboard.html";
-      }); 
-    </script>
+    <script src="./js/company.js"></script>
   </body>
 </html>

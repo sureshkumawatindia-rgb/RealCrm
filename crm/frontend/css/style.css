@@ -188,6 +188,15 @@ button {
   color: var(--text-faint);
   font-weight: 500;
 }
+.login-card .login-note {
+  margin: -12px 0 20px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-light);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
 
 /* ============================================================
    APP SHELL (dashboard / customers / leads / accounts)
