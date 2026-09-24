@@ -1,8 +1,8 @@
 /**
  * calendar.js — Calendar module (month view)
- * Persists events to localStorage under 'crm_calendar_events'.
- * Also overlays due Tasks ('crm_tasks') and Deal close dates ('crm_deals')
- * as read-only chips so everything scheduled shows up in one place.
+ * Events live on the CRM backend (getEvents / saveEvent / removeEvent in app.js).
+ * Also overlays due tasks and deal close dates as read-only chips so
+ * everything scheduled shows up in one place.
  * Reuses shared helpers from app.js (getAgents, getCustomers, getLeads,
  * getAccounts, showToast, renderSidebarUser, initSidebarToggle, requireAuth).
  */
@@ -10,7 +10,6 @@
 requireAuth();
 renderSidebarUser();
 
-const EVENTS_KEY = "crm_calendar_events";
 const EVENT_TYPES = [
   "Meeting",
   "Call",
@@ -40,46 +39,12 @@ let viewYear = new Date().getFullYear();
 let viewMonth = new Date().getMonth(); // 0-indexed
 let activeDayDate = null; // yyyy-mm-dd used when "Add Event" launched from day cell/agenda modal
 
-// ---------------------------------------------------------------
-// Storage — events
-// ---------------------------------------------------------------
-function getEvents() {
-  const raw = localStorage.getItem(EVENTS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveEvents(list) {
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(list));
-}
-function addEvent(ev) {
-  const list = getEvents();
-  ev.id =
-    "ev_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  ev.createdAt = new Date().toISOString();
-  list.unshift(ev);
-  saveEvents(list);
-  return ev;
-}
-function updateEventRecord(id, patch) {
-  const list = getEvents();
-  const idx = list.findIndex((e) => e.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveEvents(list);
-  }
-  return list[idx];
-}
-function deleteEventRecord(id) {
-  saveEvents(getEvents().filter((e) => e.id !== id));
-}
 function getEvent(id) {
-  return getEvents().find((e) => e.id === id);
+  return getEvents().find((e) => String(e.id) === String(id));
 }
 
-// Read Tasks / Deals directly — their helpers live in tasks.js / deals.js,
-// which aren't loaded on this page.
 function readTasks() {
-  const raw = localStorage.getItem("crm_tasks");
-  return raw ? JSON.parse(raw) : [];
+  return getTasks();
 }
 function readDeals() {
   return getDeals();
@@ -707,7 +672,7 @@ function confirmDelete(id) {
   const ev = getEvent(id);
   if (!ev) return;
   if (confirm(`Delete "${ev.title}"? This can't be undone.`)) {
-    deleteEventRecord(id);
+    removeEvent(id).catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the event."), "error")).finally(renderAll);
     showToast("Event deleted", "success");
     renderAll();
   }
@@ -728,7 +693,10 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 initSidebarToggle();
-crmReady(["leads", "contacts", "products", "members"], renderAll);
+crmReady(["events", "tasks", "leads", "contacts", "members"], () => {
+  renderAll();
+  handleQuickAddDeepLink();
+});
 
 document.getElementById("prevMonthBtn").addEventListener("click", () => {
   viewMonth -= 1;
@@ -820,7 +788,7 @@ document.getElementById("deleteBtn").addEventListener("click", () => {
 });
 
 // Save (create / update)
-document.getElementById("eventForm").addEventListener("submit", (e) => {
+document.getElementById("eventForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("editId").value;
   const payload = {
@@ -841,12 +809,12 @@ document.getElementById("eventForm").addEventListener("submit", (e) => {
   }
   if (!payload.relatedType) payload.relatedName = "";
 
-  if (id) {
-    updateEventRecord(id, payload);
-    showToast("Event updated", "success");
-  } else {
-    addEvent(payload);
-    showToast("Event created", "success");
+  try {
+    await saveEvent(id || null, payload);
+    showToast(id ? "Event updated" : "Event created", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the event."), "error");
+    return;
   }
   closeModal();
   renderAll();
@@ -857,10 +825,11 @@ document.getElementById("eventForm").addEventListener("submit", (e) => {
 // land here with ?new=1 — auto-open the New Event modal, then clean
 // the URL so refreshing the page doesn't reopen it.
 // ---------------------------------------------------------------
-(function handleQuickAddDeepLink() {
+// Runs after the team and records are loaded (the modal lists them).
+function handleQuickAddDeepLink() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("new") === "1") {
     openModal(null);
     window.history.replaceState({}, "", window.location.pathname);
   }
-})();
+}

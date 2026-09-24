@@ -1,8 +1,8 @@
 /**
  * automation.js — Sales Automation module (Workflows + Sequences)
  * Persists to localStorage under 'crm_workflows' and 'crm_sequences'.
- * "Run Now" / "Enroll" actually create real rows in 'crm_tasks' so the
- * automation has a visible, tangible effect elsewhere in the CRM.
+ * "Run Now" / "Enroll" create real tasks on the CRM backend (saveTask in app.js)
+ * so the automation has a visible, tangible effect elsewhere in the CRM.
  * Reuses shared helpers from app.js (getAgents, showToast,
  * renderSidebarUser, initSidebarToggle, requireAuth, getCurrentUser).
  */
@@ -13,7 +13,6 @@ initSidebarToggle();
 
 const WORKFLOWS_KEY = "crm_workflows";
 const SEQUENCES_KEY = "crm_sequences";
-const TASKS_KEY = "crm_tasks";
 
 const ACTION_TYPES = [
   "Create Task",
@@ -43,20 +42,15 @@ function getSequences() {
 function saveSequences(list) {
   localStorage.setItem(SEQUENCES_KEY, JSON.stringify(list));
 }
-function getTasksList() {
-  const raw = localStorage.getItem(TASKS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveTasksList(list) {
-  localStorage.setItem(TASKS_KEY, JSON.stringify(list));
-}
-function pushTask(task) {
-  const list = getTasksList();
-  task.id =
-    "tk_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  task.createdAt = new Date().toISOString();
-  list.unshift(task);
-  saveTasksList(list);
+// Creates the task on the server; returns true when it was saved.
+async function pushTask(task) {
+  try {
+    await saveTask(null, { ...task, origin: "automation" });
+    return true;
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't create the task."), "error");
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------
@@ -226,15 +220,15 @@ function renderWorkflows() {
   );
 }
 
-function runWorkflow(id) {
+async function runWorkflow(id) {
   const list = getWorkflows();
   const wf = list.find((w) => w.id === id);
   if (!wf) return;
 
   let tasksCreated = 0;
-  (wf.actions || []).forEach((a) => {
+  for (const a of wf.actions || []) {
     if (a.type === "Create Task") {
-      pushTask({
+      const created = await pushTask({
         title: a.detail || `${wf.name} — follow up`,
         description: `Auto-created by workflow "${wf.name}"`,
         assignee: wf.owner || "",
@@ -244,9 +238,9 @@ function runWorkflow(id) {
         relatedType: "",
         relatedName: "",
       });
-      tasksCreated++;
+      if (created) tasksCreated++;
     }
-  });
+  }
 
   wf.runsCount = (wf.runsCount || 0) + 1;
   saveWorkflows(list);
@@ -357,7 +351,7 @@ function renderSequences() {
   );
 }
 
-function enrollSequence(id) {
+async function enrollSequence(id) {
   const list = getSequences();
   const sq = list.find((s) => s.id === id);
   if (!sq) return;
@@ -367,7 +361,7 @@ function enrollSequence(id) {
     (st) => st.type === "Task" || st.type === "Call",
   );
   if (firstTaskStep) {
-    pushTask({
+    await pushTask({
       title:
         firstTaskStep.note ||
         `${sq.name} — Day ${firstTaskStep.day} touchpoint`,

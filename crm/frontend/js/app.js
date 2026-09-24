@@ -1,8 +1,8 @@
 /**
  * app.js — shared helpers for every page.
- * Sign-in, the company profile, the team, contacts, leads/deals, products and quotations
- * live on the CRM backend (crmApi, crmLoad). Tasks, events, tickets, documents, campaigns and
- * automations are still stored in this browser's localStorage until they move too.
+ * Sign-in, the company profile, the team, contacts, leads/deals, products, quotations, tasks
+ * and calendar events live on the CRM backend (crmApi, crmLoad). Tickets, documents, campaigns
+ * and automations are still stored in this browser's localStorage until they move too.
  */
 
 const KEYS = {
@@ -333,6 +333,8 @@ const CRM_SOURCES = {
   products: "/products",
   members: "/members",
   quotations: "/quotations",
+  tasks: "/tasks",
+  events: "/events",
 };
 const crmCache = {};
 const MAX_LOAD_PAGES = 50; // 50 pages × 100 records per resource
@@ -595,6 +597,60 @@ function toLegacyQuotation(quotation) {
 function getQuotations() {
   return cached("quotations").map(toLegacyQuotation);
 }
+// --- tasks and calendar events ------------------------------------
+// The pages pick people and related records by name; the server stores ids.
+function agentIdByName(name) {
+  if (!name) return null;
+  return getAgents().find((agent) => agent.name === name)?.id || null;
+}
+function relatedIdByName(type, name) {
+  if (!type || !name) return null;
+  const pools = { Customer: getCustomers, Contact: getContacts, Lead: getLeads, Deal: getDeals };
+  const matches = (pools[type] ? pools[type]() : []).filter((record) => record.name === name);
+  return matches.length === 1 ? matches[0].id : null;
+}
+function workItemPayload(form, fields) {
+  const payload = {};
+  fields.forEach((key) => {
+    if (key in form) payload[key] = form[key];
+  });
+  if ("assignee" in form) payload.assigneeId = agentIdByName(form.assignee);
+  if ("relatedType" in form || "relatedName" in form) {
+    payload.relatedType = form.relatedType || "";
+    payload.relatedName = payload.relatedType ? form.relatedName || "" : "";
+    payload.relatedId = relatedIdByName(payload.relatedType, payload.relatedName);
+  }
+  return payload;
+}
+// assignee: the team member's name, or the name kept on imported items.
+const toLegacyWorkItem = (item) => ({ ...item, assignee: memberName(item.assigneeId) || item.assigneeName || "" });
+
+function getTasks() {
+  return cached("tasks").map(toLegacyWorkItem);
+}
+async function saveTask(id, form) {
+  const payload = workItemPayload(form, ["title", "description", "dueDate", "priority", "status", ...(id ? [] : ["origin"])]);
+  const task = await crmApi(id ? `/tasks/${id}` : "/tasks", jsonRequest(id ? "PATCH" : "POST", payload));
+  return toLegacyWorkItem(cacheUpsert("tasks", task));
+}
+async function removeTask(id) {
+  await crmApi(`/tasks/${id}`, { method: "DELETE" });
+  cacheDrop("tasks", id);
+}
+
+function getEvents() {
+  return cached("events").map(toLegacyWorkItem);
+}
+async function saveEvent(id, form) {
+  const payload = workItemPayload(form, ["title", "type", "date", "startTime", "endTime", "description"]);
+  const event = await crmApi(id ? `/events/${id}` : "/events", jsonRequest(id ? "PATCH" : "POST", payload));
+  return toLegacyWorkItem(cacheUpsert("events", event));
+}
+async function removeEvent(id) {
+  await crmApi(`/events/${id}`, { method: "DELETE" });
+  cacheDrop("events", id);
+}
+
 // Items use the form's rupee values; the server computes every total.
 async function saveLeadQuotation(leadId, items) {
   const payload = {

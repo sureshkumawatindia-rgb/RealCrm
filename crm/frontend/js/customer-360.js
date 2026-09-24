@@ -30,12 +30,10 @@ function readDeals() {
   return getDeals();
 }
 function readTasks() {
-  const raw = localStorage.getItem("crm_tasks");
-  return raw ? JSON.parse(raw) : [];
+  return getTasks();
 }
 function readEvents() {
-  const raw = localStorage.getItem("crm_calendar_events");
-  return raw ? JSON.parse(raw) : [];
+  return getEvents();
 }
 function readTickets() {
   const raw = localStorage.getItem("crm_tickets");
@@ -475,7 +473,7 @@ function initTabs() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-crmReady(["leads", "contacts", "products", "members"], () => {
+crmReady(["leads", "contacts", "products", "members", "tasks", "events"], () => {
   const customerId = getCustomerIdFromUrl();
   const customer = customerId ? findCustomer(customerId) : null;
 

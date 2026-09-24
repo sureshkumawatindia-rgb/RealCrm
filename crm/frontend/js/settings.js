@@ -674,12 +674,12 @@ const IMPORT_SECTION_LABELS = {
   deals: "Deals",
   leadActivities: "Lead activity",
   quotations: "Quotations",
+  tasks: "Tasks",
+  dealFollowUps: "Deal follow-ups",
+  events: "Calendar events",
 };
 const LATER_LABELS = {
   crm_agents: "Account Champions",
-  crm_tasks: "Tasks",
-  crm_deal_tasks: "Deal follow-up tasks",
-  crm_calendar_events: "Calendar events",
   crm_tickets: "Support tickets",
   crm_documents: "Documents",
   crm_campaigns: "Campaigns",

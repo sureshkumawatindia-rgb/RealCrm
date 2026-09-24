@@ -1,12 +1,10 @@
 /**
  * deals.js — Deals page: the Kanban + table view of the lead pipeline (one pipeline for
  * leads and deals). Deals are server leads (getDeals / createLead / updateLeadRecord /
- * changeLeadStage / removeLead in app.js); follow-up tasks still live in 'crm_deal_tasks'
- * until tasks move to the server. Reuses shared helpers from app.js (getAgents, getAccounts,
+ * changeLeadStage / removeLead in app.js); the follow-up panel shows server tasks with
+ * origin "deal_followup". Reuses shared helpers from app.js (getAgents, getAccounts,
  * getCustomers, showToast, renderSidebarUser, initSidebarToggle, requireAuth).
  */
-
-const DEAL_TASKS_KEY = "crm_deal_tasks";
 
 const STAGES = LEAD_STAGES;
 const DEFAULT_VISIBLE_STAGES = ["New", "Won"];
@@ -44,12 +42,11 @@ function getDeal(id) {
   return getDeals().find((d) => String(d.id) === String(id));
 }
 
+// The quick follow-ups in the right panel: tasks created from this page.
 function getDealTasks() {
-  const raw = localStorage.getItem(DEAL_TASKS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveDealTasks(list) {
-  localStorage.setItem(DEAL_TASKS_KEY, JSON.stringify(list));
+  return getTasks()
+    .filter((t) => t.origin === "deal_followup")
+    .map((t) => ({ id: t.id, text: t.title, done: t.status === "Done", due: t.dueDate }));
 }
 
 // ---------------------------------------------------------------
@@ -435,19 +432,16 @@ function renderTasksTab() {
 
   el.querySelectorAll(".task-toggle").forEach((cb) =>
     cb.addEventListener("change", () => {
-      const list = getDealTasks();
-      const t = list.find((x) => x.id === cb.dataset.id);
-      if (t) {
-        t.done = cb.checked;
-        saveDealTasks(list);
-        renderTasksTab();
-      }
+      saveTask(cb.dataset.id, { status: cb.checked ? "Done" : "To Do" })
+        .catch((error) => showToast(apiErrorMessage(error, "Couldn't update the task."), "error"))
+        .finally(renderTasksTab);
     }),
   );
   el.querySelectorAll(".task-delete").forEach((btn) =>
     btn.addEventListener("click", () => {
-      saveDealTasks(getDealTasks().filter((x) => x.id !== btn.dataset.id));
-      renderTasksTab();
+      removeTask(btn.dataset.id)
+        .catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the task."), "error"))
+        .finally(renderTasksTab);
     }),
   );
   document
@@ -458,19 +452,16 @@ function renderTasksTab() {
   });
 }
 
-function addTaskFromInput() {
+async function addTaskFromInput() {
   const input = document.getElementById("newTaskInput");
   const text = input.value.trim();
   if (!text) return;
-  const list = getDealTasks();
-  list.unshift({
-    id: "t_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    text,
-    done: false,
-    due: null,
-  });
-  saveDealTasks(list);
-  input.value = "";
+  try {
+    await saveTask(null, { title: text, status: "To Do", origin: "deal_followup", assignee: getCurrentUser()?.name || "" });
+    input.value = "";
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't add the task."), "error");
+  }
   renderTasksTab();
 }
 
@@ -669,7 +660,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebarUser();
   initSidebarToggle();
 
-  crmReady(["leads", "members", "contacts"], renderAll);
+  crmReady(["leads", "members", "contacts", "tasks"], renderAll);
   initKanbanStageButtons();
 
   // Search & filters

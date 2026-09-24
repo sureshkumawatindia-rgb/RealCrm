@@ -1,6 +1,6 @@
 /**
  * task.js — Tasks module (Kanban + Table)
- * Persists to localStorage under 'crm_tasks'.
+ * Tasks live on the CRM backend (getTasks / saveTask / removeTask in app.js).
  * Reuses shared helpers from app.js (getAgents, getCustomers, getLeads,
  * getAccounts, showToast, renderSidebarUser, initSidebarToggle, requireAuth).
  */
@@ -8,7 +8,6 @@
 requireAuth();
 renderSidebarUser();
 
-const TASKS_KEY = "crm_tasks";
 const STATUSES = ["To Do", "In Progress", "Done"];
 const STATUS_DOT = {
   "To Do": "var(--info)",
@@ -30,39 +29,8 @@ const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
 let currentView = "kanban";
 let draggingId = null;
 
-// ---------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------
-function getTasks() {
-  const raw = localStorage.getItem(TASKS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveTasks(list) {
-  localStorage.setItem(TASKS_KEY, JSON.stringify(list));
-}
-function addTask(task) {
-  const list = getTasks();
-  task.id =
-    "tk_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  task.createdAt = new Date().toISOString();
-  list.unshift(task);
-  saveTasks(list);
-  return task;
-}
-function updateTaskRecord(id, patch) {
-  const list = getTasks();
-  const idx = list.findIndex((t) => t.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveTasks(list);
-  }
-  return list[idx];
-}
-function deleteTaskRecord(id) {
-  saveTasks(getTasks().filter((t) => t.id !== id));
-}
 function getTask(id) {
-  return getTasks().find((t) => t.id === id);
+  return getTasks().find((t) => String(t.id) === String(id));
 }
 
 // ---------------------------------------------------------------
@@ -266,9 +234,10 @@ function attachDragEvents() {
       const newStatus = col.dataset.status;
       const task = getTask(draggingId);
       if (!task || task.status === newStatus) return;
-      updateTaskRecord(draggingId, { status: newStatus });
-      showToast(`Moved "${task.title}" to ${newStatus}`, "success");
-      renderAll();
+      saveTask(task.id, { status: newStatus })
+        .then(() => showToast(`Moved "${task.title}" to ${newStatus}`, "success"))
+        .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the task."), "error"))
+        .finally(renderAll);
     });
   });
 }
@@ -482,7 +451,7 @@ function confirmDelete(id) {
   const task = getTask(id);
   if (!task) return;
   if (confirm(`Delete "${task.title}"? This can't be undone.`)) {
-    deleteTaskRecord(id);
+    removeTask(id).catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the task."), "error")).finally(renderAll);
     showToast("Task deleted", "success");
     renderAll();
   }
@@ -505,7 +474,10 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 initSidebarToggle();
-crmReady(["leads", "contacts", "products", "members"], renderAll);
+crmReady(["tasks", "leads", "contacts", "members"], () => {
+  renderAll();
+  handleQuickAddDeepLink();
+});
 
 // Search & filters
 [
@@ -575,7 +547,7 @@ document.getElementById("deleteBtn").addEventListener("click", () => {
 });
 
 // Save (create / update)
-document.getElementById("taskForm").addEventListener("submit", (e) => {
+document.getElementById("taskForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("editId").value;
   const payload = {
@@ -595,12 +567,12 @@ document.getElementById("taskForm").addEventListener("submit", (e) => {
   }
   if (!payload.relatedType) payload.relatedName = "";
 
-  if (id) {
-    updateTaskRecord(id, payload);
-    showToast("Task updated", "success");
-  } else {
-    addTask(payload);
-    showToast("Task created", "success");
+  try {
+    await saveTask(id || null, payload);
+    showToast(id ? "Task updated" : "Task created", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the task."), "error");
+    return;
   }
   closeModal();
   renderAll();
@@ -611,10 +583,11 @@ document.getElementById("taskForm").addEventListener("submit", (e) => {
 // land here with ?new=1 — auto-open the New Task modal, then clean
 // the URL so refreshing the page doesn't reopen it.
 // ---------------------------------------------------------------
-(function handleQuickAddDeepLink() {
+// Runs after the team and records are loaded (the modal lists them).
+function handleQuickAddDeepLink() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("new") === "1") {
     openModal(null);
     window.history.replaceState({}, "", window.location.pathname);
   }
-})();
+}
