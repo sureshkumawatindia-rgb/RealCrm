@@ -447,7 +447,11 @@ document.getElementById("teamMemberList").addEventListener("click", async (e) =>
   loadTeam();
 });
 
-function showInviteLink(email, link) {
+function showInviteLink(email, serverLink) {
+  // Share the sign-in page of the address this CRM is open on (the one Google already
+  // accepts for this team), not the server's default address.
+  const token = new URL(serverLink).searchParams.get("invite");
+  const link = new URL(`login.html?invite=${encodeURIComponent(token)}`, window.location.href).toString();
   const companyName = getCompanyInfo()?.name || "our company";
   document.getElementById("inviteLinkEmail").textContent = email;
   document.getElementById("inviteLinkText").textContent = link;
