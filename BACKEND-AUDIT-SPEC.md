@@ -1,11 +1,11 @@
 # CRM Backend Audit and Architecture Specification
 
-Status: frontend audit complete; backend implementation intentionally not started.
+Status: frontend audit complete. Phase 1 (2026-09-24) implemented auth with refresh tokens, memberships/RBAC, invites, the organization profile and the common building blocks; see docs/BIZNUMA_ROADMAP.md for progress and decisions that supersede the open questions below.
 Source of truth: `crm/frontend` (19 HTML pages, 19 JavaScript files, and 13 CSS files).
 
 ## 1. Audit Summary
 
-The application is currently a static, client-only CRM. There are no `fetch`, Axios, XHR, server sessions, database calls, or API contracts. Records are JSON in browser `localStorage`; authentication is the presence of `crm_session`. Shared persistence and pricing helpers live in `crm/frontend/js/app.js`.
+At audit time the application was a static, client-only CRM. Since then sign-in, the company profile, the logo, Gmail and the team use the backend API (`crmApi` in app.js); the other records are still JSON in browser `localStorage` until Phase 2. Shared persistence and pricing helpers live in `crm/frontend/js/app.js`.
 
 Observed product areas:
 
@@ -21,11 +21,11 @@ The backend must replace browser-wide shared state with tenant-scoped, server-ow
 
 ### Important observed defects to resolve during migration
 
-- `accounts.html` exposes a legacy account CRUD form, but `accounts.js` manages agents and does not wire that form.
-- `Marketing.html` uses an inline campaign implementation and does not load `marketing.js`; its status columns differ from the external script.
-- `company.html` uses an inline implementation and persists `gst`, `size`, and `pincode`, while shared review code expects `taxId`, `employees`, and `zip`.
-- Deals can be cleared on first load by the demo cleanup logic; reset removes its cleanup marker.
-- Lead and deal WON conversion is triggered on updates, not consistently on create, and can create quotations on ordinary lead edits.
+- (Fixed in Phase 1) `accounts.html` exposed a legacy account CRUD form that `accounts.js` never wired.
+- (Fixed in Phase 1) `Marketing.html` used an inline campaign implementation instead of `marketing.js`, with different status columns.
+- (Fixed in Phase 1) `company.html` persisted `gst`, `size`, `pincode` while review code expected `taxId`, `employees`, `zip`; both now use `gstin`, `size`, `postalCode`, `foundedYear` on the server.
+- (Fixed in Phase 1) Deals could be cleared on first load by the demo cleanup logic.
+- (Partly fixed in Phase 1) Lead WON conversion now also runs on create and ordinary lead edits no longer create quotations; server-side conversion and totals arrive in Phases 2 and 5.
 - Most cross-entity links are display-name strings. Product, agent, customer, and record renames can break relationships.
 - There is no pagination or user-controlled sorting. Some views slice a fixed number of client-side records.
 - Reports mix selected date ranges with all-time charts; ticket resolution uses creation date.
@@ -80,7 +80,7 @@ Fields: `name` required, `email` required by current form and normalized, `phone
 
 ### Lead
 
-Fields: `name` required, normalized `email`, `phone`, `company`, `productId` optional Product reference, `quantity` optional positive integer, `status` enum observed in UI: `New|Contacted|Qualified|Proposal|Negotiation|Won|Lost` (exact list must be confirmed), `value` legacy/manual amount, `followUpDate`, `notes`, `convertedCustomerId`, `ownerId`, `version`. Store activity records separately. A lead's submitted value must not be trusted; its authoritative amount must be defined from quotation/deal data. `Won` requires an idempotent conversion operation.
+Fields: `name` required, normalized `email`, `phone`, `company`, `productId` optional Product reference, `quantity` optional positive integer, `status` enum observed in the lead UI: `New|In Progress|Won|Lost` (Deals use `Lead|Qualified|Proposal|Negotiation|Won|Lost`); decided pipeline: `New|Contacted|Quote Sent|Negotiation|Won|Lost` (roadmap D4/D13), `value` legacy/manual amount, `followUpDate`, `notes`, `convertedCustomerId`, `ownerId`, `version`. Store activity records separately. A lead's submitted value must not be trusted; its authoritative amount must be defined from quotation/deal data. `Won` requires an idempotent conversion operation.
 
 ### Product
 

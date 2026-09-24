@@ -1,52 +1,66 @@
 # Backend Architecture
 
 ## 1. Overview
-The backend will be built as a Modular Monolith using Node.js, Express.js, and MongoDB with Mongoose. 
+
+A modular monolith: Node.js 24, Express 5, MongoDB with Mongoose 9. One server (port 3000) serves both the API (`/api/v1`) and the static CRM pages (`/crm/frontend/`). The target feature set and phase plan are in [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md).
 
 ## 2. Directory Structure
 
 ```text
 backend/
+├── jest.config.js           # in-memory MongoDB replica set per test run
 ├── src/
-│   ├── app.js
-│   ├── server.js
-│   ├── config/              # Environment, database, logger config
-│   ├── routes/              # Express routes (v1 API)
-│   ├── controllers/         # HTTP request/response handlers
-│   ├── validators/          # Request DTO and query schemas (e.g. Joi or Zod)
-│   ├── services/            # Core business logic and transactions
-│   ├── repositories/        # Mongoose queries and data access
-│   ├── models/              # Mongoose schemas and indexes
-│   ├── middleware/          # Auth, RBAC, tenant scope, errors, rate limiting
-│   ├── policies/            # Record-level authorization policies
-│   ├── integrations/        # 3rd party like Google Auth, Object Storage
-│   ├── jobs/                # Background tasks (e.g., imports)
-│   ├── utils/               # Pagination, money math, normalization
-│   ├── constants/           # Enums, statuses, roles, error codes
-│   └── tests/               # Unit, integration, security tests
-├── scripts/                 # Migration and seed scripts
-├── docs/                    # Architecture, API, DB documentation
+│   ├── app.js               # middleware order, static pages, /api/v1, errors
+│   ├── server.js            # env warnings → MongoDB → migrations → listen
+│   ├── config/              # env (validated at boot), database, logger
+│   ├── constants/           # roles, modules, permissions, error codes
+│   ├── routes/              # URL → middleware → controller
+│   ├── validators/          # Joi schemas (body, query, params)
+│   ├── controllers/         # HTTP in/out only
+│   ├── services/            # business rules (auth, sessions, members, invites, organization)
+│   ├── repositories/        # tenantRepository: every query scoped to one organization
+│   ├── models/              # Mongoose schemas + plugins/softDelete
+│   ├── middleware/          # auth, permissions, validate, sanitize, rateLimit, idempotency, errors
+│   ├── integrations/        # google/idToken today; whatsapp, leadSources, payments, storage later
+│   ├── migrations/          # data migrations run once at startup
+│   ├── utils/               # tokens, cookies, secretBox, audit, counter, pagination, gstin
+│   └── tests/               # Jest + supertest suites, helpers, setup
 ├── .env.example
-├── package.json
-└── README.md
+└── package.json
 ```
 
-## 3. Data Flow
+## 3. Request flow
 
-**Request Flow:** `Route` → `Middleware (Auth/Tenant/RBAC/Validate)` → `Controller` → `Service` → `Repository` → `Model` → `MongoDB`
+`app.js` order: request id → static CRM pages (before helmet, so its CSP does not block the pages' inline scripts and Google Sign-In) → helmet → CORS allowlist → JSON body (5 MB) → reject `$`/prototype keys → `/uploads` (sandbox CSP) → request log (paths only, no query strings) → rate limit → `/api/v1` routes → 404 → error handler.
 
-- **Controllers** are thin. They parse the request, call the Service, and send the response.
-- **Services** are fat. They hold business rules, transaction boundaries, and orchestrate repositories.
-- **Repositories** handle Mongoose queries, projections, and ensure tenant isolation (`organizationId` is always appended).
+Inside a route: `authenticate` → `requireRole` / `requirePermission` → `validate` (Joi) → controller → service → repository/model.
 
-## 4. Multi-Tenant Architecture
-Every authenticated request goes through the `tenant` middleware:
-1. Extract User from token.
-2. Find `OrganizationMember` record for the user.
-3. Attach `organizationId` and `role` to `req.tenant`.
-4. Repositories automatically apply `{ organizationId: req.tenant.organizationId }` to every query.
+- **Controllers** translate HTTP to service calls.
+- **Services** hold the rules (who may change which member, last-owner protection, invite acceptance, session rotation).
+- **Repositories**: `tenantRepository(Model, organizationId)` applies the organization last, so client input can never override it.
 
-## 5. Security & Idempotency
-- **Idempotency:** Critical mutations (`POST /convert`, `POST /deals`) use an `Idempotency-Key` header.
-- **Security:** Helmet, CORS, Rate Limiting, JSON limits. 
-- **Soft Delete:** `deletedAt` is used instead of hard deletes for all business records.
+## 4. Authentication and tenancy
+
+- **Sign-in**: Google ID token → `POST /auth/google` → user + memberships. Pending invites for the verified email are accepted; a new organization is created only for a user with no memberships. Users from before memberships existed get an owner membership for their old organization.
+- **Access token**: HS256 JWT, 15 minutes, claims `sub` (user id), `org` (active organization), `sid` (session), issuer `yellow-crm`, audience `yellow-crm-api`.
+- **Refresh token**: 32 random bytes in an httpOnly, SameSite=Strict cookie limited to `/api/v1/auth`; only its SHA-256 is stored (`sessions`). Each refresh rotates it inside the same family; presenting a rotated token revokes the family. Logout and member removal revoke sessions.
+- **Tenant context**: `authenticate` loads the user and the active membership and sets `req.tenant = { organizationId, memberId, userId, role }`. A removed or disabled member gets 401 `MEMBERSHIP_REVOKED` immediately.
+- **Roles**: owner and admin can do everything (only owners manage owners/admins); agents work in their assigned modules (delete and view-all are extra grants); viewers only read. `can(member, module, action)` in `constants/permissions.js` is the single rule.
+- **Frontend**: `crmApi` sends the access token; on 401 it refreshes once (tabs coordinate with the Web Locks API) and otherwise returns to the login page.
+
+## 5. Security
+
+Helmet on the API, CORS allowlist (`CORS_ORIGINS` plus the public URL and local dev ports), rate limits per IP, Joi validation with unknown fields dropped, rejection of MongoDB operator keys, generic 500 messages, request ids, redacted audit logs, secrets encrypted with AES-256-GCM (`DATA_ENCRYPTION_KEY`, older Gmail values still readable), uploads checked by content and served sandboxed, env validated at boot with no hard-coded fallbacks.
+
+## 6. Building blocks
+
+- Pagination: `page`/`limit` (max 100) and the `pagination` response object.
+- Soft delete plugin: `deletedAt`, hidden from queries unless the filter mentions `deletedAt`.
+- Audit log: `audit(req, { action, entityType, entityId, changes })`, never throws.
+- Idempotency: `Idempotency-Key` middleware stores responses for 24 hours.
+- Counters: `nextSequence(organizationId, name, { start })`, atomic per organization.
+- Migrations: `src/migrations`, each idempotent, recorded in `migrations`.
+
+## 7. Transactions
+
+MongoDB transactions need a replica set. Atlas is one; local development can run a single-node replica set (see [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 11); tests use `MongoMemoryReplSet`.

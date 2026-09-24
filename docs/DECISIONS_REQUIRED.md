@@ -1,5 +1,26 @@
 # Decisions Required
 
+## Status (2026-09-24)
+
+These questions are answered by the decision log in [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 9. The original questions are kept below for context.
+
+| # | Question | Answer |
+|---|---|---|
+| 1 | Account vs Customer | D3: one Contact per phone number; legacy Accounts merge into `Contact.company`; "Account Champions" stays the team page (Phase 2) |
+| 2 | Pricing, currency, tax | D1/D2: INR in paise, tax-exclusive prices, CGST+SGST or IGST by place of supply (Phase 5) |
+| 3 | Inventory | D7: informational; optional "reduce stock on Dispatched" |
+| 4 | Organization fields | D14: `gstin`, `stateCode`, `postalCode`, `size`, `foundedYear` — **done in Phase 1** (migration 001) |
+| 5 | Email uniqueness | D3: the phone number is the unique key per organization; email is optional |
+| 6 | Pipeline statuses | D4 + D13: one lead pipeline New → Contacted → Quote Sent → Negotiation → Won / Lost |
+| 7 | Quotation lifecycle | D6: Draft → Sent → Viewed → Accepted / Rejected / Expired, revisions, FY numbering |
+| 8 | Ticket SLA | Basic CRUD with atomic numbers first (Phase 2); SLA later |
+| 9 | Document storage | Local `uploads/` behind a storage interface; S3/R2-compatible later |
+| 10 | Agent permissions | D17: agents see assigned records; `view_all` per module — **roles and permissions done in Phase 1** |
+| 11 | Duplicate customers | Dedupe by phone and source reference |
+| 12 | Simulated features | Real, job-backed automation in Phase 6; AI as an opt-in add-on in Phase 10 |
+
+## Original questions
+
 The following unresolved product decisions have been identified during the Phase 0 audit and must be confirmed or resolved.
 
 ### 1. Account vs Customer

@@ -1,77 +1,87 @@
 # API
 
-All API routes are under `/api/v1`. CRM API requests use `Authorization: Bearer <Google ID token>` from the existing login flow.
+All routes are under `/api/v1`. The backend also serves the CRM pages at `/crm/frontend/`.
 
-## Gmail OAuth
+- Authenticated requests send `Authorization: Bearer <access token>` (the app's own JWT, 15 minutes by default).
+- The refresh token is an httpOnly cookie `crm_refresh` (path `/api/v1/auth`, SameSite=Strict). Browsers on another allowed origin must call the auth endpoints with `credentials: "include"`.
+- Every request is scoped to the organization in the access token. Nothing in a request body can change the organization, owner, role, totals or counters.
 
-The Gmail integration uses a separate Google OAuth authorization-code flow. The browser never receives or stores Gmail access or refresh tokens.
+## Response shape
+
+```json
+{ "success": true, "data": {}, "message": "optional" }
+{ "success": true, "data": [], "pagination": { "page": 1, "limit": 20, "total": 45, "totalPages": 3, "hasNextPage": true, "hasPreviousPage": false } }
+{ "success": false, "message": "Validation failed", "code": "VALIDATION_ERROR", "errors": [{ "field": "gstin", "code": "STRING_PATTERN_BASE", "message": "GSTIN must be 15 characters, for example 08ABCDE1234F1Z5" }], "requestId": "..." }
+```
+
+Lists take `page` (default 1) and `limit` (default 20, max 100).
+
+Status codes: 400 validation / invalid JSON / invalid id, 401 not signed in or token expired, 403 not allowed, 404 not found (also for records of another organization), 409 conflict, 413 body too large, 422 idempotency key reused with another body, 429 rate limited, 500 generic error (details only in the server log).
+
+Common error codes are listed in `backend/src/constants/errorCodes.js`.
+
+## Health
 
 | Method | Route | Auth | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/gmail/connect` | CRM bearer token | Creates a user-bound OAuth state and returns the Google authorization URL. |
-| `GET` | `/gmail/oauth/callback` | Google redirect only | Exchanges the code, calls Gmail `users.getProfile`, stores the encrypted connection, and redirects to Settings. |
-| `GET` | `/gmail/connection` | CRM bearer token | Returns connected status and Gmail address. |
-| `GET` | `/gmail/profile` | CRM bearer token | Fetches the connected account profile from Gmail. |
-| `GET` | `/gmail/messages` | CRM bearer token | Fetches recent Gmail message metadata. |
+| `GET` | `/health` | none | `{ status, dbState, timestamp }`. 200 when MongoDB is connected, 503 otherwise. `start-crm.vbs` looks for `"dbState"`. Not rate limited. |
 
-Required backend environment variables:
+## Auth
 
-```text
-GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET
-GOOGLE_REDIRECT_URI=http://localhost:5500/api/v1/gmail/oauth/callback
-FRONTEND_URL=http://127.0.0.1:5500/crm/frontend
-GMAIL_TOKEN_ENCRYPTION_KEY
-```
+| Method | Route | Auth | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/auth/google` | none | Body `{ credential, inviteToken? }`. Verifies the Google ID token, creates the user on first sign-in, accepts pending invites for the verified email, creates an organization only if the user belongs to none. Returns `{ token, user, organizationId, member, memberships, inviteError? }` and sets the refresh cookie. |
+| `POST` | `/auth/refresh` | refresh cookie | Rotates the refresh token and returns `{ token, organizationId }`. A token that was already rotated revokes its whole family (`REFRESH_TOKEN_REUSED`). |
+| `POST` | `/auth/logout` | refresh cookie | Revokes the session family and clears the cookie. |
+| `GET` | `/auth/me` | bearer | `{ user, organization, member, memberships }`. |
+| `POST` | `/auth/switch-organization` | bearer | Body `{ organizationId }`. Returns a new access token for another organization the user belongs to. |
 
-In Google Cloud Console, enable the Gmail API and add the exact value of `GOOGLE_REDIRECT_URI` to the OAuth client's authorized redirect URIs. The Gmail scope requested is `https://www.googleapis.com/auth/gmail.readonly`.
-# API Map
+Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout` and `/invites/lookup`: `RATE_LIMIT_AUTH_PER_MINUTE` (default 20) per IP. Everything else: `RATE_LIMIT_API_PER_MINUTE` (default 300).
 
-All endpoints are prefixed with `/api/v1` and require an `Authorization: Bearer <token>` header (except public auth routes).
+## Organization
 
-## 1. Authentication
-- `POST /auth/google`: Login/Register via Google ID Token
-- `POST /auth/refresh`: Rotate refresh tokens
-- `POST /auth/logout`: Revoke tokens
-- `GET /auth/me`: Get current user and organization memberships
+| Method | Route | Role | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/organization` | any member | Company profile: `name, industry, size, foundedYear, website, email, phone, gstin, stateCode, address, city, state, country, postalCode, description, logoUrl`. |
+| `PATCH` | `/organization` | owner, admin | Any of the fields above except `stateCode` and `logoUrl`. `gstin` must be a valid 15-character GSTIN or empty; `stateCode` is derived from it. |
+| `POST` | `/organization/logo` | owner, admin | Multipart field `logo`: PNG, JPG, SVG or WebP up to 2 MB, content checked against the extension. |
+| `DELETE` | `/organization/logo` | owner, admin | Removes the logo. |
 
-## 2. Organization & Members
-- `GET /organization`: Get company profile
-- `PATCH /organization`: Update company profile (Owner/Admin only)
-- `GET /members`: List members
-- `POST /members`: Invite/Add member
-- `PATCH /members/:id`: Change role/permissions
-- `DELETE /members/:id`: Remove member
+Uploaded files are served from `/uploads/` with `Content-Security-Policy: sandbox`.
 
-## 3. CRM Core (Standard CRUD)
-For `customers`, `leads`, `products`, `deals`:
-- `GET /<resource>`: List with pagination, sort, filtering (`q`)
-- `POST /<resource>`: Create
-- `GET /<resource>/:id`: Get by ID
-- `PATCH /<resource>/:id`: Update (partial)
-- `DELETE /<resource>/:id`: Soft delete
+## Team
 
-## 4. Specific Business Operations
-- `POST /leads/:id/activities`: Add lead activity note
-- `POST /leads/:id/convert`: Convert Lead to Customer (Idempotent, Transactional)
-- `POST /leads/:id/quotations`: Generate Quotation
-- `POST /deals/:id/stage`: Update Deal stage (Optimistic concurrency)
-- `POST /deals/:id/convert`: Convert Deal to Customer (Idempotent, Transactional)
-- `GET /deals/pipeline`: Kanban view grouped by stage
-- `POST /tickets/:id/notes`: Add note to ticket
-- `POST /documents/upload`: Get upload URL
-- `GET /documents/:id/download`: Get signed download URL
+Roles: `owner`, `admin`, `agent`, `viewer`. Agents and viewers only see the modules in `modules` (keys in `backend/src/constants/permissions.js`); extra grants are `<module>:delete` and `<module>:view_all`.
 
-## 5. Exports / Imports
-- `POST /imports/localstorage`: Migrate localStorage JSON payload
-- `GET /imports/:id`: Import status/report
-- `GET /exports/crm`: Export tenant data
+| Method | Route | Role | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/members` | any member | Team list (paginated). |
+| `PATCH` | `/members/:id` | owner, admin | `{ role?, modules?, permissions?, status?, displayName?, mobile?, assignable? }`. Nobody changes their own role/status; only owners change owners and admins; the last active owner is protected. |
+| `DELETE` | `/members/:id` | owner, admin | Removes the member (soft delete) and ends their sessions in this organization. |
+| `GET` | `/invites?status=pending\|accepted\|revoked\|all` | owner, admin | Invites (default pending; `status: "expired"` in the response when past `expiresAt`). |
+| `POST` | `/invites` | owner, admin | `{ email, role: admin\|agent\|viewer, modules?, permissions? }`. Returns `{ invite, link }`; the link (valid 7 days) is only shown here. Only owners invite admins. Accepts `Idempotency-Key`. |
+| `POST` | `/invites/:id/resend` | owner, admin | New link; the old one stops working. |
+| `DELETE` | `/invites/:id` | owner, admin | Cancels the invite. |
+| `POST` | `/invites/lookup` | none | `{ token }` → `{ organizationName, email, role, expiresAt }` for the login page. POST keeps the token out of URL logs. |
 
-## Response Format
-```json
-{
-  "success": true,
-  "data": {},
-  "message": "Resource retrieved"
-}
-```
+## Gmail OAuth
+
+The browser never receives or stores Gmail access or refresh tokens; they are encrypted at rest.
+
+| Method | Route | Auth | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/gmail/connect` | bearer | Body `{ returnUrl }`. Creates a user-bound OAuth state and returns the Google authorization URL. |
+| `GET` | `/gmail/oauth/callback` | Google redirect | Exchanges the code, stores the encrypted connection, redirects to Settings. |
+| `GET` | `/gmail/connection` | bearer | Connected status and Gmail address. |
+| `GET` | `/gmail/profile` | bearer | Profile from Gmail. |
+| `GET` | `/gmail/messages?limit=&q=` | bearer | Recent message metadata. |
+
+In Google Cloud Console, enable the Gmail API and add the exact `GOOGLE_REDIRECT_URI` (default `PUBLIC_URL/api/v1/gmail/oauth/callback`) to the OAuth client's authorized redirect URIs. Sign-in from a page address also needs that origin (for example `http://127.0.0.1:3000`) under "Authorized JavaScript origins". Scope: `https://www.googleapis.com/auth/gmail.readonly`.
+
+## Idempotency
+
+`POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.
+
+## Planned
+
+Phase 2 onwards adds the CRM resources (contacts, leads, products, tasks, events, tickets, documents, campaigns, workflows, sequences), then WhatsApp, lead sources, quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.

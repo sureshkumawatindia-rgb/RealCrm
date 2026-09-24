@@ -1,5 +1,11 @@
 # Migration Strategy
 
+## 0. Server data migrations (in place since Phase 1)
+
+`backend/src/migrations/` holds data migrations that run once, in order, when the server starts (after connecting to MongoDB). Each one is recorded in the `migrations` collection and must be idempotent, so a crash halfway is safe. Current list: `001-organization-field-names` (see [DATABASE.md](DATABASE.md)).
+
+Browser data (localStorage) is per address: data entered on VS Code Live Server (`127.0.0.1:5501`) is not visible at `127.0.0.1:3000`. Until the importer below exists, move it with Settings → Data & Privacy → Export on the old address and Import on the new one.
+
 ## 1. Overview
 The current CRM operates entirely on `localStorage`. A one-time migration API will allow users to upload their `localStorage` state to the new backend.
 

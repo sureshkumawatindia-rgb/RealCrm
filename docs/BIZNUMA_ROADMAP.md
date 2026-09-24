@@ -4,7 +4,7 @@ Turning YELLOW CRM into a WhatsApp-first CRM for Indian SMBs (IndiaMART sellers,
 
 - Brief: [BIZNUMA_CRM_MASTER_PROMPT.md](BIZNUMA_CRM_MASTER_PROMPT.md)
 - Canonical backend spec: [../BACKEND-AUDIT-SPEC.md](../BACKEND-AUDIT-SPEC.md) (this roadmap extends it; where they differ, the decision log in section 9 wins and the spec gets updated in the phase that implements it)
-- Status: **Phase 0 done on 2026-09-24.** Waiting for "go" to start Phase 1.
+- Status: **Phase 1 done on 2026-09-24** (branch `feature/phase-1-foundation`), except one check that needs a real Google account (see the Phase 1 list). Waiting for "go" to start Phase 2.
 
 ---
 
@@ -20,19 +20,20 @@ Tick a box only when its acceptance check passes and the full test suite is gree
 - [x] Ask the open decisions: D10–D13 decided 2026-09-24 (section 9.2)
 
 ### Phase 1 — Foundation and hardening
-- [ ] Fix every known defect (section 2.3)
-- [ ] OrganizationMember, invites, roles and module permissions, tenant middleware, `requirePermission(module, action)`
-- [ ] Access + rotating refresh tokens with reuse detection and revocation (BACKEND-AUDIT-SPEC §10)
-- [ ] CORS allowlist, rate limits, NoSQL-operator sanitization, env validation at boot
-- [ ] Common building blocks: pagination, soft-delete plugin, audit log, idempotency records, atomic counters, error codes
-- [ ] `DATA_ENCRYPTION_KEY` in secretBox with Gmail tokens still readable
-- [ ] Frontend app.js: API base from `window.location.origin`, shared auth guard, 401 → refresh → logout
-- [ ] Test infra: mongodb-memory-server replica set; tests for tenant isolation, RBAC, token refresh, health still contains `dbState`
-- [ ] Nothing that works today is broken (Google login, org profile + logo, Gmail connect, start/stop-crm.vbs, VS Code task, /api/v1/health)
+- [x] Fix every known defect (section 2.3). Quotation totals are still computed in the browser until server quotations (Phase 5)
+- [x] OrganizationMember, invites, roles and module permissions, tenant middleware, `requirePermission(module, action)`
+- [x] Access + rotating refresh tokens with reuse detection and revocation (BACKEND-AUDIT-SPEC §10)
+- [x] CORS allowlist, rate limits, NoSQL-operator sanitization, env validation at boot
+- [x] Common building blocks: pagination, soft-delete plugin, audit log, idempotency records, atomic counters, error codes
+- [x] `DATA_ENCRYPTION_KEY` in secretBox with Gmail tokens still readable (add the key to backend/.env; until then the Gmail key is used)
+- [x] Frontend app.js: API base from `window.location.origin`, shared auth guard, 401 → refresh → logout
+- [x] Test infra: mongodb-memory-server replica set; tests for tenant isolation, RBAC, token refresh, health still contains `dbState` (54 tests)
+- [ ] Nothing that works today is broken. Verified: org profile + logo, health, the VS Code task backend (restarted and migrated on Atlas), sign-in/invite/refresh flows with a test verifier. **Needs your check with a real Google account: Google sign-in and Gmail connect.**
 
 ### Phase 2 — Core CRM moves to the server
 - [ ] Contacts, Leads (+activities, idempotent convert), Products, Tasks, Events, Tickets (+notes, atomic numbers), Documents (storage abstraction), Campaign/Workflow/Sequence config
 - [ ] Deals page becomes the Kanban view of Leads; old deals imported as leads (D13)
+- [ ] Account Champions page uses the members/invites API (Settings → Team & Access already does); crm_agents imported as invites
 - [ ] Every page uses `crmApi` instead of localStorage; UI looks the same
 - [ ] `POST /imports/localstorage` with preview + report; Settings button "Move my browser data to server"
 - [ ] Accept: two members of one org see the same data; another org sees none
@@ -69,7 +70,7 @@ Tick a box only when its acceptance check passes and the full test suite is gree
 ### Phase 7 — Broadcasts and segmentation
 - [ ] Tags, saved segments, CSV/Excel import with mapping + phone normalization + dedupe, consent/opt-out
 - [ ] Broadcast: template + variables + segment, scheduling, throttling, per-recipient stats, plan quota, cost estimate
-- [ ] Marketing page: WhatsApp channel; fix the inline-script split
+- [ ] Marketing page: WhatsApp channel (the inline-script split was fixed in Phase 1)
 
 ### Phase 8 — Payments and catalog
 - [ ] Razorpay Payment Links, then Cashfree; per-org keys; from quote/order/chat; signed webhooks → paid → receipt
@@ -528,4 +529,5 @@ Rough engineering days (AI-assisted), plus the number of working sessions. Exter
 
 ## 14. Changelog
 
+- **2026-09-24 — Phase 1.** Memberships (owner/admin/agent/viewer + module permissions), invites with shareable links, multi-organization switching, 15-minute access tokens with rotating httpOnly refresh cookies and reuse detection, env validation, CORS allowlist, rate limits, operator-key rejection, Joi validation, audit log, idempotency keys, counters, soft delete, tenant repository, `DATA_ENCRYPTION_KEY`, organization fields renamed by migration 001 (applied on Atlas). Frontend: token refresh across tabs, invite sign-in, company profile and team on the server (Settings → Team & Access), defects fixed (lead quotations, deal wipe, marketing script split, accounts legacy form, brand name, a pre-existing accounts.js error). 54 backend tests.
 - **2026-09-24 — Phase 0.** Audit and this roadmap. Decided: D10 Agenda on MongoDB, D11 inner RealCrm repo, D12 multi-org membership, D13 one pipeline. No application code changed in Phase 0. (Earlier the same day, outside the phase plan: the backend started serving the CRM pages at `/crm/frontend`, `start-crm.vbs` / `stop-crm.vbs` launchers and the VS Code "CRM backend" task were added.)
