@@ -19,7 +19,10 @@ Settings → Data & Privacy → **Move my browser data to server** (owners/admin
 | `crm_deals` | leads (D13; Qualified/Proposal → Quote Sent; timeline notes → activities) | A |
 | `crm_lead_activities` | lead activities | A |
 | `crm_quotations` | quotations (new FY numbers, old number kept as `legacyNumber`, totals recomputed) | A |
-| `crm_tasks`, `crm_deal_tasks`, `crm_calendar_events`, `crm_tickets`, `crm_documents`, `crm_campaigns`, `crm_workflows`, `crm_sequences`, `crm_customer_notes`, `crm_agents` | reported as "later", still used from the browser | next checkpoints |
+| `crm_tasks` | tasks (assignee matched to a team member by name, else the name is kept; related customer/lead/deal matched by name) | B |
+| `crm_deal_tasks` | tasks with origin `deal_followup` (text → title, done → Done) | B |
+| `crm_calendar_events` | calendar events (an end time before the start is dropped) | B |
+| `crm_tickets`, `crm_documents`, `crm_campaigns`, `crm_workflows`, `crm_sequences`, `crm_customer_notes`, `crm_agents` | reported as "later", still used from the browser | next checkpoints |
 
 Every imported record keeps its old id in `legacyIds`, so the import can be run again after each checkpoint: it only adds what is new.
 

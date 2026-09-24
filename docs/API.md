@@ -121,11 +121,37 @@ Stages: `New → Contacted → Quote Sent → Negotiation → Won / Lost`. The s
 | `PATCH` | `/quotations/:id` | `{ status }` (Draft, Sent, Viewed, Accepted, Rejected, Expired). |
 | `DELETE` | `/quotations/:id` | Soft delete. |
 
+## Tasks and calendar (Phase 2)
+
+Calendar days are `YYYY-MM-DD` strings and times are `HH:MM` wall-clock times in `Asia/Kolkata`, so a date never shifts with the browser's timezone. Agents and viewers see tasks and events assigned to them or created by them; `<module>:view_all` on any module that reads them shows all. Any member may assign work to an active teammate (400 `INVALID_ASSIGNEE` otherwise).
+
+`relatedType` is `Customer`, `Contact`, `Lead`, `Deal` or `Account`. With a `relatedId` (a contact for Customer/Contact, a lead for Lead/Deal) the server checks it exists in the organization (400 `INVALID_RELATED`) and stores the current name as `relatedName`. Accounts have no id yet, so only `relatedName` is kept.
+
+### Tasks
+
+Read: `tasks`, `calendar`, `deals`, `dashboard`, `customers` or `reports`. Create/edit: `tasks`, `deals` (follow-ups) or `automation` (workflow runs). Delete: `tasks` or `deals`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/tasks?q=&status=&priority=&origin=&assigneeId=&relatedType=&relatedId=&dueFrom=&dueTo=&sort=&page=&limit=` | `q` searches title and description. |
+| `POST` | `/tasks` | `{ title, description?, dueDate?, priority? (Low/Medium/High), status? (To Do/In Progress/Done), origin? (manual/deal_followup/automation), assigneeId?, relatedType?, relatedId?, relatedName? }`. |
+| `GET/PATCH/DELETE` | `/tasks/:id` | PATCH cannot change `origin`. Setting `status: Done` records `completedAt`; any other status clears it. `dueDate: ""` removes the due date. Delete is a soft delete. |
+
+### Calendar events
+
+Read: `calendar`, `dashboard`, `customers` or `reports`. Create/edit/delete: `calendar`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/events?q=&from=&to=&type=&assigneeId=&relatedType=&relatedId=&sort=&page=&limit=` | `from`/`to` filter on `date` (inclusive). |
+| `POST` | `/events` | `{ title, date, type? (Meeting/Call/Follow-up/Demo/Deadline/Reminder), startTime?, endTime?, description?, assigneeId?, relatedType?, relatedId?, relatedName? }`. An end time needs a start time (otherwise it is dropped); an end at or before the start is 400 `END_BEFORE_START`. |
+| `GET/PATCH/DELETE` | `/events/:id` | Delete is a soft delete. |
+
 ### Moving browser data to the server
 
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities and quotations; contacts are matched by phone, then email (deals: name + company). Old ids are kept, so running it again creates nothing new. Returns a report per section (`found, created, alreadyImported, merged, rejected`), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
+| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`) and calendar events; contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new. Returns a report per section (`found, created, alreadyImported, merged, rejected`), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
 | `GET` | `/imports/:id` | owner, admin | A previous run and its report. |
 
 ## Idempotency
@@ -134,4 +160,4 @@ Stages: `New → Contacted → Quote Sent → Negotiation → Won / Lost`. The s
 
 ## Planned
 
-The rest of Phase 2 adds tasks, events, tickets (with notes), documents, campaigns, workflows and sequences, then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.
+The rest of Phase 2 adds tickets (with notes), documents, campaigns, workflows and sequences, then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.

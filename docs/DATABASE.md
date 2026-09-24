@@ -31,6 +31,15 @@ Only hashes of refresh tokens and invite tokens are stored. Gmail tokens are enc
 | `quotations` | `number`, `financialYear`, `leadId`, `contactId`, `ownerId`, `status`, `quotationDate`, `validUntil`, `items[]` (product snapshot, paise), `totals`, `legacyNumber`, `legacyIds[]`, `deletedAt` | unique `(organizationId, number)`; `(organizationId, leadId, status)`; `(organizationId, contactId, createdAt -1)` |
 | `imports` | `dryRun`, `status`, `report`, `error`, `createdById` | `(organizationId, createdAt -1)` |
 
+## 1c. Implemented (Phase 2, tasks and calendar)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `tasks` | `title`, `description`, `assigneeId` (member), `assigneeName` (kept only when there is no member, e.g. imported names), `dueDate` (`YYYY-MM-DD` string), `priority`, `status`, `completedAt`, `relatedType`, `relatedId`, `relatedName` (snapshot), `origin` (manual/deal_followup/automation), `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status, dueDate)`; `(organizationId, assigneeId, status)`; `(organizationId, relatedType, relatedId)`; `(organizationId, origin, createdAt -1)`; `(organizationId, legacyIds)` |
+| `calendarevents` | `title`, `type`, `date` (`YYYY-MM-DD` string), `startTime`/`endTime` (`HH:MM` or empty for all day), `timezone` (`Asia/Kolkata`), `assigneeId`, `assigneeName`, `relatedType`, `relatedId`, `relatedName`, `description`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, date)`; `(organizationId, assigneeId, date)`; `(organizationId, relatedType, relatedId)`; `(organizationId, legacyIds)` |
+
+Calendar days are stored as strings, not `Date`, so a due date entered in India never moves a day when read in another timezone.
+
 Counters used: `quotation:<financial year>`.
 
 ## 2. Data migrations
@@ -41,4 +50,4 @@ Counters used: `quotation:<financial year>`.
 
 ## 3. Planned (Phase 2 onwards)
 
-Contacts, leads (the single pipeline, decision D13), lead activities, products, tasks, calendar events, tickets, notes, documents, campaigns, workflows, sequences, imports; then WhatsApp, lead sources, quotations, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.
+Tickets, notes, documents, campaigns, workflows, sequences; then WhatsApp, lead sources, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.
