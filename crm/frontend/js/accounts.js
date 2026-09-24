@@ -1,8 +1,8 @@
 /**
  * accounts.js — "Team Champions" page
  * Gamified onboarding for adding teammates (Agents / "Champions").
- * Persists to localStorage under 'crm_agents' via the shared
- * getAgents/addAgent/updateAgentRecord/deleteAgent helpers in app.js.
+ * Persists to localStorage under 'crm_agents' via the getChampions/addChampion/
+ * updateChampion/deleteChampion helpers below.
  *
  * NOTE: The old "Accounts" (business/company records) feature has been
  * removed from this page entirely — it duplicated the Customers page and
@@ -11,6 +11,36 @@
 
 requireAuth();
 renderSidebarUser();
+
+// The Champions wizard still keeps its teammates in this browser ('crm_agents') until this
+// page moves onto the team API. Sign-in access is managed in Settings → Team & Access.
+const CHAMPIONS_KEY = "crm_agents";
+function getChampions() {
+  const raw = localStorage.getItem(CHAMPIONS_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveChampions(list) {
+  localStorage.setItem(CHAMPIONS_KEY, JSON.stringify(list));
+}
+function addChampion(agent) {
+  const list = getChampions();
+  agent.id = "ag_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  agent.createdAt = new Date().toISOString();
+  list.unshift(agent);
+  saveChampions(list);
+  return agent;
+}
+function updateChampion(id, patch) {
+  const list = getChampions();
+  const idx = list.findIndex((a) => a.id === id);
+  if (idx !== -1) {
+    list[idx] = { ...list[idx], ...patch };
+    saveChampions(list);
+  }
+}
+function deleteChampion(id) {
+  saveChampions(getChampions().filter((a) => a.id !== id));
+}
 
 function initials(name) {
   if (!name) return "?";
@@ -170,11 +200,11 @@ function populateReview() {
   ).map((cb) => cb.value);
 
   document.getElementById("agentReviewBox").innerHTML = `
-    <div>🎯 <strong>${name}</strong> will join as <strong>${role}</strong>.</div>
+    <div>🎯 <strong>${escapeHtml(name)}</strong> will join as <strong>${escapeHtml(role)}</strong>.</div>
     <div style="margin-top:8px;">They can open <strong>${modules.length}</strong> page${modules.length === 1 ? "" : "s"}:</div>
-    <div>${modules.map((m) => `<span class="review-tag">${m}</span>`).join("")}</div>
+    <div>${modules.map((m) => `<span class="review-tag">${escapeHtml(m)}</span>`).join("")}</div>
     <div style="margin-top:8px;">They're allowed to:</div>
-    <div>${perms.map((p) => `<span class="review-tag">${p}</span>`).join("") || '<span class="review-tag">Nothing yet</span>'}</div>
+    <div>${perms.map((p) => `<span class="review-tag">${escapeHtml(p)}</span>`).join("") || '<span class="review-tag">Nothing yet</span>'}</div>
   `;
 }
 
@@ -249,10 +279,10 @@ agentForm.addEventListener("submit", (e) => {
     return;
   }
   if (id) {
-    updateAgentRecord(id, data);
+    updateChampion(id, data);
     showToast(`✅ ${data.name} updated.`, "success");
   } else {
-    addAgent(data);
+    addChampion(data);
     showToast(`🎉 ${data.name} joined your team!`, "success");
   }
   closeAgentModal();
@@ -282,7 +312,7 @@ function currentLevel(count) {
 function renderTeamProgress() {
   // The team-level progress card is not on accounts.html any more.
   if (!document.getElementById("champLevelEmoji")) return;
-  const agents = getAgents();
+  const agents = getChampions();
   const count = agents.length;
   const level = currentLevel(count);
 
@@ -325,7 +355,7 @@ function renderTeamProgress() {
    ============================================================ */
 
 function renderAgents() {
-  const agents = getAgents();
+  const agents = getChampions();
   document.getElementById("agentCount").textContent =
     `${agents.length} champion${agents.length === 1 ? "" : "s"}`;
   const grid = document.getElementById("agentsGrid");
@@ -363,15 +393,15 @@ function renderAgents() {
 
     grid.querySelectorAll(".edit-agent-btn").forEach((btn) =>
       btn.addEventListener("click", () => {
-        const agent = getAgents().find((a) => a.id === btn.dataset.id);
+        const agent = getChampions().find((a) => a.id === btn.dataset.id);
         openAgentModal(agent);
       }),
     );
     grid.querySelectorAll(".delete-agent-btn").forEach((btn) =>
       btn.addEventListener("click", () => {
-        const agent = getAgents().find((a) => a.id === btn.dataset.id);
+        const agent = getChampions().find((a) => a.id === btn.dataset.id);
         if (agent && confirm(`Remove ${agent.name} from your team?`)) {
-          deleteAgent(btn.dataset.id);
+          deleteChampion(btn.dataset.id);
           showToast(`${agent.name} was removed.`, "success");
           renderAgents();
         }

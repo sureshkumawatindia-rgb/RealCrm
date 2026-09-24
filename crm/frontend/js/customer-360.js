@@ -27,8 +27,7 @@ const CUSTOMER_NOTES_KEY = "crm_customer_notes";
 // Direct reads for modules without a shared app.js helper
 // ---------------------------------------------------------------
 function readDeals() {
-  const raw = localStorage.getItem("crm_deals");
-  return raw ? JSON.parse(raw) : [];
+  return getDeals();
 }
 function readTasks() {
   const raw = localStorage.getItem("crm_tasks");
@@ -476,28 +475,30 @@ function initTabs() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-const customerId = getCustomerIdFromUrl();
-const customer = customerId ? findCustomer(customerId) : null;
+crmReady(["leads", "contacts", "products", "members"], () => {
+  const customerId = getCustomerIdFromUrl();
+  const customer = customerId ? findCustomer(customerId) : null;
 
-if (!customer) {
-  renderPicker();
-} else {
-  document.getElementById("pickerView").style.display = "none";
-  document.getElementById("profileView").style.display = "block";
+  if (!customer) {
+    renderPicker();
+  } else {
+    document.getElementById("pickerView").style.display = "none";
+    document.getElementById("profileView").style.display = "block";
 
-  renderHeader(customer);
-  renderKpis(customer);
-  renderFields(customer);
-  renderTimelineTab(customer);
-  renderDealsTab(customer);
-  renderTasksTab(customer);
-  renderTicketsTab(customer);
-  renderDocumentsTab(customer);
-  renderNotesTab(customer);
-  initTabs();
+    renderHeader(customer);
+    renderKpis(customer);
+    renderFields(customer);
+    renderTimelineTab(customer);
+    renderDealsTab(customer);
+    renderTasksTab(customer);
+    renderTicketsTab(customer);
+    renderDocumentsTab(customer);
+    renderNotesTab(customer);
+    initTabs();
 
-  document.getElementById("c360AddNoteBtn").addEventListener("click", () => addNote(customer));
-  document.getElementById("c360NoteInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") addNote(customer);
-  });
-}
+    document.getElementById("c360AddNoteBtn").addEventListener("click", () => addNote(customer));
+    document.getElementById("c360NoteInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addNote(customer);
+    });
+  }
+});

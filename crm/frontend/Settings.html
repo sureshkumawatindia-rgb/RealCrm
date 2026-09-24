@@ -676,11 +676,28 @@
                 <div class="settings-section">
                   <div class="settings-section-label">Storage</div>
                   <p class="settings-hint">
-                    Your account, company profile, logo and team are stored on
-                    the CRM server. The other CRM records below are still stored
-                    in this browser.
+                    Your account, company profile, team, customers, leads, deals,
+                    products and quotations are on the CRM server. The list below
+                    shows what is still saved in this browser.
                   </p>
                   <div id="storageSummaryList"></div>
+                </div>
+
+                <div class="settings-section" id="serverImportSection" hidden>
+                  <div class="settings-section-label">Move my browser data to server</div>
+                  <p class="settings-hint">
+                    Copies the customers, leads, deals, products and quotations
+                    saved in this browser to the CRM server, so your whole team
+                    sees them. Nothing in this browser is deleted, and running it
+                    again skips what was already moved. Open this page on the
+                    address where you used the CRM before.
+                  </p>
+                  <div class="data-actions">
+                    <button class="btn btn-primary" id="serverImportBtn">
+                      <i class="fa-solid fa-cloud-arrow-up"></i> Move my browser data to server
+                    </button>
+                  </div>
+                  <div id="serverImportReport" style="margin-top: 12px"></div>
                 </div>
 
                 <div class="settings-section">
@@ -704,13 +721,13 @@
                   <div class="settings-section-label">Danger Zone</div>
                   <div class="danger-zone">
                     <p>
-                      Permanently deletes all customers, leads, accounts,
-                      agents, products, deals, tasks, campaigns, workflows,
-                      sequences, calendar events, and your company profile
-                      from this browser. You'll stay signed in.
+                      Deletes the CRM data saved in this browser (tasks,
+                      campaigns, events and older copies of moved records).
+                      Data on the CRM server is not touched. Move your data to
+                      the server first. You'll stay signed in.
                     </p>
                     <button class="btn btn-danger-outline" id="resetBtn">
-                      <i class="fa-solid fa-triangle-exclamation"></i> Reset All CRM Data
+                      <i class="fa-solid fa-triangle-exclamation"></i> Clear This Browser's CRM Data
                     </button>
                   </div>
                 </div>

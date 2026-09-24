@@ -11,11 +11,11 @@ requireAuth();
 renderSidebarUser();
 initSidebarToggle();
 
-const STAGES = ["Lead", "Qualified", "Proposal", "Negotiation", "Won", "Lost"];
+const STAGES = LEAD_STAGES;
 const STAGE_DOT = {
-  Lead: "var(--info)",
-  Qualified: "var(--brand-darker)",
-  Proposal: "var(--warning)",
+  New: "var(--info)",
+  Contacted: "var(--brand-darker)",
+  "Quote Sent": "var(--warning)",
   Negotiation: "#7c3aed",
   Won: "var(--success)",
   Lost: "var(--danger)",
@@ -42,8 +42,7 @@ let activeTab = "overview";
 // Direct localStorage reads for modules without shared helpers
 // ---------------------------------------------------------------
 function readDeals() {
-  const raw = localStorage.getItem("crm_deals");
-  return raw ? JSON.parse(raw) : [];
+  return getDeals();
 }
 function readTasks() {
   const raw = localStorage.getItem("crm_tasks");
@@ -280,12 +279,7 @@ function renderLeadFunnel(containerId) {
     return;
   }
 
-  const stages = [
-    { key: "New", label: "New" },
-    { key: "In Progress", label: "In Progress" },
-    { key: "Won", label: "Won" },
-    { key: "Lost", label: "Lost" },
-  ];
+  const stages = LEAD_STAGES.map((stage) => ({ key: stage, label: stage }));
   const total = leads.length;
   const max = total;
 
@@ -703,7 +697,7 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  renderAll();
+  crmReady(["leads", "contacts", "products", "members"], renderAll);
 
   document.querySelectorAll(".report-tab").forEach((tab) => {
     tab.addEventListener("click", () => {

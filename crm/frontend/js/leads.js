@@ -23,11 +23,13 @@ function escapeHtml(str) {
 function statusBadge(status) {
   const map = {
     New: "badge-info",
-    "In Progress": "badge-warning",
+    Contacted: "badge-warning",
+    "Quote Sent": "badge-brand",
+    Negotiation: "badge-warning",
     Won: "badge-success",
     Lost: "badge-danger",
   };
-  return `<span class="badge ${map[status] || "badge-neutral"}">${status}</span>`;
+  return `<span class="badge ${map[status] || "badge-neutral"}">${escapeHtml(status)}</span>`;
 }
 
 // ---------------------------------------------------------------
@@ -83,7 +85,7 @@ function startInlinePanelProductEdit(cell) {
   input.focus();
   input.select();
   let finished = false;
-  const save = () => {
+  const save = async () => {
     if (finished) return;
     finished = true;
     const value = input.value.trim();
@@ -92,15 +94,10 @@ function startInlinePanelProductEdit(cell) {
       renderProductsPanel();
       return;
     }
-    if (field === "price") {
-      const pricing = calculateProductPricing(value, product.gstPercentage ?? product.gst);
-      updateProduct(product.id, {
-        price: value,
-        ...pricing,
-        gst: pricing.gstPercentage,
-      });
-    } else {
-      updateProduct(product.id, { [field]: value });
+    try {
+      await saveProduct(product.id, { [field]: value });
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't update the product."), "error");
     }
     renderProductOptions();
     renderProductsPanel();
@@ -192,18 +189,17 @@ function renderProductsPanel() {
     }),
   );
   el.querySelectorAll(".delete-product-btn").forEach((btn) =>
-    btn.addEventListener("click", () => {
-      if (
-        confirm(
-          "Delete this product? Leads linked to it will show as unassigned.",
-        )
-      ) {
-        deleteProduct(btn.dataset.id);
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this product? Leads linked to it will show as unassigned.")) return;
+      try {
+        await removeProduct(btn.dataset.id);
         showToast("Product deleted.", "success");
-        renderProductsPanel();
-        renderProductOptions();
-        renderTable();
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't delete the product."), "error");
       }
+      renderProductsPanel();
+      renderProductOptions();
+      renderTable();
     }),
   );
 }
@@ -240,7 +236,8 @@ function autoFillValue() {
 }
 
 document.getElementById("fProduct").addEventListener("change", () => {
-  toggleQuantityField();
+  // Keep the quantity already typed (or loaded for an existing lead).
+  toggleQuantityField(document.getElementById("fQuantity").value);
   autoFillValue();
   const product = getProducts().find((p) => p.id === document.getElementById("fProduct").value);
   quotationItems = product ? [{ productId: product.id, quantity: document.getElementById("fQuantity").value || 1, unitPrice: product.price || "", discount: 0, tax: 0 }] : [];
@@ -337,6 +334,8 @@ function openModal(lead = null) {
   renderQuotationItems();
   renderQuotationTotals();
   document.getElementById("fProduct").dispatchEvent(new Event("change"));
+  // The change handler recomputes the value from price × quantity; an existing lead keeps its saved value.
+  if (lead) document.getElementById("fValue").value = lead.value || "";
   quotationBaseline = lead ? quotationSignature() : "";
   modalOverlay.classList.add("open");
 }
@@ -358,67 +357,50 @@ document.getElementById("fUnitPrice").addEventListener("input", () => { if (quot
 document.getElementById("fDiscount").addEventListener("input", () => { if (quotationItems[0]) quotationItems[0].discount = document.getElementById("fDiscount").value; renderQuotationTotals(); });
 document.getElementById("fTax").addEventListener("input", () => { if (quotationItems[0]) quotationItems[0].tax = document.getElementById("fTax").value; renderQuotationTotals(); });
 
-leadForm.addEventListener("submit", (e) => {
+leadForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("editId").value;
-  const data = {
-    name: document.getElementById("fName").value.trim(),
-    email: document.getElementById("fEmail").value.trim(),
-    phone: document.getElementById("fPhone").value.trim(),
-    company: document.getElementById("fCompany").value.trim(),
-    product: document.getElementById("fProduct").value,
-    quantity: document.getElementById("fProduct").value
-      ? document.getElementById("fQuantity").value
-      : "",
-    status: document.getElementById("fStatus").value,
-    value: document.getElementById("fValue").value,
-    followUp: document.getElementById("fFollowUp").value,
-    notes: document.getElementById("fNotes").value.trim(),
-  };
-  if (!data.name) {
+  const name = document.getElementById("fName").value.trim();
+  if (!name) {
     showToast("Full name is required.", "error");
     return;
   }
-  let leadMessage = id ? "Lead updated" : "Lead created successfully";
-  let leadId = id;
-  if (id) {
-    const existingLead = getLeads().find((lead) => lead.id === id);
-    updateLead(id, data);
-    if (existingLead?.status !== "Won" && data.status === "Won") {
-      const customerId = ensureWonCustomer({ ...existingLead, ...data }, "lead");
-      updateLead(id, { convertedCustomerId: customerId });
-    }
-    addLeadActivity(id, "Lead updated", "Lead details updated");
-  } else {
-    const savedLead = addLead(data);
-    leadId = savedLead.id;
-    // A lead created directly as Won converts the same way as one moved to Won.
-    if (data.status === "Won") {
-      updateLead(leadId, { convertedCustomerId: ensureWonCustomer(savedLead, "lead") });
-    }
-    addLeadActivity(leadId, "Lead created", "Lead created");
+  const status = document.getElementById("fStatus").value;
+  const existing = id ? getLeads().find((lead) => lead.id === id) : null;
+  let lostReason = null;
+  if (status === "Lost" && existing?.status !== "Lost") {
+    lostReason = askLostReason(name);
+    if (!lostReason) return;
   }
-  let quotationNumber = "";
-  let quotationAction = "";
+  const productId = document.getElementById("fProduct").value;
+  const quantity = document.getElementById("fQuantity").value;
+  const payload = {
+    contact: {
+      name,
+      email: document.getElementById("fEmail").value.trim(),
+      phone: document.getElementById("fPhone").value.trim(),
+      company: document.getElementById("fCompany").value.trim(),
+    },
+    productId: productId || null,
+    quantity: productId && quantity !== "" ? Number(quantity) : null,
+    stage: status,
+    ...(lostReason && { lostReason }),
+    expectedValuePaise: toPaise(document.getElementById("fValue").value),
+    followUpAt: document.getElementById("fFollowUp").value || null,
+    notes: document.getElementById("fNotes").value.trim(),
+  };
+  // Only changed quotation items touch quotations (an ordinary lead edit must not).
   const quotationChanged = quotationItems.length > 0 && quotationSignature() !== quotationBaseline;
-  if (data.product && leadId && quotationChanged) {
-    const totals = quotationTotals();
-    const quotationData = { leadId, leadName: data.name, company: data.company, email: data.email, phone: data.phone, quotationDate: new Date().toISOString().slice(0, 10), validUntil: quotationDatePlus(30), items: quotationItems, ...totals, status: "Draft" };
-    // Changing the items again updates the lead's draft instead of piling up new quotations.
-    const draft = getQuotations().find((quotation) => quotation.leadId === leadId && quotation.status === "Draft");
-    if (draft) {
-      updateQuotation(draft.id, quotationData);
-      quotationNumber = draft.quotationNumber;
-      quotationAction = "updated";
-    } else {
-      quotationNumber = addQuotation(quotationData).quotationNumber;
-      quotationAction = "created";
-    }
-    addLeadActivity(leadId, `Quotation ${quotationAction}`, `Quotation ${quotationAction}: ${quotationNumber}`);
+  try {
+    const lead = id ? await updateLeadRecord(id, payload) : await createLead(payload);
+    const quotation = productId && quotationChanged ? await saveLeadQuotation(lead.id, quotationItems) : null;
+    closeModal();
+    if (quotation) showToast(`${id ? "Lead updated" : "Lead created"} and quotation ${quotation.action} · ${quotation.quotationNumber}`, "success");
+    else showToast(id ? "Lead updated." : "Lead created successfully.", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the lead."), "error");
+    return;
   }
-  closeModal();
-  if (quotationNumber) showToast(`${id ? "Lead updated" : "Lead created"} and quotation ${quotationAction} · ${quotationNumber}`, "success");
-  else showToast(`${leadMessage}.`, "success");
   renderProductsPanel();
   renderTable();
 });
@@ -483,7 +465,7 @@ productModalOverlay.addEventListener("click", (e) => {
   }
 });
 
-productForm.addEventListener("submit", (e) => {
+productForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const cameFromLead = openedProductModalFromLead;
@@ -503,17 +485,13 @@ productForm.addEventListener("submit", (e) => {
     gst: document.getElementById("pGst").value || "0",
     description: document.getElementById("pDescription").value.trim(),
   };
-  const pricing = calculateProductPricing(product.price, product.gst);
-  Object.assign(product, pricing, { price: product.price, gst: pricing.gstPercentage });
-
   let savedId = editId;
-  if (editId) {
-    updateProduct(editId, product);
-    showToast("Product updated.", "success");
-  } else {
-    const saved = addProduct(product);
-    savedId = saved.id;
-    showToast("Product added.", "success");
+  try {
+    savedId = (await saveProduct(editId || null, product)).id;
+    showToast(editId ? "Product updated." : "Product added.", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the product."), "error");
+    return;
   }
   closeProductModal();
   renderProductOptions(savedId);
@@ -613,21 +591,29 @@ function renderNotesList() {
   );
 }
 
-function saveNoteField(noteId, field, value) {
-  const lead = getLeads().find((l) => l.id === currentNotesLeadId);
-  if (!lead) return;
-  const notes = getLeadNoteEntries(lead);
-  const idx = notes.findIndex((n) => n.id === noteId);
-  if (idx === -1) return;
-  notes[idx] = { ...notes[idx], [field]: value };
-  updateLead(currentNotesLeadId, { noteEntries: notes });
+async function persistNoteEntries(notes) {
+  try {
+    await updateLeadRecord(currentNotesLeadId, { noteEntries: notes });
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the note."), "error");
+  }
   renderTable();
 }
 
-function addNoteEntry() {
+function saveNoteField(noteId, field, value) {
   const lead = getLeads().find((l) => l.id === currentNotesLeadId);
   if (!lead) return;
-  const notes = getLeadNoteEntries(lead);
+  const notes = [...getLeadNoteEntries(lead)];
+  const idx = notes.findIndex((n) => n.id === noteId);
+  if (idx === -1) return;
+  notes[idx] = { ...notes[idx], [field]: value };
+  persistNoteEntries(notes);
+}
+
+async function addNoteEntry() {
+  const lead = getLeads().find((l) => l.id === currentNotesLeadId);
+  if (!lead) return;
+  const notes = [...getLeadNoteEntries(lead)];
   const newNote = {
     id: "n_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     title: `Note ${notes.length + 1}`,
@@ -635,9 +621,8 @@ function addNoteEntry() {
     createdAt: new Date().toISOString(),
   };
   notes.push(newNote);
-  updateLead(currentNotesLeadId, { noteEntries: notes });
+  await persistNoteEntries(notes);
   renderNotesList();
-  renderTable();
 
   // Focus the newly added note's textarea so the user can start typing.
   requestAnimationFrame(() => {
@@ -648,13 +633,12 @@ function addNoteEntry() {
   });
 }
 
-function deleteNoteEntry(noteId) {
+async function deleteNoteEntry(noteId) {
   const lead = getLeads().find((l) => l.id === currentNotesLeadId);
   if (!lead) return;
   const notes = getLeadNoteEntries(lead).filter((n) => n.id !== noteId);
-  updateLead(currentNotesLeadId, { noteEntries: notes });
+  await persistNoteEntries(notes);
   renderNotesList();
-  renderTable();
 }
 
 function startInlineLeadEdit(cell) {
@@ -668,7 +652,7 @@ function startInlineLeadEdit(cell) {
     control.innerHTML = '<option value="">— Add Product —</option>' + getProducts().map((product) => `<option value="${product.id}">${escapeHtml(product.name)}</option>`).join("");
     control.value = lead.product || "";
   } else if (field === "status") {
-    control.innerHTML = ["New", "In Progress", "Won", "Lost"].map((status) => `<option>${status}</option>`).join("");
+    control.innerHTML = LEAD_STAGES.map((status) => `<option>${status}</option>`).join("");
     control.value = lead.status || "New";
   } else {
     control.type = field === "value" ? "number" : field === "followUp" ? "date" : field === "email" ? "email" : "text";
@@ -680,18 +664,27 @@ function startInlineLeadEdit(cell) {
   control.focus();
   if (control.select) control.select();
   let finished = false;
-  const save = () => {
+  const save = async () => {
     if (finished) return;
     finished = true;
-    const patch = { [field]: control.value };
-    if (field === "product") {
-      const product = getProducts().find((item) => item.id === control.value);
-      patch.quantity = product ? lead.quantity || "" : "";
-    }
-    updateLead(lead.id, patch);
-    if (field === "status" && lead.status !== "Won" && patch.status === "Won") {
-      const customerId = ensureWonCustomer({ ...lead, ...patch }, "lead");
-      updateLead(lead.id, { convertedCustomerId: customerId });
+    const value = control.value;
+    try {
+      if (field === "status") {
+        if (value !== lead.status) {
+          const lostReason = value === "Lost" ? askLostReason(lead.name) : null;
+          if (value !== "Lost" || lostReason) await changeLeadStage(lead.id, value, lostReason);
+        }
+      } else if (["name", "company", "email"].includes(field)) {
+        await updateLeadRecord(lead.id, { contact: { [field]: value.trim() } });
+      } else if (field === "product") {
+        await updateLeadRecord(lead.id, { productId: value || null, quantity: value ? Number(lead.quantity) || null : null });
+      } else if (field === "value") {
+        await updateLeadRecord(lead.id, { expectedValuePaise: toPaise(value) });
+      } else if (field === "followUp") {
+        await updateLeadRecord(lead.id, { followUpAt: value || null });
+      }
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't update the lead."), "error");
     }
     renderTable();
   };
@@ -779,13 +772,16 @@ function renderTable() {
     btn.addEventListener("click", () => openNotesModal(btn.dataset.id)),
   );
   container.querySelectorAll(".delete-btn").forEach((btn) =>
-    btn.addEventListener("click", () => {
-      if (confirm("Delete this lead?")) {
-        deleteLead(btn.dataset.id);
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this lead?")) return;
+      try {
+        await removeLead(btn.dataset.id);
         showToast("Lead deleted.", "success");
-        renderProductsPanel();
-        renderTable();
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't delete the lead."), "error");
       }
+      renderProductsPanel();
+      renderTable();
     }),
   );
 }
@@ -793,6 +789,8 @@ function renderTable() {
 document.getElementById("searchInput").addEventListener("input", renderTable);
 document.getElementById("filterStatus").addEventListener("change", renderTable);
 
-renderProductOptions();
-renderProductsPanel();
-renderTable();
+crmReady(["leads", "products", "members", "quotations"], () => {
+  renderProductOptions();
+  renderProductsPanel();
+  renderTable();
+});

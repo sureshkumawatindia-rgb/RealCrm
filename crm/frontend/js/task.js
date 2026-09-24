@@ -105,11 +105,8 @@ function assigneeNames() {
     ),
   ];
 }
-// Deals aren't stored via a shared app.js helper, so read directly.
 function dealNames() {
-  const raw = localStorage.getItem("crm_deals");
-  const list = raw ? JSON.parse(raw) : [];
-  return list.map((d) => d.name).filter(Boolean);
+  return getDeals().map((d) => d.name).filter(Boolean);
 }
 function relatedOptionsForType(type) {
   switch (type) {
@@ -508,7 +505,7 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 initSidebarToggle();
-renderAll();
+crmReady(["leads", "contacts", "products", "members"], renderAll);
 
 // Search & filters
 [

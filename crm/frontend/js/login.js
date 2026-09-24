@@ -55,11 +55,16 @@ async function showInviteDetails() {
   }
 }
 
-// Where to go after sign-in: owners/admins set up an empty company profile first.
+// Where to go after sign-in: owners/admins set up an empty company profile first;
+// agents and viewers without the dashboard start on the first page they may open.
 async function nextPage(member) {
+  const managers = ["owner", "admin"];
+  if (!managers.includes(member?.role) && !(member?.modules || []).includes("dashboard")) {
+    const first = Object.entries(PAGE_MODULES).find(([, module]) => (member?.modules || []).includes(module));
+    return first ? encodeURI(first[0]) : "Settings.html";
+  }
   try {
     const { company } = await loadCompanyProfile();
-    const managers = ["owner", "admin"];
     return companyHasDetails(company) || !managers.includes(member?.role) ? "dashboard.html" : "company.html";
   } catch {
     return "dashboard.html";

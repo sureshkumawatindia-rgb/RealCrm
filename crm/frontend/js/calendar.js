@@ -82,8 +82,7 @@ function readTasks() {
   return raw ? JSON.parse(raw) : [];
 }
 function readDeals() {
-  const raw = localStorage.getItem("crm_deals");
-  return raw ? JSON.parse(raw) : [];
+  return getDeals();
 }
 
 // ---------------------------------------------------------------
@@ -729,7 +728,7 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 initSidebarToggle();
-renderAll();
+crmReady(["leads", "contacts", "products", "members"], renderAll);
 
 document.getElementById("prevMonthBtn").addEventListener("click", () => {
   viewMonth -= 1;

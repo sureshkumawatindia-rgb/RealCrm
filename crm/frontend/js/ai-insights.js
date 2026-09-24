@@ -17,8 +17,7 @@ initSidebarToggle();
 // Direct reads for modules without shared app.js helpers
 // ---------------------------------------------------------------
 function readDeals() {
-  const raw = localStorage.getItem("crm_deals");
-  return raw ? JSON.parse(raw) : [];
+  return getDeals();
 }
 
 function safeGetLeads() {
@@ -48,7 +47,7 @@ function initials(name) {
     .join("");
 }
 
-const STAGE_ORDER = ["Lead", "Qualified", "Proposal", "Negotiation"];
+const STAGE_ORDER = OPEN_LEAD_STAGES;
 
 // ---------------------------------------------------------------
 // Derive KPI figures from real deals
@@ -526,7 +525,7 @@ function renderAll() {
   renderPriorityDeals();
 }
 
-renderAll();
+crmReady(["leads", "contacts", "products", "members"], renderAll);
 renderAskSuggestions();
 
 document.getElementById("refreshInsightsBtn").addEventListener("click", () => {

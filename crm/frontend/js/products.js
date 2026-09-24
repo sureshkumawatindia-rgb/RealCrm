@@ -1,10 +1,9 @@
 /**
  * products.js — Products module (catalog table + KPIs)
- * Persists to localStorage under 'crm_products' via the shared
- * getProducts/addProduct/updateProduct/deleteProduct helpers in app.js.
- * Reads 'crm_leads' (via getLeads) to show how many leads want each
- * product. Reuses shared helpers from app.js (showToast,
- * renderSidebarUser, initSidebarToggle, requireAuth).
+ * Products live on the CRM backend (getProducts / saveProduct / removeProduct
+ * in app.js). Leads are loaded too, to show how many leads want each product.
+ * Reuses shared helpers from app.js (showToast, renderSidebarUser,
+ * initSidebarToggle, requireAuth).
  */
 
 requireAuth();
@@ -67,7 +66,7 @@ function startInlineProductEdit(cell) {
   input.focus();
   input.select();
   let finished = false;
-  const save = () => {
+  const save = async () => {
     if (finished) return;
     finished = true;
     const value = input.value.trim();
@@ -76,17 +75,12 @@ function startInlineProductEdit(cell) {
       renderTable();
       return;
     }
-    if (field === "price") {
-      const pricing = calculateProductPricing(value, product.gstPercentage ?? product.gst);
-      updateProduct(product.id, {
-        price: value,
-        ...pricing,
-        gst: pricing.gstPercentage,
-      });
-    } else {
-      updateProduct(product.id, { [field]: value });
+    try {
+      await saveProduct(product.id, { [field]: value });
+      showToast("Product updated.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't update the product."), "error");
     }
-    showToast("Product updated.", "success");
     renderAll();
   };
   input.addEventListener("blur", save);
@@ -282,17 +276,20 @@ function closeModal() {
   productForm.reset();
 }
 
-function confirmDelete(id) {
+async function confirmDelete(id) {
   const product = getProducts().find((p) => p.id === id);
   if (!product) return;
   const leadCount = getLeads().filter((l) => l.product === id).length;
   const warning = leadCount
     ? ` ${leadCount} lead${leadCount === 1 ? " is" : "s are"} linked to it and will show as unassigned.`
     : "";
-  if (confirm(`Delete "${product.name}"? This can't be undone.${warning}`)) {
-    deleteProduct(id);
+  if (!confirm(`Delete "${product.name}"? This can't be undone.${warning}`)) return;
+  try {
+    await removeProduct(id);
     showToast("Product deleted.", "success");
     renderAll();
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't delete the product."), "error");
   }
 }
 
@@ -308,7 +305,7 @@ function renderAll() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-renderAll();
+crmReady(["products", "leads", "members"], renderAll);
 
 document.getElementById("searchInput").addEventListener("input", renderTable);
 document
@@ -337,7 +334,7 @@ document.getElementById("deleteBtn").addEventListener("click", () => {
   }
 });
 
-productForm.addEventListener("submit", (e) => {
+productForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("editId").value;
   const data = {
@@ -352,15 +349,12 @@ productForm.addEventListener("submit", (e) => {
     showToast("Product name is required.", "error");
     return;
   }
-  const pricing = calculateProductPricing(data.price, data.gst);
-  Object.assign(data, pricing, { price: data.price, gst: pricing.gstPercentage });
-  if (id) {
-    updateProduct(id, data);
-    showToast("Product updated.", "success");
-  } else {
-    addProduct(data);
-    showToast("Product added.", "success");
+  try {
+    await saveProduct(id || null, data);
+    showToast(id ? "Product updated." : "Product added.", "success");
+    closeModal();
+    renderAll();
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the product."), "error");
   }
-  closeModal();
-  renderAll();
 });

@@ -597,7 +597,7 @@ function renderAll() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-renderAll();
+crmReady(["members"], renderAll);
 
 document
   .getElementById("tabWorkflowsBtn")

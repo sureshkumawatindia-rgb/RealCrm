@@ -591,7 +591,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebarUser();
   initSidebarToggle();
 
-  renderAll();
+  crmReady(["members"], renderAll);
   initStageFilterButtons(); // NEW: wire up the DRAFT/SCHEDULED/... pills
 
   // Search & filters

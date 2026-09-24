@@ -13,9 +13,9 @@ renderSidebarUser();
 initSidebarToggle();
 
 const STAGE_DOT = {
-  Lead: "var(--info)",
-  Qualified: "var(--brand-darker)",
-  Proposal: "var(--warning)",
+  New: "var(--info)",
+  Contacted: "var(--brand-darker)",
+  "Quote Sent": "var(--warning)",
   Negotiation: "#7c3aed",
   Won: "var(--success)",
   Lost: "var(--danger)",
@@ -52,21 +52,22 @@ function todayStr() {
 function statusBadge(status) {
   const map = {
     New: "badge-info",
-    "In Progress": "badge-warning",
+    Contacted: "badge-warning",
+    "Quote Sent": "badge-brand",
+    Negotiation: "badge-warning",
     Won: "badge-success",
     Lost: "badge-danger",
     Active: "badge-success",
     Inactive: "badge-neutral",
   };
-  return `<span class="badge ${map[status] || "badge-neutral"}">${status}</span>`;
+  return `<span class="badge ${map[status] || "badge-neutral"}">${escapeHtml(status)}</span>`;
 }
 
 // ---------------------------------------------------------------
 // Direct localStorage reads for modules without shared helpers
 // ---------------------------------------------------------------
 function readDeals() {
-  const raw = localStorage.getItem("crm_deals");
-  return raw ? JSON.parse(raw) : [];
+  return getDeals();
 }
 function readTasks() {
   const raw = localStorage.getItem("crm_tasks");
@@ -219,14 +220,7 @@ function renderPipeline() {
     return;
   }
 
-  const stages = [
-    "Lead",
-    "Qualified",
-    "Proposal",
-    "Negotiation",
-    "Won",
-    "Lost",
-  ];
+  const stages = LEAD_STAGES;
   const maxValue = Math.max(
     ...stages.map((s) =>
       deals
@@ -499,5 +493,5 @@ function renderDashboard() {
   renderTeamWorkload();
 }
 
-renderDashboard();
+crmReady(["leads", "contacts", "products", "members"], renderDashboard);
 initQuickActions();

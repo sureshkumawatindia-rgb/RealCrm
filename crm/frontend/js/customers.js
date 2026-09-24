@@ -64,7 +64,7 @@ productModalOverlay.addEventListener("click", (e) => {
   if (e.target === productModalOverlay) closeProductModal();
 });
 
-productForm.addEventListener("submit", (e) => {
+productForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = document.getElementById("pName").value.trim();
   if (!name) {
@@ -78,12 +78,15 @@ productForm.addEventListener("submit", (e) => {
     quantity: document.getElementById("pQuantity").value,
     description: document.getElementById("pDescription").value.trim(),
   };
-  const saved = addProduct(product);
-  showToast("Product added.", "success");
-  closeProductModal();
-
-  // Refresh the dropdown in the customer modal and auto-select the new product
-  populateProductOptions(saved.id);
+  try {
+    const saved = await saveProduct(null, product);
+    showToast("Product added.", "success");
+    closeProductModal();
+    // Refresh the dropdown in the customer modal and auto-select the new product
+    populateProductOptions(saved.id);
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't add the product."), "error");
+  }
 });
 
 // ---------------------------------------------------------------
@@ -140,7 +143,7 @@ modalOverlay.addEventListener("click", (e) => {
   if (e.target === modalOverlay) closeModal();
 });
 
-customerForm.addEventListener("submit", (e) => {
+customerForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("editId").value;
   const data = {
@@ -155,15 +158,15 @@ customerForm.addEventListener("submit", (e) => {
     showToast("Name and email are required.", "error");
     return;
   }
-  if (id) {
-    updateCustomer(id, data);
-    showToast("Customer updated.", "success");
-  } else {
-    addCustomer(data);
-    showToast("Customer added.", "success");
+  try {
+    // A new customer is a contact that already buys from you (lifecycle "customer").
+    await saveContact(id || null, id ? data : { ...data, lifecycle: "customer" });
+    showToast(id ? "Customer updated." : "Customer added.", "success");
+    closeModal();
+    renderTable();
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the customer."), "error");
   }
-  closeModal();
-  renderTable();
 });
 
 function renderTable() {
@@ -218,11 +221,14 @@ function renderTable() {
     }),
   );
   container.querySelectorAll(".delete-btn").forEach((btn) =>
-    btn.addEventListener("click", () => {
-      if (confirm("Delete this customer?")) {
-        deleteCustomer(btn.dataset.id);
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this customer?")) return;
+      try {
+        await removeContact(btn.dataset.id);
         showToast("Customer deleted.", "success");
         renderTable();
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't delete the customer."), "error");
       }
     }),
   );
@@ -231,4 +237,4 @@ function renderTable() {
 document.getElementById("searchInput").addEventListener("input", renderTable);
 document.getElementById("filterStatus").addEventListener("change", renderTable);
 
-renderTable();
+crmReady(["contacts", "products", "members"], renderTable);

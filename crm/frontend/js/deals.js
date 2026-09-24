@@ -1,35 +1,36 @@
 /**
- * deals.js — Deals module (Kanban + Table pipeline)
- * Persists to localStorage under 'crm_deals' and 'crm_deal_tasks'.
- * Reuses shared helpers from app.js (getAgents, getAccounts, getCustomers,
- * showToast, renderSidebarUser, initSidebarToggle, requireAuth).
+ * deals.js — Deals page: the Kanban + table view of the lead pipeline (one pipeline for
+ * leads and deals). Deals are server leads (getDeals / createLead / updateLeadRecord /
+ * changeLeadStage / removeLead in app.js); follow-up tasks still live in 'crm_deal_tasks'
+ * until tasks move to the server. Reuses shared helpers from app.js (getAgents, getAccounts,
+ * getCustomers, showToast, renderSidebarUser, initSidebarToggle, requireAuth).
  */
 
-const DEALS_KEY = "crm_deals";
 const DEAL_TASKS_KEY = "crm_deal_tasks";
 
-const STAGES = ["Lead", "Qualified", "Proposal", "Negotiation", "Won", "Lost"];
-const DEFAULT_VISIBLE_STAGES = ["Lead", "Won"];
+const STAGES = LEAD_STAGES;
+const DEFAULT_VISIBLE_STAGES = ["New", "Won"];
+// Shown in the form; the server sets the real probability from the stage.
 const STAGE_DEFAULT_PROB = {
-  Lead: 10,
-  Qualified: 25,
-  Proposal: 50,
+  New: 10,
+  Contacted: 25,
+  "Quote Sent": 50,
   Negotiation: 75,
   Won: 100,
   Lost: 0,
 };
 const STAGE_DOT = {
-  Lead: "var(--info)",
-  Qualified: "var(--brand-darker)",
-  Proposal: "var(--warning)",
+  New: "var(--info)",
+  Contacted: "var(--brand-darker)",
+  "Quote Sent": "var(--warning)",
   Negotiation: "#7c3aed",
   Won: "var(--success)",
   Lost: "var(--danger)",
 };
 const STAGE_BADGE_CLASS = {
-  Lead: "badge-stage-lead",
-  Qualified: "badge-stage-qualified",
-  Proposal: "badge-stage-proposal",
+  New: "badge-stage-lead",
+  Contacted: "badge-stage-qualified",
+  "Quote Sent": "badge-stage-proposal",
   Negotiation: "badge-stage-negotiation",
   Won: "badge-stage-won",
   Lost: "badge-stage-lost",
@@ -38,40 +39,9 @@ const STAGE_BADGE_CLASS = {
 let currentView = "kanban";
 let draggingId = null;
 let selectedStage = null;
-// ---------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------
-function getDeals() {
-  const raw = localStorage.getItem(DEALS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveDeals(list) {
-  localStorage.setItem(DEALS_KEY, JSON.stringify(list));
-}
-function addDeal(deal) {
-  const list = getDeals();
-  deal.id =
-    "d_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  deal.createdAt = new Date().toISOString();
-  deal.notes = [];
-  list.unshift(deal);
-  saveDeals(list);
-  return deal;
-}
-function updateDeal(id, patch) {
-  const list = getDeals();
-  const idx = list.findIndex((d) => d.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveDeals(list);
-  }
-  return list[idx];
-}
-function deleteDeal(id) {
-  saveDeals(getDeals().filter((d) => d.id !== id));
-}
+
 function getDeal(id) {
-  return getDeals().find((d) => d.id === id);
+  return getDeals().find((d) => String(d.id) === String(id));
 }
 
 function getDealTasks() {
@@ -312,16 +282,12 @@ function attachDragEvents() {
       const newStage = col.dataset.stage;
       const deal = getDeal(draggingId);
       if (!deal || deal.stage === newStage) return;
-      updateDeal(draggingId, {
-        stage: newStage,
-        probability: STAGE_DEFAULT_PROB[newStage],
-      });
-      if (newStage === "Won") {
-        const customerId = ensureWonCustomer({ ...deal, stage: newStage }, "deal");
-        updateDeal(draggingId, { convertedCustomerId: customerId });
-      }
-      showToast(`Moved "${deal.name}" to ${newStage}`, "success");
-      renderAll();
+      const lostReason = newStage === "Lost" ? askLostReason(deal.name) : null;
+      if (newStage === "Lost" && !lostReason) return;
+      changeLeadStage(deal.id, newStage, lostReason)
+        .then(() => showToast(`Moved "${deal.name}" to ${newStage}`, "success"))
+        .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the deal."), "error"))
+        .finally(renderAll);
     });
   });
 }
@@ -364,7 +330,7 @@ function renderTable() {
             <td><strong>${escapeHtml(d.name)}</strong></td>
             <td>${escapeHtml(d.account)}</td>
             <td>${formatCurrency(d.value)}</td>
-            <td><span class="badge ${STAGE_BADGE_CLASS[d.stage]}">${d.stage}</span></td>
+            <td><span class="badge ${STAGE_BADGE_CLASS[d.stage]}">${escapeHtml(d.stage)}</span></td>
             <td>${d.probability}%</td>
             <td>${formatDate(d.closeDate)}</td>
             <td>${escapeHtml(d.owner)}</td>
@@ -546,14 +512,12 @@ function renderCalendarTab() {
 // ---------------------------------------------------------------
 function populateOwnerSelect() {
   const sel = document.getElementById("fOwner");
-  const owners = ownerNames();
-  sel.innerHTML = owners.length
-    ? owners
-        .map(
-          (n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`,
-        )
-        .join("")
-    : `<option value="" disabled selected>Add an agent first (Account Champions)</option>`;
+  const agents = getAgents();
+  sel.innerHTML = agents
+    .map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`)
+    .join("");
+  const me = getCurrentMember();
+  if (me) sel.value = me.id;
 }
 function populateFilterOwners() {
   const sel = document.getElementById("filterOwner");
@@ -595,7 +559,7 @@ function openModal(id) {
     document.getElementById("fValue").value = deal.value;
     document.getElementById("fCloseDate").value = deal.closeDate || "";
     document.getElementById("fStage").value = deal.stage;
-    document.getElementById("fOwner").value = deal.owner;
+    if (deal.ownerId) document.getElementById("fOwner").value = deal.ownerId;
     document.getElementById("fProbability").value = deal.probability;
     document.getElementById("fProbabilityValue").textContent =
       `${deal.probability}%`;
@@ -605,10 +569,10 @@ function openModal(id) {
   } else {
     document.getElementById("modalTitle").textContent = "New Deal";
     document.getElementById("editId").value = "";
-    document.getElementById("fStage").value = "Lead";
-    document.getElementById("fProbability").value = STAGE_DEFAULT_PROB["Lead"];
+    document.getElementById("fStage").value = "New";
+    document.getElementById("fProbability").value = STAGE_DEFAULT_PROB.New;
     document.getElementById("fProbabilityValue").textContent =
-      `${STAGE_DEFAULT_PROB["Lead"]}%`;
+      `${STAGE_DEFAULT_PROB.New}%`;
     deleteBtn.style.display = "none";
     timelineSection.style.display = "none";
   }
@@ -620,20 +584,25 @@ function closeModal() {
   document.getElementById("modalOverlay").classList.remove("open");
 }
 
-function renderTimeline(deal) {
+async function renderTimeline(deal) {
   const el = document.getElementById("timelineList");
-  const notes = deal.notes || [];
-  el.innerHTML = notes.length
-    ? notes
-        .slice()
-        .reverse()
+  el.innerHTML = `<div class="text-muted" style="font-size:12.5px">Loading activity…</div>`;
+  let activities = [];
+  try {
+    activities = await getLeadActivities(deal.id);
+  } catch (error) {
+    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, "Couldn't load activity."))}</div>`;
+    return;
+  }
+  el.innerHTML = activities.length
+    ? activities
         .map(
           (n) => `
       <div class="timeline-item">
         <span class="dot"></span>
         <div class="body">
-          <div class="text">${escapeHtml(n.text)}</div>
-          <div class="meta">${escapeHtml(n.author || "")} · ${formatDate(n.at)}</div>
+          <div class="text">${escapeHtml(n.text || n.type)}</div>
+          <div class="meta">${escapeHtml(n.actorName || "")} · ${formatDate(n.createdAt)}</div>
         </div>
       </div>`,
         )
@@ -641,33 +610,33 @@ function renderTimeline(deal) {
     : `<div class="text-muted" style="font-size:12.5px">No activity yet.</div>`;
 }
 
-function addNoteToDeal() {
+async function addNoteToDeal() {
   const id = document.getElementById("editId").value;
   if (!id) return;
   const input = document.getElementById("noteInput");
   const text = input.value.trim();
   if (!text) return;
-  const deal = getDeal(id);
-  const notes = deal.notes || [];
-  notes.push({
-    text,
-    at: new Date().toISOString(),
-    author: getCurrentUser()?.name || "You",
-  });
-  const updated = updateDeal(id, { notes });
-  input.value = "";
-  renderTimeline(updated);
-  showToast("Note added", "success");
+  try {
+    await addLeadNote(id, text);
+    input.value = "";
+    renderTimeline(getDeal(id));
+    showToast("Note added", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+  }
 }
 
-function confirmDelete(id) {
+async function confirmDelete(id) {
   const deal = getDeal(id);
   if (!deal) return;
-  if (confirm(`Delete "${deal.name}"? This can't be undone.`)) {
-    deleteDeal(id);
+  if (!confirm(`Delete "${deal.name}"? This can't be undone.`)) return;
+  try {
+    await removeLead(id);
     showToast("Deal deleted", "success");
-    renderAll();
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't delete the deal."), "error");
   }
+  renderAll();
 }
 
 // ---------------------------------------------------------------
@@ -700,7 +669,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebarUser();
   initSidebarToggle();
 
-  renderAll();
+  crmReady(["leads", "members", "contacts"], renderAll);
   initKanbanStageButtons();
 
   // Search & filters
@@ -804,36 +773,39 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Save (create / update)
-  document.getElementById("dealForm").addEventListener("submit", (e) => {
+  document.getElementById("dealForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = document.getElementById("editId").value;
-    const payload = {
-      name: document.getElementById("fName").value.trim(),
-      account: document.getElementById("fAccount").value.trim(),
-      contact: document.getElementById("fContact").value.trim(),
-      value: parseFloat(document.getElementById("fValue").value) || 0,
-      closeDate: document.getElementById("fCloseDate").value,
-      stage: document.getElementById("fStage").value,
-      owner: document.getElementById("fOwner").value,
-      probability: parseInt(document.getElementById("fProbability").value, 10),
-    };
+    const name = document.getElementById("fName").value.trim();
+    const account = document.getElementById("fAccount").value.trim();
+    const contact = document.getElementById("fContact").value.trim();
+    const closeDate = document.getElementById("fCloseDate").value;
+    const stage = document.getElementById("fStage").value;
 
-    if (!payload.name || !payload.account || !payload.closeDate) {
+    if (!name || !account || !closeDate) {
       showToast("Please fill in all required fields", "error");
       return;
     }
+    const existing = id ? getDeal(id) : null;
+    const lostReason = stage === "Lost" && existing?.stage !== "Lost" ? askLostReason(name) : null;
+    if (stage === "Lost" && existing?.stage !== "Lost" && !lostReason) return;
 
-    if (id) {
-      const existingDeal = getDeal(id);
-      updateDeal(id, payload);
-      if (existingDeal?.stage !== "Won" && payload.stage === "Won") {
-        const customerId = ensureWonCustomer({ ...existingDeal, ...payload }, "deal");
-        updateDeal(id, { convertedCustomerId: customerId });
-      }
-      showToast("Deal updated", "success");
-    } else {
-      addDeal(payload);
-      showToast("Deal created", "success");
+    const payload = {
+      title: name,
+      contact: { name: contact || account, company: account },
+      expectedValuePaise: toPaise(document.getElementById("fValue").value) ?? 0,
+      expectedCloseDate: closeDate,
+      stage,
+      ...(lostReason && { lostReason }),
+      ownerId: document.getElementById("fOwner").value || null,
+    };
+    try {
+      if (id) await updateLeadRecord(id, payload);
+      else await createLead(payload);
+      showToast(id ? "Deal updated" : "Deal created", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't save the deal."), "error");
+      return;
     }
     closeModal();
     renderAll();

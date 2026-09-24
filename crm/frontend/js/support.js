@@ -692,7 +692,7 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 initSidebarToggle();
-renderAll();
+crmReady(["contacts", "members"], renderAll);
 initKanbanStageButtons();
 
 // Search & filters

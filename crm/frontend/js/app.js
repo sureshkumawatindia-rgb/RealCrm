@@ -1,7 +1,8 @@
 /**
  * app.js — shared helpers for every page.
- * Sign-in, the company profile and the team live on the CRM backend (crmApi);
- * the other CRM records are still stored in this browser's localStorage.
+ * Sign-in, the company profile, the team, contacts, leads/deals, products and quotations
+ * live on the CRM backend (crmApi, crmLoad). Tasks, events, tickets, documents, campaigns and
+ * automations are still stored in this browser's localStorage until they move too.
  */
 
 const KEYS = {
@@ -9,13 +10,6 @@ const KEYS = {
   USER: "crm_user",
   MEMBER: "crm_member",
   COMPANY: "crm_company",
-  CUSTOMERS: "crm_customers",
-  LEADS: "crm_leads",
-  ACCOUNTS: "crm_accounts",
-  AGENTS: "crm_agents",
-  PRODUCTS: "crm_products",
-  QUOTATIONS: "crm_quotations",
-  LEAD_ACTIVITIES: "crm_lead_activities",
 };
 
 // When the backend serves this page (http://127.0.0.1:3000/crm/frontend/ or a real domain) the
@@ -58,7 +52,8 @@ function refreshAccessToken(staleToken) {
   return refreshInFlight;
 }
 
-async function crmApi(path, options = {}, { retried = false } = {}) {
+// Returns the whole response body ({ data, pagination, ... }); throws with status/code/errors.
+async function crmRequest(path, options = {}, { retried = false } = {}) {
   const headers = new Headers(options.headers || {});
   const session = localStorage.getItem(KEYS.SESSION);
   if (session) headers.set("Authorization", `Bearer ${session}`);
@@ -70,7 +65,7 @@ async function crmApi(path, options = {}, { retried = false } = {}) {
   }
   const body = await response.json().catch(() => ({}));
   if (response.status === 401 && !retried && !sessionEnded && !NO_REFRESH_PATHS.has(path)) {
-    if (await refreshAccessToken(session)) return crmApi(path, options, { retried: true });
+    if (await refreshAccessToken(session)) return crmRequest(path, options, { retried: true });
     endSession();
   }
   if (!response.ok) {
@@ -80,7 +75,11 @@ async function crmApi(path, options = {}, { retried = false } = {}) {
     error.errors = body.errors;
     throw error;
   }
-  return body.data;
+  return body;
+}
+
+async function crmApi(path, options = {}) {
+  return (await crmRequest(path, options)).data;
 }
 
 // ---------------------------------------------------------------
@@ -323,209 +322,145 @@ function renderCompanyDashboardCard() {
 }
 
 // ---------------------------------------------------------------
-// Storage — customers
+// Server data — contacts, leads (also shown as deals), products,
+// quotations and the team. Pages call crmLoad([...]) (or crmReady) once,
+// then read synchronously with the getters below; changes go through
+// the async save/remove helpers, which update the in-memory copy.
 // ---------------------------------------------------------------
-function getCustomers() {
-  const raw = localStorage.getItem(KEYS.CUSTOMERS);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveCustomers(list) {
-  localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(list));
-}
-function addCustomer(customer) {
-  const list = getCustomers();
-  customer.id =
-    "c_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  customer.createdAt = new Date().toISOString();
-  list.unshift(customer);
-  saveCustomers(list);
-  return customer;
-}
-function updateCustomer(id, patch) {
-  const list = getCustomers();
-  const idx = list.findIndex((c) => c.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveCustomers(list);
+const CRM_SOURCES = {
+  contacts: "/contacts",
+  leads: "/leads",
+  products: "/products",
+  members: "/members",
+  quotations: "/quotations",
+};
+const crmCache = {};
+const MAX_LOAD_PAGES = 50; // 50 pages × 100 records per resource
+
+async function crmFetchAll(path) {
+  const items = [];
+  for (let page = 1; page <= MAX_LOAD_PAGES; page += 1) {
+    const body = await crmRequest(`${path}${path.includes("?") ? "&" : "?"}page=${page}&limit=100`);
+    items.push(...(body.data || []));
+    if (!body.pagination?.hasNextPage) break;
   }
-}
-function deleteCustomer(id) {
-  saveCustomers(getCustomers().filter((c) => c.id !== id));
+  return items;
 }
 
-function ensureWonCustomer(record, sourceType) {
-  const sourceKey = sourceType === "deal" ? "sourceDealId" : "sourceLeadId";
-  const sourceCustomerId = record.convertedCustomerId;
-  const linkedCustomer = getCustomers().find(
-    (customer) =>
-      customer.id === sourceCustomerId || customer[sourceKey] === record.id,
+// Loads each resource once per page. A module the member may not open (403) loads as empty.
+async function crmLoad(names, { force = false } = {}) {
+  await Promise.all(
+    names
+      .filter((name) => force || !crmCache[name])
+      .map(async (name) => {
+        try {
+          crmCache[name] = await crmFetchAll(CRM_SOURCES[name]);
+        } catch (error) {
+          if (error.status !== 403) throw error;
+          crmCache[name] = [];
+        }
+      }),
   );
-  const customerData = {
-    name: record.name || record.account || record.company || record.contact || "Unnamed Customer",
-    email: record.email || "",
-    phone: record.phone || "",
-    company: record.company || record.account || "",
-    address: record.address || "",
-    notes: record.notes || "",
-    product: record.product || "",
-    status: "Active",
-    [sourceKey]: record.id,
-  };
-
-  if (linkedCustomer) {
-    updateCustomer(linkedCustomer.id, customerData);
-    return linkedCustomer.id;
-  }
-
-  return addCustomer(customerData).id;
 }
 
-// ---------------------------------------------------------------
-// Storage — leads
-// ---------------------------------------------------------------
-function getLeads() {
-  const raw = localStorage.getItem(KEYS.LEADS);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveLeads(list) {
-  localStorage.setItem(KEYS.LEADS, JSON.stringify(list));
-}
-function addLead(lead) {
-  const list = getLeads();
-  lead.id =
-    "l_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  lead.createdAt = new Date().toISOString();
-  list.unshift(lead);
-  saveLeads(list);
-  return lead;
-}
-function updateLead(id, patch) {
-  const list = getLeads();
-  const idx = list.findIndex((l) => l.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveLeads(list);
+// crmLoad with a loading bar and a retry banner, then runs the page's first render.
+async function crmReady(names, onReady) {
+  document.body.classList.add("crm-loading");
+  document.getElementById("crm-load-error")?.remove();
+  try {
+    await crmLoad(names);
+    document.body.classList.remove("crm-loading");
+    onReady();
+  } catch (error) {
+    document.body.classList.remove("crm-loading");
+    const banner = document.createElement("div");
+    banner.id = "crm-load-error";
+    banner.className = "crm-load-error";
+    banner.setAttribute("role", "alert");
+    banner.innerHTML = `<span></span><button type="button" class="btn btn-outline">Retry</button>`;
+    banner.querySelector("span").textContent = `Couldn't load your CRM data: ${error.message || "unknown error"}`;
+    banner.querySelector("button").addEventListener("click", () => crmReady(names, onReady));
+    document.body.prepend(banner);
   }
 }
-function deleteLead(id) {
-  saveLeads(getLeads().filter((l) => l.id !== id));
+
+function cached(name) {
+  return crmCache[name] || [];
+}
+function cacheUpsert(name, item) {
+  const list = crmCache[name] || (crmCache[name] = []);
+  const index = list.findIndex((existing) => String(existing.id) === String(item.id));
+  if (index === -1) list.unshift(item);
+  else list[index] = item;
+  return item;
+}
+function cacheDrop(name, id) {
+  crmCache[name] = cached(name).filter((item) => String(item.id) !== String(id));
 }
 
-// ---------------------------------------------------------------
-// Storage — lead activity timeline
-// ---------------------------------------------------------------
-function getLeadActivities() {
-  const raw = localStorage.getItem(KEYS.LEAD_ACTIVITIES);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveLeadActivities(list) {
-  localStorage.setItem(KEYS.LEAD_ACTIVITIES, JSON.stringify(list));
-}
-function addLeadActivity(leadId, type, text) {
-  const list = getLeadActivities();
-  const activity = {
-    id: "act_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    leadId,
-    type,
-    text,
-    createdAt: new Date().toISOString(),
-  };
-  list.unshift(activity);
-  saveLeadActivities(list);
-  return activity;
+const jsonRequest = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const toPaise = (rupees) => (rupees === "" || rupees == null || Number.isNaN(Number(rupees)) ? null : Math.round(Number(rupees) * 100));
+const toRupees = (paise) => (paise == null ? "" : paise / 100);
+const dateOnly = (value) => (value ? String(value).slice(0, 10) : "");
+
+// Pipeline stages (one pipeline for leads and deals).
+const LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation", "Won", "Lost"];
+const OPEN_LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation"];
+const ROLE_LABELS = { owner: "Owner", admin: "Admin", agent: "Agent", viewer: "Viewer" };
+
+// Asks why a lead was lost (required by the server). Returns null when cancelled.
+function askLostReason(name) {
+  const reason = window.prompt(`Why was "${name}" lost? (for example: price too high, bought elsewhere)`);
+  return reason && reason.trim() ? reason.trim() : null;
 }
 
-// ---------------------------------------------------------------
-// Storage — accounts
-// ---------------------------------------------------------------
-function getAccounts() {
-  const raw = localStorage.getItem(KEYS.ACCOUNTS);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveAccounts(list) {
-  localStorage.setItem(KEYS.ACCOUNTS, JSON.stringify(list));
-}
-function addAccount(account) {
-  const list = getAccounts();
-  account.id =
-    "a_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  account.createdAt = new Date().toISOString();
-  list.unshift(account);
-  saveAccounts(list);
-  return account;
-}
-function updateAccount(id, patch) {
-  const list = getAccounts();
-  const idx = list.findIndex((a) => a.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveAccounts(list);
-  }
-}
-function deleteAccount(id) {
-  saveAccounts(getAccounts().filter((a) => a.id !== id));
-}
-
-// ---------------------------------------------------------------
-// Storage — agents
-// ---------------------------------------------------------------
+// --- team -------------------------------------------------------
 function getAgents() {
-  const raw = localStorage.getItem(KEYS.AGENTS);
-  return raw ? JSON.parse(raw) : [];
+  return cached("members").map((member) => ({
+    id: member.id,
+    name: member.name || member.email,
+    email: member.email,
+    role: ROLE_LABELS[member.role] || member.role,
+    modules: member.modules,
+  }));
 }
-function saveAgents(list) {
-  localStorage.setItem(KEYS.AGENTS, JSON.stringify(list));
-}
-function addAgent(agent) {
-  const list = getAgents();
-  agent.id =
-    "ag_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  agent.createdAt = new Date().toISOString();
-  list.unshift(agent);
-  saveAgents(list);
-  return agent;
-}
-function updateAgentRecord(id, patch) {
-  const list = getAgents();
-  const idx = list.findIndex((a) => a.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveAgents(list);
-  }
-}
-function deleteAgent(id) {
-  saveAgents(getAgents().filter((a) => a.id !== id));
+function memberName(id) {
+  if (!id) return "";
+  return getAgents().find((agent) => String(agent.id) === String(id))?.name || "";
 }
 
-// ---------------------------------------------------------------
-// Storage — products
-// ---------------------------------------------------------------
+// --- products ---------------------------------------------------
+function toLegacyProduct(product) {
+  return {
+    ...product,
+    price: toRupees(product.pricePaise),
+    basePrice: toRupees(product.pricePaise),
+    gst: product.gstRatePct,
+    gstPercentage: product.gstRatePct,
+    quantity: product.stockQty ?? "",
+  };
+}
 function getProducts() {
-  const raw = localStorage.getItem(KEYS.PRODUCTS);
-  return raw ? JSON.parse(raw) : [];
+  return cached("products").map(toLegacyProduct);
 }
-function saveProducts(list) {
-  localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(list));
+// Product form values (rupees, "gst", "quantity") → API fields.
+function productPayload(form) {
+  const payload = {};
+  if ("name" in form) payload.name = form.name;
+  if ("category" in form) payload.category = form.category || "";
+  if ("description" in form) payload.description = form.description || "";
+  if ("price" in form) payload.pricePaise = toPaise(form.price) ?? 0;
+  if ("gst" in form) payload.gstRatePct = Number(form.gst) || 0;
+  if ("quantity" in form) payload.stockQty = form.quantity === "" || form.quantity == null ? null : Math.max(0, Math.round(Number(form.quantity)));
+  return payload;
 }
-function addProduct(product) {
-  const list = getProducts();
-  product.id =
-    "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  product.createdAt = new Date().toISOString();
-  list.unshift(product);
-  saveProducts(list);
-  return product;
+async function saveProduct(id, form) {
+  const product = await crmApi(id ? `/products/${id}` : "/products", jsonRequest(id ? "PATCH" : "POST", productPayload(form)));
+  return toLegacyProduct(cacheUpsert("products", product));
 }
-function updateProduct(id, patch) {
-  const list = getProducts();
-  const idx = list.findIndex((p) => p.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveProducts(list);
-  }
-}
-function deleteProduct(id) {
-  saveProducts(getProducts().filter((p) => p.id !== id));
+async function removeProduct(id) {
+  await crmApi(`/products/${id}`, { method: "DELETE" });
+  cacheDrop("products", id);
 }
 
 function calculateProductPricing(basePrice, gstPercentage) {
@@ -547,51 +482,136 @@ function getProductPricing(product) {
   );
 }
 
-// ---------------------------------------------------------------
-// Storage — quotations
-// ---------------------------------------------------------------
-function getQuotations() {
-  const raw = localStorage.getItem(KEYS.QUOTATIONS);
-  return raw ? JSON.parse(raw) : [];
+// --- contacts (customers are contacts with lifecycle "customer") -----
+function toLegacyContact(contact) {
+  return { ...contact, product: contact.productIds?.[0] || "", owner: memberName(contact.ownerId) };
 }
-function saveQuotations(list) {
-  localStorage.setItem(KEYS.QUOTATIONS, JSON.stringify(list));
+function getContacts() {
+  return cached("contacts").map(toLegacyContact);
 }
-function nextQuotationNumber() {
-  const year = new Date().getFullYear();
-  const prefix = `QT-${year}-`;
-  const highest = getQuotations().reduce((max, quotation) => {
-    const match = String(quotation.quotationNumber || quotation.number || "").match(new RegExp(`^${prefix}(\\d+)$`));
-    return match ? Math.max(max, Number(match[1])) : max;
-  }, 0);
-  return `${prefix}${String(highest + 1).padStart(4, "0")}`;
+function getCustomers() {
+  return getContacts().filter((contact) => contact.lifecycle === "customer");
 }
-function addQuotation(quotation) {
-  const list = getQuotations();
-  const record = {
-    ...quotation,
-    id: "q_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    quotationNumber: quotation.quotationNumber || quotation.number || nextQuotationNumber(),
-    number: quotation.quotationNumber || quotation.number || nextQuotationNumber(),
-    status: quotation.status || "Draft",
-    createdAt: new Date().toISOString(),
-  };
-  list.unshift(record);
-  saveQuotations(list);
-  return record;
+// Distinct company names, for the "account" fields that used to have their own list.
+function getAccounts() {
+  const names = [...new Set(getContacts().map((contact) => (contact.company || "").trim()).filter(Boolean))];
+  return names.sort((a, b) => a.localeCompare(b)).map((name) => ({ id: name, name }));
 }
-function updateQuotation(id, patch) {
-  const list = getQuotations();
-  const idx = list.findIndex((quotation) => quotation.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch, updatedAt: new Date().toISOString() };
-    saveQuotations(list);
-    return list[idx];
+async function saveContact(id, form) {
+  const payload = { ...form };
+  if ("product" in payload) {
+    payload.productIds = payload.product ? [payload.product] : [];
+    delete payload.product;
   }
-  return null;
+  const contact = await crmApi(id ? `/contacts/${id}` : "/contacts", jsonRequest(id ? "PATCH" : "POST", payload));
+  return toLegacyContact(cacheUpsert("contacts", contact));
 }
-function deleteQuotation(id) {
-  saveQuotations(getQuotations().filter((quotation) => quotation.id !== id));
+async function removeContact(id) {
+  await crmApi(`/contacts/${id}`, { method: "DELETE" });
+  cacheDrop("contacts", id);
+}
+
+// --- leads (and the same records as deals) -----------------------
+function toLegacyLead(lead) {
+  const contact = lead.contact || {};
+  return {
+    ...lead,
+    name: contact.name || lead.title || "(deleted contact)",
+    email: contact.email || "",
+    phone: contact.phone || "",
+    company: contact.company || "",
+    product: lead.productId || "",
+    quantity: lead.quantity ?? "",
+    status: lead.stage,
+    value: toRupees(lead.expectedValuePaise),
+    followUp: dateOnly(lead.followUpAt),
+    convertedCustomerId: lead.convertedAt ? lead.contactId : "",
+    owner: memberName(lead.ownerId),
+  };
+}
+function toLegacyDeal(lead) {
+  const asLead = toLegacyLead(lead);
+  return {
+    ...asLead,
+    name: lead.title || asLead.name,
+    account: asLead.company,
+    contact: asLead.name,
+    value: Number(asLead.value) || 0,
+    closeDate: dateOnly(lead.expectedCloseDate),
+  };
+}
+function getLeads() {
+  return cached("leads").map(toLegacyLead);
+}
+function getDeals() {
+  return cached("leads").map(toLegacyDeal);
+}
+function getLeadRecord(id) {
+  return cached("leads").find((lead) => String(lead.id) === String(id)) || null;
+}
+function cacheLead(lead) {
+  cacheUpsert("leads", lead);
+  // The contact may have changed (details, or lifecycle after Won).
+  if (lead.contact && crmCache.contacts) {
+    const existing = cached("contacts").find((contact) => String(contact.id) === String(lead.contact.id));
+    if (existing) Object.assign(existing, lead.contact);
+    else if (lead.convertedAt) crmLoad(["contacts"], { force: true }).catch(() => {});
+  }
+  return lead;
+}
+async function createLead(payload) {
+  return cacheLead(await crmApi("/leads", jsonRequest("POST", payload)));
+}
+// Sends the lead's current version, so a stale edit gets a clear "reload" error.
+async function updateLeadRecord(id, payload) {
+  const current = getLeadRecord(id);
+  const lead = await crmApi(`/leads/${id}`, jsonRequest("PATCH", { ...payload, ...(current && { version: current.version }) }));
+  return cacheLead(lead);
+}
+async function changeLeadStage(id, stage, lostReason) {
+  const current = getLeadRecord(id);
+  const lead = await crmApi(`/leads/${id}/stage`, jsonRequest("POST", { stage, ...(lostReason && { lostReason }), ...(current && { version: current.version }) }));
+  return cacheLead(lead);
+}
+async function removeLead(id) {
+  await crmApi(`/leads/${id}`, { method: "DELETE" });
+  cacheDrop("leads", id);
+}
+async function getLeadActivities(id) {
+  return crmApi(`/leads/${id}/activities`);
+}
+async function addLeadNote(id, text) {
+  return crmApi(`/leads/${id}/activities`, jsonRequest("POST", { type: "Note", text }));
+}
+
+// --- quotations -------------------------------------------------
+function toLegacyQuotation(quotation) {
+  return {
+    ...quotation,
+    quotationNumber: quotation.number,
+    grandTotal: toRupees(quotation.totals?.grandTotalPaise),
+  };
+}
+function getQuotations() {
+  return cached("quotations").map(toLegacyQuotation);
+}
+// Items use the form's rupee values; the server computes every total.
+async function saveLeadQuotation(leadId, items) {
+  const payload = {
+    items: items
+      .filter((item) => Number(item.quantity) > 0)
+      .map((item) => ({
+        productId: item.productId || null,
+        quantity: Number(item.quantity),
+        unitPricePaise: toPaise(item.unitPrice) ?? 0,
+        discountPaise: toPaise(item.discount) ?? 0,
+        taxRatePct: Number(item.tax) || 0,
+      })),
+  };
+  if (!payload.items.length) return null;
+  const quotation = await crmApi(`/leads/${leadId}/quotations`, jsonRequest("POST", payload));
+  cacheUpsert("quotations", quotation);
+  return toLegacyQuotation(quotation);
 }
 
 // ---------------------------------------------------------------
@@ -690,6 +710,51 @@ function initNavGroups() {
 }
 
 // ---------------------------------------------------------------
+// Sidebar: agents and viewers only see the modules they were given
+// (the server enforces the same rule on every API call).
+// ---------------------------------------------------------------
+// Page file → module key, in sidebar order (login sends a member to the first allowed page).
+const PAGE_MODULES = {
+  "dashboard.html": "dashboard",
+  "customer-360.html": "customers",
+  "customers.html": "customers",
+  "leads.html": "leads",
+  "accounts.html": "accounts",
+  "Deals.html": "deals",
+  "Marketing.html": "marketing",
+  "Sales Automation.html": "automation",
+  "Tasks.html": "tasks",
+  "Calendar.html": "calendar",
+  "Documents.html": "documents",
+  "Support.html": "support",
+  "Reports & Analytics.html": "reports",
+  "Al Insights.html": "insights",
+  "Products.html": "products",
+};
+
+function moduleForPage(fileName) {
+  const lower = String(fileName).toLowerCase();
+  return Object.entries(PAGE_MODULES).find(([page]) => page.toLowerCase() === lower)?.[1] || null;
+}
+
+function hideUnavailableModules() {
+  const member = getCurrentMember();
+  if (!member || isOrgManager()) return;
+  const allowed = new Set(member.modules || []);
+  document.querySelectorAll(".sidebar .nav-item[href]").forEach((link) => {
+    const module = moduleForPage(decodeURIComponent(link.getAttribute("href")).replace(/^\.\//, ""));
+    if (module && !allowed.has(module)) link.style.display = "none";
+  });
+  document.querySelectorAll(".sidebar .nav-submenu").forEach((submenu) => {
+    const visible = [...submenu.querySelectorAll(".nav-item")].some((item) => item.style.display !== "none");
+    if (visible) return;
+    submenu.style.display = "none";
+    const parent = document.querySelector(`.nav-parent[data-group="${submenu.dataset.submenu}"]`);
+    if (parent) parent.style.display = "none";
+  });
+}
+
+// ---------------------------------------------------------------
 // Global sidebar item: Customer 360°
 // Injected here — not hand-copied into every page — so it is
 // guaranteed identical, in the same position, on every page that
@@ -732,6 +797,7 @@ function injectGlobalNavItems() {
 
 document.addEventListener("DOMContentLoaded", () => {
   injectGlobalNavItems();
+  hideUnavailableModules();
 
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) logoutBtn.addEventListener("click", logout);

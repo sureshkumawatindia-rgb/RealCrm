@@ -359,7 +359,6 @@ document.getElementById("companyForm").addEventListener("submit", async (e) => {
 // ---------------------------------------------------------------
 // Team & Access — members and invites (owners/admins manage them)
 // ---------------------------------------------------------------
-const ROLE_LABELS = { owner: "Owner", admin: "Admin", agent: "Agent", viewer: "Viewer" };
 
 // Refreshes the saved membership (role may have changed) and returns /auth/me.
 async function refreshMembership() {
@@ -660,6 +659,99 @@ function renderStorageSummary() {
     .join("");
 }
 
+// ---------------------------------------------------------------
+// Move my browser data to server (owners/admins)
+// ---------------------------------------------------------------
+const IMPORT_SECTION_LABELS = {
+  products: "Products",
+  customers: "Customers",
+  accounts: "Accounts",
+  leads: "Leads",
+  deals: "Deals",
+  leadActivities: "Lead activity",
+  quotations: "Quotations",
+};
+const LATER_LABELS = {
+  crm_agents: "Account Champions",
+  crm_tasks: "Tasks",
+  crm_deal_tasks: "Deal follow-up tasks",
+  crm_calendar_events: "Calendar events",
+  crm_tickets: "Support tickets",
+  crm_documents: "Documents",
+  crm_campaigns: "Campaigns",
+  crm_workflows: "Workflows",
+  crm_sequences: "Sequences",
+  crm_customer_notes: "Customer notes",
+};
+// Session and settings keys are never sent.
+const NOT_IMPORTED = new Set([SESSION_KEY, USER_KEY, "crm_member", "crm_company", "crm_ticket_seq", "crm_deals_demo_cleared"]);
+
+function browserDataForImport() {
+  const data = {};
+  crmKeys().forEach((key) => {
+    if (!NOT_IMPORTED.has(key)) data[key] = localStorage.getItem(key);
+  });
+  return data;
+}
+
+function renderImportReport(report, { preview }) {
+  const rows = Object.entries(report.sections || {})
+    .filter(([, section]) => section.found)
+    .map(([name, section]) => {
+      const parts = [
+        `${section.created} ${preview ? "to add" : "added"}`,
+        section.alreadyImported ? `${section.alreadyImported} already on the server` : "",
+        section.merged ? `${section.merged} matched an existing contact` : "",
+        section.rejected ? `${section.rejected} skipped` : "",
+      ].filter(Boolean);
+      return `
+        <div class="settings-summary-row">
+          <div class="info">
+            <div class="name">${escapeHtml(IMPORT_SECTION_LABELS[name] || name)}</div>
+            <div class="sub">${escapeHtml(parts.join(" · "))}</div>
+          </div>
+          <span class="badge badge-info">${section.found}</span>
+        </div>`;
+    })
+    .join("");
+  const later = Object.entries(report.later || {})
+    .map(([key, count]) => `${LATER_LABELS[key] || key} (${count})`)
+    .join(", ");
+  const notes = [...(report.unresolved || []), ...(report.problems || []).map((p) => `${p.key}: ${p.reason}`)].slice(0, 10);
+  document.getElementById("serverImportReport").innerHTML = `
+    <p class="settings-hint" style="margin:0 0 10px">${preview ? "Preview — nothing has been saved yet." : "Done. Your team now sees these records."}</p>
+    ${rows || '<p class="settings-hint">No customers, leads, deals, products or quotations found in this browser.</p>'}
+    ${later ? `<p class="settings-hint" style="margin-top:10px">Moves in a later update (still safe in this browser): ${escapeHtml(later)}.</p>` : ""}
+    ${notes.length ? `<p class="settings-hint" style="margin-top:10px"><strong>Please check:</strong><br>${notes.map(escapeHtml).join("<br>")}</p>` : ""}`;
+}
+
+async function moveBrowserDataToServer() {
+  const button = document.getElementById("serverImportBtn");
+  const data = browserDataForImport();
+  if (!Object.keys(data).length) {
+    showToast("There is no CRM data in this browser.", "info");
+    return;
+  }
+  button.disabled = true;
+  try {
+    const preview = await crmApi("/imports/localstorage", jsonRequest("POST", { data, dryRun: true }));
+    renderImportReport(preview.report, { preview: true });
+    const toAdd = Object.values(preview.report.sections || {}).reduce((sum, section) => sum + section.created, 0);
+    if (!toAdd) {
+      showToast("Everything in this browser is already on the server.", "success");
+      return;
+    }
+    if (!confirm(`Move ${toAdd} record${toAdd === 1 ? "" : "s"} to the server now? Nothing in this browser is deleted.`)) return;
+    const result = await crmApi("/imports/localstorage", jsonRequest("POST", { data, dryRun: false }));
+    renderImportReport(result.report, { preview: false });
+    showToast("Your browser data is now on the server.", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't move the data."), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 // Export — bundles every crm_* key (raw, already-serialized strings)
 // except the session token, so importing elsewhere won't hijack a login.
 function exportAllData() {
@@ -754,6 +846,8 @@ document.getElementById("connectGmailBtn").addEventListener("click", connectGmai
 loadGmailConnection();
 renderStorageSummary();
 
+document.getElementById("serverImportSection").hidden = !isOrgManager();
+document.getElementById("serverImportBtn").addEventListener("click", moveBrowserDataToServer);
 document.getElementById("exportBtn").addEventListener("click", exportAllData);
 document.getElementById("importBtn").addEventListener("click", () => {
   document.getElementById("importFileInput").click();
