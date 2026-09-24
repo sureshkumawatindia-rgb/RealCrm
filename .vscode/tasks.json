@@ -1,0 +1,26 @@
+{
+  // Starts the CRM backend automatically when this folder is opened in VS Code,
+  // so the CRM works without typing "npm run dev" in PowerShell.
+  // The same server also serves the CRM pages: http://127.0.0.1:3000/crm/frontend/
+  // It restarts by itself when a backend file is saved, and stops when VS Code is closed.
+  // See the "TERMINAL" panel -> "CRM backend" for its output.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CRM backend",
+      "type": "process",
+      "command": "node",
+      "args": ["node_modules/nodemon/bin/nodemon.js", "src/server.js"],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "runOptions": { "runOn": "folderOpen" }
+    }
+  ]
+}

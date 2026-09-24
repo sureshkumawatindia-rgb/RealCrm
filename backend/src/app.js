@@ -10,8 +10,15 @@ const path = require('path');
 const env = require('./config/env');
 
 const app = express();
+const frontendDir = path.resolve(__dirname, '..', '..', 'crm', 'frontend');
 
 app.use(requestId);
+
+// The CRM pages, so this one server runs the whole CRM (see start-crm.vbs).
+// Served before helmet: its headers would block the pages' inline scripts and Google sign-in.
+app.get('/', (req, res) => res.redirect('/crm/frontend/index.html'));
+app.use('/crm/frontend', express.static(frontendDir));
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
