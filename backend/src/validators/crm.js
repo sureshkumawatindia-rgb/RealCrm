@@ -5,7 +5,7 @@ const { GSTIN_PATTERN } = require('../utils/gstin');
 const {
   LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
-  TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES,
+  TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, DOCUMENT_CATEGORIES,
 } = require('../constants/crm');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
@@ -94,6 +94,20 @@ const ticketFields = {
   status: Joi.string().valid(...TICKET_STATUSES),
   dueDate: calendarDate.allow(''),
   assigneeId: objectId.allow(null),
+};
+
+// Documents arrive as multipart form fields (all strings), so empty strings mean "none".
+const documentFields = {
+  name: Joi.string().trim().min(1).max(300),
+  description: text(5000),
+  category: Joi.string().valid(...DOCUMENT_CATEGORIES),
+  ownerId: objectId.allow(null, ''),
+  tags: Joi.alternatives(Joi.array().items(Joi.string().trim().max(40).allow('')).max(50), Joi.string().max(2000).allow('')),
+  linkUrl: Joi.string().trim().max(2000).uri({ scheme: ['http', 'https'] }).allow('')
+    .messages({ 'string.uri': 'Use a web address like https://example.com', 'string.uriCustomScheme': 'Use a web address starting with https:// or http://' }),
+  relatedType: Joi.string().valid(...RELATED_TYPES),
+  relatedId: objectId.allow(null, ''),
+  relatedName: text(200),
 };
 
 const leadContact = {
@@ -201,6 +215,17 @@ module.exports = {
   }),
 
   noteCreate: Joi.object({ text: Joi.string().trim().min(1).max(5000).required() }),
+
+  documentCreate: Joi.object({ ...documentFields, name: documentFields.name.required() }),
+  // May be empty when only a new file is sent.
+  documentPatch: Joi.object(documentFields),
+  documentList: Joi.object({
+    ...listBase,
+    category: Joi.string().valid(...DOCUMENT_CATEGORIES),
+    relatedType: Joi.string().valid(...RELATED_TYPES.filter(Boolean)),
+    relatedId: objectId,
+    ownerId: objectId,
+  }),
   eventList: Joi.object({
     ...listBase,
     type: Joi.string().valid(...EVENT_TYPES),

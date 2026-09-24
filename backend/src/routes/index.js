@@ -12,6 +12,7 @@ const quotationRoutes = require('./quotations');
 const importRoutes = require('./imports');
 const { taskRoutes, eventRoutes } = require('./workItems');
 const ticketRoutes = require('./tickets');
+const documentRoutes = require('./documents');
 
 const router = express.Router();
 
@@ -29,5 +30,6 @@ router.use('/imports', importRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/events', eventRoutes);
 router.use('/tickets', ticketRoutes);
+router.use('/documents', documentRoutes);
 
 module.exports = router;

@@ -9,6 +9,7 @@ const CalendarEvent = require('../models/CalendarEvent');
 const Ticket = require('../models/Ticket');
 const Note = require('../models/Note');
 const Counter = require('../models/Counter');
+const Document = require('../models/Document');
 const OrganizationMember = require('../models/OrganizationMember');
 const Import = require('../models/Import');
 const httpError = require('../utils/httpError');
@@ -16,9 +17,13 @@ const { audit } = require('../utils/audit');
 const { normalizePhone } = require('../utils/phone');
 const { rupeesToPaise } = require('../utils/money');
 const { nextSequence } = require('../utils/counter');
+const env = require('../config/env');
+const { documentStorage } = require('../storage');
+const { cleanFileName, isBlockedFile, sha256 } = require('./documentService');
 const {
   STAGE_PROBABILITY, TASK_STATUSES, TASK_PRIORITIES, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START,
+  DOCUMENT_CATEGORIES,
 } = require('../constants/crm');
 const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 
@@ -29,9 +34,9 @@ const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 // Keys handled here move to the server in this phase; the others are reported for later.
 const SUPPORTED_KEYS = [
   'crm_products', 'crm_customers', 'crm_accounts', 'crm_leads', 'crm_deals', 'crm_lead_activities', 'crm_quotations',
-  'crm_tasks', 'crm_deal_tasks', 'crm_calendar_events', 'crm_tickets', 'crm_customer_notes',
+  'crm_tasks', 'crm_deal_tasks', 'crm_calendar_events', 'crm_tickets', 'crm_customer_notes', 'crm_documents',
 ];
-const LATER_KEYS = ['crm_agents', 'crm_documents', 'crm_campaigns', 'crm_workflows', 'crm_sequences'];
+const LATER_KEYS = ['crm_agents', 'crm_campaigns', 'crm_workflows', 'crm_sequences'];
 
 const LEAD_STAGE_MAP = { New: 'New', 'In Progress': 'Contacted', Contacted: 'Contacted', Qualified: 'Quote Sent', Proposal: 'Quote Sent', Negotiation: 'Negotiation', Won: 'Won', Lost: 'Lost' };
 const DEAL_STAGE_MAP = { Lead: 'New', Qualified: 'Quote Sent', Proposal: 'Quote Sent', Negotiation: 'Negotiation', Won: 'Won', Lost: 'Lost' };
@@ -50,6 +55,25 @@ const calendarDay = (value) => {
   const match = /^(\d{4}-\d{2}-\d{2})/.exec(str(value, 40));
   return match && !Number.isNaN(new Date(match[1]).getTime()) ? match[1] : undefined;
 };
+// The old Documents page kept files as "data:<type>;base64,<bytes>". Returns null if damaged.
+function decodeDataUrl(value) {
+  const match = /^data:([^;,]*)(?:;[^;,]*)*;base64,([A-Za-z0-9+/=\s]*)$/.exec(String(value || ''));
+  if (!match) return null;
+  const buffer = Buffer.from(match[2], 'base64');
+  return buffer.length ? { mimeType: match[1].slice(0, 100), buffer } : null;
+}
+// Web links only; "www.example.com/x" gets https:// in front.
+function webLink(value) {
+  let link = str(value, 2000);
+  if (!link) return '';
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(link)) link = `https://${link}`;
+  try {
+    const url = new URL(link);
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname.includes('.') ? url.href : '';
+  } catch {
+    return '';
+  }
+}
 const clockTime = (value) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(str(value, 10)) ? str(value, 10) : '');
 const nonNegativeInt = (value) => {
   if (value === '' || value == null) return undefined;
@@ -114,6 +138,7 @@ class ImportRun {
     this.leadByName = new Map();
     this.dealByTitle = new Map();
     this.reportedAssignees = new Set();
+    this.reportedOwners = new Set();
     // Server ids of the organization's contacts (Customer 360 notes added after the customers
     // moved to the server are stored under these).
     this.contactIds = new Set();
@@ -591,6 +616,63 @@ class ImportRun {
     }
   }
 
+  // Documents need an owner who is a team member; unknown names give the documents to the
+  // person running the import (they can reassign them).
+  ownerFor(name) {
+    const clean = str(name, 100);
+    const id = clean && this.memberByName.get(lower(clean));
+    if (id) return id;
+    if (clean && !this.reportedOwners.has(lower(clean))) {
+      this.reportedOwners.add(lower(clean));
+      this.unresolved(`Document owner "${clean}" is not a team member yet; you own their documents for now`);
+    }
+    return this.req.member._id;
+  }
+
+  // crm_documents: files (base64 in the browser) go to private storage; links are kept.
+  async importDocuments(list) {
+    const section = this.section('documents');
+    const existing = await this.legacyIdMap(Document);
+    const maxMb = Math.round(env.documentMaxBytes / (1024 * 1024));
+    for (const item of list) {
+      section.found += 1;
+      const legacyId = item.id ? String(item.id) : '';
+      if (legacyId && existing.has(legacyId)) { section.alreadyImported += 1; continue; }
+      const name = str(item.name, 300) || str(item.fileName, 300);
+      if (!name) { this.reject(section, item.id, 'Document has no name'); continue; }
+      const file = item.fileData ? decodeDataUrl(item.fileData) : null;
+      const linkUrl = file ? '' : webLink(item.linkUrl);
+      if (item.fileData && !file) { this.reject(section, item.id, 'The file data is damaged'); continue; }
+      if (!file && !linkUrl) { this.reject(section, item.id, item.linkUrl ? 'The link is not a web address' : 'No file or link attached'); continue; }
+      const fileName = file ? cleanFileName(item.fileName || name) : '';
+      if (file && isBlockedFile(fileName)) { this.reject(section, item.id, 'Programs and scripts are not stored'); continue; }
+      if (file && file.buffer.length > env.documentMaxBytes) { this.reject(section, item.id, `The file is larger than ${maxMb} MB`); continue; }
+
+      const storageKey = file && !this.dryRun ? await documentStorage.put(this.organizationId, file.buffer) : undefined;
+      try {
+        await this.insert(Document, {
+          name,
+          description: str(item.description, 5000),
+          category: DOCUMENT_CATEGORIES.includes(item.category) ? item.category : 'Other',
+          ownerId: this.ownerFor(item.owner),
+          ...this.relatedFor(item.relatedType, item.relatedName),
+          tags: Array.isArray(item.tags) ? [...new Set(item.tags.map((tag) => str(tag, 40)).filter(Boolean))].slice(0, 20) : [],
+          ...(file
+            ? { storageKey, fileName, mimeType: str(item.fileType, 100) || file.mimeType, sizeBytes: file.buffer.length, checksum: sha256(file.buffer) }
+            : { linkUrl }),
+          legacyIds: legacyId ? [legacyId] : undefined,
+          createdById: this.req.user._id,
+          createdByMemberId: this.req.member._id,
+          createdAt: validDate(item.createdAt),
+        });
+      } catch (error) {
+        if (storageKey) await documentStorage.remove(storageKey).catch(() => {});
+        throw error;
+      }
+      section.created += 1;
+    }
+  }
+
   async run(data) {
     await this.preload();
     const list = (key) => readList(data, key, this.report);
@@ -606,6 +688,7 @@ class ImportRun {
     await this.importEvents(list('crm_calendar_events'));
     await this.importTickets(list('crm_tickets'));
     await this.importCustomerNotes(readMap(data, 'crm_customer_notes', this.report));
+    await this.importDocuments(list('crm_documents'));
     for (const key of LATER_KEYS) {
       const count = list(key).length;
       if (count) this.report.later[key] = count;

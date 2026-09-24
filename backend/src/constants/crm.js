@@ -33,8 +33,17 @@ const TICKET_NUMBER_START = 1001;
 // Notes belong to a ticket or a contact (notes on a lead are lead activities).
 const NOTE_PARENT_TYPES = Object.freeze(['ticket', 'contact']);
 
+// Documents (same categories the Documents page shows). Programs and scripts are refused:
+// a CRM is no place to pass them around, even though downloads never run in the browser.
+const DOCUMENT_CATEGORIES = Object.freeze(['Contract', 'Invoice', 'Proposal', 'Report', 'Template', 'Other']);
+const BLOCKED_FILE_EXTENSIONS = Object.freeze([
+  'exe', 'msi', 'msp', 'bat', 'cmd', 'com', 'scr', 'pif', 'cpl', 'dll', 'sys', 'ps1', 'psm1', 'vbs', 'vbe',
+  'js', 'jse', 'wsf', 'wsh', 'hta', 'jar', 'sh', 'apk', 'lnk', 'reg',
+]);
+
 module.exports = {
   LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START, NOTE_PARENT_TYPES,
+  DOCUMENT_CATEGORIES, BLOCKED_FILE_EXTENSIONS,
 };

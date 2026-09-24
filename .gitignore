@@ -1,6 +1,7 @@
 node_modules/
 .env
 backend/uploads/
+backend/storage/
 backend/coverage/
 launcher/logs/
 *.log

@@ -27,6 +27,8 @@ const schema = Joi.object({
   DATA_ENCRYPTION_KEY: Joi.string().allow('').default('')
     .when('NODE_ENV', { is: 'production', then: Joi.string().min(32).required().disallow('') }),
   UPLOAD_DIR: Joi.string().default('uploads'),
+  DOCUMENT_DIR: Joi.string().default('storage/documents'),
+  DOCUMENT_MAX_MB: Joi.number().integer().min(1).max(100).default(10),
   CORS_ORIGINS: Joi.string().allow('').default(''),
   RATE_LIMIT_API_PER_MINUTE: Joi.number().integer().min(1).default(300),
   RATE_LIMIT_AUTH_PER_MINUTE: Joi.number().integer().min(1).default(20),
@@ -62,6 +64,8 @@ const env = {
   dataEncryptionKey: value.DATA_ENCRYPTION_KEY,
   publicUrl,
   uploadDir: value.UPLOAD_DIR,
+  documentDir: value.DOCUMENT_DIR,
+  documentMaxBytes: value.DOCUMENT_MAX_MB * 1024 * 1024,
   jwtSecret: value.JWT_SECRET,
   accessTokenTtl: value.ACCESS_TOKEN_TTL,
   refreshTokenTtlDays: value.REFRESH_TOKEN_TTL_DAYS,

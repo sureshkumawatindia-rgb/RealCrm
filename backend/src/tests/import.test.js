@@ -9,6 +9,7 @@ const Task = require('../models/Task');
 const CalendarEvent = require('../models/CalendarEvent');
 const Ticket = require('../models/Ticket');
 const Note = require('../models/Note');
+const Document = require('../models/Document');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 
 // Shapes copied from the old browser-only CRM (localStorage values are JSON strings).
@@ -54,7 +55,15 @@ const browserData = () => ({
     { id: 'tk_nosubject', number: 1003 },
   ]),
   crm_customer_notes: JSON.stringify({ c_ravi: [{ text: 'VIP buyer', at: '2026-03-01T10:00:00.000Z', author: 'Anil' }], c_gone: [{ text: 'Old note' }] }),
-  crm_documents: JSON.stringify([{ id: 'doc_1', name: 'Price list.pdf' }]),
+  crm_documents: JSON.stringify([
+    { id: 'doc_file', name: 'Price list', category: 'Proposal', owner: 'Priya Old', relatedType: 'Customer', relatedName: 'Ravi Traders', tags: ['2026', 'gst', 'gst'],
+      fileName: 'price-list.txt', fileType: 'text/plain', fileSize: 5, fileData: `data:text/plain;base64,${Buffer.from('hello').toString('base64')}`, createdAt: '2026-05-01T10:00:00.000Z' },
+    { id: 'doc_link', name: 'Catalogue', category: 'Report', linkUrl: 'drive.google.com/file/abc' },
+    { id: 'doc_bad', name: 'Evil link', linkUrl: 'javascript:alert(1)' },
+    { id: 'doc_exe', name: 'Tool', fileName: 'tool.exe', fileData: `data:application/octet-stream;base64,${Buffer.from('MZ').toString('base64')}` },
+    { id: 'doc_empty', name: 'Nothing attached' },
+  ]),
+  crm_workflows: JSON.stringify([{ id: 'wf_1', name: 'Welcome' }]),
   crm_campaigns: 'not json',
 });
 
@@ -71,7 +80,8 @@ describe('POST /imports/localstorage', () => {
     const { sections, later, problems } = res.body.data.report;
     expect(sections.products).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(sections.leads).toMatchObject({ found: 3, created: 3 });
-    expect(later).toEqual({ crm_documents: 1 });
+    expect(later).toEqual({ crm_workflows: 1 });
+    expect(sections.documents).toMatchObject({ found: 5, created: 2, rejected: 3 });
     expect(sections.tasks).toMatchObject({ found: 3, created: 2, rejected: 1 });
     expect(sections.events).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(sections.tickets).toMatchObject({ found: 3, created: 2, rejected: 1 });
@@ -154,6 +164,18 @@ describe('POST /imports/localstorage', () => {
     const vip = await Note.findOne({ parentType: 'contact', parentId: ravi._id });
     expect(vip.text).toBe('VIP buyer');
 
+    // Browser files go to private storage; links get https:// when it was missing.
+    const priceList = await Document.findOne({ legacyIds: 'doc_file' });
+    expect(priceList).toMatchObject({ category: 'Proposal', fileName: 'price-list.txt', mimeType: 'text/plain', sizeBytes: 5, relatedName: 'Ravi Traders' });
+    expect([...priceList.tags]).toEqual(['2026', 'gst']);
+    expect(String(priceList.relatedId)).toBe(String(ravi._id));
+    expect(priceList.createdAt.toISOString()).toBe('2026-05-01T10:00:00.000Z');
+    const got = await api().get(`/api/v1/documents/${priceList._id}/download`).set(bearer(owner.token)).buffer(true)
+      .parse((stream, done) => { const chunks = []; stream.on('data', (c) => chunks.push(c)); stream.on('end', () => done(null, Buffer.concat(chunks))); });
+    expect(got.body.toString()).toBe('hello');
+    expect(unresolved.join(' ')).toMatch(/Priya Old/);
+    expect((await Document.findOne({ legacyIds: 'doc_link' })).linkUrl).toBe('https://drive.google.com/file/abc');
+
     // New tickets continue after the imported numbers.
     const next = await api().post('/api/v1/tickets').set(bearer(owner.token)).send({ subject: 'After import' });
     expect(next.body.data.number).toBe(1004);
@@ -164,7 +186,7 @@ describe('POST /imports/localstorage', () => {
     await api().delete(`/api/v1/tickets/${gst._id}`).set(bearer(owner.token));
     const callBack = await Task.findOne({ legacyIds: 't_1' });
     await api().delete(`/api/v1/tasks/${callBack._id}`).set(bearer(owner.token));
-    const counts = () => Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments(), Ticket.countDocuments(), Note.countDocuments()]);
+    const counts = () => Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments(), Ticket.countDocuments(), Note.countDocuments(), Document.countDocuments()]);
     const before = await counts();
     const res = await run(false);
     const { sections } = res.body.data.report;
@@ -177,6 +199,7 @@ describe('POST /imports/localstorage', () => {
     expect(sections.tickets).toMatchObject({ created: 0, alreadyImported: 2 });
     expect(sections.ticketNotes).toMatchObject({ created: 0, alreadyImported: 1 });
     expect(sections.customerNotes).toMatchObject({ created: 0, alreadyImported: 1 });
+    expect(sections.documents).toMatchObject({ created: 0, alreadyImported: 2 });
     const after = await counts();
     expect(after).toEqual(before);
   });

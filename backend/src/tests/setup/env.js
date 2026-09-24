@@ -12,6 +12,8 @@ Object.assign(process.env, {
   DATA_ENCRYPTION_KEY: '',
   PUBLIC_URL: 'http://127.0.0.1:3000',
   UPLOAD_DIR: path.join(os.tmpdir(), `crm-test-uploads-${process.pid}`),
+  DOCUMENT_DIR: path.join(os.tmpdir(), `crm-test-documents-${process.pid}`),
+  DOCUMENT_MAX_MB: '1',
   RATE_LIMIT_API_PER_MINUTE: '100000',
   RATE_LIMIT_AUTH_PER_MINUTE: '100000',
 });
