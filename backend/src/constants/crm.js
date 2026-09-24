@@ -15,6 +15,16 @@ const CONTACT_STATUSES = Object.freeze(['Active', 'Inactive']);
 
 const QUOTATION_STATUSES = Object.freeze(['Draft', 'Sent', 'Viewed', 'Accepted', 'Rejected', 'Expired']);
 
+// Tasks and calendar events (same values the pages already show).
+const TASK_STATUSES = Object.freeze(['To Do', 'In Progress', 'Done']);
+const TASK_PRIORITIES = Object.freeze(['Low', 'Medium', 'High']);
+// deal_followup: the quick follow-ups on the Deals page; automation: created by a workflow/sequence.
+const TASK_ORIGINS = Object.freeze(['manual', 'deal_followup', 'automation']);
+const EVENT_TYPES = Object.freeze(['Meeting', 'Call', 'Follow-up', 'Demo', 'Deadline', 'Reminder']);
+// What a task/event is about. Customer/Contact → contacts, Lead/Deal → leads, Account = a company name.
+const RELATED_TYPES = Object.freeze(['', 'Customer', 'Contact', 'Lead', 'Deal', 'Account']);
+
 module.exports = {
   LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES,
+  TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
 };

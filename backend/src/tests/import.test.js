@@ -5,6 +5,8 @@ const Lead = require('../models/Lead');
 const Product = require('../models/Product');
 const Quotation = require('../models/Quotation');
 const LeadActivity = require('../models/LeadActivity');
+const Task = require('../models/Task');
+const CalendarEvent = require('../models/CalendarEvent');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 
 // Shapes copied from the old browser-only CRM (localStorage values are JSON strings).
@@ -33,7 +35,17 @@ const browserData = () => ({
   crm_quotations: JSON.stringify([
     { id: 'q_1', leadId: 'l_ravi', quotationNumber: 'QT-2026-0001', status: 'Draft', items: [{ productId: 'p_cumin', quantity: 10, unitPrice: 250, discount: 0, tax: 5 }], grandTotal: 999999 },
   ]),
-  crm_tasks: JSON.stringify([{ id: 't_1', title: 'Call back' }]),
+  crm_tasks: JSON.stringify([
+    { id: 't_1', title: 'Call back', status: 'In Progress', priority: 'High', assignee: 'Rohan Local', dueDate: '2026-09-30', relatedType: 'Customer', relatedName: 'Ravi Traders' },
+    { id: 't_2', title: 'Prepare samples', status: 'Done', assignee: 'Rohan Local', relatedType: 'Deal', relatedName: 'Diwali order' },
+    { id: 't_bad', title: '' },
+  ]),
+  crm_deal_tasks: JSON.stringify([{ id: 'dt_1', text: 'Chase payment', done: true, due: '2026-09-28' }]),
+  crm_calendar_events: JSON.stringify([
+    { id: 'ev_1', title: 'Demo at shop', type: 'Demo', date: '2026-10-02', startTime: '15:00', endTime: '14:00', relatedType: 'Lead', relatedName: 'Sunita Stores' },
+    { id: 'ev_2', title: 'No date' },
+  ]),
+  crm_tickets: JSON.stringify([{ id: 'tk_1', subject: 'Late delivery' }]),
   crm_campaigns: 'not json',
 });
 
@@ -50,7 +62,9 @@ describe('POST /imports/localstorage', () => {
     const { sections, later, problems } = res.body.data.report;
     expect(sections.products).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(sections.leads).toMatchObject({ found: 3, created: 3 });
-    expect(later).toEqual({ crm_tasks: 1 });
+    expect(later).toEqual({ crm_tickets: 1 });
+    expect(sections.tasks).toMatchObject({ found: 3, created: 2, rejected: 1 });
+    expect(sections.events).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(problems).toEqual([{ key: 'crm_campaigns', reason: 'Not valid JSON' }]);
     expect(await Product.countDocuments()).toBe(0);
     expect(await Lead.countDocuments()).toBe(0);
@@ -96,17 +110,36 @@ describe('POST /imports/localstorage', () => {
     expect(quotation.totals.grandTotalPaise).toBe(262500); // 10 × ₹250 + 5% — not the browser's 999999
     expect(quotation.legacyNumber).toBe('QT-2026-0001');
     expect(quotation.number).toMatch(/^QT\/\d{4}-\d{2}\/0001$/);
+
+    // Tasks keep unknown assignees by name and link to the imported customer / deal.
+    const callBack = await Task.findOne({ legacyIds: 't_1' });
+    expect(callBack).toMatchObject({ status: 'In Progress', priority: 'High', dueDate: '2026-09-30', assigneeName: 'Rohan Local', relatedType: 'Customer', relatedName: 'Ravi Traders' });
+    expect(String(callBack.relatedId)).toBe(String(ravi._id));
+    const samples = await Task.findOne({ legacyIds: 't_2' });
+    expect(String(samples.relatedId)).toBe(String(diwali._id));
+    expect(samples.completedAt).toBeInstanceOf(Date);
+    expect(unresolved.filter((note) => note.includes('Rohan Local'))).toHaveLength(1);
+
+    const followUp = await Task.findOne({ legacyIds: 'dt_1' });
+    expect(followUp).toMatchObject({ title: 'Chase payment', status: 'Done', dueDate: '2026-09-28', origin: 'deal_followup' });
+
+    const demo = await CalendarEvent.findOne({ legacyIds: 'ev_1' });
+    // End before start is dropped; "Sunita Stores" is no imported lead, so only the name is kept.
+    expect(demo).toMatchObject({ type: 'Demo', date: '2026-10-02', startTime: '15:00', endTime: '', relatedType: 'Lead', relatedName: 'Sunita Stores' });
+    expect(demo.relatedId).toBeUndefined();
   });
 
   it('running the import again creates nothing new', async () => {
-    const before = await Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments()]);
+    const before = await Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments()]);
     const res = await run(false);
     const { sections } = res.body.data.report;
     expect(sections.products).toMatchObject({ created: 0, alreadyImported: 1 });
     expect(sections.leads).toMatchObject({ created: 0, alreadyImported: 3 });
     expect(sections.deals).toMatchObject({ created: 0, alreadyImported: 2 });
     expect(sections.quotations).toMatchObject({ created: 0, alreadyImported: 1 });
-    const after = await Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments()]);
+    expect(sections.tasks).toMatchObject({ created: 0, alreadyImported: 2 });
+    expect(sections.events).toMatchObject({ created: 0, alreadyImported: 1 });
+    const after = await Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments()]);
     expect(after).toEqual(before);
   });
 

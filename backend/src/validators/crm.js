@@ -2,7 +2,10 @@ const Joi = require('joi');
 const { objectId } = require('./common');
 const { paginationQuery } = require('../utils/pagination');
 const { GSTIN_PATTERN } = require('../utils/gstin');
-const { LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES } = require('../constants/crm');
+const {
+  LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES,
+  TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
+} = require('../constants/crm');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
 // null clears the reference (e.g. "no product").
@@ -49,6 +52,35 @@ const leadFields = {
   ownerId: objectId.allow(null),
   notes: text(5000),
   noteEntries: Joi.array().items(noteEntry).max(200),
+};
+
+const calendarDate = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).messages({ 'string.pattern.base': 'Use a date like 2026-10-05' });
+const clockTime = Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).allow('').messages({ 'string.pattern.base': 'Use a time like 14:30' });
+const related = {
+  relatedType: Joi.string().valid(...RELATED_TYPES),
+  relatedId: objectId.allow(null),
+  relatedName: text(200),
+  assigneeId: objectId.allow(null),
+};
+
+const taskFields = {
+  title: Joi.string().trim().min(1).max(300),
+  description: text(5000),
+  dueDate: calendarDate.allow(''),
+  priority: Joi.string().valid(...TASK_PRIORITIES),
+  status: Joi.string().valid(...TASK_STATUSES),
+  origin: Joi.string().valid(...TASK_ORIGINS),
+  ...related,
+};
+
+const eventFields = {
+  title: Joi.string().trim().min(1).max(300),
+  type: Joi.string().valid(...EVENT_TYPES),
+  date: calendarDate,
+  startTime: clockTime,
+  endTime: clockTime,
+  description: text(5000),
+  ...related,
 };
 
 const leadContact = {
@@ -126,4 +158,30 @@ module.exports = {
     status: Joi.string().valid(...QUOTATION_STATUSES),
   }),
   quotationPatch: Joi.object({ status: Joi.string().valid(...QUOTATION_STATUSES).required() }),
+
+  taskCreate: Joi.object({ ...taskFields, title: taskFields.title.required() }),
+  taskPatch: Joi.object(taskFields).fork(['origin'], (field) => field.forbidden()).min(1),
+  taskList: Joi.object({
+    ...listBase,
+    status: Joi.string().valid(...TASK_STATUSES),
+    priority: Joi.string().valid(...TASK_PRIORITIES),
+    origin: Joi.string().valid(...TASK_ORIGINS),
+    assigneeId: objectId,
+    relatedType: Joi.string().valid(...RELATED_TYPES.filter(Boolean)),
+    relatedId: objectId,
+    dueFrom: calendarDate,
+    dueTo: calendarDate,
+  }),
+
+  eventCreate: Joi.object({ ...eventFields, title: eventFields.title.required(), date: eventFields.date.required() }),
+  eventPatch: Joi.object(eventFields).min(1),
+  eventList: Joi.object({
+    ...listBase,
+    type: Joi.string().valid(...EVENT_TYPES),
+    assigneeId: objectId,
+    relatedType: Joi.string().valid(...RELATED_TYPES.filter(Boolean)),
+    relatedId: objectId,
+    from: calendarDate,
+    to: calendarDate,
+  }),
 };

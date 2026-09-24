@@ -11,6 +11,22 @@ function visibilityFilter(req, modules, ownerField = 'ownerId') {
   return { [ownerField]: req.member._id };
 }
 
+// Work items (tasks, events): a member without view_all sees what is assigned to them or
+// what they created.
+function assignedOrCreatedFilter(req, modules) {
+  if (asList(modules).some((module) => canViewAll(req.member, module))) return {};
+  return { $or: [{ assigneeId: req.member._id }, { createdByMemberId: req.member._id }] };
+}
+
+// Any member may assign a task or event to any active teammate (assigning work is not
+// ownership of customer data); null leaves it unassigned.
+async function resolveAssigneeId(req, requestedId) {
+  if (!requestedId) return null;
+  const member = await OrganizationMember.exists({ _id: requestedId, organizationId: req.tenant.organizationId, status: 'active' });
+  if (!member) throw httpError(400, 'VALIDATION_ERROR', 'The assignee must be an active member of this organization.', [{ field: 'assigneeId', code: 'INVALID_ASSIGNEE', message: 'Pick an active team member.' }]);
+  return requestedId;
+}
+
 // Owners and admins may assign any active member (or nobody); everyone else always owns
 // what they create. The owner is never taken from the browser without this check.
 async function resolveOwnerId(req, requestedOwnerId) {
@@ -29,4 +45,4 @@ async function ownerPatch(req, patch) {
   return { ownerId: await resolveOwnerId(req, patch.ownerId) };
 }
 
-module.exports = { visibilityFilter, resolveOwnerId, ownerPatch };
+module.exports = { visibilityFilter, resolveOwnerId, ownerPatch, assignedOrCreatedFilter, resolveAssigneeId };

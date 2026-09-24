@@ -4,13 +4,15 @@ const Product = require('../models/Product');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const Quotation = require('../models/Quotation');
+const Task = require('../models/Task');
+const CalendarEvent = require('../models/CalendarEvent');
 const OrganizationMember = require('../models/OrganizationMember');
 const Import = require('../models/Import');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { normalizePhone } = require('../utils/phone');
 const { rupeesToPaise } = require('../utils/money');
-const { STAGE_PROBABILITY } = require('../constants/crm');
+const { STAGE_PROBABILITY, TASK_STATUSES, TASK_PRIORITIES, EVENT_TYPES, RELATED_TYPES } = require('../constants/crm');
 const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 
 // "Move my browser data to server": imports the localStorage keys of the old browser-only CRM.
@@ -18,9 +20,12 @@ const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 // - Every created record keeps its old browser id in legacyIds, so running again skips
 //   what was already imported. Browser data is never changed by the server.
 // Keys handled here move to the server in this phase; the others are reported for later.
-const SUPPORTED_KEYS = ['crm_products', 'crm_customers', 'crm_accounts', 'crm_leads', 'crm_deals', 'crm_lead_activities', 'crm_quotations'];
+const SUPPORTED_KEYS = [
+  'crm_products', 'crm_customers', 'crm_accounts', 'crm_leads', 'crm_deals', 'crm_lead_activities', 'crm_quotations',
+  'crm_tasks', 'crm_deal_tasks', 'crm_calendar_events',
+];
 const LATER_KEYS = [
-  'crm_agents', 'crm_tasks', 'crm_deal_tasks', 'crm_calendar_events', 'crm_tickets', 'crm_documents',
+  'crm_agents', 'crm_tickets', 'crm_documents',
   'crm_campaigns', 'crm_workflows', 'crm_sequences', 'crm_customer_notes',
 ];
 
@@ -36,6 +41,12 @@ const validDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date;
 };
+// A calendar day "YYYY-MM-DD" (the old pages stored dates as strings), else undefined.
+const calendarDay = (value) => {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(str(value, 40));
+  return match && !Number.isNaN(new Date(match[1]).getTime()) ? match[1] : undefined;
+};
+const clockTime = (value) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(str(value, 10)) ? str(value, 10) : '');
 const nonNegativeInt = (value) => {
   if (value === '' || value == null) return undefined;
   const number = Math.round(Number(value));
@@ -77,6 +88,11 @@ class ImportRun {
     this.contactByNameCompany = new Map();
     this.leadContact = new Map();
     this.memberByName = new Map();
+    // For tasks and events that name what they are about.
+    this.contactByName = new Map();
+    this.leadByName = new Map();
+    this.dealByTitle = new Map();
+    this.reportedAssignees = new Set();
   }
 
   section(name) {
@@ -105,15 +121,18 @@ class ImportRun {
     const [contacts, products, leads, members] = await Promise.all([
       Contact.find(org).select('name company email phoneE164 legacyIds lifecycle'),
       Product.find({ ...org, legacyIds: { $exists: true } }).select('legacyIds'),
-      Lead.find({ ...org, legacyIds: { $exists: true } }).select('legacyIds contactId'),
+      Lead.find(org).select('legacyIds contactId title').populate({ path: 'contactId', select: 'name' }),
       OrganizationMember.find({ ...org, status: 'active' }).populate({ path: 'userId', select: 'name' }),
     ]);
     contacts.forEach((contact) => this.indexContact(contact._id, contact));
     products.forEach((product) => product.legacyIds.forEach((id) => this.ids.products.set(id, product._id)));
-    leads.forEach((lead) => lead.legacyIds.forEach((id) => {
-      this.ids.leads.set(id, lead._id);
-      this.leadContact.set(String(lead._id), lead.contactId);
-    }));
+    leads.forEach((lead) => {
+      const contactId = lead.contactId?._id || lead.contactId;
+      (lead.legacyIds || []).forEach((id) => this.ids.leads.set(id, lead._id));
+      this.leadContact.set(String(lead._id), contactId);
+      if (lead.contactId?.name) this.leadByName.set(lower(lead.contactId.name), lead._id);
+      if (lead.title) this.dealByTitle.set(lower(lead.title), lead._id);
+    });
     members.forEach((member) => {
       [member.displayName, member.userId?.name].filter(Boolean).forEach((name) => this.memberByName.set(lower(name), member._id));
     });
@@ -123,6 +142,7 @@ class ImportRun {
     if (phoneE164) this.contactByPhone.set(phoneE164, id);
     if (email) this.contactByEmail.set(lower(email), id);
     if (name) this.contactByNameCompany.set(`${lower(name)}|${lower(company)}`, id);
+    if (name && !this.contactByName.has(lower(name))) this.contactByName.set(lower(name), id);
     (legacyIds || []).forEach((legacyId) => this.ids.contacts.set(legacyId, id));
   }
 
@@ -215,7 +235,7 @@ class ImportRun {
     return id || this.req.member._id;
   }
 
-  async createLead(doc, { legacyId, activities = [] }) {
+  async createLead(doc, { legacyId, activities = [], contactName }) {
     const stage = doc.stage;
     const leadDoc = {
       ...doc,
@@ -236,6 +256,8 @@ class ImportRun {
     }
     if (legacyId) this.ids.leads.set(legacyId, id);
     this.leadContact.set(String(id), doc.contactId);
+    if (contactName) this.leadByName.set(lower(contactName), id);
+    if (doc.title) this.dealByTitle.set(lower(doc.title), id);
     return id;
   }
 
@@ -264,7 +286,7 @@ class ImportRun {
         })),
         ownerId: this.req.member._id,
         createdAt: validDate(item.createdAt),
-      }, { legacyId: item.id ? String(item.id) : undefined });
+      }, { legacyId: item.id ? String(item.id) : undefined, contactName: item.name });
       section.created += 1;
     }
   }
@@ -289,7 +311,7 @@ class ImportRun {
         expectedCloseDate: validDate(item.closeDate),
         ownerId: this.ownerFor(item.owner),
         createdAt: validDate(item.createdAt),
-      }, { legacyId: item.id ? String(item.id) : undefined, activities: timeline });
+      }, { legacyId: item.id ? String(item.id) : undefined, activities: timeline, contactName: item.contact || item.account });
       section.created += 1;
     }
   }
@@ -350,6 +372,92 @@ class ImportRun {
     }
   }
 
+  // Assignee names become team members when they match one; otherwise the name is kept.
+  assigneeFor(name) {
+    const clean = str(name, 100);
+    if (!clean) return { assigneeId: undefined, assigneeName: '' };
+    const id = this.memberByName.get(lower(clean));
+    if (id) return { assigneeId: id, assigneeName: '' };
+    if (!this.reportedAssignees.has(lower(clean))) {
+      this.reportedAssignees.add(lower(clean));
+      this.unresolved(`Assignee "${clean}" is not a team member yet; the name is kept on their tasks and events`);
+    }
+    return { assigneeId: undefined, assigneeName: clean };
+  }
+
+  relatedFor(type, name) {
+    const relatedType = RELATED_TYPES.includes(type) ? type : '';
+    const relatedName = relatedType ? str(name, 200) : '';
+    if (!relatedType || !relatedName) return { relatedType: relatedName ? relatedType : '', relatedName, relatedId: undefined };
+    const key = lower(relatedName);
+    const index = { Customer: this.contactByName, Contact: this.contactByName, Lead: this.leadByName, Deal: this.dealByTitle }[relatedType];
+    return { relatedType, relatedName, relatedId: index ? index.get(key) : undefined };
+  }
+
+  async existingLegacyIds(Model) {
+    if (this.dryRun) return new Set();
+    const docs = await Model.find({ organizationId: this.organizationId, legacyIds: { $exists: true } }).select('legacyIds');
+    return new Set(docs.flatMap((doc) => doc.legacyIds));
+  }
+
+  // crm_tasks, and crm_deal_tasks (the quick follow-ups on the Deals page: { text, done, due }).
+  async importTasks(list, name, { followUps = false } = {}) {
+    const section = this.section(name);
+    const existing = await this.existingLegacyIds(Task);
+    for (const item of list) {
+      section.found += 1;
+      if (item.id && existing.has(String(item.id))) { section.alreadyImported += 1; continue; }
+      const title = str(followUps ? item.text : item.title, 300);
+      if (!title) { this.reject(section, item.id, 'Task has no title'); continue; }
+      const status = followUps ? (item.done ? 'Done' : 'To Do') : (TASK_STATUSES.includes(item.status) ? item.status : 'To Do');
+      await this.insert(Task, {
+        title,
+        description: str(item.description, 5000),
+        ...this.assigneeFor(item.assignee),
+        dueDate: calendarDay(followUps ? item.due : item.dueDate),
+        priority: TASK_PRIORITIES.includes(item.priority) ? item.priority : 'Medium',
+        status,
+        completedAt: status === 'Done' ? validDate(item.completedAt) || new Date() : undefined,
+        ...this.relatedFor(item.relatedType, item.relatedName),
+        origin: followUps ? 'deal_followup' : 'manual',
+        legacyIds: item.id ? [String(item.id)] : undefined,
+        createdById: this.req.user._id,
+        createdByMemberId: this.req.member._id,
+        createdAt: validDate(item.createdAt),
+      });
+      section.created += 1;
+    }
+  }
+
+  async importEvents(list) {
+    const section = this.section('events');
+    const existing = await this.existingLegacyIds(CalendarEvent);
+    for (const item of list) {
+      section.found += 1;
+      if (item.id && existing.has(String(item.id))) { section.alreadyImported += 1; continue; }
+      const title = str(item.title, 300);
+      const date = calendarDay(item.date);
+      if (!title || !date) { this.reject(section, item.id, 'Event needs a title and a date'); continue; }
+      const startTime = clockTime(item.startTime);
+      const endTime = startTime && clockTime(item.endTime) > startTime ? clockTime(item.endTime) : '';
+      await this.insert(CalendarEvent, {
+        title,
+        type: EVENT_TYPES.includes(item.type) ? item.type : 'Meeting',
+        date,
+        startTime,
+        endTime,
+        ...this.assigneeFor(item.assignee),
+        ...this.relatedFor(item.relatedType, item.relatedName),
+        description: str(item.description, 5000),
+        legacyIds: item.id ? [String(item.id)] : undefined,
+        createdById: this.req.user._id,
+        createdByMemberId: this.req.member._id,
+        createdAt: validDate(item.createdAt),
+      });
+      section.created += 1;
+    }
+  }
+
   async run(data) {
     await this.preload();
     const list = (key) => readList(data, key, this.report);
@@ -360,6 +468,9 @@ class ImportRun {
     await this.importDeals(list('crm_deals'));
     await this.importLeadActivities(list('crm_lead_activities'));
     await this.importQuotations(list('crm_quotations'));
+    await this.importTasks(list('crm_tasks'), 'tasks');
+    await this.importTasks(list('crm_deal_tasks'), 'dealFollowUps', { followUps: true });
+    await this.importEvents(list('crm_calendar_events'));
     for (const key of LATER_KEYS) {
       const count = list(key).length;
       if (count) this.report.later[key] = count;

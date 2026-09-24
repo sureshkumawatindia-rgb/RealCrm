@@ -10,6 +10,7 @@ const productRoutes = require('./products');
 const leadRoutes = require('./leads');
 const quotationRoutes = require('./quotations');
 const importRoutes = require('./imports');
+const { taskRoutes, eventRoutes } = require('./workItems');
 
 const router = express.Router();
 
@@ -24,5 +25,7 @@ router.use('/products', productRoutes);
 router.use('/leads', leadRoutes);
 router.use('/quotations', quotationRoutes);
 router.use('/imports', importRoutes);
+router.use('/tasks', taskRoutes);
+router.use('/events', eventRoutes);
 
 module.exports = router;
