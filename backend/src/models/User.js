@@ -6,7 +6,10 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, lowercase: true, trim: true },
     name: { type: String, required: true, trim: true },
     picture: { type: String, default: '' },
-    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
+    // The organization the user worked in last. Memberships live in OrganizationMember.
+    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
+    lastLoginAt: { type: Date },
+    disabledAt: { type: Date },
   },
   { timestamps: true },
 );

@@ -1,47 +1,43 @@
-const { OAuth2Client } = require('google-auth-library');
-const env = require('../config/env');
 const User = require('../models/User');
-const { verifyAppToken } = require('../utils/jwt');
+const OrganizationMember = require('../models/OrganizationMember');
+const { verifyAccessToken } = require('../utils/tokens');
+const httpError = require('../utils/httpError');
 
-const googleClient = new OAuth2Client(env.googleClientId);
-
-// Used ONLY during login (POST /auth/google), to verify the one-time Google credential.
-async function verifyGoogleToken(token) {
-  const ticket = await googleClient.verifyIdToken({ idToken: token, audience: env.googleClientId });
-  return ticket.getPayload();
+function bearerToken(req) {
+  const header = req.get('authorization') || '';
+  return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
 }
 
-// Used on every authenticated request. Verifies OUR OWN long-lived JWT (no network call
-// to Google, no 1-hour Google ID token expiry breaking the app mid-session).
+// Verifies the access token and loads the user and their membership in the token's organization.
+// Sets req.user, req.member, req.sessionId and req.tenant ({ organizationId, memberId, userId, role }).
 async function authenticate(req, res, next) {
   try {
-    const header = req.get('authorization') || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-    if (!token) {
-      const error = new Error('Authentication required');
-      error.statusCode = 401;
-      error.code = 'UNAUTHENTICATED';
-      throw error;
+    const token = bearerToken(req);
+    if (!token) throw httpError(401, 'UNAUTHENTICATED', 'Authentication required');
+
+    let payload;
+    try {
+      payload = verifyAccessToken(token);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') throw httpError(401, 'TOKEN_EXPIRED', 'Your session expired. Please sign in again.');
+      throw httpError(401, 'INVALID_AUTHENTICATION', 'Invalid or expired authentication token');
     }
 
-    const payload = verifyAppToken(token);
-    const user = await User.findOne({ googleId: payload.sub });
-    if (!user) {
-      const error = new Error('Authenticated user is not registered');
-      error.statusCode = 401;
-      error.code = 'USER_NOT_REGISTERED';
-      throw error;
-    }
+    const [user, member] = await Promise.all([
+      User.findById(payload.sub),
+      OrganizationMember.findOne({ organizationId: payload.org, userId: payload.sub, status: 'active' }),
+    ]);
+    if (!user || user.disabledAt) throw httpError(401, 'USER_NOT_REGISTERED', 'Authenticated user is not registered');
+    if (!member) throw httpError(401, 'MEMBERSHIP_REVOKED', 'You no longer have access to this organization.');
+
     req.user = user;
+    req.member = member;
+    req.sessionId = payload.sid;
+    req.tenant = { organizationId: member.organizationId, memberId: member._id, userId: user._id, role: member.role };
     next();
   } catch (error) {
-    if (!error.statusCode) {
-      error.statusCode = 401;
-      error.code = 'INVALID_AUTHENTICATION';
-      error.message = 'Invalid or expired authentication token';
-    }
     next(error);
   }
 }
 
-module.exports = { authenticate, verifyGoogleToken };
+module.exports = { authenticate };

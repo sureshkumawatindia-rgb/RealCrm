@@ -4,6 +4,7 @@ const oauthStateSchema = new mongoose.Schema(
   {
     state: { type: String, required: true, unique: true, index: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     returnUrl: { type: String, required: true },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
   },

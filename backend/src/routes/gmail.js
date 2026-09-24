@@ -86,6 +86,7 @@ router.post('/connect', authenticate, async (req, res, next) => {
     await OAuthState.create({
       state,
       userId: req.user._id,
+      organizationId: req.tenant.organizationId,
       returnUrl: getSafeReturnUrl(req.body?.returnUrl),
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
@@ -129,7 +130,7 @@ router.get('/oauth/callback', async (req, res) => {
       { userId: user._id },
       {
         userId: user._id,
-        organizationId: user.organizationId,
+        organizationId: stateRecord.organizationId || user.organizationId,
         emailAddress: profile.data.emailAddress,
         encryptedAccessToken: encrypt(tokens.access_token),
         encryptedRefreshToken: encrypt(tokens.refresh_token),
@@ -137,7 +138,7 @@ router.get('/oauth/callback', async (req, res) => {
         historyId: profile.data.historyId || '',
         scopes: GMAIL_SCOPES,
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     );
     return res.redirect(frontendRedirect({ gmail: 'connected', email: connection.emailAddress }, stateRecord.returnUrl));
   } catch (error) {

@@ -16,6 +16,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
     "google-auth-library": "^9.15.1",
     "googleapis": "^178.0.0",
     "helmet": "^8.3.0",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "jest": "^30.5.1",
     "jest-circus": "^30.5.1",
+    "mongodb-memory-server": "^11.3.0",
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2"
   }
