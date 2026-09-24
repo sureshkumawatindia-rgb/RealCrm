@@ -40,4 +40,4 @@ const eventRoutes = resourceRouter(eventService, 'Event', {
   patch: schemas.eventPatch,
 });
 
-module.exports = { taskRoutes, eventRoutes };
+module.exports = { taskRoutes, eventRoutes, resourceRouter };

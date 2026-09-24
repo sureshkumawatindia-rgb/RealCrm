@@ -5,6 +5,7 @@ const { GSTIN_PATTERN } = require('../utils/gstin');
 const {
   LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
+  TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES,
 } = require('../constants/crm');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
@@ -81,6 +82,18 @@ const eventFields = {
   endTime: clockTime,
   description: text(5000),
   ...related,
+};
+
+const ticketFields = {
+  subject: Joi.string().trim().min(1).max(300),
+  description: text(5000),
+  contactId: objectId.allow(null),
+  customerName: text(200),
+  category: Joi.string().valid(...TICKET_CATEGORIES),
+  priority: Joi.string().valid(...TICKET_PRIORITIES),
+  status: Joi.string().valid(...TICKET_STATUSES),
+  dueDate: calendarDate.allow(''),
+  assigneeId: objectId.allow(null),
 };
 
 const leadContact = {
@@ -175,6 +188,19 @@ module.exports = {
 
   eventCreate: Joi.object({ ...eventFields, title: eventFields.title.required(), date: eventFields.date.required() }),
   eventPatch: Joi.object(eventFields).min(1),
+
+  ticketCreate: Joi.object({ ...ticketFields, subject: ticketFields.subject.required() }),
+  ticketPatch: Joi.object(ticketFields).min(1),
+  ticketList: Joi.object({
+    ...listBase,
+    status: Joi.string().valid(...TICKET_STATUSES),
+    priority: Joi.string().valid(...TICKET_PRIORITIES),
+    category: Joi.string().valid(...TICKET_CATEGORIES),
+    assigneeId: objectId,
+    contactId: objectId,
+  }),
+
+  noteCreate: Joi.object({ text: Joi.string().trim().min(1).max(5000).required() }),
   eventList: Joi.object({
     ...listBase,
     type: Joi.string().valid(...EVENT_TYPES),

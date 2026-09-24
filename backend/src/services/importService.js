@@ -6,13 +6,20 @@ const LeadActivity = require('../models/LeadActivity');
 const Quotation = require('../models/Quotation');
 const Task = require('../models/Task');
 const CalendarEvent = require('../models/CalendarEvent');
+const Ticket = require('../models/Ticket');
+const Note = require('../models/Note');
+const Counter = require('../models/Counter');
 const OrganizationMember = require('../models/OrganizationMember');
 const Import = require('../models/Import');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { normalizePhone } = require('../utils/phone');
 const { rupeesToPaise } = require('../utils/money');
-const { STAGE_PROBABILITY, TASK_STATUSES, TASK_PRIORITIES, EVENT_TYPES, RELATED_TYPES } = require('../constants/crm');
+const { nextSequence } = require('../utils/counter');
+const {
+  STAGE_PROBABILITY, TASK_STATUSES, TASK_PRIORITIES, EVENT_TYPES, RELATED_TYPES,
+  TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START,
+} = require('../constants/crm');
 const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 
 // "Move my browser data to server": imports the localStorage keys of the old browser-only CRM.
@@ -22,12 +29,9 @@ const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 // Keys handled here move to the server in this phase; the others are reported for later.
 const SUPPORTED_KEYS = [
   'crm_products', 'crm_customers', 'crm_accounts', 'crm_leads', 'crm_deals', 'crm_lead_activities', 'crm_quotations',
-  'crm_tasks', 'crm_deal_tasks', 'crm_calendar_events',
+  'crm_tasks', 'crm_deal_tasks', 'crm_calendar_events', 'crm_tickets', 'crm_customer_notes',
 ];
-const LATER_KEYS = [
-  'crm_agents', 'crm_tickets', 'crm_documents',
-  'crm_campaigns', 'crm_workflows', 'crm_sequences', 'crm_customer_notes',
-];
+const LATER_KEYS = ['crm_agents', 'crm_documents', 'crm_campaigns', 'crm_workflows', 'crm_sequences'];
 
 const LEAD_STAGE_MAP = { New: 'New', 'In Progress': 'Contacted', Contacted: 'Contacted', Qualified: 'Quote Sent', Proposal: 'Quote Sent', Negotiation: 'Negotiation', Won: 'Won', Lost: 'Lost' };
 const DEAL_STAGE_MAP = { Lead: 'New', Qualified: 'Quote Sent', Proposal: 'Quote Sent', Negotiation: 'Negotiation', Won: 'Won', Lost: 'Lost' };
@@ -53,23 +57,40 @@ const nonNegativeInt = (value) => {
   return Number.isFinite(number) && number >= 0 ? number : undefined;
 };
 
-function readList(data, key, report) {
+// localStorage values are JSON strings; undefined when missing or unreadable.
+function parseKey(data, key, report) {
   const raw = data[key];
-  if (raw == null || raw === '') return [];
-  let value = raw;
-  if (typeof raw === 'string') {
-    try {
-      value = JSON.parse(raw);
-    } catch {
-      report.problems.push({ key, reason: 'Not valid JSON' });
-      return [];
-    }
+  if (raw == null || raw === '') return undefined;
+  if (typeof raw !== 'string') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    report.problems.push({ key, reason: 'Not valid JSON' });
+    return undefined;
   }
+}
+
+const objectsOnly = (list) => list.filter((item) => item && typeof item === 'object');
+
+function readList(data, key, report) {
+  const value = parseKey(data, key, report);
+  if (value === undefined) return [];
   if (!Array.isArray(value)) {
     report.problems.push({ key, reason: 'Expected a list' });
     return [];
   }
-  return value.filter((item) => item && typeof item === 'object');
+  return objectsOnly(value);
+}
+
+// For keys stored as { "<id>": [...] } (crm_customer_notes).
+function readMap(data, key, report) {
+  const value = parseKey(data, key, report);
+  if (value === undefined) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    report.problems.push({ key, reason: 'Expected an object' });
+    return {};
+  }
+  return value;
 }
 
 function newSection() {
@@ -93,6 +114,9 @@ class ImportRun {
     this.leadByName = new Map();
     this.dealByTitle = new Map();
     this.reportedAssignees = new Set();
+    // Server ids of the organization's contacts (Customer 360 notes added after the customers
+    // moved to the server are stored under these).
+    this.contactIds = new Set();
   }
 
   section(name) {
@@ -124,7 +148,10 @@ class ImportRun {
       Lead.find(org).select('legacyIds contactId title').populate({ path: 'contactId', select: 'name' }),
       OrganizationMember.find({ ...org, status: 'active' }).populate({ path: 'userId', select: 'name' }),
     ]);
-    contacts.forEach((contact) => this.indexContact(contact._id, contact));
+    contacts.forEach((contact) => {
+      this.indexContact(contact._id, contact);
+      this.contactIds.add(String(contact._id));
+    });
     products.forEach((product) => product.legacyIds.forEach((id) => this.ids.products.set(id, product._id)));
     leads.forEach((lead) => {
       const contactId = lead.contactId?._id || lead.contactId;
@@ -394,16 +421,19 @@ class ImportRun {
     return { relatedType, relatedName, relatedId: index ? index.get(key) : undefined };
   }
 
-  async existingLegacyIds(Model) {
-    if (this.dryRun) return new Set();
-    const docs = await Model.find({ organizationId: this.organizationId, legacyIds: { $exists: true } }).select('legacyIds');
-    return new Set(docs.flatMap((doc) => doc.legacyIds));
+  // Old browser id → server id. Reads the collection directly so records deleted on the server
+  // count too: running the import again never brings back something the team deleted.
+  async legacyIdMap(Model) {
+    const docs = await Model.collection
+      .find({ organizationId: this.organizationId, legacyIds: { $exists: true } }, { projection: { legacyIds: 1 } })
+      .toArray();
+    return new Map(docs.flatMap((doc) => doc.legacyIds.map((legacyId) => [legacyId, doc._id])));
   }
 
   // crm_tasks, and crm_deal_tasks (the quick follow-ups on the Deals page: { text, done, due }).
   async importTasks(list, name, { followUps = false } = {}) {
     const section = this.section(name);
-    const existing = await this.existingLegacyIds(Task);
+    const existing = await this.legacyIdMap(Task);
     for (const item of list) {
       section.found += 1;
       if (item.id && existing.has(String(item.id))) { section.alreadyImported += 1; continue; }
@@ -431,7 +461,7 @@ class ImportRun {
 
   async importEvents(list) {
     const section = this.section('events');
-    const existing = await this.existingLegacyIds(CalendarEvent);
+    const existing = await this.legacyIdMap(CalendarEvent);
     for (const item of list) {
       section.found += 1;
       if (item.id && existing.has(String(item.id))) { section.alreadyImported += 1; continue; }
@@ -458,6 +488,109 @@ class ImportRun {
     }
   }
 
+  // crm_tickets. The old number is kept when it is free, else the ticket gets the next number and
+  // keeps the old one as legacyNumber. Replies stored inside each ticket become ticket notes.
+  async importTickets(list) {
+    const section = this.section('tickets');
+    const noteSection = this.section('ticketNotes');
+    const existing = await this.legacyIdMap(Ticket);
+    const existingNotes = await this.legacyIdMap(Note);
+    const takenNumbers = new Set(await Ticket.collection.distinct('number', { organizationId: this.organizationId }));
+    const oldNumbers = list.map((item) => nonNegativeInt(item.number)).filter((number) => number >= TICKET_NUMBER_START);
+    // Move the counter past the old numbers first, so tickets created meanwhile never take one.
+    if (!this.dryRun && oldNumbers.length) {
+      await Counter.updateOne(
+        { organizationId: this.organizationId, name: 'ticket' },
+        { $max: { seq: Math.max(...oldNumbers) - TICKET_NUMBER_START + 1 } },
+        { upsert: true },
+      );
+    }
+    for (const item of list) {
+      section.found += 1;
+      const legacyId = item.id ? String(item.id) : '';
+      let ticketId = legacyId ? existing.get(legacyId) : undefined;
+      if (ticketId) {
+        section.alreadyImported += 1;
+      } else {
+        const subject = str(item.subject, 300);
+        if (!subject) { this.reject(section, item.id, 'Ticket has no subject'); continue; }
+        let number = nonNegativeInt(item.number);
+        let legacyNumber;
+        if (!number || takenNumbers.has(number)) {
+          legacyNumber = number || undefined;
+          number = this.dryRun ? 0 : await nextSequence(this.organizationId, 'ticket', { start: TICKET_NUMBER_START });
+        }
+        takenNumbers.add(number);
+        const status = TICKET_STATUSES.includes(item.status) ? item.status : 'Open';
+        const createdAt = validDate(item.createdAt);
+        const customerName = str(item.customer, 200);
+        ticketId = await this.insert(Ticket, {
+          number,
+          legacyNumber,
+          subject,
+          description: str(item.description, 5000),
+          contactId: customerName ? this.contactByName.get(lower(customerName)) : undefined,
+          customerName,
+          category: TICKET_CATEGORIES.includes(item.category) ? item.category : 'General',
+          priority: TICKET_PRIORITIES.includes(item.priority) ? item.priority : 'Medium',
+          status,
+          ...this.assigneeFor(item.assignee),
+          dueDate: calendarDay(item.dueDate),
+          // The old page never recorded when; the creation time is the best guess.
+          resolvedAt: TICKET_CLOSED_STATUSES.includes(status) ? validDate(item.resolvedAt) || createdAt || new Date() : undefined,
+          legacyIds: legacyId ? [legacyId] : undefined,
+          createdById: this.req.user._id,
+          createdByMemberId: this.req.member._id,
+          createdAt,
+        });
+        section.created += 1;
+      }
+      if (legacyId && Array.isArray(item.notes)) {
+        await this.importNotes(noteSection, existingNotes, { parentType: 'ticket', parentId: ticketId, legacyParent: `ticket:${legacyId}`, notes: item.notes });
+      }
+    }
+  }
+
+  // crm_customer_notes: { "<customer id>": [{ text, at, author }] }. The id is the old browser id,
+  // or the contact's server id for notes added after the customers moved to the server.
+  async importCustomerNotes(map) {
+    const section = this.section('customerNotes');
+    const existing = await this.legacyIdMap(Note);
+    for (const [customerId, notes] of Object.entries(map)) {
+      if (!Array.isArray(notes)) continue;
+      const contactId = this.ids.contacts.get(customerId) || (this.contactIds.has(customerId) ? customerId : undefined);
+      if (!contactId) {
+        objectsOnly(notes).forEach((note, index) => {
+          section.found += 1;
+          this.reject(section, `${customerId}#${index}`, 'Customer not found (import the customers first)');
+        });
+        continue;
+      }
+      await this.importNotes(section, existing, { parentType: 'contact', parentId: contactId, legacyParent: `customer:${customerId}`, notes });
+    }
+  }
+
+  // Old notes ({ text, at, author }) have no ids, so each gets "<parent>#<position>"; the old
+  // pages only ever added notes at the end.
+  async importNotes(section, existing, { parentType, parentId, legacyParent, notes }) {
+    for (const [index, note] of objectsOnly(notes).entries()) {
+      section.found += 1;
+      const legacyId = `${legacyParent}#${index}`;
+      if (existing.has(legacyId)) { section.alreadyImported += 1; continue; }
+      const text = str(note.text, 5000);
+      if (!text) { this.reject(section, legacyId, 'Note is empty'); continue; }
+      await this.insert(Note, {
+        parentType,
+        parentId,
+        text,
+        authorName: str(note.author, 100),
+        legacyIds: [legacyId],
+        createdAt: validDate(note.at),
+      });
+      section.created += 1;
+    }
+  }
+
   async run(data) {
     await this.preload();
     const list = (key) => readList(data, key, this.report);
@@ -471,6 +604,8 @@ class ImportRun {
     await this.importTasks(list('crm_tasks'), 'tasks');
     await this.importTasks(list('crm_deal_tasks'), 'dealFollowUps', { followUps: true });
     await this.importEvents(list('crm_calendar_events'));
+    await this.importTickets(list('crm_tickets'));
+    await this.importCustomerNotes(readMap(data, 'crm_customer_notes', this.report));
     for (const key of LATER_KEYS) {
       const count = list(key).length;
       if (count) this.report.later[key] = count;

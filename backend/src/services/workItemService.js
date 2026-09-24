@@ -6,8 +6,8 @@ const { toPage, paginationMeta } = require('../utils/pagination');
 const { searchFilter, sortSpec } = require('../utils/listQuery');
 const { assignedOrCreatedFilter, resolveAssigneeId } = require('./access');
 
-// Shared by tasks and calendar events: both are assigned to a member and may point at a
-// customer, lead, deal or company ("related"). The related name is kept as a snapshot so
+// Shared by tasks, calendar events and tickets: each is assigned to a member; tasks and events
+// may point at a customer, lead, deal or company ("related"). The related name is kept as a snapshot so
 // the item still reads well if the record is renamed or deleted later.
 const RELATED_KEYS = ['relatedType', 'relatedId', 'relatedName'];
 
@@ -31,9 +31,10 @@ async function resolveRelated(req, { relatedType = '', relatedId, relatedName = 
 }
 
 // config: { Model, modules, entityType, label, fields, searchFields, sorts, defaultSort,
-//           filters(query) → mongo filter, prepare(item) → validate/derive before save, serialize }
+//           filters(query) → mongo filter, prepare(item) → validate/derive before save, serialize,
+//           resolve?(req, item, body) → async lookups of other fields, beforeCreate?(req, item) }
 function createWorkItemService(config) {
-  const { Model, modules, entityType, label, fields, searchFields, sorts, defaultSort, filters, prepare, serialize } = config;
+  const { Model, modules, entityType, label, fields, searchFields, sorts, defaultSort, filters, prepare, serialize, resolve, beforeCreate } = config;
 
   const baseFilter = (req) => ({ organizationId: req.tenant.organizationId });
 
@@ -69,12 +70,14 @@ function createWorkItemService(config) {
       });
       Object.assign(item, related);
     }
+    if (resolve) await resolve(req, item, body);
     prepare(item);
   }
 
   async function create(req, body) {
     const item = new Model({ ...baseFilter(req), createdById: req.user._id, createdByMemberId: req.member._id });
     await apply(req, item, body);
+    if (beforeCreate) await beforeCreate(req, item);
     await item.save();
     await audit(req, { action: `${entityType.toLowerCase()}.created`, entityType, entityId: item._id });
     return serialize(item);
@@ -95,7 +98,7 @@ function createWorkItemService(config) {
   }
 
   return {
-    list, create, update, remove,
+    list, create, update, remove, findVisible,
     get: async (req, id) => serialize(await findVisible(req, id)),
   };
 }

@@ -24,7 +24,17 @@ const EVENT_TYPES = Object.freeze(['Meeting', 'Call', 'Follow-up', 'Demo', 'Dead
 // What a task/event is about. Customer/Contact → contacts, Lead/Deal → leads, Account = a company name.
 const RELATED_TYPES = Object.freeze(['', 'Customer', 'Contact', 'Lead', 'Deal', 'Account']);
 
+// Support tickets (same values the Support page shows). Numbers start at 1001, like the old page.
+const TICKET_STATUSES = Object.freeze(['Open', 'In Progress', 'Waiting on Customer', 'Resolved', 'Closed']);
+const TICKET_CLOSED_STATUSES = Object.freeze(['Resolved', 'Closed']);
+const TICKET_PRIORITIES = Object.freeze(['Low', 'Medium', 'High', 'Urgent']);
+const TICKET_CATEGORIES = Object.freeze(['Technical', 'Billing', 'General', 'Feature Request', 'Bug Report']);
+const TICKET_NUMBER_START = 1001;
+// Notes belong to a ticket or a contact (notes on a lead are lead activities).
+const NOTE_PARENT_TYPES = Object.freeze(['ticket', 'contact']);
+
 module.exports = {
   LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
+  TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START, NOTE_PARENT_TYPES,
 };

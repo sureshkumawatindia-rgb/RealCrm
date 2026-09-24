@@ -11,6 +11,7 @@ const leadRoutes = require('./leads');
 const quotationRoutes = require('./quotations');
 const importRoutes = require('./imports');
 const { taskRoutes, eventRoutes } = require('./workItems');
+const ticketRoutes = require('./tickets');
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.use('/quotations', quotationRoutes);
 router.use('/imports', importRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/events', eventRoutes);
+router.use('/tickets', ticketRoutes);
 
 module.exports = router;

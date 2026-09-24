@@ -7,6 +7,8 @@ const Quotation = require('../models/Quotation');
 const LeadActivity = require('../models/LeadActivity');
 const Task = require('../models/Task');
 const CalendarEvent = require('../models/CalendarEvent');
+const Ticket = require('../models/Ticket');
+const Note = require('../models/Note');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 
 // Shapes copied from the old browser-only CRM (localStorage values are JSON strings).
@@ -45,7 +47,14 @@ const browserData = () => ({
     { id: 'ev_1', title: 'Demo at shop', type: 'Demo', date: '2026-10-02', startTime: '15:00', endTime: '14:00', relatedType: 'Lead', relatedName: 'Sunita Stores' },
     { id: 'ev_2', title: 'No date' },
   ]),
-  crm_tickets: JSON.stringify([{ id: 'tk_1', subject: 'Late delivery' }]),
+  crm_tickets: JSON.stringify([
+    { id: 'tk_1', number: 1001, subject: 'Late delivery', customer: 'Ravi Traders', category: 'Billing', priority: 'Urgent', status: 'Resolved', assignee: 'Rohan Local', dueDate: '2026-09-20', createdAt: '2026-09-01T10:00:00.000Z',
+      notes: [{ text: 'Called the courier', at: '2026-09-02T10:00:00.000Z', author: 'Anil' }, { text: '' }] },
+    { id: 'tk_2', number: 1002, subject: 'Need GST invoice', customer: 'Unknown Buyer', status: 'Weird' },
+    { id: 'tk_nosubject', number: 1003 },
+  ]),
+  crm_customer_notes: JSON.stringify({ c_ravi: [{ text: 'VIP buyer', at: '2026-03-01T10:00:00.000Z', author: 'Anil' }], c_gone: [{ text: 'Old note' }] }),
+  crm_documents: JSON.stringify([{ id: 'doc_1', name: 'Price list.pdf' }]),
   crm_campaigns: 'not json',
 });
 
@@ -62,9 +71,12 @@ describe('POST /imports/localstorage', () => {
     const { sections, later, problems } = res.body.data.report;
     expect(sections.products).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(sections.leads).toMatchObject({ found: 3, created: 3 });
-    expect(later).toEqual({ crm_tickets: 1 });
+    expect(later).toEqual({ crm_documents: 1 });
     expect(sections.tasks).toMatchObject({ found: 3, created: 2, rejected: 1 });
     expect(sections.events).toMatchObject({ found: 2, created: 1, rejected: 1 });
+    expect(sections.tickets).toMatchObject({ found: 3, created: 2, rejected: 1 });
+    expect(sections.ticketNotes).toMatchObject({ found: 2, created: 1, rejected: 1 });
+    expect(sections.customerNotes).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(problems).toEqual([{ key: 'crm_campaigns', reason: 'Not valid JSON' }]);
     expect(await Product.countDocuments()).toBe(0);
     expect(await Lead.countDocuments()).toBe(0);
@@ -127,10 +139,33 @@ describe('POST /imports/localstorage', () => {
     // End before start is dropped; "Sunita Stores" is no imported lead, so only the name is kept.
     expect(demo).toMatchObject({ type: 'Demo', date: '2026-10-02', startTime: '15:00', endTime: '', relatedType: 'Lead', relatedName: 'Sunita Stores' });
     expect(demo.relatedId).toBeUndefined();
+
+    // Tickets keep their numbers and link to the imported customer; replies become notes.
+    const late = await Ticket.findOne({ legacyIds: 'tk_1' });
+    expect(late).toMatchObject({ number: 1001, customerName: 'Ravi Traders', category: 'Billing', priority: 'Urgent', status: 'Resolved', assigneeName: 'Rohan Local', dueDate: '2026-09-20' });
+    expect(String(late.contactId)).toBe(String(ravi._id));
+    expect(late.resolvedAt.toISOString()).toBe('2026-09-01T10:00:00.000Z');
+    const gst = await Ticket.findOne({ legacyIds: 'tk_2' });
+    expect(gst).toMatchObject({ number: 1002, status: 'Open', customerName: 'Unknown Buyer' });
+    expect(gst.contactId).toBeUndefined();
+    const reply = await Note.findOne({ parentType: 'ticket', parentId: late._id });
+    expect(reply).toMatchObject({ text: 'Called the courier', authorName: 'Anil' });
+    expect(reply.createdAt.toISOString()).toBe('2026-09-02T10:00:00.000Z');
+    const vip = await Note.findOne({ parentType: 'contact', parentId: ravi._id });
+    expect(vip.text).toBe('VIP buyer');
+
+    // New tickets continue after the imported numbers.
+    const next = await api().post('/api/v1/tickets').set(bearer(owner.token)).send({ subject: 'After import' });
+    expect(next.body.data.number).toBe(1004);
   });
 
-  it('running the import again creates nothing new', async () => {
-    const before = await Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments()]);
+  it('running the import again creates nothing new, and does not bring back deleted records', async () => {
+    const gst = await Ticket.findOne({ legacyIds: 'tk_2' });
+    await api().delete(`/api/v1/tickets/${gst._id}`).set(bearer(owner.token));
+    const callBack = await Task.findOne({ legacyIds: 't_1' });
+    await api().delete(`/api/v1/tasks/${callBack._id}`).set(bearer(owner.token));
+    const counts = () => Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments(), Ticket.countDocuments(), Note.countDocuments()]);
+    const before = await counts();
     const res = await run(false);
     const { sections } = res.body.data.report;
     expect(sections.products).toMatchObject({ created: 0, alreadyImported: 1 });
@@ -139,8 +174,22 @@ describe('POST /imports/localstorage', () => {
     expect(sections.quotations).toMatchObject({ created: 0, alreadyImported: 1 });
     expect(sections.tasks).toMatchObject({ created: 0, alreadyImported: 2 });
     expect(sections.events).toMatchObject({ created: 0, alreadyImported: 1 });
-    const after = await Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments()]);
+    expect(sections.tickets).toMatchObject({ created: 0, alreadyImported: 2 });
+    expect(sections.ticketNotes).toMatchObject({ created: 0, alreadyImported: 1 });
+    expect(sections.customerNotes).toMatchObject({ created: 0, alreadyImported: 1 });
+    const after = await counts();
     expect(after).toEqual(before);
+  });
+
+  it('renumbers an old ticket whose number is taken and keeps the old number', async () => {
+    const shop = await login('import-numbers@example.com');
+    expect((await api().post('/api/v1/tickets').set(bearer(shop.token)).send({ subject: 'Made on the server' })).body.data.number).toBe(1001);
+    const data = { crm_tickets: JSON.stringify([{ id: 'old_a', number: 1001, subject: 'Old A' }, { id: 'old_b', number: 1005, subject: 'Old B' }]) };
+    expect((await run(false, data, shop.token)).status).toBe(201);
+    const oldA = await Ticket.findOne({ legacyIds: 'old_a' });
+    expect(oldA).toMatchObject({ number: 1006, legacyNumber: 1001 });
+    expect((await Ticket.findOne({ legacyIds: 'old_b' })).number).toBe(1005);
+    expect((await api().post('/api/v1/tickets').set(bearer(shop.token)).send({ subject: 'Next' })).body.data.number).toBe(1007);
   });
 
   it('is only for owners and admins, and needs CRM data', async () => {

@@ -141,6 +141,7 @@ module.exports = {
   remove,
   findOrCreate,
   updateContact: update,
+  findVisible,
   serializeContact,
   normalizeFields,
 };
