@@ -40,7 +40,16 @@ Only hashes of refresh tokens and invite tokens are stored. Gmail tokens are enc
 
 Calendar days are stored as strings, not `Date`, so a due date entered in India never moves a day when read in another timezone.
 
-Counters used: `quotation:<financial year>`.
+## 1d. Implemented (Phase 2, support tickets and notes)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `tickets` | `number` (counter `ticket`, from 1001), `legacyNumber` (imported ticket whose old number was taken), `subject`, `description`, `contactId`, `customerName` (snapshot, or the typed name when no contact matched), `category`, `priority`, `status`, `assigneeId`, `assigneeName`, `dueDate` (`YYYY-MM-DD` string), `resolvedAt`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | unique `(organizationId, number)` (deleted tickets keep their number); `(organizationId, deletedAt, status, priority, dueDate)`; `(organizationId, assigneeId, status)`; `(organizationId, contactId, createdAt -1)`; `(organizationId, legacyIds)` |
+| `notes` | `parentType` (ticket/contact), `parentId`, `text`, `authorUserId`, `authorMemberId`, `authorName` (snapshot; imported notes keep only the old name), `legacyIds[]`, `deletedAt` | `(organizationId, parentType, parentId, createdAt -1)`; `(organizationId, legacyIds)` |
+
+The roadmap planned `dueAt` and a note `body`; the code uses `dueDate` (a calendar day, like tasks) and `text` (like lead activities). Notes on leads stay in `leadactivities`.
+
+Counters used: `quotation:<financial year>`, `ticket`.
 
 ## 2. Data migrations
 
@@ -50,4 +59,4 @@ Counters used: `quotation:<financial year>`.
 
 ## 3. Planned (Phase 2 onwards)
 
-Tickets, notes, documents, campaigns, workflows, sequences; then WhatsApp, lead sources, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.
+Documents, campaigns, workflows, sequences; then WhatsApp, lead sources, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.

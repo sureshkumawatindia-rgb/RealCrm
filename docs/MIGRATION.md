@@ -22,9 +22,12 @@ Settings → Data & Privacy → **Move my browser data to server** (owners/admin
 | `crm_tasks` | tasks (assignee matched to a team member by name, else the name is kept; related customer/lead/deal matched by name) | B |
 | `crm_deal_tasks` | tasks with origin `deal_followup` (text → title, done → Done) | B |
 | `crm_calendar_events` | calendar events (an end time before the start is dropped) | B |
-| `crm_tickets`, `crm_documents`, `crm_campaigns`, `crm_workflows`, `crm_sequences`, `crm_customer_notes`, `crm_agents` | reported as "later", still used from the browser | next checkpoints |
+| `crm_tickets` | tickets (old number kept when free, else a new number with the old one in `legacyNumber`; customer matched to a contact by name; the counter moves past the old numbers) and their `notes` → ticket notes | C |
+| `crm_customer_notes` | contact notes (keyed by the old customer id, or by the server contact id for notes added after checkpoint A) | C |
+| `crm_ticket_seq` | not needed (numbers come from the server counter) | C |
+| `crm_documents`, `crm_campaigns`, `crm_workflows`, `crm_sequences`, `crm_agents` | reported as "later", still used from the browser | next checkpoints |
 
-Every imported record keeps its old id in `legacyIds`, so the import can be run again after each checkpoint: it only adds what is new.
+Every imported record keeps its old id in `legacyIds`, so the import can be run again after each checkpoint: it only adds what is new. Since checkpoint C, tasks, events, tickets and notes that were deleted on the server are not imported again. Products, contacts and leads deleted on the server still come back on a new run (to fix in checkpoint G).
 
 ## 1. Overview
 The current CRM operates entirely on `localStorage`. A one-time migration API will allow users to upload their `localStorage` state to the new backend.

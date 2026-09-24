@@ -147,11 +147,27 @@ Read: `calendar`, `dashboard`, `customers` or `reports`. Create/edit/delete: `ca
 | `POST` | `/events` | `{ title, date, type? (Meeting/Call/Follow-up/Demo/Deadline/Reminder), startTime?, endTime?, description?, assigneeId?, relatedType?, relatedId?, relatedName? }`. An end time needs a start time (otherwise it is dropped); an end at or before the start is 400 `END_BEFORE_START`. |
 | `GET/PATCH/DELETE` | `/events/:id` | Delete is a soft delete. |
 
+## Support tickets and notes (Phase 2)
+
+Read: `support`, `customers` or `reports`. Create/edit: `support`. Delete: `support` (agents need `support:delete`). Agents and viewers see tickets assigned to them or created by them unless they have `<module>:view_all` (D17).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/tickets?q=&status=&priority=&category=&assigneeId=&contactId=&sort=&page=&limit=` | `q` searches subject, description, customer name and imported assignee names. |
+| `POST` | `/tickets` | `{ subject, description?, contactId?, customerName?, category? (Technical/Billing/General/Feature Request/Bug Report), priority? (Low/Medium/High/Urgent), status? (Open/In Progress/Waiting on Customer/Resolved/Closed), dueDate?, assigneeId? }`. The server gives the number (per organization, from 1001, never reused). A `contactId` links the customer and sets `customerName` to the contact's name (400 `INVALID_CONTACT` if unknown); without one, the typed `customerName` is kept. |
+| `GET/PATCH/DELETE` | `/tickets/:id` | Moving to Resolved or Closed records `resolvedAt`; reopening clears it. `dueDate: ""` removes the due date. Delete is a soft delete. |
+| `GET` | `/tickets/:id/notes` | The ticket's replies, newest first (up to 200). |
+| `POST` | `/tickets/:id/notes` | `{ text }` (needs `support`). The author is the signed-in member. |
+| `GET` | `/contacts/:id/notes` | Customer 360 notes, newest first (`customers` view, and the contact must be visible to the member). |
+| `POST` | `/contacts/:id/notes` | `{ text }` (`customers` edit). |
+
+A note is `{ id, parentType (ticket/contact), parentId, text, authorName, authorMemberId, createdAt }`.
+
 ### Moving browser data to the server
 
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`) and calendar events; contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new. Returns a report per section (`found, created, alreadyImported, merged, rejected`), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
+| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`), calendar events, support tickets (old numbers kept when free, otherwise renumbered with `legacyNumber`), ticket replies and customer notes; contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new (and tasks, events, tickets and notes deleted on the server are not brought back). Returns a report per section (`found, created, alreadyImported, merged, rejected`), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
 | `GET` | `/imports/:id` | owner, admin | A previous run and its report. |
 
 ## Idempotency
@@ -160,4 +176,4 @@ Read: `calendar`, `dashboard`, `customers` or `reports`. Create/edit/delete: `ca
 
 ## Planned
 
-The rest of Phase 2 adds tickets (with notes), documents, campaigns, workflows and sequences, then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.
+The rest of Phase 2 adds documents, campaigns, workflows and sequences, then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.
