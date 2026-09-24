@@ -10,7 +10,7 @@ module.exports = {
     size: text(50),
     foundedYear: Joi.alternatives(Joi.number().integer().min(1800).max(2100), Joi.valid(null, '')),
     website: text(300),
-    email: Joi.string().trim().lowercase().email().max(254).allow(''),
+    email: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).max(254).allow(''),
     phone: text(30),
     gstin: Joi.string().trim().uppercase().pattern(GSTIN_PATTERN).allow('')
       .messages({ 'string.pattern.base': 'GSTIN must be 15 characters, for example 08ABCDE1234F1Z5' }),

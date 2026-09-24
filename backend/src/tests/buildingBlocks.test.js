@@ -68,9 +68,9 @@ describe('secretBox', () => {
   });
 
   it('fails on tampered ciphertext', () => {
-    const value = encrypt('secret');
-    const tampered = value.slice(0, -2) + (value.endsWith('A') ? 'B' : 'A') + value.slice(-1);
-    expect(() => decrypt(tampered)).toThrow();
+    const [iv, tag, ciphertext] = encrypt('secret').split('.');
+    const flipped = (ciphertext[0] === 'A' ? 'B' : 'A') + ciphertext.slice(1);
+    expect(() => decrypt([iv, tag, flipped].join('.'))).toThrow();
   });
 });
 

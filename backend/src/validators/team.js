@@ -16,7 +16,7 @@ module.exports = {
     assignable: Joi.boolean(),
   }).min(1),
   inviteCreate: Joi.object({
-    email: Joi.string().trim().lowercase().email().max(254).required(),
+    email: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).max(254).required(),
     role: Joi.string().valid(...INVITABLE_ROLES).required(),
     modules,
     permissions,
