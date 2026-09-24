@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Customers | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      /* Product field + inline "Add Product" button inside the customer modal */
+      .field-with-action {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .field-with-action select {
+        flex: 1;
+      }
+      .field-with-action .btn {
+        white-space: nowrap;
+      }
+    </style>
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item active">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="Deals.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar"><h2>Customers</h2></header>
+
+        <div class="page">
+          <div class="toolbar">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Search customers..."
+              />
+            </div>
+            <div style="display: flex; gap: 10px">
+              <select class="filter" id="filterStatus">
+                <option value="all">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+              <button class="btn btn-primary" id="addBtn">
+                <i class="fa-solid fa-plus"></i> New Customer
+              </button>
+            </div>
+          </div>
+
+          <div class="panel"><div id="customersTable"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Customer Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="modalTitle">New Customer</h3>
+          <button class="icon-btn" id="modalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="customerForm">
+            <input type="hidden" id="editId" />
+            <div class="field">
+              <label>Full Name</label><input type="text" id="fName" required />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Email</label><input type="email" id="fEmail" required />
+              </div>
+              <div class="field">
+                <label>Phone</label><input type="text" id="fPhone" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Company</label><input type="text" id="fCompany" />
+            </div>
+            <div class="field">
+              <label>Product</label>
+              <div class="field-with-action">
+                <select id="fProduct">
+                  <option value="">— None —</option>
+                </select>
+                <button
+                  type="button"
+                  class="btn btn-outline"
+                  id="addProductFromCustomerBtn"
+                >
+                  <i class="fa-solid fa-plus"></i> Add Product
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <label>Status</label>
+              <select id="fStatus">
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="cancelBtn" type="button">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            id="saveBtn"
+            type="submit"
+            form="customerForm"
+          >
+            Save Customer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Product Modal (opened from inside the Customer modal) -->
+    <div class="modal-overlay" id="productModalOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="productModalTitle">New Product</h3>
+          <button class="icon-btn" id="productModalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="productForm">
+            <input type="hidden" id="editProductId" />
+            <div class="field">
+              <label>Product Name</label>
+              <input type="text" id="pName" required />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Category</label>
+                <input type="text" id="pCategory" list="categoryOptions" />
+                <datalist id="categoryOptions"></datalist>
+              </div>
+              <div class="field">
+                <label>Price (₹)</label>
+                <input type="number" id="pPrice" min="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Quantity in Stock</label>
+              <input
+                type="number"
+                id="pQuantity"
+                min="0"
+                step="1"
+                placeholder="e.g. 50"
+              />
+            </div>
+            <div class="field">
+              <label>Description</label>
+              <textarea id="pDescription" rows="3"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="productCancelBtn" type="button">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            id="productSaveBtn"
+            type="submit"
+            form="productForm"
+          >
+            Save Product
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="js/customers.js"></script>
+  </body>
+</html>

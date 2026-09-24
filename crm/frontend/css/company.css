@@ -1,0 +1,93 @@
+/* ============================================================
+   COMPANY SETUP PAGE
+   ============================================================ */
+.company-setup-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(600px 320px at 12% 8%, var(--brand-light), transparent),
+    radial-gradient(520px 280px at 92% 92%, var(--brand-light), transparent),
+    var(--bg);
+}
+.company-setup-card {
+  width: 100%;
+  max-width: 640px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  padding: 36px 36px 30px;
+  animation: card-in 0.45s var(--ease-spring);
+}
+.company-setup-head {
+  text-align: center;
+  margin-bottom: 26px;
+}
+.company-setup-head .login-mark {
+  margin-bottom: 14px;
+}
+.company-setup-head h1 {
+  font-size: 21px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  letter-spacing: -0.4px;
+}
+.company-setup-head p {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+/* ============================================================
+   COMPANY REVIEW GRID
+   Used in the "Company Profile" modal and the dashboard panel.
+   ============================================================ */
+.company-review-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+.company-review-grid .review-item.full {
+  grid-column: 1 / -1;
+}
+.company-review-grid .review-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 3px;
+}
+.company-review-grid .review-value {
+  font-size: 13.5px;
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.company-panel-head-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 14px;
+  box-shadow: var(--pop-2);
+  margin-right: 8px;
+}
+
+@media (max-width: 860px) {
+  .company-review-grid {
+    grid-template-columns: 1fr;
+  }
+  .company-setup-card {
+    padding: 26px 22px 22px;
+  }
+}

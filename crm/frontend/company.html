@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Company Profile | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link rel="stylesheet" href="css/style.css" />
+    <script>
+      // Not logged in -> login page
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+      // Company info already saved AND user did not come via the
+      // "edit=1" profile link -> don't show this page again, go to dashboard.
+      // NOTE: skipping does NOT set a permanent flag on purpose — if the
+      // user skips, this page should still show again the next time
+      // something redirects here (e.g. next login), until real info is saved.
+      const __params = new URLSearchParams(window.location.search);
+      if (localStorage.getItem("crm_company") && !__params.has("edit")) {
+        window.location.replace("dashboard.html");  
+      }
+    </script>
+    <style>
+      /* Scoped styles for this page only — reuses existing tokens from style.css */
+      .setup-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 20px;
+        background:
+          radial-gradient(
+            500px 260px at 12% 8%,
+            var(--brand-light),
+            transparent
+          ),
+          radial-gradient(
+            420px 220px at 92% 92%,
+            var(--brand-light),
+            transparent
+          ),
+          var(--bg);
+      }
+      .setup-card {
+        width: 100%;
+        max-width: 760px;
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-pop);
+        animation: card-in 0.32s var(--ease);
+        overflow: hidden;
+      }
+      @keyframes card-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .setup-head {
+        padding: 30px 32px 20px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .setup-head .badge-brand {
+        display: inline-block;
+        margin-bottom: 10px;
+      }
+      .setup-head h1 {
+        font-size: 22px;
+        font-weight: 800;
+        margin: 0 0 6px;
+        letter-spacing: -0.5px;
+      }
+      .setup-head p {
+        margin: 0;
+        font-size: 13.5px;
+        color: var(--text-muted);
+        font-weight: 500;
+        line-height: 1.5;
+      }
+      .setup-body {
+        padding: 24px 32px 8px;
+      }
+      .setup-section-label {
+        font-size: 11.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--brand-darker);
+        margin: 18px 0 12px;
+      }
+      .setup-section-label:first-child {
+        margin-top: 0;
+      }
+      .setup-foot {
+        padding: 18px 32px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .setup-skip {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-faint);
+        background: none;
+        border: none;
+        padding: 8px 4px;
+      }
+      .setup-skip:hover {
+        color: var(--text);
+        text-decoration: underline;
+      }
+      @media (max-width: 640px) {
+        .setup-head,
+        .setup-body,
+        .setup-foot {
+          padding-left: 20px;
+          padding-right: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="setup-page">
+      <div class="setup-card">
+        <div class="setup-head">
+          <span class="badge badge-brand">Step 1 of 1</span>
+          <h1>Tell us about your company</h1>
+          <p>
+            This shows up across every page of your CRM — sidebar branding,
+            documents, and reports. You can always update it later.
+          </p>
+        </div>
+
+        <div class="setup-body">
+          <form id="companyForm">
+            <div class="setup-section-label">Basics</div>
+            <div class="field">
+              <label>Company Name</label>
+              <input
+                type="text"
+                id="cName"
+                placeholder="e.g. OneCoreCRM Pvt Ltd"
+                required
+              />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Industry</label>
+                <input
+                  type="text"
+                  id="cIndustry"
+                  placeholder="e.g. SaaS, Retail, Manufacturing"
+                />
+              </div>
+              <div class="field">
+                <label>Company Size</label>
+                <select id="cSize">
+                  <option value="">— Select —</option>
+                  <option>1–10 employees</option>
+                  <option>11–50 employees</option>
+                  <option>51–200 employees</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Founded Year</label>
+                <input
+                  type="number"
+                  id="cFounded"
+                  min="1900"
+                  max="2100"
+                  placeholder="e.g. 2019"
+                />
+              </div>
+              <div class="field">
+                <label>Logo URL</label>
+                <input
+                  type="text"
+                  id="cLogo"
+                  placeholder="https://.../logo.png"
+                />
+              </div>
+            </div>
+
+            <div class="setup-section-label">Contact</div>
+            <div class="field-row">
+              <div class="field">
+                <label>Website</label>
+                <input
+                  type="text"
+                  id="cWebsite"
+                  placeholder="https://onecorecrm.com"
+                />
+              </div>
+              <div class="field">
+                <label>Support Email</label>
+                <input
+                  type="email"
+                  id="cEmail"
+                  placeholder="hello@onecorecrm.com"
+                />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Phone</label>
+                <input type="text" id="cPhone" placeholder="+91 98765 43210" />
+              </div>
+              <div class="field">
+                <label>GST / Tax ID</label>
+                <input
+                  type="text"
+                  id="cGst"
+                  placeholder="e.g. 23AAAAA0000A1Z5"
+                />
+              </div>
+            </div>
+
+            <div class="setup-section-label">Address</div>
+            <div class="field">
+              <label>Address Line</label>
+              <input
+                type="text"
+                id="cAddress"
+                placeholder="Street, building, area"
+              />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>City</label>
+                <input type="text" id="cCity" placeholder="e.g. indore" />
+              </div>
+              <div class="field">
+                <label>State</label>
+                <input
+                  type="text"
+                  id="cState"
+                  placeholder="e.g. Madhya Pradesh"
+                />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Country</label>
+                <input type="text" id="cCountry" placeholder="e.g. India" />
+              </div>
+              <div class="field">
+                <label>Pincode</label>  
+                <input type="text" id="cPincode" placeholder="e.g. 462001" />
+              </div>
+            </div>
+
+            <div class="setup-section-label">About</div>
+            <div class="field">
+              <label>Short Description</label>
+              <textarea
+                id="cDescription"
+                rows="3"
+                placeholder="One or two lines about what your company does..."
+              ></textarea>
+            </div>
+          </form>
+        </div>
+
+        <div class="setup-foot">
+          <button type="button" class="setup-skip" id="skipBtn">
+            Skip for now
+          </button>
+          <button
+            class="btn btn-primary"
+            id="saveBtn"
+            type="submit"
+            form="companyForm"
+          >
+            <i class="fa-solid fa-check"></i> Save & Continue
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script>
+      /**
+       * company.js — Company Profile page
+       * Persists a single object to localStorage under 'crm_company'.
+       * Reuses shared helpers from app.js (requireAuth, showToast, saveCompanyInfo, getCompanyInfo).
+       */
+
+      requireAuth();
+
+      const companyForm = document.getElementById("companyForm");
+
+      // If a profile already exists (user came back to edit it), prefill the form.
+      function prefillForm() {
+        const company = getCompanyInfo();
+        if (!company) return;
+        document.getElementById("cName").value = company.name || "";
+        document.getElementById("cIndustry").value = company.industry || "";
+        document.getElementById("cSize").value = company.size || "";
+        document.getElementById("cFounded").value = company.founded || "";
+        document.getElementById("cLogo").value = company.logo || "";
+        document.getElementById("cWebsite").value = company.website || "";
+        document.getElementById("cEmail").value = company.email || "";
+        document.getElementById("cPhone").value = company.phone || "";
+        document.getElementById("cGst").value = company.gst || "";
+        document.getElementById("cAddress").value = company.address || "";
+        document.getElementById("cCity").value = company.city || "";
+        document.getElementById("cState").value = company.state || "";
+        document.getElementById("cCountry").value = company.country || "";
+        document.getElementById("cPincode").value = company.pincode || "";
+        document.getElementById("cDescription").value =
+          company.description || "";
+      }
+      prefillForm();
+
+      companyForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const name = document.getElementById("cName").value.trim();
+        if (!name) {
+          showToast("Company name is required.", "error");
+          return;
+        }
+
+        const data = {
+          name,
+          industry: document.getElementById("cIndustry").value.trim(),
+          size: document.getElementById("cSize").value,
+          founded: document.getElementById("cFounded").value,
+          logo: document.getElementById("cLogo").value.trim(),
+          website: document.getElementById("cWebsite").value.trim(),
+          email: document.getElementById("cEmail").value.trim(),
+          phone: document.getElementById("cPhone").value.trim(),
+          gst: document.getElementById("cGst").value.trim(),
+          address: document.getElementById("cAddress").value.trim(),
+          city: document.getElementById("cCity").value.trim(),
+          state: document.getElementById("cState").value.trim(),
+          country: document.getElementById("cCountry").value.trim(),
+          pincode: document.getElementById("cPincode").value.trim(),
+          description: document.getElementById("cDescription").value.trim(),
+        };
+
+        saveCompanyInfo(data);
+        showToast("Company profile saved.", "success");
+        window.location.href = "dashboard.html";
+      });
+
+      document.getElementById("skipBtn").addEventListener("click", () => {
+        window.location.href = "dashboard.html";
+      }); 
+    </script>
+  </body>
+</html>

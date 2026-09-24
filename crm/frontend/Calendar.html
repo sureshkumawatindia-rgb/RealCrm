@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendar | YELLOW CRM</title>
+    <link rel="icon" type="image/png" href="./img/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/calendar.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="Logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item active">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button
+              id="menu-toggle"
+              class="icon-btn"
+              style="display: none; font-size: 16px"
+            >
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2>Calendar</h2>
+          </div>
+        </header>
+
+        <div class="page">
+          <!-- KPI CARDS -->
+          <div class="stat-grid" id="kpiGrid"></div>
+
+          <!-- TOOLBAR -->
+          <div class="toolbar">
+            <div class="cal-nav">
+              <button class="icon-btn" id="prevMonthBtn">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <h3 id="monthLabel">Month Year</h3>
+              <button class="icon-btn" id="nextMonthBtn">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+              <button class="btn btn-outline" id="todayBtn">Today</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-left: auto">
+              <select class="filter" id="filterType">
+                <option value="all">All Types</option>
+                <option value="Meeting">Meeting</option>
+                <option value="Call">Call</option>
+                <option value="Follow-up">Follow-up</option>
+                <option value="Demo">Demo</option>
+                <option value="Deadline">Deadline</option>
+                <option value="Reminder">Reminder</option>
+              </select>
+              <select class="filter" id="filterAssignee">
+                <option value="all">All Agents</option>
+              </select>
+              <button class="btn btn-primary" id="addBtn">
+                <i class="fa-solid fa-plus"></i> New Event
+              </button>
+            </div>
+          </div>
+
+          <!-- CALENDAR + SIDE PANEL -->
+          <div class="calendar-layout">
+            <div class="calendar-main">
+              <div class="calendar-weekdays">
+                <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span
+                ><span>Thu</span><span>Fri</span><span>Sat</span>
+              </div>
+              <div class="calendar-grid" id="calendarGrid"></div>
+            </div>
+
+            <aside class="side-panel">
+              <div class="side-tabs">
+                <button class="side-tab active" data-tab="upcoming">
+                  <i class="fa-solid fa-clock-rotate-left"></i> Upcoming
+                </button>
+                <button class="side-tab" data-tab="team">
+                  <i class="fa-solid fa-user-group"></i> Team
+                </button>
+              </div>
+              <div
+                class="side-tab-content active"
+                data-tab-content="upcoming"
+                id="upcomingTabContent"
+              ></div>
+              <div
+                class="side-tab-content"
+                data-tab-content="team"
+                id="teamTabContent"
+              ></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD / EDIT EVENT MODAL -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <h3 id="modalTitle">New Event</h3>
+          <button class="icon-btn" id="modalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="eventForm">
+            <input type="hidden" id="editId" />
+            <div class="field">
+              <label>Event Title</label>
+              <input
+                type="text"
+                id="fTitle"
+                placeholder="e.g. Demo call with Acme Corp"
+                required
+              />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Type</label>
+                <select id="fType">
+                  <option>Meeting</option>
+                  <option>Call</option>
+                  <option>Follow-up</option>
+                  <option>Demo</option>
+                  <option>Deadline</option>
+                  <option>Reminder</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Date</label>
+                <input type="date" id="fDate" required />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Start Time</label>
+                <input type="time" id="fStartTime" />
+              </div>
+              <div class="field">
+                <label>End Time</label>
+                <input type="time" id="fEndTime" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Assign to Agent</label>
+              <div class="assignee-picker" id="assigneePicker">
+                <button
+                  type="button"
+                  class="assignee-picker__trigger"
+                  id="assigneeTrigger"
+                >
+                  <span
+                    class="assignee-picker__avatar"
+                    id="assigneeTriggerAvatar"
+                    >?</span
+                  >
+                  <span
+                    class="assignee-picker__label is-placeholder"
+                    id="assigneeTriggerLabel"
+                    >Select agent</span
+                  >
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+                <div class="assignee-picker__menu" id="assigneeMenu"></div>
+              </div>
+              <input type="hidden" id="fAssignee" />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Related To</label>
+                <select id="fRelatedType">
+                  <option value="">None</option>
+                  <option value="Customer">Customer</option>
+                  <option value="Lead">Lead</option>
+                  <option value="Account">Account</option>
+                  <option value="Deal">Deal</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Related Record</label>
+                <input
+                  type="text"
+                  id="fRelatedName"
+                  list="relatedOptions"
+                  placeholder="Select a type first"
+                />
+                <datalist id="relatedOptions"></datalist>
+              </div>
+            </div>
+            <div class="field">
+              <label>Description</label>
+              <textarea
+                id="fDescription"
+                rows="3"
+                placeholder="Optional notes..."
+              ></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button
+            class="btn btn-danger-outline"
+            id="deleteBtn"
+            type="button"
+            style="display: none; margin-right: auto"
+          >
+            <i class="fa-solid fa-trash"></i> Delete Event
+          </button>
+          <button class="btn btn-outline" id="cancelBtn" type="button">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            id="saveBtn"
+            type="submit"
+            form="eventForm"
+          >
+            Save Event
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DAY AGENDA MODAL (shown when a day has multiple items) -->
+    <div class="modal-overlay" id="dayModalOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="dayModalTitle">Agenda</h3>
+          <button class="icon-btn" id="dayModalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="dayAgendaList"></div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="dayModalCloseBtn" type="button">
+            Close
+          </button>
+          <button class="btn btn-primary" id="dayModalAddBtn" type="button">
+            <i class="fa-solid fa-plus"></i> Add Event
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="../frontend/js/calendar.js"></script>
+  </body>
+</html>

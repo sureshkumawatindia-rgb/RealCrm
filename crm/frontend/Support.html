@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Support | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/support.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item active">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button
+              id="menu-toggle"
+              class="icon-btn"
+              style="display: none; font-size: 16px"
+            >
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2>Support</h2>
+          </div>
+        </header>
+
+        <div class="page">
+          <!-- KPI CARDS -->
+          <div class="stat-grid" id="kpiGrid"></div>
+
+          <!-- TOOLBAR + FILTERS -->
+          <div class="toolbar">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Search tickets, customers, assignees..."
+              />
+            </div>
+            <div class="filter-bar">
+              <select class="filter" id="filterStatus">
+                <option value="all">All Status</option>
+                <option>Open</option>
+                <option>In Progress</option>
+                <option>Waiting on Customer</option>
+                <option>Resolved</option>
+                <option>Closed</option>
+              </select>
+              <select class="filter" id="filterPriority">
+                <option value="all">All Priorities</option>
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+                <option>Urgent</option>
+              </select>
+              <select class="filter" id="filterCategory">
+                <option value="all">All Categories</option>
+                <option>Technical</option>
+                <option>Billing</option>
+                <option>General</option>
+                <option>Feature Request</option>
+                <option>Bug Report</option>
+              </select>
+              <select class="filter" id="filterAssignee">
+                <option value="all">All Agents</option>
+              </select>
+              <button class="link-clear" id="clearFiltersBtn">
+                Clear filters
+              </button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-left: auto">
+              <div class="view-toggle">
+                <button id="viewKanbanBtn" class="active">
+                  <i class="fa-solid fa-table-columns"></i> Kanban
+                </button>
+                <button id="viewTableBtn">
+                  <i class="fa-solid fa-list"></i> Table
+                </button>
+              </div>
+              <button class="btn btn-primary" id="addBtn">
+                <i class="fa-solid fa-plus"></i> New Ticket
+              </button>
+            </div>
+          </div>
+
+          <div class="nav-bar-kanban-card">
+            <button data-stage="Open">Open</button>
+            <button data-stage="In Progress">In Progress</button>
+            <button data-stage="Waiting on Customer">
+              Waiting on Customer
+            </button>
+            <button data-stage="Resolved">Resolved</button>
+            <button data-stage="Closed">Closed</button>
+          </div>
+          <!-- LAYOUT: BOARD + SIDE PANEL -->
+          <div class="support-layout">
+            <div class="support-main">
+              <div id="kanbanView" class="kanban-board"></div>
+              <div id="tableView" class="panel" style="display: none">
+                <div id="ticketsTable"></div>
+              </div>
+            </div>
+
+            <aside class="side-panel">
+              <div class="side-tabs">
+                <button class="side-tab active" data-tab="agents">
+                  <i class="fa-solid fa-user-group"></i> Agents
+                </button>
+                <button class="side-tab" data-tab="overdue">
+                  <i class="fa-solid fa-triangle-exclamation"></i> Overdue
+                </button>
+              </div>
+              <div
+                class="side-tab-content active"
+                data-tab-content="agents"
+                id="agentsTabContent"
+              ></div>
+              <div
+                class="side-tab-content"
+                data-tab-content="overdue"
+                id="overdueTabContent"
+              ></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD / EDIT TICKET MODAL -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <h3 id="modalTitle">New Ticket</h3>
+          <button class="icon-btn" id="modalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="ticketForm">
+            <input type="hidden" id="editId" />
+            <div class="field">
+              <label>Subject</label>
+              <input
+                type="text"
+                id="fSubject"
+                placeholder="e.g. Unable to export report as PDF"
+                required
+              />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Customer</label>
+                <input
+                  type="text"
+                  id="fCustomer"
+                  list="customerOptions"
+                  placeholder="Who's this ticket for?"
+                  required
+                />
+                <datalist id="customerOptions"></datalist>
+              </div>
+              <div class="field">
+                <label>Category</label>
+                <select id="fCategory">
+                  <option>Technical</option>
+                  <option>Billing</option>
+                  <option>General</option>
+                  <option>Feature Request</option>
+                  <option>Bug Report</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Priority</label>
+                <select id="fPriority">
+                  <option>Low</option>
+                  <option selected>Medium</option>
+                  <option>High</option>
+                  <option>Urgent</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Status</label>
+                <select id="fStatus">
+                  <option>Open</option>
+                  <option>In Progress</option>
+                  <option>Waiting on Customer</option>
+                  <option>Resolved</option>
+                  <option>Closed</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Assign to Agent</label>
+                <div class="assignee-picker" id="assigneePicker">
+                  <button
+                    type="button"
+                    class="assignee-picker__trigger"
+                    id="assigneeTrigger"
+                  >
+                    <span
+                      class="assignee-picker__avatar"
+                      id="assigneeTriggerAvatar"
+                      >?</span
+                    >
+                    <span
+                      class="assignee-picker__label is-placeholder"
+                      id="assigneeTriggerLabel"
+                      >Select agent</span
+                    >
+                    <i class="fa-solid fa-chevron-down"></i>
+                  </button>
+                  <div class="assignee-picker__menu" id="assigneeMenu"></div>
+                </div>
+                <input type="hidden" id="fAssignee" />
+              </div>
+              <div class="field">
+                <label>Due Date</label>
+                <input type="date" id="fDueDate" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Description</label>
+              <textarea
+                id="fDescription"
+                rows="3"
+                placeholder="What's going on? Include steps to reproduce, error messages, etc."
+              ></textarea>
+            </div>
+
+            <div id="timelineSection" style="display: none">
+              <hr class="timeline-divider" />
+              <label
+                style="
+                  display: block;
+                  font-size: 12.5px;
+                  font-weight: 600;
+                  color: var(--text-muted);
+                  margin-bottom: 10px;
+                "
+              >
+                Replies &amp; Notes
+              </label>
+              <div class="timeline" id="timelineList"></div>
+              <div class="note-input-row">
+                <input
+                  type="text"
+                  id="noteInput"
+                  placeholder="Reply to the customer or log an internal note..."
+                />
+                <button type="button" class="btn btn-outline" id="addNoteBtn">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="modal-foot">
+          <button
+            class="btn btn-danger-outline"
+            id="deleteBtn"
+            type="button"
+            style="display: none; margin-right: auto"
+          >
+            <i class="fa-solid fa-trash"></i> Delete Ticket
+          </button>
+          <button class="btn btn-outline" id="cancelBtn" type="button">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            id="saveBtn"
+            type="submit"
+            form="ticketForm"
+          >
+            Save Ticket
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="./js/support.js"></script>
+  </body>
+</html>

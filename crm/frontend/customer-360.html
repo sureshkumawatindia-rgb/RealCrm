@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Customer 360° | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+      /* Customer 360 — scoped styles only. Reuses tokens from style.css
+         (--brand, --surface, --radius-*, --shadow-*, --text-*). No new
+         color values introduced, no new fonts, nothing that touches the
+         existing pages. */
+
+      .c360-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+      .c360-back:hover {
+        color: var(--text);
+      }
+
+      .c360-picker {
+        max-width: 480px;
+        margin: 60px auto;
+        text-align: center;
+      }
+      .c360-picker i {
+        font-size: 30px;
+        color: var(--brand-darker);
+        margin-bottom: 10px;
+        display: block;
+      }
+      .c360-picker .search-box {
+        margin: 18px auto 14px;
+      }
+      .c360-picker-list {
+        text-align: left;
+        max-height: 320px;
+        overflow-y: auto;
+      }
+      .c360-picker-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+      }
+      .c360-picker-row:hover {
+        background: var(--brand-light);
+      }
+
+      .c360-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px 24px;
+        margin-bottom: 18px;
+      }
+      .c360-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--brand), var(--brand-darker));
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+      .c360-header h2 {
+        margin: 0 0 3px;
+        font-size: 19px;
+      }
+      .c360-header .sub {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .c360-header-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+      }
+
+      .c360-health {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 78px;
+        height: 78px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        font-weight: 800;
+      }
+      .c360-health .num {
+        font-size: 19px;
+        line-height: 1;
+      }
+      .c360-health .lbl {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-top: 2px;
+      }
+      .c360-health.good {
+        background: var(--success-bg);
+        color: var(--success);
+      }
+      .c360-health.mid {
+        background: var(--warning-bg);
+        color: var(--warning);
+      }
+      .c360-health.low {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+
+      .c360-layout {
+        display: flex;
+        align-items: flex-start;
+        gap: 18px;
+      }
+      .c360-side {
+        width: 280px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .c360-main {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .c360-field {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .c360-field:last-child {
+        border-bottom: none;
+      }
+      .c360-field .k {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-faint);
+      }
+      .c360-field .v {
+        font-size: 13.5px;
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .c360-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
+      .c360-tab {
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 8px 14px;
+        border-radius: var(--radius-pill);
+      }
+      .c360-tab.active {
+        background: var(--brand);
+        border-color: var(--brand);
+        color: var(--text);
+      }
+      .c360-panel {
+        display: none;
+      }
+      .c360-panel.active {
+        display: block;
+      }
+
+      .c360-list-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .c360-list-item:last-child {
+        border-bottom: none;
+      }
+      .c360-list-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .c360-list-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .c360-list-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .c360-list-meta {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        margin-top: 2px;
+      }
+
+      .note-input-row {
+        display: flex;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border-soft);
+      }
+      .note-input-row input {
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 9px 12px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+
+      @media (max-width: 1000px) {
+        .c360-layout {
+          flex-direction: column;
+        }
+        .c360-side {
+          width: 100%;
+        }
+      }
+    </style>
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <a href="customer-360.html" class="nav-item active">
+            <i class="fa-solid fa-chart-line"></i> Customer Reports
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img id="sidebar-user-avatar" src="" alt="" onerror="this.style.display='none'" />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out
+          </a>
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display:flex;align-items:center;gap:12px">
+            <a class="c360-back" href="customers.html">
+              <i class="fa-solid fa-arrow-left"></i> Customers
+            </a>
+          </div>
+          <h2>Customer 360°</h2>
+        </header>
+
+        <div class="page">
+          <!-- PICKER: shown when no ?id= is in the URL -->
+          <div id="pickerView" class="c360-picker" style="display:none">
+            <i class="fa-solid fa-address-card"></i>
+            <h3 style="margin:0 0 6px">Open a customer's 360° profile</h3>
+            <p class="text-muted" style="font-size:13px;margin:0">
+              Search for a customer to see every deal, task, ticket, document
+              and note in one place.
+            </p>
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="pickerSearch" placeholder="Search customers..." />
+            </div>
+            <div class="c360-picker-list" id="pickerList"></div>
+          </div>
+
+          <!-- PROFILE VIEW -->
+          <div id="profileView" style="display:none">
+            <div class="panel c360-header">
+              <div class="c360-avatar" id="c360Avatar">?</div>
+              <div>
+                <h2 id="c360Name">—</h2>
+                <div class="sub">
+                  <span id="c360Company"></span>
+                  <span id="c360Email"></span>
+                  <span id="c360Phone"></span>
+                </div>
+              </div>
+              <div class="c360-header-actions">
+                <div class="c360-health" id="c360Health">
+                  <span class="num">—</span>
+                  <span class="lbl">Health</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="stat-grid" id="c360Kpis"></div>
+
+            <div class="c360-layout">
+              <aside class="c360-side">
+                <div class="panel">
+                  <div class="panel-head"><h3>Overview</h3></div>
+                  <div style="padding:4px 16px 12px" id="c360Fields"></div>
+                </div>
+              </aside>
+
+              <div class="c360-main">
+                <div class="c360-tabs" id="c360Tabs">
+                  <button class="c360-tab active" data-tab="timeline">Activity Timeline</button>
+                  <button class="c360-tab" data-tab="deals">Deals</button>
+                  <button class="c360-tab" data-tab="tasks">Tasks &amp; Events</button>
+                  <button class="c360-tab" data-tab="tickets">Support Tickets</button>
+                  <button class="c360-tab" data-tab="documents">Documents</button>
+                  <button class="c360-tab" data-tab="notes">Notes</button>
+                </div>
+
+                <div class="panel c360-panel active" data-panel="timeline">
+                  <div id="c360Timeline"></div>
+                </div>
+                <div class="panel c360-panel" data-panel="deals">
+                  <div id="c360Deals"></div>
+                </div>
+                <div class="panel c360-panel" data-panel="tasks">
+                  <div id="c360Tasks"></div>
+                </div>
+                <div class="panel c360-panel" data-panel="tickets">
+                  <div id="c360Tickets"></div>
+                </div>
+                <div class="panel c360-panel" data-panel="documents">
+                  <div id="c360Documents"></div>
+                </div>
+                <div class="panel c360-panel" data-panel="notes">
+                  <div id="c360NotesList"></div>
+                  <div class="note-input-row">
+                    <input type="text" id="c360NoteInput" placeholder="Add a note about this customer..." />
+                    <button class="btn btn-outline" id="c360AddNoteBtn" type="button">
+                      <i class="fa-solid fa-plus"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="./js/customer-360.js"></script>
+  </body>
+</html>

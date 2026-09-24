@@ -1,0 +1,512 @@
+/* ============================================================
+   AI INSIGHTS MODULE — extends style.css tokens
+   Same soft-elevation, rounded, white+yellow system as the rest
+   of the CRM. No dark mode, no neon, no oversized cards.
+   ============================================================ */
+
+/* ---------- Topbar meta (live indicator + refresh) ---------- */
+.ai-topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.ai-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-bg);
+  flex-shrink: 0;
+}
+
+/* ---------- AI Executive Briefing ---------- */
+.ai-briefing-panel {
+  display: flex;
+  gap: 18px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, var(--brand-light) 0%, var(--surface) 62%);
+}
+.ai-briefing-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-md);
+  background: var(--brand);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: var(--pop-3);
+}
+.ai-briefing-body {
+  flex: 1;
+  min-width: 0;
+}
+.ai-briefing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ai-briefing-head .badge i {
+  margin-right: 4px;
+}
+.ai-briefing-text {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  font-weight: 400;
+  max-width: 920px;
+}
+.ai-briefing-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ai-briefing-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+}
+.ai-briefing-tag.good {
+  background: var(--success-bg);
+  color: var(--success);
+  border-color: rgba(31, 169, 113, 0.2);
+}
+.ai-briefing-tag.warn {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border-color: rgba(255, 159, 10, 0.2);
+}
+.ai-briefing-tag.info {
+  background: var(--info-bg);
+  color: var(--info);
+  border-color: rgba(74, 108, 247, 0.18);
+}
+
+/* ---------- KPI grid (reuse .stat-card, small AI-specific touches) ---------- */
+.ai-kpi-grid {
+  margin-bottom: 18px;
+}
+.ai-kpi-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ai-kpi-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.ai-kpi-icon.info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.ai-kpi-icon.success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.ai-kpi-icon.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.ai-kpi-icon.brand {
+  background: var(--brand-light);
+  color: var(--brand-darker);
+}
+.ai-kpi-sub {
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ai-kpi-sub.success {
+  color: var(--success);
+}
+.ai-kpi-sub.warning {
+  color: var(--warning);
+}
+.ai-kpi-sub.info {
+  color: var(--info);
+}
+.ai-kpi-sub.neutral {
+  color: var(--text-faint);
+}
+
+/* ---------- Two column layout: actions + forecast ---------- */
+.ai-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 18px;
+  align-items: stretch;
+}
+.ai-two-col .panel-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-two-col .panel-head h3 i {
+  color: var(--brand-darker);
+  font-size: 13px;
+}
+
+/* ---------- AI Recommended Actions ---------- */
+.ai-actions-list {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ai-action-item {
+  display: flex;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  transition:
+    box-shadow 0.2s var(--ease),
+    transform 0.2s var(--ease);
+}
+.ai-action-item:hover {
+  box-shadow: var(--pop-2);
+  transform: translateY(-1px);
+}
+.ai-action-priority {
+  width: 4px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.ai-action-priority.high {
+  background: var(--danger);
+}
+.ai-action-priority.medium {
+  background: var(--warning);
+}
+.ai-action-priority.low {
+  background: var(--info);
+}
+.ai-action-body {
+  flex: 1;
+  min-width: 0;
+}
+.ai-action-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.ai-action-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.ai-action-text {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+.ai-action-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ai-action-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.badge-priority-high {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.badge-priority-medium {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.badge-priority-low {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+/* ---------- AI Revenue Forecast ---------- */
+.ai-forecast-body {
+  padding: 16px 20px 20px;
+}
+.ai-forecast-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.ai-forecast-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-forecast-legend .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.ai-forecast-legend .dot.actual {
+  background: var(--brand-darker);
+}
+.ai-forecast-legend .dot.forecast {
+  background: var(--info);
+}
+.ai-forecast-figures {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.ai-forecast-figure-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.ai-forecast-figure-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.4px;
+}
+.ai-forecast-figure-sub {
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-top: 3px;
+}
+.ai-forecast-figure-sub.success {
+  color: var(--success);
+}
+.ai-forecast-svg {
+  width: 100%;
+  height: 190px;
+  display: block;
+  overflow: visible;
+}
+.ai-forecast-months {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 4px 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+/* ---------- High Priority Deals table ---------- */
+.ai-prob-track {
+  width: 70px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-soft);
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.ai-prob-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.ai-prob-fill.high {
+  background: var(--success);
+}
+.ai-prob-fill.medium {
+  background: var(--warning);
+}
+.ai-prob-fill.low {
+  background: var(--danger);
+}
+.ai-prob-cell {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.ai-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-light);
+  color: var(--brand-darker);
+  border: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+.ai-risk-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+/* ---------- Ask YELLOW AI ---------- */
+.ai-ask-panel {
+  overflow: visible;
+}
+.ai-ask-body {
+  padding: 16px 20px 20px;
+}
+.ai-ask-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.ai-ask-chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
+  transition:
+    background 0.16s var(--ease),
+    border-color 0.16s var(--ease);
+}
+.ai-ask-chip:hover {
+  background: var(--brand-light);
+  border-color: var(--border);
+}
+.ai-ask-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.ai-ask-thread:empty {
+  display: none;
+}
+.ai-ask-msg {
+  display: flex;
+  gap: 10px;
+  max-width: 720px;
+}
+.ai-ask-msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.ai-ask-msg.user {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+.ai-ask-msg.user .ai-ask-msg-avatar {
+  background: var(--brand);
+  color: var(--text);
+}
+.ai-ask-msg.ai .ai-ask-msg-avatar {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.ai-ask-msg-bubble {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 10px 13px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.ai-ask-msg.user .ai-ask-msg-bubble {
+  background: var(--brand-light);
+}
+.ai-ask-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 6px 8px 6px 16px;
+  background: var(--surface);
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+.ai-ask-input-row:focus-within {
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+.ai-ask-input-icon {
+  color: var(--brand-darker);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.ai-ask-input-row input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--text);
+  padding: 8px 0;
+}
+.ai-ask-input-row .btn {
+  flex-shrink: 0;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1100px) {
+  .ai-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 860px) {
+  .ai-briefing-panel {
+    flex-direction: column;
+  }
+  .ai-forecast-figures {
+    gap: 20px;
+  }
+  .ai-ask-msg {
+    max-width: 100%;
+  }
+  .ai-topbar-meta span#aiLastUpdated {
+    display: none;
+  }
+}

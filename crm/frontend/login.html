@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  </head>
+  <body>
+    <main class="login-page">
+      <div class="login-card">
+        <div class="login-mark">A</div>
+        <h1>YELLOW CRM</h1>
+        <p>Sign in with your Google account to continue</p>
+
+        <div id="google-signin-slot"></div>
+        
+        <p class="login-foot">
+          By continuing you agree to ONE CORE CRM's usage policy.
+        </p>
+      </div>
+    </main>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="js/app.js"></script>
+    <script src="js/login.js"></script>
+  </body>
+</html>

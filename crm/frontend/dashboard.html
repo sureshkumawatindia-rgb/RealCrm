@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/dashboard.css" />
+    <script>
+      // Guard runs before paint — no backend, just checks localStorage.
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item active">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <a href="customer-360.html" class="nav-item">
+            <i class="fa-solid fa-chart-line"></i> Customer Reports
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button id="menu-toggle" class="icon-btn" style="display: none">
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2 id="greetingHeading">Dashboard</h2>
+          </div>
+
+          <div class="topbar-right">
+            <div class="topbar-date" id="topbarDate"></div>
+
+            <div class="topbar-actions">
+              <button class="btn btn-outline" id="quickDealBtn" type="button">
+                <i class="fa-solid fa-handshake"></i> New Deal
+              </button>
+
+              <div class="quick-add" id="quickAddPicker">
+                <button
+                  class="btn btn-primary quick-add__trigger"
+                  id="quickAddTrigger"
+                  type="button"
+                >
+                  <i class="fa-solid fa-plus"></i> New
+                  <i class="fa-solid fa-chevron-down quick-add__chevron"></i>
+                </button>
+                <div class="quick-add__menu" id="quickAddMenu">
+                  <button type="button" data-target="deal">
+                    <i class="fa-solid fa-handshake"></i> Deal
+                  </button>
+                  <button type="button" data-target="lead">
+                    <i class="fa-solid fa-bullseye"></i> Lead
+                  </button>
+                  <button type="button" data-target="task">
+                    <i class="fa-solid fa-list-check"></i> Task
+                  </button>
+                  <button type="button" data-target="event">
+                    <i class="fa-solid fa-calendar-days"></i> Event
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="page">
+          <!-- TOP KPI ROW -->
+          <div class="stat-grid" id="kpiGrid"></div>
+
+          <!-- MAIN GRID -->
+          <div class="dash-grid">
+            <!-- LEFT COLUMN -->
+            <div class="dash-col dash-col--main">
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Pipeline by Stage</h3>
+                  <a href="./Deals.html" class="btn btn-outline">Open Deals</a>
+                </div>
+                <div id="pipelineBars" class="pipeline-wrap"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Recent Leads</h3>
+                  <a href="leads.html" class="btn btn-outline">View all</a>
+                </div>
+                <div id="recentLeadsTable"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Active Campaigns</h3>
+                  <a href="./Marketing.html" class="btn btn-outline"
+                    >Open Marketing</a
+                  >
+                </div>
+                <div id="campaignsList" class="mini-list"></div>
+              </div>
+            </div>
+
+            <!-- RIGHT COLUMN -->
+            <div class="dash-col dash-col--side">
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Today's Tasks</h3>
+                  <a href="./Tasks.html" class="btn btn-outline">Open</a>
+                </div>
+                <div id="todayTasksList" class="mini-list"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Upcoming Events</h3>
+                  <a href="./Calendar.html" class="btn btn-outline">Open</a>
+                </div>
+                <div id="upcomingEventsList" class="mini-list"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Products</h3>
+                  <a href="./leads.html" class="btn btn-outline">Manage</a>
+                </div>
+                <div id="productsList" class="mini-list"></div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Team Workload</h3>
+                  <a href="accounts.html" class="btn btn-outline">Manage</a>
+                </div>
+                <div id="teamWorkloadList" class="mini-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="js/app.js"></script>
+    <script src="./js/dashboard.js"></script>
+  </body>
+</html>

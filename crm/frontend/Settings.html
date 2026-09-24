@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings |YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <style>
+      /* Scoped styles for this page only — reuses tokens from style.css */
+      .settings-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+      }
+      .settings-tab {
+        padding: 9px 16px;
+        border-radius: 999px;
+        border: 1.5px solid var(--border, #e5e7eb);
+        background: var(--surface, #fff);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted, #6b7280);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .settings-tab.active {
+        background: var(--brand, #6366f1);
+        border-color: var(--brand, #6366f1);
+        color: #fff;
+      }
+      .settings-panel {
+        display: none;
+      }
+      .settings-panel.active {
+        display: block;
+      }
+      .settings-section {
+        margin-bottom: 20px;
+      }
+      .settings-section:last-child {
+        margin-bottom: 0;
+      }
+      .settings-section-label {
+        font-size: 11.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--brand-darker, #4338ca);
+        margin: 0 0 12px;
+      }
+      .settings-hint {
+        font-size: 12.5px;
+        color: var(--text-muted, #6b7280);
+        margin: -6px 0 16px;
+        line-height: 1.5;
+      }
+      .settings-summary-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 1px solid var(--border-soft, #eef0f3);
+        border-radius: var(--radius, 10px);
+        margin-bottom: 10px;
+      }
+      .settings-summary-row:last-child {
+        margin-bottom: 0;
+      }
+      .settings-summary-row .info .name {
+        font-weight: 700;
+        font-size: 13.5px;
+      }
+      .settings-summary-row .info .sub {
+        font-size: 12px;
+        color: var(--text-muted, #6b7280);
+        margin-top: 2px;
+      }
+      .danger-zone {
+        border: 1.5px dashed var(--danger, #dc2626);
+        border-radius: var(--radius, 10px);
+        padding: 16px;
+        background: rgba(220, 38, 38, 0.04);
+      }
+      .danger-zone p {
+        font-size: 12.5px;
+        color: var(--text-muted, #6b7280);
+        margin: 0 0 12px;
+        line-height: 1.5;
+      }
+      .data-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      #importFileInput {
+        display: none;
+      }
+      .avatar-preview-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .avatar-preview {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1.5px solid var(--border, #e5e7eb);
+        background: var(--panel-2, #f3f4f6);
+      }
+      .profile-top-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr);
+        gap: 24px;
+        align-items: start;
+      }
+      .profile-top-left {
+        min-width: 0;
+      }
+      .profile-logo-field {
+        min-width: 0;
+      }
+      .logo-upload-zone {
+        border: 1.5px dashed var(--border-strong, #d1d5db);
+        border-radius: var(--radius-sm);
+        background: var(--bg, #fbfbfd);
+        min-height: 150px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+      }
+      .logo-upload-zone:hover,
+      .logo-upload-zone.is-dragover {
+        border-color: var(--brand-dark);
+        background: var(--brand-light);
+      }
+      .logo-upload-content {
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        color: var(--text-muted);
+        font-size: 12.5px;
+        line-height: 1.45;
+      }
+      .logo-upload-content i {
+        color: var(--brand-darker);
+        font-size: 24px;
+      }
+      .logo-upload-content strong {
+        color: var(--text);
+        font-size: 14px;
+      }
+      .logo-browse {
+        color: var(--text);
+        font-weight: 700;
+        text-decoration: underline;
+      }
+      .logo-preview {
+        display: grid;
+        gap: 12px;
+        justify-items: center;
+        width: 100%;
+      }
+      .logo-preview img {
+        display: block;
+        width: min(100%, 260px);
+        height: 110px;
+        object-fit: contain;
+      }
+      .logo-preview-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .logo-action {
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+      .logo-action:hover {
+        color: var(--text);
+      }
+      .logo-upload-error {
+        color: var(--danger);
+        font-size: 12px;
+        margin: 7px 0 0;
+      }
+      @media (max-width: 640px) {
+        .profile-top-grid {
+          grid-template-columns: 1fr;
+          gap: 0;
+        }
+        .logo-upload-zone {
+          min-height: 135px;
+          padding: 16px;
+        }
+      }
+    </style>
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+              <a href="./Deals.html" class="nav-item">
+                <i class="fa-solid fa-handshake"></i> Deals
+              </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item active">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button
+              id="menu-toggle"
+              class="icon-btn"
+              style="display: none; font-size: 16px"
+            >
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2>Settings</h2>
+          </div>
+        </header>
+
+        <div class="page">
+          <div class="settings-tabs" id="settingsTabs">
+            <button class="settings-tab active" data-panel="profile">
+              <i class="fa-solid fa-user"></i> Your Profile
+            </button>
+            <button class="settings-tab" data-panel="company">
+              <i class="fa-solid fa-building"></i> Company
+            </button>
+            <button class="settings-tab" data-panel="team">
+              <i class="fa-solid fa-user-group"></i> Team & Access
+            </button>
+            <button class="settings-tab" data-panel="data">
+              <i class="fa-solid fa-database"></i> Data & Privacy
+            </button>
+          </div>
+
+          <!-- YOUR PROFILE -->
+          <div class="settings-panel active" data-settings-panel="profile">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Your Profile</h3>
+              </div>
+              <div style="padding: 20px">
+                <form id="profileForm">
+                  <div class="profile-top-grid">
+                    <div class="profile-top-left">
+                      <div class="avatar-preview-row">
+                        <img
+                          id="profileAvatarPreview"
+                          class="avatar-preview"
+                          src=""
+                          alt=""
+                          onerror="this.style.visibility='hidden'"
+                        />
+                        <div>
+                          <div style="font-weight: 700; font-size: 14px" id="profileNamePreview"></div>
+                          <div style="font-size: 12.5px; color: var(--text-muted)" id="profileEmailPreview"></div>
+                        </div>
+                      </div>
+                      <div class="field">
+                        <label for="uName">Full Name</label>
+                        <input type="text" id="uName" required />
+                      </div>
+                    </div>
+                    <div class="field profile-logo-field">
+                      <label>Your Company Logo</label>
+                      <input
+                        type="file"
+                        id="uLogo"
+                        accept=".png,.jpg,.jpeg,.svg,.webp,image/png,image/jpeg,image/svg+xml,image/webp"
+                        hidden
+                      />
+                      <div
+                        class="logo-upload-zone"
+                        id="logoUploadZone"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Upload your logo"
+                      ></div>
+                      <p class="logo-upload-error" id="logoUploadError" role="alert" hidden></p>
+                    </div>
+                  </div>
+                  <div class="profile-fields-below">
+                    <div class="field">
+                    <label for="uEmail">Email</label>
+                    <input type="email" id="uEmail" required />
+                    </div>
+                    <div class="field">
+                    <label>Avatar URL</label>
+                    <input
+                      type="text"
+                      id="uPicture"
+                      placeholder="https://.../avatar.jpg"
+                    />
+                    </div>
+                  </div>
+                  <div style="display: flex; justify-content: flex-end; margin-top: 6px">
+                    <button class="btn btn-primary" type="submit">
+                      <i class="fa-solid fa-check"></i> Save Profile
+                    </button>
+                  </div>
+                </form>
+                <div class="settings-section" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Email Integration</div>
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap">
+                    <div>
+                      <strong>Gmail</strong>
+                      <p class="settings-hint" id="gmailConnectionStatus" style="margin:4px 0 0">Not connected</p>
+                    </div>
+                    <button class="btn btn-outline" type="button" id="connectGmailBtn">
+                      <i class="fa-solid fa-envelope"></i> Connect Gmail
+                    </button>
+                  </div>
+                  <p class="logo-upload-error" id="gmailConnectionError" role="alert" hidden></p>
+                  <div id="gmailMessageList" style="margin-top:12px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COMPANY -->
+          <div class="settings-panel" data-settings-panel="company">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Company Profile</h3>
+                <span
+                  class="text-muted"
+                  style="font-size: 12px"
+                  id="companyLastSaved"
+                ></span>
+              </div>
+              <div style="padding: 20px">
+                <form id="companyForm">
+                  <div class="settings-section-label">Basics</div>
+                  <div class="field">
+                    <label>Company Name</label>
+                    <input
+                      type="text"
+                      id="cName"
+                      placeholder="e.g. YELLOW CRMS Pvt Ltd"
+                      required
+                    />
+                  </div>
+                  <div class="field-row">
+                    <div class="field">
+                      <label>Industry</label>
+                      <input
+                        type="text"
+                        id="cIndustry"
+                        placeholder="e.g. SaaS, Retail, Manufacturing"
+                      />
+                    </div>
+                    <div class="field">
+                      <label>Company Size</label>
+                      <select id="cSize">
+                        <option value="">— Select —</option>
+                        <option>1–10 employees</option>
+                        <option>11–50 employees</option>
+                        <option>51–200 employees</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field">
+                      <label>Founded Year</label>
+                      <input
+                        type="number"
+                        id="cFounded"
+                        min="1900"
+                        max="2100"
+                        placeholder="e.g. 2019"
+                      />
+                    </div>
+                    <div class="field">
+                      <label>Logo URL</label>
+                      <input
+                        type="text"
+                        id="cLogo"
+                        placeholder="https://.../logo.png"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="settings-section-label">Contact</div>
+                  <div class="field-row">
+                    <div class="field">
+                      <label>Website</label>
+                      <input
+                        type="text"
+                        id="cWebsite"
+                        placeholder="https://onecorecrm.com"
+                      />
+                    </div>
+                    <div class="field">
+                      <label>Support Email</label>
+                      <input
+                        type="email"
+                        id="cEmail"
+                        placeholder="hello@onecorecrm.com"
+                      />
+                    </div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field">
+                      <label>Phone</label>
+                      <input
+                        type="text"
+                        id="cPhone"
+                        placeholder="+91 98765 43210"
+                      />
+                    </div>
+                    <div class="field">
+                      <label>GST / Tax ID</label>
+                      <input
+                        type="text"
+                        id="cGst"
+                        placeholder="e.g. 23AAAAA0000A1Z5"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="settings-section-label">Address</div>
+                  <div class="field">
+                    <label>Address Line</label>
+                    <input
+                      type="text"
+                      id="cAddress"
+                      placeholder="Street, building, area"
+                    />
+                  </div>
+                  <div class="field-row">
+                    <div class="field">
+                      <label>City</label>
+                      <input type="text" id="cCity" placeholder="e.g. Indore" />
+                    </div>
+                    <div class="field">
+                      <label>State</label>
+                      <input
+                        type="text"
+                        id="cState"
+                        placeholder="e.g. Madhya Pradesh"
+                      />
+                    </div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field">
+                      <label>Country</label>
+                      <input type="text" id="cCountry" placeholder="e.g. India" />
+                    </div>
+                    <div class="field">
+                      <label>Pincode</label>
+                      <input type="text" id="cPincode" placeholder="e.g. 462001" />
+                    </div>
+                  </div>
+
+                  <div class="settings-section-label">About</div>
+                  <div class="field">
+                    <label>Short Description</label>
+                    <textarea
+                      id="cDescription"
+                      rows="3"
+                      placeholder="One or two lines about what your company does..."
+                    ></textarea>
+                  </div>
+
+                  <div style="display: flex; justify-content: flex-end; margin-top: 6px">
+                    <button class="btn btn-primary" type="submit">
+                      <i class="fa-solid fa-check"></i> Save Company Profile
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- TEAM & ACCESS -->
+          <div class="settings-panel" data-settings-panel="team">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Team & Access</h3>
+                <a href="accounts.html" class="btn btn-outline">
+                  <i class="fa-solid fa-user-plus"></i> Manage Agents
+                </a>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint">
+                  Agents, roles, module access, and permissions are managed
+                  from Account Champions. Here's a quick snapshot.
+                </p>
+                <div id="teamSummaryList"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DATA & PRIVACY -->
+          <div class="settings-panel" data-settings-panel="data">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Data & Privacy</h3>
+              </div>
+              <div style="padding: 20px">
+                <div class="settings-section">
+                  <div class="settings-section-label">Storage</div>
+                  <p class="settings-hint">
+                    CRM records are stored locally in this browser. Your account
+                    and company logo are securely persisted by the CRM backend.
+                  </p>
+                  <div id="storageSummaryList"></div>
+                </div>
+
+                <div class="settings-section">
+                  <div class="settings-section-label">Export & Import</div>
+                  <p class="settings-hint">
+                    Download a full backup of every module's data as a single
+                    JSON file, or restore from a previously exported file.
+                  </p>
+                  <div class="data-actions">
+                    <button class="btn btn-outline" id="exportBtn">
+                      <i class="fa-solid fa-download"></i> Export All Data
+                    </button>
+                    <button class="btn btn-outline" id="importBtn">
+                      <i class="fa-solid fa-upload"></i> Import Data
+                    </button>
+                    <input type="file" id="importFileInput" accept="application/json" />
+                  </div>
+                </div>
+
+                <div class="settings-section">
+                  <div class="settings-section-label">Danger Zone</div>
+                  <div class="danger-zone">
+                    <p>
+                      Permanently deletes all customers, leads, accounts,
+                      agents, products, deals, tasks, campaigns, workflows,
+                      sequences, calendar events, and your company profile
+                      from this browser. You'll stay signed in.
+                    </p>
+                    <button class="btn btn-danger-outline" id="resetBtn">
+                      <i class="fa-solid fa-triangle-exclamation"></i> Reset All CRM Data
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="./js/settings.js"></script>
+  </body>
+</html>

@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sales Automation | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/automation.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item active">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button
+              id="menu-toggle"
+              class="icon-btn"
+              style="display: none; font-size: 16px"
+            >
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2>Sales Automation</h2>
+          </div>
+        </header>
+
+        <div class="page">
+          <!-- KPI CARDS -->
+          <div class="stat-grid" id="kpiGrid"></div>
+
+          <!-- TOOLBAR -->
+          <div class="toolbar">
+            <div class="automation-tabs">
+              <button class="automation-tab active" id="tabWorkflowsBtn">
+                <i class="fa-solid fa-diagram-project"></i> Workflows
+              </button>
+              <button class="automation-tab" id="tabSequencesBtn">
+                <i class="fa-solid fa-layer-group"></i> Sequences
+              </button>
+            </div>
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="searchInput" placeholder="Search..." />
+            </div>
+            <div style="display: flex; gap: 10px; margin-left: auto">
+              <button class="btn btn-primary" id="addBtn">
+                <i class="fa-solid fa-plus"></i>
+                <span id="addBtnLabel">New Workflow</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- WORKFLOWS -->
+          <div id="workflowsPanel">
+            <div class="automation-grid" id="workflowsGrid"></div>
+          </div>
+
+          <!-- SEQUENCES -->
+          <div id="sequencesPanel" style="display: none">
+            <div class="automation-grid" id="sequencesGrid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKFLOW MODAL -->
+    <div class="modal-overlay" id="workflowModalOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <h3 id="workflowModalTitle">New Workflow</h3>
+          <button class="icon-btn" id="workflowModalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="workflowForm">
+            <input type="hidden" id="wfEditId" />
+            <div class="field">
+              <label>Workflow Name</label>
+              <input
+                type="text"
+                id="wfName"
+                placeholder="e.g. Auto follow-up on new leads"
+                required
+              />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Status</label>
+                <select id="wfStatus">
+                  <option>Active</option>
+                  <option>Paused</option>
+                  <option>Draft</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Owner</label>
+                <select id="wfOwner" required></select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Trigger — run this workflow when...</label>
+              <select id="wfTrigger">
+                <option>Lead Created</option>
+                <option>Lead Status Changed to Won</option>
+                <option>Deal Created</option>
+                <option>Deal Stage Changed to Won</option>
+                <option>Deal Stage Changed to Lost</option>
+                <option>Task Overdue</option>
+                <option>Customer Added</option>
+              </select>
+            </div>
+
+            <div class="step-heading-row">
+              <p class="step-heading" style="margin: 4px 0 0">Then do this</p>
+              <button type="button" class="link-mini" id="wfAddActionBtn">
+                <i class="fa-solid fa-plus"></i> Add action
+              </button>
+            </div>
+            <div id="wfActionsList" class="dynamic-list"></div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button
+            class="btn btn-danger-outline"
+            id="wfDeleteBtn"
+            type="button"
+            style="display: none; margin-right: auto"
+          >
+            <i class="fa-solid fa-trash"></i> Delete Workflow
+          </button>
+          <button class="btn btn-outline" id="wfCancelBtn" type="button">
+            Cancel
+          </button>
+          <button class="btn btn-primary" type="submit" form="workflowForm">
+            Save Workflow
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEQUENCE MODAL -->
+    <div class="modal-overlay" id="sequenceModalOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <h3 id="sequenceModalTitle">New Sequence</h3>
+          <button class="icon-btn" id="sequenceModalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="sequenceForm">
+            <input type="hidden" id="sqEditId" />
+            <div class="field">
+              <label>Sequence Name</label>
+              <input
+                type="text"
+                id="sqName"
+                placeholder="e.g. New Lead Nurture — 5 touches"
+                required
+              />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Applies To</label>
+                <select id="sqTarget">
+                  <option>Leads</option>
+                  <option>Deals</option>
+                  <option>Customers</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Status</label>
+                <select id="sqStatus">
+                  <option>Active</option>
+                  <option>Paused</option>
+                  <option>Draft</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Owner</label>
+              <select id="sqOwner" required></select>
+            </div>
+
+            <div class="step-heading-row">
+              <p class="step-heading" style="margin: 4px 0 0">Touchpoints</p>
+              <button type="button" class="link-mini" id="sqAddStepBtn">
+                <i class="fa-solid fa-plus"></i> Add step
+              </button>
+            </div>
+            <div id="sqStepsList" class="dynamic-list"></div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button
+            class="btn btn-danger-outline"
+            id="sqDeleteBtn"
+            type="button"
+            style="display: none; margin-right: auto"
+          >
+            <i class="fa-solid fa-trash"></i> Delete Sequence
+          </button>
+          <button class="btn btn-outline" id="sqCancelBtn" type="button">
+            Cancel
+          </button>
+          <button class="btn btn-primary" type="submit" form="sequenceForm">
+            Save Sequence
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="./js/automation.js"></script>
+  </body>
+</html>

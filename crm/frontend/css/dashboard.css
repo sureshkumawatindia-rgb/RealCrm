@@ -1,0 +1,292 @@
+/* ============================================================
+   DASHBOARD MODULE — extends style.css tokens
+   ============================================================ */
+
+.topbar-date {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+
+/* ---------- Header right side: date + quick actions ---------- */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- "+ New" quick-add dropdown ---------- */
+.quick-add {
+  position: relative;
+}
+.quick-add__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.quick-add__chevron {
+  font-size: 10px;
+  margin-left: 2px;
+  transition: transform 0.16s var(--ease);
+}
+.quick-add.open .quick-add__chevron {
+  transform: rotate(180deg);
+}
+.quick-add__menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 170px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  padding: 6px;
+  z-index: 30;
+}
+.quick-add.open .quick-add__menu {
+  display: block;
+  animation: quick-add-in 0.16s var(--ease);
+}
+@keyframes quick-add-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.quick-add__menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  transition: background 0.14s var(--ease);
+}
+.quick-add__menu button i {
+  width: 16px;
+  text-align: center;
+  color: var(--brand-darker);
+  font-size: 13px;
+}
+.quick-add__menu button:hover {
+  background: var(--brand-light);
+}
+
+@media (max-width: 640px) {
+  .topbar-right {
+    gap: 10px;
+  }
+  .topbar-date {
+    display: none;
+  }
+  #quickDealBtn span,
+  #quickDealBtn {
+    padding: 9px 12px;
+  }
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.dash-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* ---------- Pipeline bars ---------- */
+.pipeline-wrap {
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pipeline-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pipeline-row .stage-label {
+  width: 96px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.pipeline-row .stage-track {
+  flex: 1;
+  height: 10px;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.pipeline-row .stage-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s var(--ease);
+}
+.pipeline-row .stage-meta {
+  width: 130px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.pipeline-row .stage-meta strong {
+  color: var(--text);
+  font-weight: 700;
+}
+.pipeline-empty {
+  padding: 30px 20px;
+  text-align: center;
+  color: var(--text-faint);
+}
+.pipeline-empty i {
+  font-size: 28px;
+  color: var(--brand);
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* ---------- Generic mini list (tasks / events / team / campaigns) ---------- */
+.mini-list {
+  padding: 8px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.mini-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.14s var(--ease);
+  cursor: pointer;
+}
+.mini-row:hover {
+  background: var(--bg);
+}
+.mini-row .mini-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.mini-row .mini-icon.info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.mini-row .mini-icon.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.mini-row .mini-icon.success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.mini-row .mini-icon.brand {
+  background: var(--brand-light);
+  color: var(--brand-darker);
+}
+.mini-row .info {
+  min-width: 0;
+  flex: 1;
+}
+.mini-row .name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-row .sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 1px;
+}
+.mini-row .mini-right {
+  flex-shrink: 0;
+  text-align: right;
+}
+.mini-row .mini-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.mini-empty {
+  padding: 26px 10px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+.mini-empty i {
+  font-size: 22px;
+  color: var(--brand);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.team-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand), var(--brand-darker));
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.team-bar-track {
+  width: 60px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.team-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), var(--brand-darker));
+  border-radius: 999px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1100px) {
+  .dash-grid {
+    grid-template-columns: 1fr;
+  }
+}

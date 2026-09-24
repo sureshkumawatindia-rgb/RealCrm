@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leads | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+
+      /* Notes modal — scoped styles so we don't need to touch css/style.css */
+      
+      .notes-modal .modal-body {
+        max-height: 60vh;
+        overflow-y: auto;
+      }
+          
+      .notes-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .note-item {
+        border: 1px solid var(--border, #e5e7eb);
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: var(--panel-2, #f9fafb);
+      }
+      .note-item-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .note-title-input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        font-weight: 600;
+        font-size: 14px;
+        padding: 4px 6px;
+        border-radius: 6px;
+      }
+      .note-title-input:focus {
+        outline: 1px solid var(--primary, #6366f1);
+        background: #fff;
+      }
+      .note-text-input {
+        width: 100%;
+        resize: vertical;
+        border: 1px solid var(--border, #e5e7eb);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-family: inherit;
+        font-size: 13px;
+      }
+      .notes-count-badge {
+        margin-left: 4px;
+      }
+
+      /* Product field + inline "Add Product" button inside the lead modal */
+      .field-with-action {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .field-with-action select {
+        flex: 1;
+      }
+      .field-with-action .btn {
+        white-space: nowrap;
+      }
+      #productPricingFields { margin: 8px 0 4px; padding: 10px 0 2px; border-top: 1px solid var(--border-soft); animation: pricing-in .18s ease-out; }
+      @keyframes pricing-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+      #productPricingFields .field-row { gap: 10px; }
+      .quotation-items-head { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+      .quotation-items-head { margin: 14px 0 8px; font-size: 13px; }
+      .quotation-items-wrap { overflow-x: auto; }
+      .quotation-item { min-width: 560px; display: grid; grid-template-columns: 1.5fr 65px 95px 80px 65px 90px 32px; gap: 6px; align-items: end; margin: 8px 0; }
+      .quotation-item label { display: block; font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+      .quotation-item input, .quotation-item select { width: 100%; min-width: 0; }
+      .pricing-total { max-width: 240px; margin-left: auto; }
+      .pricing-total input { font-weight: 700; background: var(--brand-light); }
+      @media (max-width: 600px) { #productPricingFields .field-row { display: grid; grid-template-columns: 1fr 1fr; } .pricing-total { max-width: none; } }
+    </style>
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM </span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item active">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button id="menu-toggle" class="icon-btn" style="display: none" type="button" aria-label="Open navigation">
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2>Leads</h2>
+          </div>
+        </header>
+
+        <div class="page">
+          <div class="toolbar">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Search leads..."
+              />
+            </div>
+            <div style="display: flex; gap: 10px">
+              <select class="filter" id="filterStatus">
+                <option value="all">All Status</option>
+                <option value="New">New</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Won">Won</option>
+                <option value="Lost">Lost</option>
+              </select>
+              <button class="btn btn-primary" id="addBtn">
+                <i class="fa-solid fa-plus"></i> New Lead
+              </button>
+
+              <button class="btn btn-outline" id="addProductBtn" type="button">
+                <i class="fa-solid fa-box-open"></i> Add Product
+              </button>
+            </div>
+          </div>
+
+          <div class="panel"><div id="leadsTable"></div></div>
+
+          <div class="panel" style="margin-top: 18px">
+            <div class="panel-head">
+              <h3>Products</h3>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <span
+                  class="badge badge-neutral"
+                  style="font-weight: 600; padding: 6px 10px"
+                  >Leads per product</span
+                >
+                <a href="Products.html" class="btn btn-outline">
+                  <i class="fa-solid fa-arrow-up-right-from-square"></i> Manage in Products
+                </a>
+              </div>
+            </div>
+            <div id="productsPanel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Lead Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="modalTitle">New Lead</h3>
+          <button class="icon-btn" id="modalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="leadForm">
+            <input type="hidden" id="editId" />
+            <div class="field">
+              <label>Full Name</label><input type="text" id="fName" required />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Email</label><input type="email" id="fEmail" />
+              </div>
+              <div class="field">
+                <label>Phone</label><input type="text" id="fPhone" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Company</label><input type="text" id="fCompany" />
+            </div>
+            <div class="field">
+              <label>Interested Product</label>
+              <div class="field-with-action">
+                <select id="fProduct">
+                  <option value="">— Add Product —</option>
+                </select>
+                <button
+                  type="button"
+                  class="btn btn-outline"
+                  id="addProductFromLeadBtn"
+                >
+                  <i class="fa-solid fa-plus"></i> Add Product
+                </button>
+              </div>
+            </div>
+            <div class="field" id="fQuantityWrap" style="display: none">
+              <label>Quantity</label>
+              <input
+                type="number"
+                id="fQuantity"
+                min="1"
+                step="1"
+                placeholder="e.g. 2"
+              />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Status</label>
+                <select id="fStatus">
+                  <option>New</option>
+                  <option>In Progress</option>
+                  <option>Won</option>
+                  <option>Lost</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Value (₹)</label
+                ><input type="number" id="fValue" min="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Follow-up Date</label><input type="date" id="fFollowUp" />
+            </div>
+            <div class="field">
+              <label>Notes</label><textarea id="fNotes" rows="3"></textarea>
+            </div>
+            <div id="productPricingFields" hidden>
+              <div class="field-row">
+                <div class="field"><label>Unit Price</label><input type="number" id="fUnitPrice" min="0" step="0.01" /></div>
+                <div class="field"><label>Discount (₹)</label><input type="number" id="fDiscount" min="0" step="0.01" value="0" /></div>
+                <div class="field"><label>GST / Tax (%)</label><input type="number" id="fTax" min="0" step="0.01" value="0" /></div>
+              </div>
+              <div class="field pricing-total"><label>Total Amount</label><input id="fAmount" readonly /></div>
+              <div id="quotationItems"></div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="cancelBtn" type="button">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            id="saveBtn"`
+            type="submit"
+            form="leadForm"
+          >
+            Save Lead
+          </button>
+        </div>
+      </div>
+    </div>
+
+        <!-- Add Product Modal -->
+    <div class="modal-overlay" id="productModalOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="productModalTitle">New Product</h3>
+          <button class="icon-btn" id="productModalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="productForm">
+            <input type="hidden" id="editProductId" />
+            <div class="field">
+              <label>Product Name</label
+              ><input type="text" id="pName" required />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Category</label>
+                <input type="text" id="pCategory" list="categoryOptions" />
+                <datalist id="categoryOptions"></datalist>
+              </div>
+              <div class="field">
+                <label>Price (₹)</label
+                ><input type="number" id="pPrice" min="0" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="pQuantity">Quantity in Stock</label
+                ><input
+                  type="number"
+                  id="pQuantity"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 50"
+                />
+              </div>
+              <div class="field">
+                <label for="pGst">GST / Tax (%)</label
+                ><input
+                  type="number"
+                  id="pGst"
+                  min="0"
+                  step="0.01"
+                  value="0"
+                />
+              </div>
+            </div>
+            <div class="field">
+              <label>Description</label
+              ><textarea id="pDescription" rows="3"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="productCancelBtn" type="button">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            id="productSaveBtn"
+            type="submit"
+            form="productForm"
+          >
+            Save Product
+          </button>
+        </div>
+      </div>
+    </div>  
+    
+    <!-- Lead Notes Modal -->
+    <div class="modal-overlay" id="notesModalOverlay">
+      <div class="modal notes-modal">
+        <div class="modal-head">
+          <h3 id="notesModalTitle">Notes</h3>
+          <button class="icon-btn" id="notesModalClose">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="notesList" class="notes-list"></div>
+          <button class="btn btn-outline" id="addNoteBtn" type="button">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              height="18px"
+              viewBox="0 -960 960 960"
+              width="18px"
+              fill="currentColor"
+              style="vertical-align: -3px; margin-right: 4px"
+            >
+              <path
+                d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v268q-19-9-39-15.5t-41-9.5v-243H200v560h242q3 22 9.5 42t15.5 38H200Zm0-120v40-560 243-3 280Zm80-40h163q3-21 9.5-41t14.5-39H280v80Zm0-160h244q32-30 71.5-50t84.5-27v-3H280v80Zm0-160h400v-80H280v80ZM720-40q-83 0-141.5-58.5T520-240q0-83 58.5-141.5T720-440q83 0 141.5 58.5T920-240q0 83-58.5 141.5T720-40Zm-20-80h40v-100h100v-40H740v-100h-40v100H600v40h100v100Z"
+              />
+            </svg>
+            Note
+          </button>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-primary" id="notesDoneBtn" type="button">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="./js/leads.js"></script>
+  </body>
+</html>
