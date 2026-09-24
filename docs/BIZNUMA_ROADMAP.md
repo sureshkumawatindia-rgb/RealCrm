@@ -4,7 +4,7 @@ Turning YELLOW CRM into a WhatsApp-first CRM for Indian SMBs (IndiaMART sellers,
 
 - Brief: [BIZNUMA_CRM_MASTER_PROMPT.md](BIZNUMA_CRM_MASTER_PROMPT.md)
 - Canonical backend spec: [../BACKEND-AUDIT-SPEC.md](../BACKEND-AUDIT-SPEC.md) (this roadmap extends it; where they differ, the decision log in section 9 wins and the spec gets updated in the phase that implements it)
-- Status: **Phase 2 in progress** (branch `feature/phase-2-core-crm`, built on the Phase 1 branch). Checkpoints A (sales core), B (tasks + calendar) and C (tickets + notes) done on 2026-09-24; resume at checkpoint D (documents). Phase 1 still waits for one check with a real Google account.
+- Status: **Phase 2 in progress** (branch `feature/phase-2-core-crm`, built on the Phase 1 branch). Checkpoints A (sales core), B (tasks + calendar), C (tickets + notes) and D (documents) done on 2026-09-24; resume at checkpoint E (campaigns + automation config). Phase 1 still waits for one check with a real Google account.
 
 ---
 
@@ -31,14 +31,15 @@ Tick a box only when its acceptance check passes and the full test suite is gree
 - [ ] Nothing that works today is broken. Verified: org profile + logo, health, the VS Code task backend (restarted and migrated on Atlas), sign-in/invite/refresh flows with a test verifier. **Needs your check with a real Google account: Google sign-in and Gmail connect.**
 
 ### Phase 2 — Core CRM moves to the server
-Checkpoints: **A sales core (done)** → **B tasks + calendar (done)** → **C tickets + notes (done)** → D documents → E campaigns + automation config → F Account Champions on the team API → G final acceptance.
+Checkpoints: **A sales core (done)** → **B tasks + calendar (done)** → **C tickets + notes (done)** → **D documents (done)** → E campaigns + automation config → F Account Champions on the team API → G final acceptance.
 - [x] (A) Contacts, Leads (+activities, idempotent convert, version check), Products, Quotations (server totals, FY numbers)
 - [x] (B) Tasks (assignee, related record, origin: manual / deal follow-up / automation) and calendar events (IST day + wall-clock times)
 - [x] (C) Tickets (atomic numbers from #1001, customer link, resolved time) and notes on tickets and contacts
-- [ ] (D–E) Documents (storage abstraction), Campaign/Workflow/Sequence config
+- [x] (D) Documents with private file storage behind a storage module (local disk now, S3/R2 later), signed-in downloads
+- [ ] (E) Campaign/Workflow/Sequence config
 - [x] (A) Deals page becomes the Kanban view of Leads; old deals imported as leads (D13)
 - [ ] (F) Account Champions page uses the members/invites API (Settings → Team & Access already does); crm_agents imported as invites
-- [ ] Every page uses `crmApi` instead of localStorage; UI looks the same — done for the sales pages and every page that reads sales data (A), for tasks, calendar and deal follow-ups (B), and for support tickets and customer notes (C)
+- [ ] Every page uses `crmApi` instead of localStorage; UI looks the same — done for the sales pages and every page that reads sales data (A), for tasks, calendar and deal follow-ups (B), for support tickets and customer notes (C), and for documents (D)
 - [x] (A) `POST /imports/localstorage` with preview + report; Settings button "Move my browser data to server" (grows with each checkpoint)
 - [ ] Accept: two members of one org see the same data; another org sees none
 - [ ] Accept: grep finds no `crm_*` business keys in the frontend (only session/user keys)
@@ -533,6 +534,7 @@ Rough engineering days (AI-assisted), plus the number of working sessions. Exter
 
 ## 14. Changelog
 
+- **2026-09-24 — Phase 2, checkpoint D (documents).** Documents on the server: uploaded files go to private storage (`DOCUMENT_DIR`, never the public `/uploads`) behind `src/storage` (local disk now, a cloud driver later) and come back only through a signed-in download that is always an attachment. Size limit `DOCUMENT_MAX_MB` (default 10, was ~1.5 MB in the browser), programs and scripts refused, SHA-256 checksum, UTF-8 names, http(s) links only, replaced files removed. Agents own what they upload (D17). The importer moves `crm_documents` (base64 files into storage). Documents and Customer 360 read the server. 128 tests.
 - **2026-09-24 — Phase 2, checkpoint C (tickets + notes).** Support tickets on the server with per-organization numbers from #1001 (atomic counter, never reused), a customer link (contact or typed name), category, priority, status, assignee, due date and resolved time; agents see their own tickets (D17). Notes on tickets (the reply timeline) and on contacts (Customer 360). The importer moves `crm_tickets` (old numbers kept when free), their replies and `crm_customer_notes`; re-runs no longer bring back tasks, events, tickets or notes deleted on the server, and previews count what was already imported. Support, Customer 360 and Reports read the server. 121 tests.
 - **2026-09-24 — Phase 2, checkpoint B (tasks + calendar).** Tasks and calendar events on the server with assignees, related records (name kept as a snapshot), IST calendar days and wall-clock times, Done time, and "assigned to me or created by me" scope for agents. Deal follow-ups and tasks made by automation workflows are now server tasks with an `origin`, so they also show on the Tasks page. The importer moves `crm_tasks`, `crm_deal_tasks` and `crm_calendar_events`. Tasks, Calendar, Deals, Sales Automation, Dashboard, Reports and Customer 360 read the server. Invite links now use the address the CRM is open on. 112 tests.
 - **2026-09-24 — Phase 2, checkpoint A (sales core).** Contacts, products, leads (one pipeline with the Deals Kanban, stage probabilities, Lost reasons, idempotent Won conversion, version checks), lead activities and server-computed quotations with financial-year numbers; agent record scope. Importer for the old browser data (preview, merge by phone/email, idempotent re-runs) and the Settings button. All sales pages and the pages that read sales data now use the server through a shared data layer in app.js; the sidebar hides modules an agent cannot open. 105 tests, including a check that each page's scripts compile together.

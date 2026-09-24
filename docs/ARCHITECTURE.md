@@ -17,11 +17,12 @@ backend/
 │   ├── routes/              # URL → middleware → controller
 │   ├── validators/          # Joi schemas (body, query, params)
 │   ├── controllers/         # HTTP in/out only
-│   ├── services/            # business rules (auth, sessions, members, invites, organization)
+│   ├── services/            # business rules (auth, members, CRM records, import); access.js = record scope (D17)
 │   ├── repositories/        # tenantRepository: every query scoped to one organization
 │   ├── models/              # Mongoose schemas + plugins/softDelete
 │   ├── middleware/          # auth, permissions, validate, sanitize, rateLimit, idempotency, errors
-│   ├── integrations/        # google/idToken today; whatsapp, leadSources, payments, storage later
+│   ├── storage/             # private file storage for documents (local disk; S3/R2 driver later)
+│   ├── integrations/        # google/idToken today; whatsapp, leadSources, payments later
 │   ├── migrations/          # data migrations run once at startup
 │   ├── utils/               # tokens, cookies, secretBox, audit, counter, pagination, gstin
 │   └── tests/               # Jest + supertest suites, helpers, setup
@@ -50,7 +51,7 @@ Inside a route: `authenticate` → `requireRole` / `requirePermission` → `vali
 
 ## 5. Security
 
-Helmet on the API, CORS allowlist (`CORS_ORIGINS` plus the public URL and local dev ports), rate limits per IP, Joi validation with unknown fields dropped, rejection of MongoDB operator keys, generic 500 messages, request ids, redacted audit logs, secrets encrypted with AES-256-GCM (`DATA_ENCRYPTION_KEY`, older Gmail values still readable), uploads checked by content and served sandboxed, env validated at boot with no hard-coded fallbacks.
+Helmet on the API, CORS allowlist (`CORS_ORIGINS` plus the public URL and local dev ports), rate limits per IP, Joi validation with unknown fields dropped, rejection of MongoDB operator keys, generic 500 messages, request ids, redacted audit logs, secrets encrypted with AES-256-GCM (`DATA_ENCRYPTION_KEY`, older Gmail values still readable), logo uploads checked by content and served sandboxed, documents kept in private storage and only downloaded by signed-in members as attachments (size limit, programs refused), env validated at boot with no hard-coded fallbacks.
 
 ## 6. Building blocks
 
@@ -58,7 +59,9 @@ Helmet on the API, CORS allowlist (`CORS_ORIGINS` plus the public URL and local 
 - Soft delete plugin: `deletedAt`, hidden from queries unless the filter mentions `deletedAt`.
 - Audit log: `audit(req, { action, entityType, entityId, changes })`, never throws.
 - Idempotency: `Idempotency-Key` middleware stores responses for 24 hours.
-- Counters: `nextSequence(organizationId, name, { start })`, atomic per organization.
+- Counters: `nextSequence(organizationId, name, { start })`, atomic per organization (quotation numbers per financial year, ticket numbers).
+- Record scope: `visibilityFilter` (owner: contacts, leads, documents) and `assignedOrCreatedFilter` (tasks, events, tickets) in `services/access.js`; `<module>:view_all` lifts it.
+- Storage: `documentStorage.put / open / remove` with server-made keys `<organization id>/<random>`.
 - Migrations: `src/migrations`, each idempotent, recorded in `migrations`.
 
 ## 7. Transactions

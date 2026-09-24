@@ -49,6 +49,14 @@ Calendar days are stored as strings, not `Date`, so a due date entered in India 
 
 The roadmap planned `dueAt` and a note `body`; the code uses `dueDate` (a calendar day, like tasks) and `text` (like lead activities). Notes on leads stay in `leadactivities`.
 
+## 1e. Implemented (Phase 2, documents)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `documents` | `name`, `description`, `category`, `ownerId`, `relatedType`, `relatedId`, `relatedName` (snapshot), `tags[]`, `storageKey` (private storage, `<organization id>/<random>`), `fileName`, `mimeType`, `sizeBytes`, `checksum` (SHA-256), `linkUrl`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, category, createdAt -1)`; `(organizationId, ownerId, createdAt -1)`; `(organizationId, relatedType, relatedId)`; `(organizationId, legacyIds)` |
+
+The file bytes are not in MongoDB: `src/storage` keeps them on local disk (`DOCUMENT_DIR`). A cloud driver (S3 / Cloudflare R2) only has to provide the same `put`, `open` and `remove`.
+
 Counters used: `quotation:<financial year>`, `ticket`.
 
 ## 2. Data migrations
@@ -59,4 +67,4 @@ Counters used: `quotation:<financial year>`, `ticket`.
 
 ## 3. Planned (Phase 2 onwards)
 
-Documents, campaigns, workflows, sequences; then WhatsApp, lead sources, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.
+Campaigns, workflows, sequences; then WhatsApp, lead sources, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.
