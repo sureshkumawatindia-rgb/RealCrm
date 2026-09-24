@@ -280,6 +280,8 @@ function currentLevel(count) {
 }
 
 function renderTeamProgress() {
+  // The team-level progress card is not on accounts.html any more.
+  if (!document.getElementById("champLevelEmoji")) return;
   const agents = getAgents();
   const count = agents.length;
   const level = currentLevel(count);

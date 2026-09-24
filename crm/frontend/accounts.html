@@ -42,7 +42,7 @@
             <i class="fa-solid fa-building"></i> Account Champions
           </a>
           <a href="./Deals.html" class="nav-item">
-            <i class="fa-solid fa-handshake"></i> Deals
+            <i class="fa-solid fa-handshake"></i> Deals 
           </a>
         </div>
         <div class="nav-parent" data-group="automation">
@@ -50,7 +50,7 @@
           <span>Sales Automation</span>
           <i class="fa-solid fa-chevron-down chevron"></i>
         </div>
-        <div class="nav-submenu" data-submenu="automation">
+        <div class="nav-submenu" data-submenu="automation"  >
           <a href="./Marketing.html" class="nav-item">
             <i class="fa-solid fa-bullhorn"></i> Marketing
           </a>
@@ -121,34 +121,15 @@
           <button id="menu-toggle" class="icon-btn" style="display: none" type="button" aria-label="Open navigation">
             <i class="fa-solid fa-bars"></i>
           </button>
-          <h2>Accounts</h2>
+          <h2>Account Champions</h2>
         </div>  
       </header>
 
       <div class="page">
-        <div class="toolbar">
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="searchInput" placeholder="Search accounts..." />
-          </div>
-          <div style="display: flex; gap: 10px">
-            <select class="filter" id="filterStatus">
-              <option value="all">All Status</option>
-              <option value="Customer">Customer</option>
-              <option value="Prospect">Prospect</option>
-              <option value="Partner">Partner</option>
-            </select>
-            <button class="btn btn-outline" id="addAgentBtn">
-              <i class="fa-solid fa-user-plus"></i> Add Agent
-            </button>
-            <button class="btn btn-primary" id="addBtn">
-              <i class="fa-solid fa-plus"></i> New Account
-            </button>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div id="accountsTable"></div>
+        <div class="toolbar" style="justify-content: flex-end">
+          <button class="btn btn-primary" id="addAgentBtn">
+            <i class="fa-solid fa-user-plus"></i> Add Agent
+          </button>
         </div>
 
         <div class="panel agents-panel">
@@ -158,62 +139,6 @@
           </div>
           <div id="agentsGrid"></div>
         </div>
-      </div>
-    </div>
-  </div>
-  <!-- Add/Edit Modal -->
-  <div class="modal-overlay" id="modalOverlay">
-    <div class="modal">
-      <div class="modal-head">
-        <h3 id="modalTitle">New Account</h3>
-        <button class="icon-btn" id="modalClose">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form id="accountForm">
-          <input type="hidden" id="editId" />
-          <div class="field">
-            <label>Company Name</label><input type="text" id="fName" required />
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Email</label><input type="email" id="fEmail" />
-            </div>
-            <div class="field">
-              <label>Phone</label><input type="text" id="fPhone" />
-            </div>
-          </div>  
-          <div class="field-row">
-            <div class="field">
-              <label>Industry</label><input type="text" id="fIndustry" />
-            </div>
-            <div class="field">
-              <label>Website</label><input type="text" id="fWebsite" />
-            </div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Status</label>
-              <select id="fStatus">
-                <option>Customer</option>
-                <option>Prospect</option>
-                <option>Partner</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Revenue (₹)</label><input type="number" id="fRevenue" min="0" />
-            </div>
-          </div>
-        </form>
-      </div>
-      <div class="modal-foot">
-        <button class="btn btn-outline" id="cancelBtn" type="button">
-          Cancel
-        </button>
-        <button class="btn btn-primary" id="saveBtn" type="submit" form="accountForm">
-          Save Account
-        </button>
       </div>
     </div>
   </div>

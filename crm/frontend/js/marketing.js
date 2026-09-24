@@ -8,6 +8,8 @@
 const CAMPAIGNS_KEY = "crm_campaigns";
 
 const STATUSES = ["Draft", "Scheduled", "Active", "Paused", "Completed"];
+// Only these statuses are shown as Kanban columns unless a stage button is picked.
+const VISIBLE_STATUSES = ["Draft", "Completed"];
 const STATUS_DOT = {
   Draft: "var(--text-faint)",
   Scheduled: "var(--info)",
@@ -32,6 +34,7 @@ const TYPE_ICON = {
 
 let currentView = "kanban";
 let draggingId = null;
+let activeStage = null;
 
 // ---------------------------------------------------------------
 // Storage
@@ -46,7 +49,9 @@ function saveCampaigns(list) {
 function addCampaign(campaign) {
   const list = getCampaigns();
   campaign.id =
-    "cm_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    "cm_" +
+    Date.now().toString(36) +
+    Math.random().toString(36).slice(2, 6);
   campaign.createdAt = new Date().toISOString();
   campaign.notes = [];
   list.unshift(campaign);
@@ -136,7 +141,10 @@ function getFilteredCampaigns() {
 function renderKpis() {
   const campaigns = getCampaigns();
   const active = campaigns.filter((c) => c.status === "Active");
-  const totalBudget = campaigns.reduce((s, c) => s + Number(c.budget || 0), 0);
+  const totalBudget = campaigns.reduce(
+    (s, c) => s + Number(c.budget || 0),
+    0,
+  );
   const totalLeads = campaigns.reduce(
     (s, c) => s + Number(c.leadsGenerated || 0),
     0,
@@ -145,17 +153,21 @@ function renderKpis() {
   const cards = [
     { label: "Total Campaigns", value: campaigns.length, cls: "" },
     { label: "Active Campaigns", value: active.length, cls: "success" },
-    { label: "Total Budget", value: formatCurrency(totalBudget), cls: "info" },
+    {
+      label: "Total Budget",
+      value: formatCurrency(totalBudget),
+      cls: "info",
+    },
     { label: "Leads Generated", value: totalLeads, cls: "warning" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
     .map(
       (c) => `
-      <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
-      </div>`,
+<div class="stat-card ${c.cls}">
+  <div class="label">${c.label}</div>
+  <div class="value">${c.value}</div>
+</div>`,
     )
     .join("");
 }
@@ -167,32 +179,39 @@ function renderKanban() {
   const campaigns = getFilteredCampaigns();
   const board = document.getElementById("kanbanView");
 
-  board.innerHTML = STATUSES.map((status) => {
-    const statusCampaigns = campaigns.filter((c) => c.status === status);
-    const totalBudget = statusCampaigns.reduce(
-      (s, c) => s + Number(c.budget || 0),
-      0,
-    );
+  // NEW: if a stage pill is active, only show that one column
+  const statusesToShow = activeStage ? [activeStage] : VISIBLE_STATUSES;
 
-    const cardsHtml = statusCampaigns.length
-      ? statusCampaigns.map((c) => campaignCardHtml(c)).join("")
-      : `<div class="kanban-col-empty">No campaigns</div>`;
+  board.innerHTML = statusesToShow
+    .map((status) => {
+      const statusCampaigns = campaigns.filter(
+        (c) => c.status === status,
+      );
+      const totalBudget = statusCampaigns.reduce(
+        (s, c) => s + Number(c.budget || 0),
+        0,
+      );
 
-    return `
-      <div class="kanban-col" data-status="${status}">
-        <div class="kanban-col-head">
-          <div class="kanban-col-head-title">
-            <span class="kanban-dot" style="background:${STATUS_DOT[status]}"></span>
-            <h4>${status}</h4>
-          </div>
-          <span class="kanban-count">${statusCampaigns.length}</span>
-        </div>
-        <div class="kanban-col-value">${formatCurrency(totalBudget)} budget</div>
-        <div class="kanban-col-body" data-drop-status="${status}">
-          ${cardsHtml}
-        </div>
-      </div>`;
-  }).join("");
+      const cardsHtml = statusCampaigns.length
+        ? statusCampaigns.map((c) => campaignCardHtml(c)).join("")
+        : `<div class="kanban-col-empty">No campaigns</div>`;
+
+      return `
+<div class="kanban-col" data-status="${status}">
+  <div class="kanban-col-head">
+    <div class="kanban-col-head-title">
+      <span class="kanban-dot" style="background:${STATUS_DOT[status]}"></span>
+      <h4>${status}</h4>
+    </div>
+    <span class="kanban-count">${statusCampaigns.length}</span>
+  </div>
+  <div class="kanban-col-value">${formatCurrency(totalBudget)} budget</div>
+  <div class="kanban-col-body" data-drop-status="${status}">
+    ${cardsHtml}
+  </div>
+</div>`;
+    })
+    .join("");
 
   attachDragEvents();
 }
@@ -202,24 +221,24 @@ function campaignCardHtml(c) {
     c.endDate && c.status !== "Completed" && c.endDate < todayStr();
   return `
     <div class="campaign-card" draggable="true" data-id="${c.id}">
-      <div class="campaign-card__top">
-        <div class="campaign-card__name">${escapeHtml(c.name)}</div>
-        <span class="campaign-card__type"><i class="fa-solid ${TYPE_ICON[c.type] || "fa-bullhorn"}"></i> ${escapeHtml(c.type || "")}</span>
-      </div>
-      ${c.audience ? `<div class="campaign-card__audience"><i class="fa-solid fa-users"></i> ${escapeHtml(c.audience)}</div>` : ""}
-      <div class="campaign-card__stats">
-        <span>Budget: <strong>${formatCurrency(c.budget)}</strong></span>
-        <span>Leads: <strong>${c.leadsGenerated || 0}</strong></span>
-      </div>
-      <div class="campaign-card__foot">
-        <div class="campaign-card__owner">
-          <span class="campaign-card__owner-avatar">${initials(c.owner)}</span>
-          ${escapeHtml((c.owner || "").split(" ")[0] || "Unassigned")}
-        </div>
-        <div class="campaign-card__date ${overdue ? "overdue" : ""}">
-          ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${formatDate(c.startDate)}
-        </div>
-      </div>
+<div class="campaign-card__top">
+  <div class="campaign-card__name">${escapeHtml(c.name)}</div>
+  <span class="campaign-card__type"><i class="fa-solid ${TYPE_ICON[c.type] || "fa-bullhorn"}"></i> ${escapeHtml(c.type || "")}</span>
+</div>
+${c.audience ? `<div class="campaign-card__audience"><i class="fa-solid fa-users"></i> ${escapeHtml(c.audience)}</div>` : ""}
+<div class="campaign-card__stats">
+  <span>Budget: <strong>${formatCurrency(c.budget)}</strong></span>
+  <span>Leads: <strong>${c.leadsGenerated || 0}</strong></span>
+</div>
+<div class="campaign-card__foot">
+  <div class="campaign-card__owner">
+    <span class="campaign-card__owner-avatar">${initials(c.owner)}</span>
+    ${escapeHtml((c.owner || "").split(" ")[0] || "Unassigned")}
+  </div>
+  <div class="campaign-card__date ${overdue ? "overdue" : ""}">
+    ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${formatDate(c.startDate)}
+  </div>
+</div>
     </div>`;
 }
 
@@ -241,7 +260,9 @@ function attachDragEvents() {
       e.preventDefault();
       col.classList.add("drag-over");
     });
-    col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
+    col.addEventListener("dragleave", () =>
+      col.classList.remove("drag-over"),
+    );
     col.addEventListener("drop", (e) => {
       e.preventDefault();
       col.classList.remove("drag-over");
@@ -257,6 +278,31 @@ function attachDragEvents() {
 }
 
 // ---------------------------------------------------------------
+// NEW: Stage filter pill buttons (DRAFT / SCHEDULED / ACTIVE / ...)
+// ---------------------------------------------------------------
+function initStageFilterButtons() {
+  document
+    .querySelectorAll(".nav-bar-kanban-card button")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const stage = btn.dataset.stage;
+        if (activeStage === stage) {
+          // clicking the same pill again clears the filter
+          activeStage = null;
+          btn.classList.remove("active");
+        } else {
+          document
+            .querySelectorAll(".nav-bar-kanban-card button")
+            .forEach((b) => b.classList.remove("active"));
+          activeStage = stage;
+          btn.classList.add("active");
+        }
+        renderKanban();
+      });
+    });
+}
+
+// ---------------------------------------------------------------
 // Table view
 // ---------------------------------------------------------------
 function renderTable() {
@@ -265,49 +311,49 @@ function renderTable() {
 
   if (!campaigns.length) {
     wrap.innerHTML = `
-      <div class="empty-state">
-        <i class="fa-solid fa-bullhorn"></i>
-        <div>No campaigns match your filters.</div>
-      </div>`;
+<div class="empty-state">
+  <i class="fa-solid fa-bullhorn"></i>
+  <div>No campaigns match your filters.</div>
+</div>`;
     return;
   }
 
   wrap.innerHTML = `
     <table>
-      <thead>
-        <tr>
-          <th>Campaign</th>
-          <th>Type</th>
-          <th>Status</th>
-          <th>Budget</th>
-          <th>Leads</th>
-          <th>Start Date</th>
-          <th>Owner</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${campaigns
-          .map(
-            (c) => `
-          <tr data-id="${c.id}">
-            <td><strong>${escapeHtml(c.name)}</strong></td>
-            <td>${escapeHtml(c.type)}</td>
-            <td><span class="badge ${STATUS_BADGE_CLASS[c.status]}">${c.status}</span></td>
-            <td>${formatCurrency(c.budget)}</td>
-            <td>${c.leadsGenerated || 0}</td>
-            <td>${formatDate(c.startDate)}</td>
-            <td>${escapeHtml(c.owner || "—")}</td>
-            <td>
-              <div class="row-actions">
-                <button class="icon-btn edit-row" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
-                <button class="icon-btn danger delete-row" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
-              </div>
-            </td>
-          </tr>`,
-          )
-          .join("")}
-      </tbody>
+<thead>
+  <tr>
+    <th>Campaign</th>
+    <th>Type</th>
+    <th>Status</th>
+    <th>Budget</th>
+    <th>Leads</th>
+    <th>Start Date</th>
+    <th>Owner</th>
+    <th></th>
+  </tr>
+</thead>
+<tbody>
+  ${campaigns
+    .map(
+      (c) => `
+    <tr data-id="${c.id}">
+      <td><strong>${escapeHtml(c.name)}</strong></td>
+      <td>${escapeHtml(c.type)}</td>
+      <td><span class="badge ${STATUS_BADGE_CLASS[c.status]}">${c.status}</span></td>
+      <td>${formatCurrency(c.budget)}</td>
+      <td>${c.leadsGenerated || 0}</td>
+      <td>${formatDate(c.startDate)}</td>
+      <td>${escapeHtml(c.owner || "—")}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn edit-row" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
+          <button class="icon-btn danger delete-row" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`,
+    )
+    .join("")}
+</tbody>
     </table>`;
 
   wrap.querySelectorAll(".edit-row").forEach((btn) =>
@@ -353,14 +399,14 @@ function renderTeamTab() {
         .filter((c) => c.owner === name)
         .reduce((s, c) => s + Number(c.budget || 0), 0);
       return `
-        <div class="team-member-row">
-          <div class="avatar">${initials(name)}</div>
-          <div class="info">
-            <div class="name">${escapeHtml(name)}</div>
-            <div class="sub">${agent ? escapeHtml(agent.role) : "Campaign Owner"} · ${formatCurrency(budget)}</div>
-          </div>
-          <span class="count">${count}</span>
-        </div>`;
+  <div class="team-member-row">
+    <div class="avatar">${initials(name)}</div>
+    <div class="info">
+      <div class="name">${escapeHtml(name)}</div>
+      <div class="sub">${agent ? escapeHtml(agent.role) : "Campaign Owner"} · ${formatCurrency(budget)}</div>
+    </div>
+    <span class="count">${count}</span>
+  </div>`;
     })
     .join("");
 }
@@ -384,16 +430,16 @@ function renderCalendarTab() {
     .map((c) => {
       const dt = new Date(c.startDate);
       return `
-      <div class="calendar-row">
-        <div class="calendar-date-chip">
-          <span class="d">${dt.getDate()}</span>
-          <span class="m">${dt.toLocaleDateString("en-IN", { month: "short" })}</span>
-        </div>
-        <div class="info">
-          <div class="name">${escapeHtml(c.name)}</div>
-          <div class="sub">${escapeHtml(c.type)} · ${c.status}</div>
-        </div>
-      </div>`;
+<div class="calendar-row">
+  <div class="calendar-date-chip">
+    <span class="d">${dt.getDate()}</span>
+    <span class="m">${dt.toLocaleDateString("en-IN", { month: "short" })}</span>
+  </div>
+  <div class="info">
+    <div class="name">${escapeHtml(c.name)}</div>
+    <div class="sub">${escapeHtml(c.type)} · ${c.status}</div>
+  </div>
+</div>`;
     })
     .join("");
 }
@@ -407,7 +453,8 @@ function populateOwnerSelect() {
   sel.innerHTML = owners.length
     ? owners
         .map(
-          (n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`,
+          (n) =>
+            `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`,
         )
         .join("")
     : `<option value="" disabled selected>Add an agent first (Account Champions)</option>`;
@@ -418,7 +465,10 @@ function populateFilterOwners() {
   sel.innerHTML =
     `<option value="all">All Owners</option>` +
     ownerNames()
-      .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
+      .map(
+        (n) =>
+          `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`,
+      )
       .join("");
   sel.value = current || "all";
 }
@@ -440,14 +490,16 @@ function openModal(id) {
     document.getElementById("fName").value = campaign.name;
     document.getElementById("fType").value = campaign.type;
     document.getElementById("fStatus").value = campaign.status;
-    document.getElementById("fStartDate").value = campaign.startDate || "";
+    document.getElementById("fStartDate").value =
+      campaign.startDate || "";
     document.getElementById("fEndDate").value = campaign.endDate || "";
     document.getElementById("fBudget").value = campaign.budget || "";
     document.getElementById("fLeadsGenerated").value =
       campaign.leadsGenerated || "";
     document.getElementById("fAudience").value = campaign.audience || "";
     document.getElementById("fOwner").value = campaign.owner || "";
-    document.getElementById("fDescription").value = campaign.description || "";
+    document.getElementById("fDescription").value =
+      campaign.description || "";
     deleteBtn.style.display = "inline-flex";
     timelineSection.style.display = "block";
     renderTimeline(campaign);
@@ -475,13 +527,13 @@ function renderTimeline(campaign) {
         .reverse()
         .map(
           (n) => `
-      <div class="timeline-item">
-        <span class="dot"></span>
-        <div class="body">
-          <div class="text">${escapeHtml(n.text)}</div>
-          <div class="meta">${escapeHtml(n.author || "")} · ${formatDate(n.at)}</div>
-        </div>
-      </div>`,
+<div class="timeline-item">
+  <span class="dot"></span>
+  <div class="body">
+    <div class="text">${escapeHtml(n.text)}</div>
+    <div class="meta">${escapeHtml(n.author || "")} · ${formatDate(n.at)}</div>
+  </div>
+</div>`,
         )
         .join("")
     : `<div class="text-muted" style="font-size:12.5px">No activity yet.</div>`;
@@ -540,42 +592,51 @@ document.addEventListener("DOMContentLoaded", () => {
   initSidebarToggle();
 
   renderAll();
+  initStageFilterButtons(); // NEW: wire up the DRAFT/SCHEDULED/... pills
 
   // Search & filters
-  ["searchInput", "filterType", "filterStatus", "filterOwner"].forEach((id) => {
-    const el = document.getElementById(id);
-    el.addEventListener("input", () => {
+  ["searchInput", "filterType", "filterStatus", "filterOwner"].forEach(
+    (id) => {
+      const el = document.getElementById(id);
+      el.addEventListener("input", () => {
+        currentView === "kanban" ? renderKanban() : renderTable();
+      });
+      el.addEventListener("change", () => {
+        currentView === "kanban" ? renderKanban() : renderTable();
+      });
+    },
+  );
+  document
+    .getElementById("clearFiltersBtn")
+    .addEventListener("click", () => {
+      document.getElementById("searchInput").value = "";
+      document.getElementById("filterType").value = "all";
+      document.getElementById("filterStatus").value = "all";
+      document.getElementById("filterOwner").value = "all";
       currentView === "kanban" ? renderKanban() : renderTable();
     });
-    el.addEventListener("change", () => {
-      currentView === "kanban" ? renderKanban() : renderTable();
-    });
-  });
-  document.getElementById("clearFiltersBtn").addEventListener("click", () => {
-    document.getElementById("searchInput").value = "";
-    document.getElementById("filterType").value = "all";
-    document.getElementById("filterStatus").value = "all";
-    document.getElementById("filterOwner").value = "all";
-    currentView === "kanban" ? renderKanban() : renderTable();
-  });
 
   // View toggle
-  document.getElementById("viewKanbanBtn").addEventListener("click", () => {
-    currentView = "kanban";
-    document.getElementById("viewKanbanBtn").classList.add("active");
-    document.getElementById("viewTableBtn").classList.remove("active");
-    document.getElementById("kanbanView").style.display = "flex";
-    document.getElementById("tableView").style.display = "none";
-    renderKanban();
-  });
-  document.getElementById("viewTableBtn").addEventListener("click", () => {
-    currentView = "table";
-    document.getElementById("viewTableBtn").classList.add("active");
-    document.getElementById("viewKanbanBtn").classList.remove("active");
-    document.getElementById("tableView").style.display = "block";
-    document.getElementById("kanbanView").style.display = "none";
-    renderTable();
-  });
+  document
+    .getElementById("viewKanbanBtn")
+    .addEventListener("click", () => {
+      currentView = "kanban";
+      document.getElementById("viewKanbanBtn").classList.add("active");
+      document.getElementById("viewTableBtn").classList.remove("active");
+      document.getElementById("kanbanView").style.display = "flex";
+      document.getElementById("tableView").style.display = "none";
+      renderKanban();
+    });
+  document
+    .getElementById("viewTableBtn")
+    .addEventListener("click", () => {
+      currentView = "table";
+      document.getElementById("viewTableBtn").classList.add("active");
+      document.getElementById("viewKanbanBtn").classList.remove("active");
+      document.getElementById("tableView").style.display = "block";
+      document.getElementById("kanbanView").style.display = "none";
+      renderTable();
+    });
 
   // Side panel tabs
   document.querySelectorAll(".side-tab").forEach((tab) => {
@@ -597,22 +658,30 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("addBtn")
     .addEventListener("click", () => openModal(null));
-  document.getElementById("modalClose").addEventListener("click", closeModal);
-  document.getElementById("cancelBtn").addEventListener("click", closeModal);
-  document.getElementById("modalOverlay").addEventListener("click", (e) => {
-    if (e.target.id === "modalOverlay") closeModal();
-  });
+  document
+    .getElementById("modalClose")
+    .addEventListener("click", closeModal);
+  document
+    .getElementById("cancelBtn")
+    .addEventListener("click", closeModal);
+  document
+    .getElementById("modalOverlay")
+    .addEventListener("click", (e) => {
+      if (e.target.id === "modalOverlay") closeModal();
+    });
 
   // Notes
   document
     .getElementById("addNoteBtn")
     .addEventListener("click", addNoteToCampaign);
-  document.getElementById("noteInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addNoteToCampaign();
-    }
-  });
+  document
+    .getElementById("noteInput")
+    .addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addNoteToCampaign();
+      }
+    });
 
   // Delete from modal
   document.getElementById("deleteBtn").addEventListener("click", () => {
@@ -624,36 +693,41 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Save (create / update)
-  document.getElementById("campaignForm").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const id = document.getElementById("editId").value;
-    const payload = {
-      name: document.getElementById("fName").value.trim(),
-      type: document.getElementById("fType").value,
-      status: document.getElementById("fStatus").value,
-      startDate: document.getElementById("fStartDate").value,
-      endDate: document.getElementById("fEndDate").value,
-      budget: parseFloat(document.getElementById("fBudget").value) || 0,
-      leadsGenerated:
-        parseInt(document.getElementById("fLeadsGenerated").value, 10) || 0,
-      audience: document.getElementById("fAudience").value.trim(),
-      owner: document.getElementById("fOwner").value,
-      description: document.getElementById("fDescription").value.trim(),
-    };
+  document
+    .getElementById("campaignForm")
+    .addEventListener("submit", (e) => {
+      e.preventDefault();
+      const id = document.getElementById("editId").value;
+      const payload = {
+        name: document.getElementById("fName").value.trim(),
+        type: document.getElementById("fType").value,
+        status: document.getElementById("fStatus").value,
+        startDate: document.getElementById("fStartDate").value,
+        endDate: document.getElementById("fEndDate").value,
+        budget: parseFloat(document.getElementById("fBudget").value) || 0,
+        leadsGenerated:
+          parseInt(
+            document.getElementById("fLeadsGenerated").value,
+            10,
+          ) || 0,
+        audience: document.getElementById("fAudience").value.trim(),
+        owner: document.getElementById("fOwner").value,
+        description: document.getElementById("fDescription").value.trim(),
+      };
 
-    if (!payload.name || !payload.startDate) {
-      showToast("Please fill in all required fields", "error");
-      return;
-    }
+      if (!payload.name || !payload.startDate) {
+        showToast("Please fill in all required fields", "error");
+        return;
+      }
 
-    if (id) {
-      updateCampaign(id, payload);
-      showToast("Campaign updated", "success");
-    } else {
-      addCampaign(payload);
-      showToast("Campaign created", "success");
-    }
-    closeModal();
-    renderAll();
-  });
+      if (id) {
+        updateCampaign(id, payload);
+        showToast("Campaign updated", "success");
+      } else {
+        addCampaign(payload);
+        showToast("Campaign created", "success");
+      }
+      closeModal();
+      renderAll();
+    });
 });

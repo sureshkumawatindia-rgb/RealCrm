@@ -259,6 +259,18 @@ document.getElementById("fQuantity").addEventListener("input", () => {
 // Lead modal
 // ---------------------------------------------------------------
 let quotationItems = [];
+// The quotation items as they were when the modal opened; a save only touches quotations
+// when the items really changed (an ordinary lead edit must not create a quotation).
+let quotationBaseline = "";
+function quotationSignature() {
+  return JSON.stringify(quotationItems.map((item) => [
+    item.productId,
+    Number(item.quantity) || 0,
+    Number(item.unitPrice) || 0,
+    Number(item.discount) || 0,
+    Number(item.tax) || 0,
+  ]));
+}
 function quotationDatePlus(days) {
   const date = new Date();
   date.setDate(date.getDate() + days);
@@ -325,6 +337,7 @@ function openModal(lead = null) {
   renderQuotationItems();
   renderQuotationTotals();
   document.getElementById("fProduct").dispatchEvent(new Event("change"));
+  quotationBaseline = lead ? quotationSignature() : "";
   modalOverlay.classList.add("open");
 }
 function closeModal() {
@@ -367,6 +380,7 @@ leadForm.addEventListener("submit", (e) => {
     return;
   }
   let leadMessage = id ? "Lead updated" : "Lead created successfully";
+  let leadId = id;
   if (id) {
     const existingLead = getLeads().find((lead) => lead.id === id);
     updateLead(id, data);
@@ -377,19 +391,33 @@ leadForm.addEventListener("submit", (e) => {
     addLeadActivity(id, "Lead updated", "Lead details updated");
   } else {
     const savedLead = addLead(data);
-    addLeadActivity(savedLead.id, "Lead created", "Lead created");
+    leadId = savedLead.id;
+    // A lead created directly as Won converts the same way as one moved to Won.
+    if (data.status === "Won") {
+      updateLead(leadId, { convertedCustomerId: ensureWonCustomer(savedLead, "lead") });
+    }
+    addLeadActivity(leadId, "Lead created", "Lead created");
   }
-  const leadId = id || getLeads()[0]?.id;
   let quotationNumber = "";
-  if (data.product && leadId && quotationItems.length) {
+  let quotationAction = "";
+  const quotationChanged = quotationItems.length > 0 && quotationSignature() !== quotationBaseline;
+  if (data.product && leadId && quotationChanged) {
     const totals = quotationTotals();
     const quotationData = { leadId, leadName: data.name, company: data.company, email: data.email, phone: data.phone, quotationDate: new Date().toISOString().slice(0, 10), validUntil: quotationDatePlus(30), items: quotationItems, ...totals, status: "Draft" };
-    const quotation = addQuotation(quotationData);
-    quotationNumber = quotation.quotationNumber;
-    addLeadActivity(leadId, "Quotation created", `Quotation created: ${quotationNumber}`);
+    // Changing the items again updates the lead's draft instead of piling up new quotations.
+    const draft = getQuotations().find((quotation) => quotation.leadId === leadId && quotation.status === "Draft");
+    if (draft) {
+      updateQuotation(draft.id, quotationData);
+      quotationNumber = draft.quotationNumber;
+      quotationAction = "updated";
+    } else {
+      quotationNumber = addQuotation(quotationData).quotationNumber;
+      quotationAction = "created";
+    }
+    addLeadActivity(leadId, `Quotation ${quotationAction}`, `Quotation ${quotationAction}: ${quotationNumber}`);
   }
   closeModal();
-  if (quotationNumber) showToast(`Lead and quotation created successfully · ${quotationNumber}`, "success");
+  if (quotationNumber) showToast(`${id ? "Lead updated" : "Lead created"} and quotation ${quotationAction} · ${quotationNumber}`, "success");
   else showToast(`${leadMessage}.`, "success");
   renderProductsPanel();
   renderTable();

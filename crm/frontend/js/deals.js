@@ -700,14 +700,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebarUser();
   initSidebarToggle();
 
-  // One-time cleanup: earlier versions of this file auto-seeded demo deals
-  // into localStorage. This runs once to wipe any leftover demo data, then
-  // never touches crm_deals again.
-  if (!localStorage.getItem("crm_deals_demo_cleared")) {
-    localStorage.removeItem(DEALS_KEY);
-    localStorage.setItem("crm_deals_demo_cleared", "1");
-  }
-
   renderAll();
   initKanbanStageButtons();
 
