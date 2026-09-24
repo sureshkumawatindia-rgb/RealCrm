@@ -1,16 +1,14 @@
 /**
  * support.js — Support module (Ticket Kanban + Table)
- * Persists to localStorage under 'crm_tickets' (+ 'crm_ticket_seq' for
- * human-readable ticket numbers). Reuses shared helpers from app.js
+ * Tickets and their replies live on the CRM backend (getTickets, saveTicket,
+ * removeTicket, getTicketNotes, addTicketNote in app.js); the server gives
+ * each ticket its number. Reuses shared helpers from app.js
  * (getAgents, getCustomers, showToast, renderSidebarUser,
- * initSidebarToggle, requireAuth, getCurrentUser).
+ * initSidebarToggle, requireAuth).
  */
 
 requireAuth();
 renderSidebarUser();
-
-const TICKETS_KEY = "crm_tickets";
-const TICKET_SEQ_KEY = "crm_ticket_seq";
 
 const STATUSES = [
   "Open",
@@ -51,47 +49,8 @@ let currentView = "kanban";
 let draggingId = null;
 let activeStageFilter = null; // set by the nav-bar-kanban-card pill buttons
 
-// ---------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------
-function getTickets() {
-  const raw = localStorage.getItem(TICKETS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveTickets(list) {
-  localStorage.setItem(TICKETS_KEY, JSON.stringify(list));
-}
-function nextTicketNumber() {
-  const current = parseInt(localStorage.getItem(TICKET_SEQ_KEY), 10) || 1000;
-  const next = current + 1;
-  localStorage.setItem(TICKET_SEQ_KEY, String(next));
-  return next;
-}
-function addTicket(ticket) {
-  const list = getTickets();
-  ticket.id =
-    "tk_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  ticket.number = nextTicketNumber();
-  ticket.createdAt = new Date().toISOString();
-  ticket.notes = [];
-  list.unshift(ticket);
-  saveTickets(list);
-  return ticket;
-}
-function updateTicket(id, patch) {
-  const list = getTickets();
-  const idx = list.findIndex((t) => t.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveTickets(list);
-  }
-  return list[idx];
-}
-function deleteTicket(id) {
-  saveTickets(getTickets().filter((t) => t.id !== id));
-}
 function getTicket(id) {
-  return getTickets().find((t) => t.id === id);
+  return getTickets().find((t) => String(t.id) === String(id));
 }
 
 // ---------------------------------------------------------------
@@ -184,8 +143,9 @@ function renderKpis() {
   const now = new Date();
   const resolvedThisMonth = tickets.filter((t) => {
     if (t.status !== "Resolved" && t.status !== "Closed") return false;
-    if (!t.createdAt) return false;
-    const c = new Date(t.createdAt);
+    const when = t.resolvedAt || t.createdAt;
+    if (!when) return false;
+    const c = new Date(when);
     return (
       c.getMonth() === now.getMonth() && c.getFullYear() === now.getFullYear()
     );
@@ -313,9 +273,10 @@ function attachDragEvents() {
       const newStatus = col.dataset.status;
       const ticket = getTicket(draggingId);
       if (!ticket || ticket.status === newStatus) return;
-      updateTicket(draggingId, { status: newStatus });
-      showToast(`Moved #${ticket.number} to ${newStatus}`, "success");
-      renderAll();
+      saveTicket(ticket.id, { status: newStatus })
+        .then(() => showToast(`Moved #${ticket.number} to ${newStatus}`, "success"))
+        .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the ticket."), "error"))
+        .finally(renderAll);
     });
   });
 }
@@ -605,7 +566,8 @@ function openModal(id) {
     document.getElementById("fDescription").value = ticket.description || "";
     deleteBtn.style.display = "inline-flex";
     timelineSection.style.display = "block";
-    renderTimeline(ticket);
+    renderTimeline(null);
+    loadTimeline(ticket.id);
   } else {
     document.getElementById("modalTitle").textContent = "New Ticket";
     document.getElementById("editId").value = "";
@@ -623,13 +585,26 @@ function closeModal() {
   document.getElementById("modalOverlay").classList.remove("open");
 }
 
-function renderTimeline(ticket) {
+// Replies load from the server each time a ticket opens (newest first).
+async function loadTimeline(id) {
+  try {
+    const notes = await getTicketNotes(id);
+    if (document.getElementById("editId").value === String(id)) renderTimeline(notes);
+  } catch (error) {
+    document.getElementById("timelineList").innerHTML =
+      `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, "Couldn't load the replies."))}</div>`;
+  }
+}
+
+// notes: null while loading.
+function renderTimeline(notes) {
   const el = document.getElementById("timelineList");
-  const notes = ticket.notes || [];
+  if (!notes) {
+    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">Loading replies…</div>`;
+    return;
+  }
   el.innerHTML = notes.length
     ? notes
-        .slice()
-        .reverse()
         .map(
           (n) => `
       <div class="timeline-item">
@@ -644,32 +619,31 @@ function renderTimeline(ticket) {
     : `<div class="text-muted" style="font-size:12.5px">No replies yet.</div>`;
 }
 
-function addNoteToTicket() {
+async function addNoteToTicket() {
   const id = document.getElementById("editId").value;
   if (!id) return;
   const input = document.getElementById("noteInput");
   const text = input.value.trim();
   if (!text) return;
-  const ticket = getTicket(id);
-  const notes = ticket.notes || [];
-  notes.push({
-    text,
-    at: new Date().toISOString(),
-    author: getCurrentUser()?.name || "You",
-  });
-  const updated = updateTicket(id, { notes });
+  try {
+    await addTicketNote(id, text);
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+    return;
+  }
   input.value = "";
-  renderTimeline(updated);
   showToast("Note added", "success");
+  await loadTimeline(id);
 }
 
 function confirmDelete(id) {
   const ticket = getTicket(id);
   if (!ticket) return;
   if (confirm(`Delete ticket #${ticket.number}? This can't be undone.`)) {
-    deleteTicket(id);
-    showToast("Ticket deleted", "success");
-    renderAll();
+    removeTicket(id)
+      .then(() => showToast("Ticket deleted", "success"))
+      .catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the ticket."), "error"))
+      .finally(renderAll);
   }
 }
 
@@ -692,7 +666,7 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 initSidebarToggle();
-crmReady(["contacts", "members"], renderAll);
+crmReady(["tickets", "contacts", "members"], renderAll);
 initKanbanStageButtons();
 
 // Search & filters
@@ -798,7 +772,7 @@ document.getElementById("deleteBtn").addEventListener("click", () => {
 });
 
 // Save (create / update)
-document.getElementById("ticketForm").addEventListener("submit", (e) => {
+document.getElementById("ticketForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("editId").value;
   const payload = {
@@ -817,12 +791,12 @@ document.getElementById("ticketForm").addEventListener("submit", (e) => {
     return;
   }
 
-  if (id) {
-    updateTicket(id, payload);
-    showToast("Ticket updated", "success");
-  } else {
-    addTicket(payload);
-    showToast("Ticket created", "success");
+  try {
+    const saved = await saveTicket(id || null, payload);
+    showToast(id ? "Ticket updated" : `Ticket #${saved.number} created`, "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the ticket."), "error");
+    return;
   }
   closeModal();
   renderAll();

@@ -407,7 +407,7 @@ class ImportRun {
     if (id) return { assigneeId: id, assigneeName: '' };
     if (!this.reportedAssignees.has(lower(clean))) {
       this.reportedAssignees.add(lower(clean));
-      this.unresolved(`Assignee "${clean}" is not a team member yet; the name is kept on their tasks and events`);
+      this.unresolved(`Assignee "${clean}" is not a team member yet; the name is kept on their tasks, events and tickets`);
     }
     return { assigneeId: undefined, assigneeName: clean };
   }

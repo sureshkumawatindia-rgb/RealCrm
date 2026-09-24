@@ -677,15 +677,16 @@ const IMPORT_SECTION_LABELS = {
   tasks: "Tasks",
   dealFollowUps: "Deal follow-ups",
   events: "Calendar events",
+  tickets: "Support tickets",
+  ticketNotes: "Ticket replies",
+  customerNotes: "Customer notes",
 };
 const LATER_LABELS = {
   crm_agents: "Account Champions",
-  crm_tickets: "Support tickets",
   crm_documents: "Documents",
   crm_campaigns: "Campaigns",
   crm_workflows: "Workflows",
   crm_sequences: "Sequences",
-  crm_customer_notes: "Customer notes",
 };
 // Session and settings keys are never sent.
 const NOT_IMPORTED = new Set([SESSION_KEY, USER_KEY, "crm_member", "crm_company", "crm_ticket_seq", "crm_deals_demo_cleared"]);

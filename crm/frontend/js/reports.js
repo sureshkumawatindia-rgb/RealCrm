@@ -55,8 +55,7 @@ function readCampaigns() {
   return raw ? JSON.parse(raw) : [];
 }
 function readTickets() {
-  const raw = localStorage.getItem("crm_tickets");
-  return raw ? JSON.parse(raw) : [];
+  return getTickets();
 }
 
 // ---------------------------------------------------------------
@@ -695,7 +694,7 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  crmReady(["leads", "contacts", "products", "members", "tasks", "events"], renderAll);
+  crmReady(["leads", "contacts", "products", "members", "tasks", "events", "tickets"], renderAll);
 
   document.querySelectorAll(".report-tab").forEach((tab) => {
     tab.addEventListener("click", () => {

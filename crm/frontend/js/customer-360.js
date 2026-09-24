@@ -1,27 +1,26 @@
 /**
  * customer-360.js — Customer 360° Profile
  *
- * Read-only aggregation across every module's localStorage data for one
- * customer, plus a small notes feature stored under 'crm_customer_notes'.
- * Nothing here writes to crm_customers, crm_deals, crm_tasks, crm_tickets,
- * or crm_documents — those stay owned by their existing pages.
+ * Read-only aggregation of everything about one customer, plus the
+ * customer's notes (on the CRM backend: getContactNotes / addContactNote).
+ * Nothing else is changed here — records stay owned by their own pages.
  *
- * Matching is best-effort by name, since the existing schema links records
- * to people by free-text name/relatedName rather than a customer id:
+ * Matching is best-effort by name where records store only a name:
  *   - tasks / calendar events / documents: relatedType === "Customer" &&
  *     relatedName === customer.name
- *   - tickets: ticket.customer === customer.name
- *   - deals: deal.contact === customer.name (contact is free text)
+ *   - tickets: linked contact id, else ticket.customer === customer.name
+ *   - deals: deal.contact === customer.name
  *
- * Reuses shared helpers from app.js (getCustomers, showToast,
- * renderSidebarUser, initSidebarToggle, requireAuth, getCurrentUser).
+ * Reuses shared helpers from app.js (getCustomers, getTickets, showToast,
+ * renderSidebarUser, initSidebarToggle, requireAuth).
  */
 
 requireAuth();
 renderSidebarUser();
 initSidebarToggle();
 
-const CUSTOMER_NOTES_KEY = "crm_customer_notes";
+// This customer's notes, newest first (loaded once the customer is known).
+let customerNoteList = [];
 
 // ---------------------------------------------------------------
 // Direct reads for modules without a shared app.js helper
@@ -36,19 +35,11 @@ function readEvents() {
   return getEvents();
 }
 function readTickets() {
-  const raw = localStorage.getItem("crm_tickets");
-  return raw ? JSON.parse(raw) : [];
+  return getTickets();
 }
 function readDocuments() {
   const raw = localStorage.getItem("crm_documents");
   return raw ? JSON.parse(raw) : [];
-}
-function readCustomerNotes() {
-  const raw = localStorage.getItem(CUSTOMER_NOTES_KEY);
-  return raw ? JSON.parse(raw) : {};
-}
-function saveCustomerNotes(map) {
-  localStorage.setItem(CUSTOMER_NOTES_KEY, JSON.stringify(map));
 }
 
 // ---------------------------------------------------------------
@@ -116,16 +107,17 @@ function relatedEvents(customer) {
   );
 }
 function relatedTickets(customer) {
-  return readTickets().filter((t) => t.customer === customer.name);
+  return readTickets().filter((t) =>
+    t.contactId ? String(t.contactId) === String(customer.id) : t.customer === customer.name,
+  );
 }
 function relatedDocuments(customer) {
   return readDocuments().filter(
     (d) => d.relatedType === "Customer" && d.relatedName === customer.name,
   );
 }
-function customerNotes(customer) {
-  const map = readCustomerNotes();
-  return map[customer.id] || [];
+function customerNotes() {
+  return customerNoteList;
 }
 
 // ---------------------------------------------------------------
@@ -376,8 +368,6 @@ function renderNotesTab(customer) {
   const el = document.getElementById("c360NotesList");
   el.innerHTML = notes.length
     ? notes
-        .slice()
-        .reverse()
         .map(
           (n) => `
       <div class="c360-list-item">
@@ -392,17 +382,19 @@ function renderNotesTab(customer) {
     : relEmptyBlock("fa-note-sticky", "No notes yet — add the first one below.");
 }
 
-function addNote(customer) {
+async function addNote(customer) {
   const input = document.getElementById("c360NoteInput");
   const text = input.value.trim();
   if (!text) return;
-  const map = readCustomerNotes();
-  const list = map[customer.id] || [];
-  list.push({ text, at: new Date().toISOString(), author: getCurrentUser()?.name || "You" });
-  map[customer.id] = list;
-  saveCustomerNotes(map);
+  try {
+    customerNoteList.unshift(await addContactNote(customer.id, text));
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+    return;
+  }
   input.value = "";
   renderNotesTab(customer);
+  renderTimelineTab(customer);
   showToast("Note added", "success");
 }
 
@@ -473,13 +465,19 @@ function initTabs() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-crmReady(["leads", "contacts", "products", "members", "tasks", "events"], () => {
+crmReady(["leads", "contacts", "products", "members", "tasks", "events", "tickets"], async () => {
   const customerId = getCustomerIdFromUrl();
   const customer = customerId ? findCustomer(customerId) : null;
 
   if (!customer) {
     renderPicker();
   } else {
+    try {
+      customerNoteList = await getContactNotes(customer.id);
+    } catch (error) {
+      customerNoteList = [];
+      showToast(apiErrorMessage(error, "Couldn't load this customer's notes."), "error");
+    }
     document.getElementById("pickerView").style.display = "none";
     document.getElementById("profileView").style.display = "block";
 

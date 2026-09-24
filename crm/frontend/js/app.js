@@ -1,8 +1,9 @@
 /**
  * app.js — shared helpers for every page.
- * Sign-in, the company profile, the team, contacts, leads/deals, products, quotations, tasks
- * and calendar events live on the CRM backend (crmApi, crmLoad). Tickets, documents, campaigns
- * and automations are still stored in this browser's localStorage until they move too.
+ * Sign-in, the company profile, the team, contacts, leads/deals, products, quotations, tasks,
+ * calendar events, support tickets and notes live on the CRM backend (crmApi, crmLoad).
+ * Documents, campaigns and automations are still stored in this browser's localStorage until
+ * they move too.
  */
 
 const KEYS = {
@@ -322,8 +323,8 @@ function renderCompanyDashboardCard() {
 }
 
 // ---------------------------------------------------------------
-// Server data — contacts, leads (also shown as deals), products,
-// quotations and the team. Pages call crmLoad([...]) (or crmReady) once,
+// Server data — contacts, leads (also shown as deals), products, quotations,
+// the team, tasks, calendar events and tickets. Pages call crmLoad([...]) (or crmReady) once,
 // then read synchronously with the getters below; changes go through
 // the async save/remove helpers, which update the in-memory copy.
 // ---------------------------------------------------------------
@@ -335,6 +336,7 @@ const CRM_SOURCES = {
   quotations: "/quotations",
   tasks: "/tasks",
   events: "/events",
+  tickets: "/tickets",
 };
 const crmCache = {};
 const MAX_LOAD_PAGES = 50; // 50 pages × 100 records per resource
@@ -649,6 +651,49 @@ async function saveEvent(id, form) {
 async function removeEvent(id) {
   await crmApi(`/events/${id}`, { method: "DELETE" });
   cacheDrop("events", id);
+}
+
+// --- support tickets and notes -------------------------------------
+// customer: the linked contact's name, or the name typed on the ticket.
+const toLegacyTicket = (ticket) => ({ ...toLegacyWorkItem(ticket), customer: ticket.customerName || "" });
+
+function getTickets() {
+  return cached("tickets").map(toLegacyTicket);
+}
+// The number is given by the server. A typed customer links to the contact with that exact
+// name when there is only one; an unchanged name keeps the ticket's current link.
+async function saveTicket(id, form) {
+  const payload = workItemPayload(form, ["subject", "description", "category", "priority", "status", "dueDate"]);
+  if ("customer" in form) {
+    const current = id ? cached("tickets").find((ticket) => String(ticket.id) === String(id)) : null;
+    payload.customerName = form.customer || "";
+    payload.contactId =
+      current?.contactId && current.customerName === payload.customerName
+        ? current.contactId
+        : relatedIdByName("Contact", payload.customerName);
+  }
+  const ticket = await crmApi(id ? `/tickets/${id}` : "/tickets", jsonRequest(id ? "PATCH" : "POST", payload));
+  return toLegacyTicket(cacheUpsert("tickets", ticket));
+}
+async function removeTicket(id) {
+  await crmApi(`/tickets/${id}`, { method: "DELETE" });
+  cacheDrop("tickets", id);
+}
+
+// Notes arrive newest first, as { text, author, at } like the pages already show them.
+const toLegacyNote = (note) => ({ ...note, author: note.authorName || "", at: note.createdAt });
+
+async function getTicketNotes(ticketId) {
+  return (await crmApi(`/tickets/${ticketId}/notes`)).map(toLegacyNote);
+}
+async function addTicketNote(ticketId, text) {
+  return toLegacyNote(await crmApi(`/tickets/${ticketId}/notes`, jsonRequest("POST", { text })));
+}
+async function getContactNotes(contactId) {
+  return (await crmApi(`/contacts/${contactId}/notes`)).map(toLegacyNote);
+}
+async function addContactNote(contactId, text) {
+  return toLegacyNote(await crmApi(`/contacts/${contactId}/notes`, jsonRequest("POST", { text })));
 }
 
 // Items use the form's rupee values; the server computes every total.
