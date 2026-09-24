@@ -9,6 +9,7 @@ const contactRoutes = require('./contacts');
 const productRoutes = require('./products');
 const leadRoutes = require('./leads');
 const quotationRoutes = require('./quotations');
+const importRoutes = require('./imports');
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use('/contacts', contactRoutes);
 router.use('/products', productRoutes);
 router.use('/leads', leadRoutes);
 router.use('/quotations', quotationRoutes);
+router.use('/imports', importRoutes);
 
 module.exports = router;

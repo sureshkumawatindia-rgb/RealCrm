@@ -30,6 +30,8 @@ app.use(cors({
   origin: (origin, callback) => callback(null, !origin || env.corsOrigins.includes(origin)),
   credentials: true,
 }));
+// A browser-data import carries the whole old localStorage in one request.
+app.use('/api/v1/imports/localstorage', express.json({ limit: '25mb' }));
 app.use(express.json({ limit: '5mb' }));
 app.use(rejectUnsafeKeys);
 
