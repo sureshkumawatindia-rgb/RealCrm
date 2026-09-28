@@ -60,7 +60,9 @@ Helmet on the API, CORS allowlist (`CORS_ORIGINS` plus the public URL and local 
 - Audit log: `audit(req, { action, entityType, entityId, changes })`, never throws.
 - Idempotency: `Idempotency-Key` middleware stores responses for 24 hours.
 - Counters: `nextSequence(organizationId, name, { start })`, atomic per organization (quotation numbers per financial year, ticket numbers).
-- Record scope: `visibilityFilter` (owner: contacts, leads, documents) and `assignedOrCreatedFilter` (tasks, events, tickets) in `services/access.js`; `<module>:view_all` lifts it.
+- Record scope: `visibilityFilter` (owner: contacts, leads, documents, campaigns, workflows, sequences) and `assignedOrCreatedFilter` (tasks, events, tickets) in `services/access.js`; `<module>:view_all` lifts it.
+- Service factories: `createWorkItemService` (tasks, events, tickets) and `createOwnedRecordService` (campaigns, workflows, sequences) give list/get/create/update/remove with scope, audit and soft delete; `routes/workItems.js` `resourceRouter` gives the matching routes.
+- Dates: calendar days are `YYYY-MM-DD` strings; `utils/dates.indiaDate(n)` is today in IST plus n days.
 - Storage: `documentStorage.put / open / remove` with server-made keys `<organization id>/<random>`.
 - Migrations: `src/migrations`, each idempotent, recorded in `migrations`.
 

@@ -57,6 +57,16 @@ The roadmap planned `dueAt` and a note `body`; the code uses `dueDate` (a calend
 
 The file bytes are not in MongoDB: `src/storage` keeps them on local disk (`DOCUMENT_DIR`). A cloud driver (S3 / Cloudflare R2) only has to provide the same `put`, `open` and `remove`.
 
+## 1f. Implemented (Phase 2, campaigns and automation settings)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `campaigns` | `name`, `type`, `status`, `startDate`/`endDate` (`YYYY-MM-DD`), `budgetPaise`, `leadsGenerated` (entered by the team until lead sources count it), `audience`, `description`, `ownerId`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status, startDate)`; `(organizationId, ownerId, status)`; `(organizationId, legacyIds)` |
+| `workflows` | `name`, `status` (Active/Paused/Draft), `trigger` (allowlist), `actions[]` `{ type (allowlist), detail }`, `ownerId`, `runsCount` (server only), `lastRunAt`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status)`; `(organizationId, ownerId)`; `(organizationId, legacyIds)` |
+| `sequences` | `name`, `targetType`, `status`, `steps[]` `{ day 0–365, type, note }`, `ownerId`, `enrolledCount` (server only), `lastEnrolledAt`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status)`; `(organizationId, ownerId)`; `(organizationId, legacyIds)` |
+
+`notes.parentType` now also allows `campaign`. Per-contact `sequenceenrollments` and `automationruns` (roadmap section 5) arrive with the automation engine in Phase 6.
+
 Counters used: `quotation:<financial year>`, `ticket`.
 
 ## 2. Data migrations
@@ -67,4 +77,4 @@ Counters used: `quotation:<financial year>`, `ticket`.
 
 ## 3. Planned (Phase 2 onwards)
 
-Campaigns, workflows, sequences; then WhatsApp, lead sources, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.
+Account Champions move to memberships and invites (checkpoint F); then WhatsApp, lead sources, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.

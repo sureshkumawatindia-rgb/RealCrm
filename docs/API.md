@@ -178,11 +178,41 @@ A document is either an uploaded file or a web link. Files are kept in private s
 | `DELETE` | `/documents/:id` | Soft delete; the file stays in storage. |
 | `GET` | `/documents/:id/download` | The file, always as `application/octet-stream` with `Content-Disposition: attachment` and a `sandbox` CSP, so an uploaded HTML/SVG file can't run in the CRM. 404 `NO_FILE` for a link document, 404 `FILE_MISSING` if the file is gone from storage. |
 
+## Campaigns and automation settings (Phase 2)
+
+Agents and viewers see the campaigns, workflows and sequences they own unless they have `<module>:view_all` (D17); only owners/admins can set `ownerId`. Money is paise.
+
+### Campaigns
+
+Read: `marketing`, `dashboard` or `reports`. Create/edit: `marketing`. Delete: `marketing` (agents need `marketing:delete`).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/campaigns?q=&type=&status=&ownerId=&startFrom=&startTo=&sort=&page=&limit=` | `q` searches name, audience and description; `startFrom`/`startTo` filter the start day. |
+| `POST` | `/campaigns` | `{ name, type? (Email/Social/SMS/Ads/Event), status? (Draft/Scheduled/Active/Paused/Completed), startDate?, endDate?, budgetPaise?, leadsGenerated?, audience?, description?, ownerId? }`. Days are `YYYY-MM-DD`; an end before the start is 400 `END_BEFORE_START`. |
+| `GET/PATCH/DELETE` | `/campaigns/:id` | `""` clears a date. Delete is a soft delete. |
+| `GET/POST` | `/campaigns/:id/notes` | The campaign's activity notes, newest first; POST `{ text }` needs `marketing`. |
+
+### Workflows and sequences
+
+Module: `automation` (read, create, edit; delete needs `automation:delete` for agents). These are settings only: the automation engine (real triggers, emails, notifications) arrives in Phase 6. `runsCount` and `enrolledCount` are kept by the server and never accepted from the browser.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/workflows?q=&status=&ownerId=` and `/sequences?q=&status=&ownerId=` | |
+| `POST` | `/workflows` | `{ name, trigger (Lead Created/Lead Status Changed to Won/Deal Created/Deal Stage Changed to Won/Deal Stage Changed to Lost/Task Overdue/Customer Added), status? (Active/Paused/Draft), actions?: [{ type (Create Task/Send Email (simulated)/Notify Agent/Update Status/Add to Sequence), detail? }] (up to 20), ownerId? }` |
+| `POST` | `/sequences` | `{ name, targetType? (Leads/Deals/Customers), status?, steps?: [{ day (0–365), type (Email/Call/Task/Wait), note? }] (up to 30), ownerId? }` |
+| `GET/PATCH/DELETE` | `/workflows/:id`, `/sequences/:id` | Soft delete. |
+| `POST` | `/workflows/:id/run` | Run Now. Creates one task per "Create Task" action (title = the action's detail, due in 2 days IST, assigned to the workflow's owner while they are an active member, `origin: automation`) and adds 1 to `runsCount`, in one transaction. Answers `{ workflow, tasks, simulated }`; `simulated` lists the configured actions that were not carried out. 409 `NOT_ACTIVE` unless the workflow is Active. Send an `Idempotency-Key` so a retried click runs once. |
+| `POST` | `/sequences/:id/enroll` | Enroll One. Creates a task for the earliest Call/Task step (due in that many days) and adds 1 to `enrolledCount`. Answers `{ sequence, task, firstTaskDay, simulated }`. Same `NOT_ACTIVE` and `Idempotency-Key` rules. |
+
+Since checkpoint E the `automation` module alone no longer allows `POST /tasks`; automation tasks are created by the two endpoints above.
+
 ### Moving browser data to the server
 
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`), calendar events, support tickets (old numbers kept when free, otherwise renumbered with `legacyNumber`), ticket replies, customer notes and documents (browser files go to private storage; links get `https://` when it was missing; bad links and programs are reported); contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new (and tasks, events, tickets, notes and documents deleted on the server are not brought back). Returns a report per section (`found, created, alreadyImported, merged, rejected`), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
+| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`), calendar events, support tickets (old numbers kept when free, otherwise renumbered with `legacyNumber`), ticket replies, customer notes and documents (browser files go to private storage; links get `https://` when it was missing; bad links and programs are reported), campaigns (budget → paise, notes → campaign notes), workflows and sequences (unknown triggers, actions and steps reported; old run/enroll counts kept); contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new (and tasks, events, tickets, notes, documents, campaigns, workflows and sequences deleted on the server are not brought back). Returns a report per section (`found, created, alreadyImported, merged, rejected`), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
 | `GET` | `/imports/:id` | owner, admin | A previous run and its report. |
 
 ## Idempotency
@@ -191,4 +221,4 @@ A document is either an uploaded file or a web link. Files are kept in private s
 
 ## Planned
 
-The rest of Phase 2 adds campaigns, workflows and sequences, then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.
+The rest of Phase 2 moves Account Champions to the team API; then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.

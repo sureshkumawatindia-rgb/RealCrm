@@ -26,9 +26,12 @@ Settings → Data & Privacy → **Move my browser data to server** (owners/admin
 | `crm_customer_notes` | contact notes (keyed by the old customer id, or by the server contact id for notes added after checkpoint A) | C |
 | `crm_ticket_seq` | not needed (numbers come from the server counter) | C |
 | `crm_documents` | documents: base64 files → private storage (same size limit and blocked types as uploads), links → `linkUrl` (`https://` added when missing; other schemes rejected); unknown owners → the person running the import | D |
-| `crm_campaigns`, `crm_workflows`, `crm_sequences`, `crm_agents` | reported as "later", still used from the browser | next checkpoints |
+| `crm_campaigns` | campaigns (budget → paise, an end day before the start is dropped, unknown owners → the person running the import) and their `notes` → campaign notes | E |
+| `crm_workflows` | workflows (unknown trigger → rejected; unknown actions left out and reported; old `runsCount` kept as history) | E |
+| `crm_sequences` | sequences (steps with an unknown type or a day outside 0–365 left out and reported; old `enrolledCount` kept) | E |
+| `crm_agents` | reported as "later", still used by Account Champions | F |
 
-Every imported record keeps its old id in `legacyIds`, so the import can be run again after each checkpoint: it only adds what is new. Since checkpoint C, tasks, events, tickets, notes and documents that were deleted on the server are not imported again. Products, contacts and leads deleted on the server still come back on a new run (to fix in checkpoint G).
+Every imported record keeps its old id in `legacyIds`, so the import can be run again after each checkpoint: it only adds what is new. Since checkpoint C, tasks, events, tickets, notes, documents, campaigns, workflows and sequences that were deleted on the server are not imported again. Products, contacts and leads deleted on the server still come back on a new run (to fix in checkpoint G).
 
 ## 1. Overview
 The current CRM operates entirely on `localStorage`. A one-time migration API will allow users to upload their `localStorage` state to the new backend.
