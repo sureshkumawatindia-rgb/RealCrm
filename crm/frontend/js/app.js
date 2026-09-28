@@ -948,6 +948,7 @@ function initNavGroups() {
 // Page file → module key, in sidebar order (login sends a member to the first allowed page).
 const PAGE_MODULES = {
   "dashboard.html": "dashboard",
+  "Inbox.html": "inbox",
   "customer-360.html": "customers",
   "customers.html": "customers",
   "leads.html": "leads",
@@ -963,6 +964,24 @@ const PAGE_MODULES = {
   "Al Insights.html": "insights",
   "Products.html": "products",
 };
+
+// The unread WhatsApp messages next to "Inbox" in the sidebar.
+function setInboxNavBadge(count) {
+  const badge = document.getElementById("navInboxBadge");
+  if (!badge) return;
+  badge.textContent = count > 99 ? "99+" : String(count || "");
+  badge.hidden = !count;
+}
+async function refreshInboxNavBadge() {
+  const member = getCurrentMember();
+  if (!document.getElementById("navInboxBadge") || !member) return;
+  if (!isOrgManager() && !(member.modules || []).includes("inbox")) return;
+  try {
+    setInboxNavBadge((await crmApi("/conversations/summary")).unread);
+  } catch {
+    /* the badge is a convenience */
+  }
+}
 
 function moduleForPage(fileName) {
   const lower = String(fileName).toLowerCase();
@@ -1000,11 +1019,18 @@ function injectGlobalNavItems() {
 
   const currentPage = window.location.pathname.split("/").pop().toLowerCase();
 
+  // Inserted in order after their anchor, so Inbox ends up right below Dashboard.
   const GLOBAL_ITEMS = [
     {
       href: "customer-360.html",
       icon: "fa-address-card",
       label: "Customer 360°",
+      afterHref: "dashboard.html",
+    },
+    {
+      href: "Inbox.html",
+      icon: "fa-comments",
+      label: 'Inbox <span class="nav-badge" id="navInboxBadge" hidden></span>',
       afterHref: "dashboard.html",
     },
   ];
@@ -1030,6 +1056,8 @@ function injectGlobalNavItems() {
 document.addEventListener("DOMContentLoaded", () => {
   injectGlobalNavItems();
   hideUnavailableModules();
+  // The Inbox page keeps its own count up to date live.
+  if (moduleForPage(currentPageName()) !== "inbox") refreshInboxNavBadge();
 
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) logoutBtn.addEventListener("click", logout);

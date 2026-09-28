@@ -294,6 +294,24 @@ button {
   font-weight: 700;
   box-shadow: var(--pop-2);
 }
+/* Unread WhatsApp messages next to "Inbox" (app.js setInboxNavBadge). */
+.nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: #25d366;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-badge[hidden] {
+  display: none;
+}
 .nav-item.active:hover {
   transform: none;
 }

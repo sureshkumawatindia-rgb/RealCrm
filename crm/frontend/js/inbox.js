@@ -1,0 +1,828 @@
+/**
+ * inbox.js — WhatsApp team inbox (Inbox.html)
+ * Chats, messages, notes and quick replies come from the CRM backend (/conversations,
+ * /quick-replies); live updates arrive over Socket.IO. Everything customers write is shown
+ * as text only (escapeHtml), never as HTML.
+ * Which chats appear (decision D24): owners, admins and inbox:view_all see every chat; other
+ * members see their own chats and the queue of chats nobody has taken yet.
+ * Reuses app.js: crmApi, crmRequest, crmLoad, cached, jsonRequest, newIdempotencyKey,
+ * refreshAccessToken, endSession, getCurrentMember, getAgents, escapeHtml, showToast,
+ * apiErrorMessage, requireAuth, renderSidebarUser, initSidebarToggle.
+ */
+(function inbox() {
+  requireAuth();
+  renderSidebarUser();
+  initSidebarToggle();
+
+  const $ = (id) => document.getElementById(id);
+  const me = getCurrentMember() || {};
+  const seesAll = ["owner", "admin"].includes(me.role) || (me.permissions || []).includes("inbox:view_all");
+  const PAGE_SIZE = 30;
+  const TICKS = {
+    queued: '<i class="fa-regular fa-clock tick" title="Sending"></i>',
+    sent: '<i class="fa-solid fa-check tick" title="Sent"></i>',
+    delivered: '<i class="fa-solid fa-check-double tick" title="Delivered"></i>',
+    read: '<i class="fa-solid fa-check-double tick read" title="Read"></i>',
+    failed: '<i class="fa-solid fa-circle-exclamation tick failed" title="Not sent"></i>',
+  };
+  const MEDIA = {
+    image: ["fa-image", "Photo"],
+    video: ["fa-video", "Video"],
+    audio: ["fa-microphone", "Audio"],
+    document: ["fa-file-lines", "Document"],
+    sticker: ["fa-note-sticky", "Sticker"],
+  };
+
+  const state = {
+    view: "all",
+    status: "",
+    q: "",
+    page: 1,
+    hasMore: false,
+    conversations: [],
+    current: null,
+    messages: [],
+    nextBefore: null,
+    notes: [],
+    quickReplies: [],
+    replyTo: null,
+    quickIndex: 0,
+    unread: 0,
+  };
+
+  // --- small helpers -------------------------------------------------------
+  const initialsOf = (name) =>
+    String(name || "?")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("") || "?";
+  const sameDay = (a, b) => a.toDateString() === b.toDateString();
+  function shortTime(iso) {
+    if (!iso) return "";
+    const date = new Date(iso);
+    const now = new Date();
+    if (sameDay(date, now)) return date.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (sameDay(date, yesterday)) return "Yesterday";
+    return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  }
+  function dayLabel(date) {
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (sameDay(date, now)) return "Today";
+    if (sameDay(date, yesterday)) return "Yesterday";
+    return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  }
+  // Links in customers' text become clickable (the text itself is escaped first).
+  const linkify = (html) => html.replace(/https?:\/\/[^\s<]+/g, (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+  const memberNameOf = (id) => (id ? memberName(id) || "Teammate" : "");
+  const visibleToMe = (c) => seesAll || !c.assigneeId || String(c.assigneeId) === String(me.id);
+  function windowLeft(win) {
+    if (!win || !win.open || !win.expiresAt) return null;
+    const minutes = Math.max(0, Math.round((new Date(win.expiresAt) - Date.now()) / 60000));
+    return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
+  }
+  const isWindowOpen = (c) => Boolean(c?.window?.open && new Date(c.window.expiresAt) > new Date());
+
+  // --- conversation list ------------------------------------------------
+  function matchesFilters(c) {
+    if (!visibleToMe(c)) return false;
+    if (state.view === "mine" && String(c.assigneeId) !== String(me.id)) return false;
+    if (state.view === "unassigned" && c.assigneeId) return false;
+    if (state.status ? c.status !== state.status : c.status === "closed") return false;
+    if (state.q) {
+      const q = state.q.toLowerCase();
+      const hay = `${c.contact.name} ${c.contact.company} ${c.contact.phone}`.toLowerCase();
+      if (!hay.includes(q) && !(q.replace(/\D/g, "") && c.contact.phone.includes(q.replace(/\D/g, "")))) return false;
+    }
+    return true;
+  }
+
+  function conversationHtml(c) {
+    const active = state.current && String(state.current.id) === String(c.id);
+    const preview = `${c.lastMessageDirection === "out" ? "You: " : ""}${c.lastMessagePreview || ""}`;
+    const assignee = c.assigneeId ? memberNameOf(c.assigneeId) : "Queue";
+    return `
+      <button class="conv-item ${active ? "active" : ""} ${c.unreadCount ? "unread" : ""}" data-id="${escapeHtml(c.id)}" type="button">
+        <span class="conv-avatar">${escapeHtml(initialsOf(c.contact.name))}</span>
+        <span style="min-width:0">
+          <span class="name">${escapeHtml(c.contact.name || c.contact.phone)}</span>
+          <span class="preview">${escapeHtml(preview)}</span>
+        </span>
+        <span class="conv-meta">
+          <span>${escapeHtml(shortTime(c.lastMessageAt))}</span>
+          ${c.unreadCount ? `<span class="unread-badge">${c.unreadCount}</span>` : `<span class="assignee-chip">${escapeHtml(assignee)}</span>`}
+        </span>
+      </button>`;
+  }
+
+  function renderList() {
+    const list = $("conversationList");
+    if (!state.conversations.length) {
+      const empty = state.q
+        ? "No chats match your search."
+        : state.view === "mine"
+          ? "No chats assigned to you. Pick one from the Queue."
+          : "No chats here yet. New WhatsApp messages appear as they arrive.";
+      list.innerHTML = `<div class="inbox-list-empty">${escapeHtml(empty)}</div>`;
+    } else {
+      list.innerHTML = state.conversations.map(conversationHtml).join("");
+    }
+    $("conversationMore").hidden = !state.hasMore;
+  }
+
+  async function loadConversations({ append = false } = {}) {
+    if (!append) state.page = 1;
+    const params = new URLSearchParams({ view: state.view, page: state.page, limit: PAGE_SIZE });
+    if (state.status) params.set("status", state.status);
+    if (state.q) params.set("q", state.q);
+    try {
+      const body = await crmRequest(`/conversations?${params}`);
+      state.conversations = append ? [...state.conversations, ...body.data] : body.data;
+      state.hasMore = Boolean(body.pagination?.hasNextPage);
+      renderList();
+    } catch (error) {
+      $("conversationList").innerHTML = `<div class="inbox-list-empty">${escapeHtml(apiErrorMessage(error, "Couldn't load the chats."))}</div>`;
+    }
+  }
+
+  function upsertConversation(c) {
+    const index = state.conversations.findIndex((item) => String(item.id) === String(c.id));
+    if (index !== -1) state.conversations.splice(index, 1);
+    if (matchesFilters(c)) {
+      state.conversations.unshift(c);
+      state.conversations.sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
+    }
+    renderList();
+  }
+
+  let summaryTimer = null;
+  function scheduleSummary() {
+    clearTimeout(summaryTimer);
+    summaryTimer = setTimeout(loadSummary, 400);
+  }
+  async function loadSummary() {
+    try {
+      const summary = await crmApi("/conversations/summary");
+      $("countMine").textContent = summary.mine;
+      $("countUnassigned").textContent = summary.unassigned;
+      $("countAll").textContent = summary.all;
+      state.unread = summary.unread;
+      document.title = `${summary.unread ? `(${summary.unread}) ` : ""}Inbox | YELLOW CRM`;
+      if (typeof setInboxNavBadge === "function") setInboxNavBadge(summary.unread);
+    } catch {
+      /* the counts are a convenience */
+    }
+  }
+
+  // --- thread --------------------------------------------------------------
+  function messageBody(m) {
+    const text = m.text ? linkify(escapeHtml(m.text)) : "";
+    if (MEDIA[m.type]) {
+      const [icon, label] = MEDIA[m.type];
+      const name = m.type === "audio" && m.media?.voice ? "Voice message" : m.media?.fileName || label;
+      return `<div class="attachment"><i class="fa-solid ${icon}"></i><span>${escapeHtml(name)}</span></div>${text}`;
+    }
+    if (m.type === "location" && m.location) {
+      const { latitude, longitude, name, address } = m.location;
+      const url = `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
+      return `<div class="attachment"><i class="fa-solid fa-location-dot"></i><a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(name || address || "Location")}</a></div>`;
+    }
+    if (m.type === "reaction") return `Reacted ${escapeHtml(m.reaction?.emoji || "")}`;
+    if (m.type === "interactive" || m.type === "button") return `<i class="fa-solid fa-reply"></i> ${text}`;
+    if (m.type === "contacts") return `<div class="attachment"><i class="fa-solid fa-address-card"></i><span>${escapeHtml(m.text || "Contact card")}</span></div>`;
+    if (m.type === "unsupported") return '<span class="text-muted">This message type cannot be shown here. Open WhatsApp on the phone.</span>';
+    return text;
+  }
+
+  function messageHtml(m) {
+    const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
+    const who = m.direction === "out" && m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "";
+    const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+    const replyButton = m.providerMessageId && m.direction === "in"
+      ? `<button class="reply-btn" type="button" data-reply="${escapeHtml(m.id)}" title="Reply to this message"><i class="fa-solid fa-reply"></i></button>`
+      : "";
+    return `
+      <div class="msg ${m.direction} ${m.status === "failed" ? "failed" : ""}" data-id="${escapeHtml(m.id)}">
+        <div class="bubble">
+          ${quoted ? `<div class="quote">${escapeHtml(quoted.text || quoted.type)}</div>` : ""}
+          <div class="bubble-body">${messageBody(m)}</div>
+          <div class="bubble-meta">${who}${escapeHtml(time)} ${m.direction === "out" ? TICKS[m.status] || "" : ""}</div>
+          ${m.status === "failed" && m.error ? `<div class="msg-error">${escapeHtml(m.error.message || m.error.title || "WhatsApp did not accept this message.")}</div>` : ""}
+        </div>
+        ${replyButton}
+      </div>`;
+  }
+
+  function renderMessages({ stickToBottom = true } = {}) {
+    const box = $("threadMessages");
+    const previousHeight = box.scrollHeight;
+    const previousTop = box.scrollTop;
+    let lastDay = "";
+    $("messageList").innerHTML = state.messages
+      .map((m) => {
+        const day = dayLabel(new Date(m.at));
+        const separator = day !== lastDay ? `<div class="day-sep"><span>${escapeHtml(day)}</span></div>` : "";
+        lastDay = day;
+        return separator + messageHtml(m);
+      })
+      .join("");
+    $("olderMessages").hidden = !state.nextBefore;
+    // Loading older messages keeps the view where it was; new ones scroll to the bottom.
+    box.scrollTop = stickToBottom ? box.scrollHeight : box.scrollHeight - previousHeight + previousTop;
+  }
+
+  function renderThreadHead() {
+    const c = state.current;
+    $("threadAvatar").textContent = initialsOf(c.contact.name);
+    $("threadName").textContent = c.contact.name || c.contact.phone;
+    const assignee = c.assigneeId ? `Assigned to ${memberNameOf(c.assigneeId)}` : "In the queue";
+    $("threadSub").textContent = `${c.contact.phone}${c.account?.displayPhone ? ` · via ${c.account.displayPhone}` : ""} · ${assignee}`;
+    const left = windowLeft(c.window);
+    const chip = $("threadWindow");
+    const open = isWindowOpen(c);
+    chip.textContent = open ? `Reply window: ${left} left` : "Reply window closed";
+    chip.className = `window-chip ${open ? "" : "closed"}`;
+    $("composerClosed").hidden = open;
+    $("composerText").disabled = !open;
+    $("composerSend").disabled = !open;
+    $("quickRepliesBtn").disabled = !open;
+  }
+
+  async function openConversation(id, { fromList = true } = {}) {
+    let c = state.conversations.find((item) => String(item.id) === String(id));
+    try {
+      if (!c || !fromList) c = await crmApi(`/conversations/${id}`);
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't open this chat."), "error");
+      return;
+    }
+    state.current = c;
+    state.replyTo = null;
+    $("replyBar").hidden = true;
+    $("threadEmpty").hidden = true;
+    $("threadView").hidden = false;
+    $("detailsView").hidden = false;
+    $("inbox").dataset.pane = "thread";
+    renderThreadHead();
+    renderDetails();
+    renderList();
+    $("messageList").innerHTML = '<div class="inbox-list-empty">Loading messages…</div>';
+    const history = new URL(window.location.href);
+    history.searchParams.set("c", c.id);
+    window.history.replaceState(null, "", history);
+    try {
+      const [page, notes] = await Promise.all([
+        crmRequest(`/conversations/${c.id}/messages?limit=50`),
+        crmApi(`/conversations/${c.id}/notes`),
+      ]);
+      if (!state.current || String(state.current.id) !== String(c.id)) return; // another chat was opened meanwhile
+      state.messages = page.data;
+      state.nextBefore = page.nextBefore;
+      state.notes = notes;
+      renderMessages();
+      renderNotes();
+      if (c.unreadCount) markRead();
+      if (!$("composerText").disabled) $("composerText").focus();
+    } catch (error) {
+      $("messageList").innerHTML = `<div class="inbox-list-empty">${escapeHtml(apiErrorMessage(error, "Couldn't load the messages."))}</div>`;
+    }
+  }
+
+  function closeThread(message) {
+    state.current = null;
+    state.messages = [];
+    $("threadView").hidden = true;
+    $("detailsView").hidden = true;
+    $("threadEmpty").hidden = false;
+    $("inbox").dataset.pane = "list";
+    delete $("inbox").dataset.details;
+    const history = new URL(window.location.href);
+    history.searchParams.delete("c");
+    window.history.replaceState(null, "", history);
+    if (message) showToast(message, "info");
+    renderList();
+  }
+
+  async function loadOlder() {
+    if (!state.current || !state.nextBefore) return;
+    try {
+      const page = await crmRequest(`/conversations/${state.current.id}/messages?limit=50&before=${state.nextBefore}`);
+      state.messages = [...page.data, ...state.messages];
+      state.nextBefore = page.nextBefore;
+      renderMessages({ stickToBottom: false });
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't load earlier messages."), "error");
+    }
+  }
+
+  let readTimer = null;
+  function markRead() {
+    clearTimeout(readTimer);
+    readTimer = setTimeout(async () => {
+      if (!state.current || document.hidden) return;
+      try {
+        const updated = await crmApi(`/conversations/${state.current.id}/read`, { method: "POST" });
+        upsertConversation(updated);
+        if (state.current && String(state.current.id) === String(updated.id)) state.current = updated;
+        scheduleSummary();
+      } catch {
+        /* the next message tries again */
+      }
+    }, 300);
+  }
+
+  function addOrReplaceMessage(message) {
+    const index = state.messages.findIndex((m) => String(m.id) === String(message.id));
+    if (index === -1) state.messages.push(message);
+    else state.messages[index] = message;
+    state.messages.sort((a, b) => new Date(a.at) - new Date(b.at));
+  }
+
+  // --- composer ----------------------------------------------------------
+  const composer = $("composerText");
+  function autoSize() {
+    composer.style.height = "auto";
+    composer.style.height = `${Math.min(composer.scrollHeight, 140)}px`;
+  }
+
+  async function sendMessage() {
+    const text = composer.value.trim();
+    if (!text || !state.current) return;
+    const conversation = state.current;
+    const sendButton = $("composerSend");
+    sendButton.disabled = true;
+    try {
+      const message = await crmApi(`/conversations/${conversation.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
+        body: JSON.stringify({ text, ...(state.replyTo && { replyToMessageId: state.replyTo.id }) }),
+      });
+      composer.value = "";
+      autoSize();
+      state.replyTo = null;
+      $("replyBar").hidden = true;
+      if (state.current && String(state.current.id) === String(conversation.id)) {
+        addOrReplaceMessage(message);
+        renderMessages();
+      }
+      if (message.status === "failed") showToast(`WhatsApp did not send it: ${message.error?.message || "unknown reason"}`, "error");
+    } catch (error) {
+      if (error.code === "WINDOW_CLOSED" && state.current) {
+        state.current.window = { open: false, expiresAt: state.current.window?.expiresAt || null };
+        renderThreadHead();
+      }
+      showToast(apiErrorMessage(error, "Couldn't send the message."), "error");
+    } finally {
+      sendButton.disabled = !isWindowOpen(state.current);
+    }
+  }
+
+  // "/" at the start of the box opens the quick replies.
+  function quickMatches() {
+    const match = /^\/(\S*)$/.exec(composer.value);
+    if (!match) return null;
+    const term = match[1].toLowerCase();
+    return state.quickReplies.filter((r) => r.shortcut.startsWith(term) || r.title.toLowerCase().includes(term)).slice(0, 8);
+  }
+  function renderQuickMenu() {
+    const matches = quickMatches();
+    const menu = $("quickMenu");
+    if (!matches) {
+      menu.hidden = true;
+      return;
+    }
+    state.quickIndex = Math.min(state.quickIndex, Math.max(matches.length - 1, 0));
+    menu.innerHTML = matches.length
+      ? matches
+          .map(
+            (r, i) => `
+          <button class="quick-item ${i === state.quickIndex ? "active" : ""}" type="button" data-quick="${escapeHtml(r.id)}">
+            <div class="shortcut">/${escapeHtml(r.shortcut)} ${r.title ? `<span class="text-muted">· ${escapeHtml(r.title)}</span>` : ""}</div>
+            <div class="body">${escapeHtml(r.body)}</div>
+          </button>`,
+          )
+          .join("") + '<button class="quick-item" type="button" data-quick-manage="1"><div class="shortcut">Manage quick replies…</div></button>'
+      : '<div class="quick-empty">No quick reply with that shortcut. <a href="#" data-quick-manage="1">Add one</a></div>';
+    menu.hidden = false;
+  }
+  function useQuickReply(id) {
+    const reply = state.quickReplies.find((r) => String(r.id) === String(id));
+    if (!reply) return;
+    composer.value = reply.body;
+    $("quickMenu").hidden = true;
+    autoSize();
+    composer.focus();
+  }
+
+  composer.addEventListener("input", () => {
+    autoSize();
+    state.quickIndex = 0;
+    renderQuickMenu();
+  });
+  composer.addEventListener("keydown", (e) => {
+    const menuOpen = !$("quickMenu").hidden;
+    const matches = menuOpen ? quickMatches() || [] : [];
+    if (menuOpen && matches.length && ["ArrowDown", "ArrowUp"].includes(e.key)) {
+      e.preventDefault();
+      state.quickIndex = (state.quickIndex + (e.key === "ArrowDown" ? 1 : matches.length - 1)) % matches.length;
+      renderQuickMenu();
+      return;
+    }
+    if (menuOpen && matches.length && (e.key === "Enter" || e.key === "Tab")) {
+      e.preventDefault();
+      useQuickReply(matches[state.quickIndex].id);
+      return;
+    }
+    if (e.key === "Escape") {
+      $("quickMenu").hidden = true;
+      return;
+    }
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  $("quickMenu").addEventListener("click", (e) => {
+    const item = e.target.closest("[data-quick]");
+    if (item) useQuickReply(item.dataset.quick);
+    if (e.target.closest("[data-quick-manage]")) {
+      e.preventDefault();
+      $("quickMenu").hidden = true;
+      openQuickManager();
+    }
+  });
+  $("quickRepliesBtn").addEventListener("click", () => {
+    composer.value = "/";
+    composer.focus();
+    renderQuickMenu();
+  });
+  $("composerForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    sendMessage();
+  });
+  $("messageList").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-reply]");
+    if (!button) return;
+    state.replyTo = state.messages.find((m) => String(m.id) === button.dataset.reply) || null;
+    if (!state.replyTo) return;
+    $("replyText").textContent = state.replyTo.text || state.replyTo.type;
+    $("replyBar").hidden = false;
+    composer.focus();
+  });
+  $("replyCancel").addEventListener("click", () => {
+    state.replyTo = null;
+    $("replyBar").hidden = true;
+  });
+  $("olderMessages").addEventListener("click", loadOlder);
+
+  // --- details panel ------------------------------------------------------
+  function inboxMembers() {
+    return cached("members").filter((m) => m.status === "active" && (["owner", "admin"].includes(m.role) || (m.modules || []).includes("inbox")));
+  }
+  function renderDetails() {
+    const c = state.current;
+    if (!c) return;
+    $("detailsAvatar").textContent = initialsOf(c.contact.name);
+    $("detailsName").textContent = c.contact.name || c.contact.phone;
+    $("detailsPhone").textContent = c.contact.phone;
+    $("detailsCompany").textContent = c.contact.company || "";
+    $("details360").href = `customer-360.html?id=${encodeURIComponent(c.contact.id)}`;
+    const select = $("detailsAssignee");
+    select.innerHTML =
+      `<option value="">Nobody (queue)</option>` +
+      inboxMembers()
+        .map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name || m.email)}${String(m.id) === String(me.id) ? " (me)" : ""}</option>`)
+        .join("");
+    select.value = c.assigneeId ? String(c.assigneeId) : "";
+    document.querySelectorAll("#detailsStatus button").forEach((button) => button.classList.toggle("active", button.dataset.status === c.status));
+    if (document.activeElement !== $("detailsTags")) $("detailsTags").value = (c.tags || []).join(", ");
+  }
+  function renderNotes() {
+    $("notesList").innerHTML = state.notes.length
+      ? state.notes
+          .map((n) => `<div class="note">${escapeHtml(n.text)}<div class="meta">${escapeHtml(n.authorName || "")} · ${escapeHtml(shortTime(n.createdAt))}</div></div>`)
+          .join("")
+      : '<p class="text-muted" style="font-size:12.5px;margin:0">No notes yet.</p>';
+  }
+
+  async function patchConversation(body, success) {
+    if (!state.current) return;
+    try {
+      const updated = await crmApi(`/conversations/${state.current.id}`, jsonRequest("PATCH", body));
+      if (!visibleToMe(updated)) {
+        closeThread(`Assigned to ${memberNameOf(updated.assigneeId)}.`);
+        upsertConversation(updated);
+      } else {
+        state.current = updated;
+        upsertConversation(updated);
+        renderThreadHead();
+        renderDetails();
+        if (success) showToast(success, "success");
+      }
+      scheduleSummary();
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't update the chat."), "error");
+      renderDetails();
+    }
+  }
+  $("detailsAssignee").addEventListener("change", (e) => {
+    const assigneeId = e.target.value || null;
+    patchConversation({ assigneeId }, assigneeId ? `Assigned to ${memberNameOf(assigneeId)}.` : "Moved to the queue.");
+  });
+  $("detailsStatus").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-status]");
+    if (button && state.current && button.dataset.status !== state.current.status) patchConversation({ status: button.dataset.status });
+  });
+  function saveTags() {
+    if (!state.current) return;
+    const tags = $("detailsTags").value.split(",").map((tag) => tag.trim()).filter(Boolean);
+    if (tags.join(",") !== (state.current.tags || []).join(",")) patchConversation({ tags });
+  }
+  $("detailsTags").addEventListener("change", saveTags);
+  $("detailsTags").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+  $("noteForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = $("noteText").value.trim();
+    if (!text || !state.current) return;
+    try {
+      const note = await crmApi(`/conversations/${state.current.id}/notes`, jsonRequest("POST", { text }));
+      if (!state.notes.some((n) => String(n.id) === String(note.id))) state.notes.unshift(note);
+      $("noteText").value = "";
+      renderNotes();
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+    }
+  });
+  // Closing (not just hiding) the chat, so new messages in it stay unread while the list is showing.
+  $("threadBack").addEventListener("click", () => closeThread());
+  $("threadInfo").addEventListener("click", () => {
+    $("inbox").dataset.details = "open";
+  });
+  $("detailsClose").addEventListener("click", () => {
+    delete $("inbox").dataset.details;
+  });
+
+  // --- list controls --------------------------------------------------------
+  $("conversationList").addEventListener("click", (e) => {
+    const item = e.target.closest(".conv-item");
+    if (item) openConversation(item.dataset.id);
+  });
+  document.querySelectorAll(".inbox-tab").forEach((tab) =>
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".inbox-tab").forEach((t) => t.classList.toggle("active", t === tab));
+      state.view = tab.dataset.view;
+      loadConversations();
+    }),
+  );
+  $("inboxStatus").addEventListener("change", (e) => {
+    state.status = e.target.value;
+    loadConversations();
+  });
+  let searchTimer = null;
+  $("inboxSearch").addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.q = e.target.value.trim();
+      loadConversations();
+    }, 300);
+  });
+  $("conversationMore").addEventListener("click", () => {
+    state.page += 1;
+    loadConversations({ append: true });
+  });
+
+  // --- quick replies manager ---------------------------------------------
+  async function loadQuickReplies() {
+    try {
+      state.quickReplies = await crmApi("/quick-replies");
+    } catch {
+      state.quickReplies = [];
+    }
+  }
+  function renderQuickManager() {
+    $("quickManageList").innerHTML = state.quickReplies.length
+      ? state.quickReplies
+          .map(
+            (r) => `
+          <div class="quick-row">
+            <div class="info"><strong>/${escapeHtml(r.shortcut)}</strong> ${r.title ? `<span class="text-muted">· ${escapeHtml(r.title)}</span>` : ""}<div class="body">${escapeHtml(r.body)}</div></div>
+            <button class="icon-btn" type="button" data-quick-edit="${escapeHtml(r.id)}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+            <button class="icon-btn danger" type="button" data-quick-delete="${escapeHtml(r.id)}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </div>`,
+          )
+          .join("")
+      : '<p class="text-muted" style="font-size:12.5px">No quick replies yet.</p>';
+  }
+  function resetQuickForm() {
+    $("quickForm").reset();
+    $("quickEditId").value = "";
+    $("quickSave").textContent = "Save";
+  }
+  function openQuickManager() {
+    resetQuickForm();
+    renderQuickManager();
+    $("quickModal").classList.add("open");
+  }
+  $("quickModalClose").addEventListener("click", () => $("quickModal").classList.remove("open"));
+  $("quickModal").addEventListener("click", (e) => {
+    if (e.target.id === "quickModal") $("quickModal").classList.remove("open");
+  });
+  $("quickReset").addEventListener("click", resetQuickForm);
+  $("quickManageList").addEventListener("click", async (e) => {
+    const edit = e.target.closest("[data-quick-edit]");
+    const remove = e.target.closest("[data-quick-delete]");
+    if (edit) {
+      const reply = state.quickReplies.find((r) => String(r.id) === edit.dataset.quickEdit);
+      $("quickEditId").value = reply.id;
+      $("quickShortcut").value = reply.shortcut;
+      $("quickTitle").value = reply.title;
+      $("quickBody").value = reply.body;
+      $("quickSave").textContent = "Update";
+    }
+    if (remove) {
+      if (!confirm("Delete this quick reply for everyone?")) return;
+      try {
+        await crmApi(`/quick-replies/${remove.dataset.quickDelete}`, { method: "DELETE" });
+        await loadQuickReplies();
+        renderQuickManager();
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't delete it."), "error");
+      }
+    }
+  });
+  $("quickForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = $("quickEditId").value;
+    const body = { shortcut: $("quickShortcut").value.trim().replace(/^\//, ""), title: $("quickTitle").value.trim(), body: $("quickBody").value.trim() };
+    try {
+      await crmApi(id ? `/quick-replies/${id}` : "/quick-replies", jsonRequest(id ? "PATCH" : "POST", body));
+      await loadQuickReplies();
+      resetQuickForm();
+      renderQuickManager();
+      showToast("Quick reply saved.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't save the quick reply."), "error");
+    }
+  });
+
+  // --- notifications ---------------------------------------------------------
+  const canNotify = () => "Notification" in window && Notification.permission === "granted";
+  function updateNotifyButton() {
+    $("inboxNotifyBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
+  }
+  $("inboxNotifyBtn").addEventListener("click", async () => {
+    try {
+      await Notification.requestPermission();
+    } catch {
+      /* older browsers */
+    }
+    updateNotifyButton();
+  });
+  function notify(conversation, message) {
+    if (!canNotify()) return;
+    const notification = new Notification(conversation.contact.name || conversation.contact.phone, {
+      body: message.text || conversation.lastMessagePreview || "New WhatsApp message",
+      tag: `conversation-${conversation.id}`,
+      icon: "./img/logo/logo.png",
+    });
+    notification.onclick = () => {
+      window.focus();
+      openConversation(conversation.id, { fromList: false });
+      notification.close();
+    };
+  }
+
+  // --- live updates ------------------------------------------------------------
+  function setLive(mode, text) {
+    $("inboxLive").className = `inbox-live ${mode}`;
+    $("inboxLiveText").textContent = text || (mode === "online" ? "Live" : "Reconnecting…");
+  }
+
+  function onMessageNew({ conversation, message }) {
+    upsertConversation(conversation);
+    const isOpen = state.current && String(state.current.id) === String(conversation.id);
+    if (isOpen) {
+      state.current = conversation;
+      addOrReplaceMessage(message);
+      renderMessages();
+      renderThreadHead();
+      if (message.direction === "in") markRead();
+    }
+    if (message.direction === "in" && (document.hidden || !isOpen)) notify(conversation, message);
+    scheduleSummary();
+  }
+  function onConversationUpdated(conversation) {
+    upsertConversation(conversation);
+    if (state.current && String(state.current.id) === String(conversation.id)) {
+      if (!visibleToMe(conversation)) {
+        closeThread(`This chat was assigned to ${memberNameOf(conversation.assigneeId)}.`);
+      } else {
+        state.current = conversation;
+        renderThreadHead();
+        renderDetails();
+      }
+    }
+    scheduleSummary();
+  }
+  function onMessageStatus(message) {
+    if (!state.current || String(state.current.id) !== String(message.conversationId)) return;
+    addOrReplaceMessage(message);
+    renderMessages();
+  }
+  function onNoteNew({ conversationId, note }) {
+    if (!state.current || String(state.current.id) !== String(conversationId)) return;
+    if (!state.notes.some((n) => String(n.id) === String(note.id))) {
+      state.notes.unshift(note);
+      renderNotes();
+    }
+  }
+
+  // After a reconnect the page reloads what it may have missed.
+  async function resync() {
+    await Promise.all([loadConversations(), loadSummary()]);
+    if (state.current) openConversation(state.current.id, { fromList: false });
+  }
+
+  function loadSocketClient(origin) {
+    if (window.io) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = `${origin}/socket.io/socket.io.min.js`;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("Socket.IO client not available"));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function connectLive() {
+    const origin = CRM_API_BASE.replace(/\/api\/v1$/, "");
+    try {
+      await loadSocketClient(origin);
+    } catch {
+      setLive("offline", "Live updates unavailable");
+      return;
+    }
+    let authFailures = 0;
+    let hadConnection = false;
+    const socket = window.io(origin, {
+      auth: (cb) => cb({ token: localStorage.getItem(KEYS.SESSION) || "" }),
+      transports: ["websocket", "polling"],
+    });
+    socket.on("connect", () => {
+      authFailures = 0;
+      setLive("online");
+      if (hadConnection) resync();
+      hadConnection = true;
+    });
+    socket.on("disconnect", (reason) => {
+      setLive("offline");
+      // The server drops connections when a member's access changes: reconnect with it.
+      if (reason === "io server disconnect") setTimeout(() => socket.connect(), 1000);
+    });
+    socket.on("connect_error", async (error) => {
+      setLive("offline");
+      if (error.message === "FORBIDDEN") {
+        setLive("offline", "No inbox access");
+        return;
+      }
+      if (error.message === "UNAUTHORIZED") {
+        authFailures += 1;
+        if (authFailures > 3) return;
+        const token = await refreshAccessToken(localStorage.getItem(KEYS.SESSION));
+        if (token) socket.connect();
+        else endSession();
+      }
+    });
+    socket.on("message:new", onMessageNew);
+    socket.on("conversation:updated", onConversationUpdated);
+    socket.on("message:status", onMessageStatus);
+    socket.on("note:new", onNoteNew);
+  }
+
+  // Keep the reply-window chip current and mark the open chat read when the tab comes back.
+  setInterval(() => {
+    if (state.current) renderThreadHead();
+  }, 60000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && state.current?.unreadCount) markRead();
+  });
+
+  // --- start -----------------------------------------------------------------
+  crmReady(["members"], async () => {
+    updateNotifyButton();
+    await Promise.all([loadConversations(), loadSummary(), loadQuickReplies()]);
+    const deepLink = new URLSearchParams(window.location.search).get("c");
+    if (deepLink) openConversation(deepLink, { fromList: false });
+    connectLive();
+  });
+})();

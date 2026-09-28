@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inbox | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/inbox.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button
+              id="menu-toggle"
+              class="icon-btn"
+              style="display: none; font-size: 16px"
+            >
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2>Inbox</h2>
+          </div>
+          <div class="inbox-topbar-tools">
+            <span class="inbox-live" id="inboxLive" title="Live updates"><span class="dot"></span><span id="inboxLiveText">Connecting…</span></span>
+            <button class="btn btn-outline inbox-notify-btn" id="inboxNotifyBtn" type="button" hidden>
+              <i class="fa-regular fa-bell"></i> Turn on notifications
+            </button>
+          </div>
+        </header>
+
+        <div class="inbox" id="inbox" data-pane="list">
+          <!-- Conversation list -->
+          <section class="inbox-list" aria-label="Chats">
+            <div class="inbox-list-head">
+              <div class="inbox-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" id="inboxSearch" placeholder="Search name, company or number" autocomplete="off" />
+              </div>
+              <div class="inbox-tabs" role="tablist">
+                <button class="inbox-tab" data-view="mine" role="tab">Mine <span class="count" id="countMine">0</span></button>
+                <button class="inbox-tab" data-view="unassigned" role="tab">Queue <span class="count" id="countUnassigned">0</span></button>
+                <button class="inbox-tab active" data-view="all" role="tab">All <span class="count" id="countAll">0</span></button>
+              </div>
+              <select id="inboxStatus" aria-label="Status">
+                <option value="">Open &amp; pending</option>
+                <option value="open">Open</option>
+                <option value="pending">Pending</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div class="inbox-list-body" id="conversationList"></div>
+            <button class="inbox-more" id="conversationMore" type="button" hidden>Load more chats</button>
+          </section>
+
+          <!-- Thread -->
+          <section class="inbox-thread" aria-label="Chat">
+            <div class="inbox-empty" id="threadEmpty">
+              <i class="fa-brands fa-whatsapp"></i>
+              <p>Pick a chat on the left.</p>
+              <p class="text-muted" id="threadEmptyHint">New WhatsApp messages appear here as they arrive.</p>
+            </div>
+            <div class="inbox-thread-inner" id="threadView" hidden>
+              <header class="thread-head">
+                <button class="icon-btn thread-back" id="threadBack" type="button" aria-label="Back to chats"><i class="fa-solid fa-arrow-left"></i></button>
+                <div class="thread-avatar" id="threadAvatar"></div>
+                <div class="thread-title">
+                  <div class="name" id="threadName"></div>
+                  <div class="sub" id="threadSub"></div>
+                </div>
+                <span class="window-chip" id="threadWindow"></span>
+                <button class="icon-btn thread-info" id="threadInfo" type="button" aria-label="Contact details"><i class="fa-solid fa-circle-info"></i></button>
+              </header>
+              <div class="thread-messages" id="threadMessages">
+                <button class="inbox-more" id="olderMessages" type="button" hidden>Load earlier messages</button>
+                <div id="messageList"></div>
+              </div>
+              <footer class="composer">
+                <div class="composer-reply" id="replyBar" hidden>
+                  <div><strong>Replying to</strong> <span id="replyText"></span></div>
+                  <button class="icon-btn" id="replyCancel" type="button" aria-label="Cancel reply"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="composer-closed" id="composerClosed" hidden>
+                  <i class="fa-solid fa-lock"></i>
+                  <span>The customer has not written in the last 24 hours, so WhatsApp only allows an approved template message (templates come in the next update). You can still add internal notes.</span>
+                </div>
+                <div class="quick-menu" id="quickMenu" hidden></div>
+                <form class="composer-row" id="composerForm">
+                  <button class="icon-btn" id="quickRepliesBtn" type="button" title="Quick replies (type / )"><i class="fa-solid fa-bolt"></i></button>
+                  <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies"></textarea>
+                  <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)"><i class="fa-solid fa-paper-plane"></i></button>
+                </form>
+              </footer>
+            </div>
+          </section>
+
+          <!-- Contact details -->
+          <aside class="inbox-details" id="detailsPanel" aria-label="Contact details">
+            <div class="details-inner" id="detailsView" hidden>
+              <div class="details-head">
+                <h3>Details</h3>
+                <button class="icon-btn details-close" id="detailsClose" type="button" aria-label="Close details"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+              <div class="details-contact">
+                <div class="thread-avatar big" id="detailsAvatar"></div>
+                <div class="name" id="detailsName"></div>
+                <div class="sub" id="detailsPhone"></div>
+                <div class="sub" id="detailsCompany"></div>
+                <a class="btn btn-outline" id="details360" href="#"><i class="fa-solid fa-address-card"></i> Customer 360°</a>
+              </div>
+              <div class="details-section">
+                <label for="detailsAssignee">Assigned to</label>
+                <select id="detailsAssignee"></select>
+              </div>
+              <div class="details-section">
+                <label>Status</label>
+                <div class="status-buttons" id="detailsStatus">
+                  <button type="button" data-status="open">Open</button>
+                  <button type="button" data-status="pending">Pending</button>
+                  <button type="button" data-status="closed">Closed</button>
+                </div>
+              </div>
+              <div class="details-section">
+                <label for="detailsTags">Tags</label>
+                <input type="text" id="detailsTags" placeholder="e.g. bulk, vip (comma separated)" />
+              </div>
+              <div class="details-section">
+                <label>Internal notes <span class="text-muted">(only your team sees these)</span></label>
+                <div class="notes-list" id="notesList"></div>
+                <form class="note-form" id="noteForm">
+                  <input type="text" id="noteText" maxlength="5000" placeholder="Add a note for the team" />
+                  <button class="btn btn-outline" type="submit">Add</button>
+                </form>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick replies manager -->
+    <div class="modal-overlay" id="quickModal">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Quick replies</h3>
+          <button class="icon-btn" id="quickModalClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted" style="font-size: 12.5px; margin-top: 0">Type <strong>/shortcut</strong> in a chat to insert one. Everyone in your team shares them.</p>
+          <div id="quickManageList"></div>
+          <form id="quickForm" class="quick-form">
+            <input type="hidden" id="quickEditId" />
+            <div class="field-row">
+              <div class="field">
+                <label for="quickShortcut">Shortcut</label>
+                <input type="text" id="quickShortcut" maxlength="30" placeholder="price" required />
+              </div>
+              <div class="field">
+                <label for="quickTitle">Title</label>
+                <input type="text" id="quickTitle" maxlength="100" placeholder="Price list" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="quickBody">Message</label>
+              <textarea id="quickBody" rows="3" maxlength="4096" required></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px">
+              <button class="btn btn-outline" id="quickReset" type="button">Clear</button>
+              <button class="btn btn-primary" type="submit" id="quickSave">Save</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="./js/inbox.js"></script>
+  </body>
+</html>
