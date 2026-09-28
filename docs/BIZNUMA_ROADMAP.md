@@ -4,7 +4,7 @@ Turning YELLOW CRM into a WhatsApp-first CRM for Indian SMBs (IndiaMART sellers,
 
 - Brief: [BIZNUMA_CRM_MASTER_PROMPT.md](BIZNUMA_CRM_MASTER_PROMPT.md)
 - Canonical backend spec: [../BACKEND-AUDIT-SPEC.md](../BACKEND-AUDIT-SPEC.md) (this roadmap extends it; where they differ, the decision log in section 9 wins and the spec gets updated in the phase that implements it)
-- Status: **Phase 2 in progress** (branch `feature/phase-2-core-crm`, built on the Phase 1 branch). Checkpoints A (sales core), B (tasks + calendar), C (tickets + notes) and D (documents) done on 2026-09-24, E (campaigns + automation config) and F (Account Champions on the team API) on 2026-09-28; resume at checkpoint G (final acceptance). Phase 1 still waits for one check with a real Google account.
+- Status: **Phase 2 done** on 2026-09-28 (branch `feature/phase-2-core-crm`, built on the Phase 1 branch; not merged to main or pushed yet). Next: Phase 3 (WhatsApp) once the user says go; decisions D18 (hosting) and D21 (document folder) matter there. Phase 1 still waits for one check with a real Google account. Phase 1 still waits for one check with a real Google account.
 
 ---
 
@@ -31,7 +31,7 @@ Tick a box only when its acceptance check passes and the full test suite is gree
 - [ ] Nothing that works today is broken. Verified: org profile + logo, health, the VS Code task backend (restarted and migrated on Atlas), sign-in/invite/refresh flows with a test verifier. **Needs your check with a real Google account: Google sign-in and Gmail connect.**
 
 ### Phase 2 — Core CRM moves to the server
-Checkpoints: **A sales core (done)** → **B tasks + calendar (done)** → **C tickets + notes (done)** → **D documents (done)** → **E campaigns + automation config (done)** → **F Account Champions on the team API (done)** → G final acceptance.
+Checkpoints: **A sales core (done)** → **B tasks + calendar (done)** → **C tickets + notes (done)** → **D documents (done)** → **E campaigns + automation config (done)** → **F Account Champions on the team API (done)** → **G final acceptance (done)**.
 - [x] (A) Contacts, Leads (+activities, idempotent convert, version check), Products, Quotations (server totals, FY numbers)
 - [x] (B) Tasks (assignee, related record, origin: manual / deal follow-up / automation) and calendar events (IST day + wall-clock times)
 - [x] (C) Tickets (atomic numbers from #1001, customer link, resolved time) and notes on tickets and contacts
@@ -39,10 +39,11 @@ Checkpoints: **A sales core (done)** → **B tasks + calendar (done)** → **C t
 - [x] (E) Campaign/Workflow/Sequence config; Run Now / Enroll create tasks on the server (idempotent, simulated actions reported)
 - [x] (A) Deals page becomes the Kanban view of Leads; old deals imported as leads (D13)
 - [x] (F) Account Champions page uses the members/invites API (Settings → Team & Access already does); crm_agents imported as invites
-- [ ] Every page uses `crmApi` instead of localStorage; UI looks the same — done for the sales pages and every page that reads sales data (A), for tasks, calendar and deal follow-ups (B), for support tickets and customer notes (C), for documents (D), for campaigns and automation settings (E), and for Account Champions (F); G checks that nothing is left
+- [x] Every page uses `crmApi` instead of localStorage; UI looks the same (A–F; G: every page opened with the full imported data set, no script errors)
 - [x] (A) `POST /imports/localstorage` with preview + report; Settings button "Move my browser data to server" (grows with each checkpoint)
-- [ ] Accept: two members of one org see the same data; another org sees none
-- [ ] Accept: grep finds no `crm_*` business keys in the frontend (only session/user keys)
+- [x] Accept: two members of one org see the same data; another org sees none (`acceptance.test.js`: admin and an agent with "See all records" match the owner in all 11 modules; another organization gets 404 even with the ids)
+- [x] Accept: grep finds no `crm_*` business keys in the frontend (only session/user keys) — enforced by `frontendStorage.test.js`; Settings → Data & Privacy is the one screen that reads the old keys, to move them
+- [x] (G) Records deleted on the server never come back through the importer; `GET /exports/crm` and "Download CRM Data" replace the old browser export as the backup
 
 ### Phase 3 — WhatsApp Cloud API and shared team inbox
 - [ ] WhatsAppAccount, Conversation, Message, InternalNote, QuickReply, MessageTemplate
@@ -324,6 +325,7 @@ All under `/api/v1`, authenticated and tenant-scoped unless marked **public**. L
 - `POST /documents/upload`, `GET /documents/:id/download`
 - `POST /imports/localstorage?dryRun=true|false`, `GET /imports/:id`, `GET /exports/crm`
 - `GET /dashboard/summary`, `GET /contacts/:id/360`
+- *As built:* notes are `/tickets/:id/notes`, `/contacts/:id/notes`, `/campaigns/:id/notes` (the parent's permissions apply); uploads are `POST /documents` (multipart) and `PATCH /documents/:id`; `GET /leads/pipeline`, `GET /dashboard/summary` and `GET /contacts/:id/360` were not needed yet — the pages compute them from the loaded records (up to 5,000 per module); server-side aggregation comes with reports (Phase 9).
 
 **Phase 3**
 - `GET/POST /whatsapp/accounts`, `PATCH/DELETE /whatsapp/accounts/:id`, `POST /whatsapp/accounts/:id/test`
@@ -534,6 +536,7 @@ Rough engineering days (AI-assisted), plus the number of working sessions. Exter
 
 ## 14. Changelog
 
+- **2026-09-28 — Phase 2, checkpoint G (final acceptance) — Phase 2 done.** Acceptance tests: an admin and an agent with "See all records" see exactly the owner's records in every module; another organization sees none, even by id (reads, notes, downloads, runs, edits, deletes). A storage test keeps `crm_*` business keys out of the pages. `GET /exports/crm` + Settings "Download CRM Data" (owners/admins) as the server backup; the browser export/import is relabelled as old browser data. The importer no longer brings back deleted products, contacts or leads. Every page opened with a full imported data set: no script errors; an admin saw the same record ids as the owner. 179 tests.
 - **2026-09-28 — Phase 2, checkpoint F (Account Champions on the team API).** The Champions page shows the real team (members and pending invites) and its wizard invites teammates or changes their access through `/invites` and `/members`: View alone → viewer, Create/Edit → agent, Delete and a new "See all records" option → per-page `delete` / `view_all` grants. Invites carry name, mobile and title into the membership. The importer turns `crm_agents` into pending invites (never admins; people without an email reported; existing, disabled and removed members left alone); the import report now shows why records were skipped. 137 tests.
 - **2026-09-28 — Phase 2, checkpoint E (campaigns + automation config).** Campaigns on the server (budget in paise, calendar-day dates with an end-before-start check, activity notes). Workflows (allowlisted triggers and actions) and sequences (allowlisted steps, day 0–365) as settings; `runsCount` / `enrolledCount` kept by the server. Run Now and Enroll One create their tasks on the server in one transaction with the count, accept an Idempotency-Key, refuse paused/draft automations and report the actions that are only simulated until Phase 6. The `automation` module alone no longer allows writing tasks directly. The importer moves `crm_campaigns`, `crm_workflows` and `crm_sequences`. Marketing, Sales Automation, the dashboard and reports read the server. 136 tests.
 - **2026-09-24 — Phase 2, checkpoint D (documents).** Documents on the server: uploaded files go to private storage (`DOCUMENT_DIR`, never the public `/uploads`) behind `src/storage` (local disk now, a cloud driver later) and come back only through a signed-in download that is always an attachment. Size limit `DOCUMENT_MAX_MB` (default 10, was ~1.5 MB in the browser), programs and scripts refused, SHA-256 checksum, UTF-8 names, http(s) links only, replaced files removed. Agents own what they upload (D17). The importer moves `crm_documents` (base64 files into storage). Documents and Customer 360 read the server. 128 tests.

@@ -31,7 +31,9 @@ Settings → Data & Privacy → **Move my browser data to server** (owners/admin
 | `crm_sequences` | sequences (steps with an unknown type or a day outside 0–365 left out and reported; old `enrolledCount` kept) | E |
 | `crm_agents` | pending invites (Account Champions): "View" only → viewer, otherwise agent, "Delete" → delete on their pages, never admin; name, mobile and role → `displayName`, `mobile`, `title`. No link is made: they join by signing in with Google using that email within 7 days (or the owner sends a new link). Teammates without an email are skipped and reported; current, disabled or removed members and existing invites are left alone. | F |
 
-Every imported record keeps its old id in `legacyIds`, so the import can be run again after each checkpoint: it only adds what is new. Since checkpoint C, tasks, events, tickets, notes, documents, campaigns, workflows and sequences that were deleted on the server are not imported again. Products, contacts and leads deleted on the server still come back on a new run (to fix in checkpoint G).
+Every imported record keeps its old id in `legacyIds`, so the import can be run again after each checkpoint: it only adds what is new. Records deleted on the server are never imported again (tasks, events, tickets, notes, documents, campaigns, workflows and sequences since checkpoint C; products, contacts and leads, with their activities and quotations, since checkpoint G). The report counts them as "moved before".
+
+After the move, Settings → Data & Privacy → **Download CRM Data** (owners/admins) is the backup of the server data; "Export / Import Browser Data" only handles the old browser copy.
 
 ## 1. Overview
 The current CRM operates entirely on `localStorage`. A one-time migration API will allow users to upload their `localStorage` state to the new backend.

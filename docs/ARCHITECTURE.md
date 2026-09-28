@@ -64,6 +64,8 @@ Helmet on the API, CORS allowlist (`CORS_ORIGINS` plus the public URL and local 
 - Service factories: `createWorkItemService` (tasks, events, tickets) and `createOwnedRecordService` (campaigns, workflows, sequences) give list/get/create/update/remove with scope, audit and soft delete; `routes/workItems.js` `resourceRouter` gives the matching routes.
 - Dates: calendar days are `YYYY-MM-DD` strings; `utils/dates.indiaDate(n)` is today in IST plus n days.
 - Storage: `documentStorage.put / open / remove` with server-made keys `<organization id>/<random>`.
+- Export: `exportService.streamExport` writes `GET /exports/crm` section by section from cursors, waiting for the connection when its buffer is full.
+- Frontend guards: `frontendScripts.test.js` (page scripts compile together) and `frontendStorage.test.js` (no `crm_*` business keys; only app.js, login.js and the Settings migration screen write localStorage).
 - Migrations: `src/migrations`, each idempotent, recorded in `migrations`.
 
 ## 7. Transactions
