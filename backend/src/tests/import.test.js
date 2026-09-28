@@ -219,7 +219,14 @@ describe('POST /imports/localstorage', () => {
     await api().delete(`/api/v1/tickets/${gst._id}`).set(bearer(owner.token));
     const callBack = await Task.findOne({ legacyIds: 't_1' });
     await api().delete(`/api/v1/tasks/${callBack._id}`).set(bearer(owner.token));
-    const counts = () => Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments(), Ticket.countDocuments(), Note.countDocuments(), Document.countDocuments(), Campaign.countDocuments(), Workflow.countDocuments(), Sequence.countDocuments()]);
+    // Sales records deleted on the server stay deleted too.
+    const cumin = await Product.findOne({ legacyIds: 'p_cumin' });
+    expect((await api().delete(`/api/v1/products/${cumin._id}`).set(bearer(owner.token))).status).toBe(200);
+    const raviContact = await Contact.findOne({ legacyIds: 'c_ravi' });
+    expect((await api().delete(`/api/v1/contacts/${raviContact._id}`).set(bearer(owner.token))).status).toBe(200);
+    const lostDeal = await Lead.findOne({ legacyIds: 'd_lost' });
+    expect((await api().delete(`/api/v1/leads/${lostDeal._id}`).set(bearer(owner.token))).status).toBe(200);
+    const counts = () => Promise.all([Product.countDocuments(), Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments(), Ticket.countDocuments(), Note.countDocuments(), Document.countDocuments(), Campaign.countDocuments(), Workflow.countDocuments(), Sequence.countDocuments()]);
     const before = await counts();
     const res = await run(false);
     const { sections } = res.body.data.report;
@@ -227,6 +234,8 @@ describe('POST /imports/localstorage', () => {
     expect(sections.leads).toMatchObject({ created: 0, alreadyImported: 3 });
     expect(sections.deals).toMatchObject({ created: 0, alreadyImported: 2 });
     expect(sections.quotations).toMatchObject({ created: 0, alreadyImported: 1 });
+    expect(sections.customers).toMatchObject({ created: 0, merged: 0, alreadyImported: 1 });
+    expect(sections.leadActivities).toMatchObject({ created: 0, alreadyImported: 1 });
     expect(sections.tasks).toMatchObject({ created: 0, alreadyImported: 2 });
     expect(sections.events).toMatchObject({ created: 0, alreadyImported: 1 });
     expect(sections.tickets).toMatchObject({ created: 0, alreadyImported: 2 });

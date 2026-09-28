@@ -152,6 +152,8 @@ class ImportRun {
     // Server ids of the organization's contacts (Customer 360 notes added after the customers
     // moved to the server are stored under these).
     this.contactIds = new Set();
+    // Old ids of products, contacts and leads deleted on the server: never imported again.
+    this.deletedLegacy = { products: new Set(), contacts: new Set(), leads: new Set() };
   }
 
   section(name) {
@@ -175,8 +177,19 @@ class ImportRun {
     return created._id;
   }
 
+  // Old browser ids of the records of Model that were deleted on the server.
+  async deletedLegacyIds(Model) {
+    const docs = await Model.collection
+      .find({ organizationId: this.organizationId, deletedAt: { $ne: null }, legacyIds: { $exists: true } }, { projection: { legacyIds: 1 } })
+      .toArray();
+    return new Set(docs.flatMap((doc) => doc.legacyIds));
+  }
+
   async preload() {
     const org = { organizationId: this.organizationId };
+    [this.deletedLegacy.products, this.deletedLegacy.contacts, this.deletedLegacy.leads] = await Promise.all(
+      [Product, Contact, Lead].map((Model) => this.deletedLegacyIds(Model)),
+    );
     const [contacts, products, leads, members] = await Promise.all([
       Contact.find(org).select('name company email phoneE164 legacyIds lifecycle'),
       Product.find({ ...org, legacyIds: { $exists: true } }).select('legacyIds'),
@@ -257,7 +270,7 @@ class ImportRun {
     const section = this.section('products');
     for (const item of list) {
       section.found += 1;
-      if (this.ids.products.has(item.id)) { section.alreadyImported += 1; continue; }
+      if (this.ids.products.has(item.id) || this.deletedLegacy.products.has(String(item.id))) { section.alreadyImported += 1; continue; }
       if (!str(item.name)) { this.reject(section, item.id, 'Product has no name'); continue; }
       const id = await this.insert(Product, {
         name: str(item.name, 200),
@@ -279,7 +292,7 @@ class ImportRun {
     const section = this.section(name);
     for (const item of list) {
       section.found += 1;
-      if (item.id && this.ids.contacts.has(item.id)) { section.alreadyImported += 1; continue; }
+      if (item.id && (this.ids.contacts.has(item.id) || this.deletedLegacy.contacts.has(String(item.id)))) { section.alreadyImported += 1; continue; }
       if (!str(item.name) && !str(item.email) && !str(item.phone)) { this.reject(section, item.id, 'No name, email or phone'); continue; }
       if (str(item.phone) && normalizePhone(item.phone) === null) this.unresolved(`${name} "${str(item.name, 60)}": phone "${str(item.phone, 30)}" was kept as text but is not a valid number`);
       const productId = item.product ? this.ids.products.get(item.product) : undefined;
@@ -327,7 +340,7 @@ class ImportRun {
     const section = this.section('leads');
     for (const item of list) {
       section.found += 1;
-      if (item.id && this.ids.leads.has(item.id)) { section.alreadyImported += 1; continue; }
+      if (item.id && (this.ids.leads.has(item.id) || this.deletedLegacy.leads.has(String(item.id)))) { section.alreadyImported += 1; continue; }
       if (!str(item.name) && !str(item.email) && !str(item.phone)) { this.reject(section, item.id, 'Lead has no name, email or phone'); continue; }
       const convertedContact = item.convertedCustomerId && this.ids.contacts.get(item.convertedCustomerId);
       const contactId = convertedContact || (await this.upsertContact(item)).id;
@@ -357,7 +370,7 @@ class ImportRun {
     const section = this.section('deals');
     for (const item of list) {
       section.found += 1;
-      if (item.id && this.ids.leads.has(item.id)) { section.alreadyImported += 1; continue; }
+      if (item.id && (this.ids.leads.has(item.id) || this.deletedLegacy.leads.has(String(item.id)))) { section.alreadyImported += 1; continue; }
       if (!str(item.name) && !str(item.account) && !str(item.contact)) { this.reject(section, item.id, 'Deal has no name, account or contact'); continue; }
       const convertedContact = item.convertedCustomerId && this.ids.contacts.get(item.convertedCustomerId);
       const contactId = convertedContact || (await this.upsertContact({ name: item.contact || item.account || item.name, company: item.account }, { byName: true })).id;
@@ -380,10 +393,11 @@ class ImportRun {
 
   async importLeadActivities(list) {
     const section = this.section('leadActivities');
-    const existing = this.dryRun ? new Set() : new Set((await LeadActivity.find({ organizationId: this.organizationId, legacyIds: { $exists: true } }).select('legacyIds')).flatMap((activity) => activity.legacyIds));
+    const existing = await this.legacyIdMap(LeadActivity);
     for (const item of list) {
       section.found += 1;
       if (item.id && existing.has(item.id)) { section.alreadyImported += 1; continue; }
+      if (this.deletedLegacy.leads.has(String(item.leadId))) { section.alreadyImported += 1; continue; }
       const leadId = this.ids.leads.get(item.leadId);
       if (!leadId) { this.reject(section, item.id, 'Its lead was not imported'); continue; }
       await this.insert(LeadActivity, {
@@ -401,10 +415,11 @@ class ImportRun {
 
   async importQuotations(list) {
     const section = this.section('quotations');
-    const existing = this.dryRun ? new Set() : new Set((await Quotation.find({ organizationId: this.organizationId, legacyIds: { $exists: true } }).select('legacyIds')).flatMap((quotation) => quotation.legacyIds));
+    const existing = await this.legacyIdMap(Quotation);
     for (const item of list) {
       section.found += 1;
       if (item.id && existing.has(item.id)) { section.alreadyImported += 1; continue; }
+      if (this.deletedLegacy.leads.has(String(item.leadId))) { section.alreadyImported += 1; continue; }
       const leadId = this.ids.leads.get(item.leadId);
       if (!leadId) { this.reject(section, item.id, 'Its lead was not imported'); continue; }
       const items = (Array.isArray(item.items) ? item.items : []).slice(0, 100).map((line) => computeItem({
@@ -595,9 +610,11 @@ class ImportRun {
       if (!Array.isArray(notes)) continue;
       const contactId = this.ids.contacts.get(customerId) || (this.contactIds.has(customerId) ? customerId : undefined);
       if (!contactId) {
+        const deleted = this.deletedLegacy.contacts.has(customerId);
         objectsOnly(notes).forEach((note, index) => {
           section.found += 1;
-          this.reject(section, `${customerId}#${index}`, 'Customer not found (import the customers first)');
+          if (deleted) section.alreadyImported += 1;
+          else this.reject(section, `${customerId}#${index}`, 'Customer not found (import the customers first)');
         });
         continue;
       }
