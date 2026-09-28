@@ -5,7 +5,7 @@ const httpError = require('../utils/httpError');
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function findUnsafeKey(value, depth = 0) {
-  if (!value || typeof value !== 'object' || depth > 20) return null;
+  if (!value || typeof value !== 'object' || Buffer.isBuffer(value) || depth > 20) return null;
   for (const key of Object.keys(value)) {
     if (key.startsWith('$') || FORBIDDEN_KEYS.has(key)) return key;
     const nested = findUnsafeKey(value[key], depth + 1);

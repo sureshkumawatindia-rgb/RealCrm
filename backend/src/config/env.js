@@ -30,8 +30,12 @@ const schema = Joi.object({
   DOCUMENT_DIR: Joi.string().default('storage/documents'),
   DOCUMENT_MAX_MB: Joi.number().integer().min(1).max(100).default(10),
   CORS_ORIGINS: Joi.string().allow('').default(''),
+  // WhatsApp Cloud API (Meta Graph API). Keep the version current (developers.facebook.com/docs/graph-api/changelog).
+  WHATSAPP_GRAPH_URL: Joi.string().uri({ scheme: ['http', 'https'] }).default('https://graph.facebook.com'),
+  WHATSAPP_GRAPH_VERSION: Joi.string().pattern(/^v\d+\.\d+$/).default('v26.0'),
   RATE_LIMIT_API_PER_MINUTE: Joi.number().integer().min(1).default(300),
   RATE_LIMIT_AUTH_PER_MINUTE: Joi.number().integer().min(1).default(20),
+  RATE_LIMIT_WEBHOOK_PER_MINUTE: Joi.number().integer().min(1).default(1200),
   JWT_EXPIRES_IN: Joi.string().allow(''),
 }).unknown(true);
 
@@ -78,6 +82,11 @@ const env = {
   rateLimit: {
     apiPerMinute: value.RATE_LIMIT_API_PER_MINUTE,
     authPerMinute: value.RATE_LIMIT_AUTH_PER_MINUTE,
+    webhookPerMinute: value.RATE_LIMIT_WEBHOOK_PER_MINUTE,
+  },
+  whatsapp: {
+    graphUrl: value.WHATSAPP_GRAPH_URL.replace(/\/+$/, ''),
+    graphVersion: value.WHATSAPP_GRAPH_VERSION,
   },
   warnings: [
     ...(value.JWT_EXPIRES_IN ? ['JWT_EXPIRES_IN is no longer used; access tokens use ACCESS_TOKEN_TTL (default 15m).'] : []),

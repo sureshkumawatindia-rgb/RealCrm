@@ -7,6 +7,7 @@ const rejectUnsafeKeys = require('./middleware/sanitize');
 const { apiLimiter } = require('./middleware/rateLimit');
 const errorHandler = require('./middleware/errorHandler');
 const routes = require('./routes');
+const webhookRoutes = require('./routes/webhooks');
 const logger = require('./config/logger');
 const path = require('path');
 const env = require('./config/env');
@@ -30,6 +31,8 @@ app.use(cors({
   origin: (origin, callback) => callback(null, !origin || env.corsOrigins.includes(origin)),
   credentials: true,
 }));
+// Webhooks are signed over the exact bytes that were sent, so they keep a raw body.
+app.use('/api/v1/webhooks', express.raw({ type: () => true, limit: '3mb' }));
 // A browser-data import carries the whole old localStorage in one request.
 app.use('/api/v1/imports/localstorage', express.json({ limit: '25mb' }));
 app.use(express.json({ limit: '5mb' }));
@@ -41,12 +44,14 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.resolve(env.uploadDir)));
 
-// Paths only: query strings can carry OAuth codes and invite tokens.
-morgan.token('path', (req) => req.originalUrl.split('?')[0]);
+// Paths only: query strings can carry OAuth codes and invite tokens; webhook keys are masked.
+morgan.token('path', (req) => req.originalUrl.split('?')[0].replace(/^(\/api\/v1\/webhooks\/[a-z-]+\/)[^/]+/, '$1…'));
 app.use(morgan(':remote-addr :method :path :status :res[content-length] - :response-time ms', {
   stream: { write: message => logger.info(message.trim()) }
 }));
 
+// Public webhooks (WhatsApp; later lead sources and payments) have their own rate limit.
+app.use('/api/v1/webhooks', webhookRoutes);
 app.use('/api/v1', apiLimiter, routes);
 
 // 404 handler

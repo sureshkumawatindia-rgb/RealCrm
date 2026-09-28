@@ -16,5 +16,7 @@ function perMinute(limit, options = {}) {
 // The launcher polls /health while the server starts, so it is not counted.
 const apiLimiter = perMinute(env.rateLimit.apiPerMinute, { skip: (req) => req.path === '/health' });
 const authLimiter = perMinute(env.rateLimit.authPerMinute);
+// Meta sends webhooks in bursts from a few addresses; this only stops floods.
+const webhookLimiter = perMinute(env.rateLimit.webhookPerMinute);
 
-module.exports = { apiLimiter, authLimiter };
+module.exports = { apiLimiter, authLimiter, webhookLimiter };
