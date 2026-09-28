@@ -12,6 +12,8 @@ const organizationMemberSchema = new mongoose.Schema(
     status: { type: String, enum: ['active', 'disabled'], default: 'active' },
     displayName: { type: String, trim: true, default: '' },
     mobile: { type: String, trim: true, default: '' },
+    // What they do in the team ("Sales", "Support", ...), shown on Account Champions.
+    title: { type: String, trim: true, default: '' },
     assignable: { type: Boolean, default: true },
     invitedById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     lastAssignedAt: { type: Date },

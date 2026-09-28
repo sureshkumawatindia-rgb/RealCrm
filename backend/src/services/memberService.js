@@ -19,6 +19,7 @@ function serializeMember(member) {
     permissions: member.permissions,
     status: member.status,
     mobile: member.mobile,
+    title: member.title,
     assignable: member.assignable,
     joinedAt: member.createdAt,
   };

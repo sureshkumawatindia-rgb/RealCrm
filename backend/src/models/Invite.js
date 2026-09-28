@@ -8,6 +8,10 @@ const inviteSchema = new mongoose.Schema(
     role: { type: String, enum: INVITABLE_ROLES, required: true },
     modules: { type: [{ type: String, enum: MODULES }], default: [] },
     permissions: { type: [String], default: [] },
+    // Copied to the membership when the invite is accepted (Account Champions wizard).
+    displayName: { type: String, trim: true, default: '' },
+    mobile: { type: String, trim: true, default: '' },
+    title: { type: String, trim: true, default: '' },
     // Only the SHA-256 of the invite token is stored; the link is shown once to the inviter.
     tokenHash: { type: String },
     status: { type: String, enum: ['pending', 'accepted', 'revoked'], default: 'pending' },

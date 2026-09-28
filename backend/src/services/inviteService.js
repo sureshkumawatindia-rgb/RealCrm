@@ -23,6 +23,9 @@ function serializeInvite(invite) {
     role: invite.role,
     modules: invite.modules,
     permissions: invite.permissions,
+    displayName: invite.displayName,
+    mobile: invite.mobile,
+    title: invite.title,
     status: invite.status === 'pending' && isExpired(invite) ? 'expired' : invite.status,
     expiresAt: invite.expiresAt,
     createdAt: invite.createdAt,
@@ -42,7 +45,7 @@ async function issue(filter, update) {
   return { invite, link: inviteLink(token) };
 }
 
-async function create(req, { email, role, modules, permissions }) {
+async function create(req, { email, role, modules, permissions, displayName = '', mobile = '', title = '' }) {
   const { organizationId } = req.tenant;
   if (role === 'admin' && req.member.role !== 'owner') {
     throw httpError(403, 'FORBIDDEN', 'Only an owner can invite admins.');
@@ -58,6 +61,9 @@ async function create(req, { email, role, modules, permissions }) {
       role,
       modules: role === 'admin' || modules?.length ? modules || [] : DEFAULT_MODULES[role],
       permissions: permissions || [],
+      displayName,
+      mobile,
+      title,
       invitedById: req.user._id,
     },
   );
@@ -110,10 +116,12 @@ async function lookup(token) {
 async function accept(invite, user) {
   const member = await OrganizationMember.findOne({ organizationId: invite.organizationId, userId: user._id, ...INCLUDING_REMOVED });
   const grant = { role: invite.role, modules: invite.modules, permissions: invite.permissions, status: 'active', invitedById: invite.invitedById };
+  // Name, mobile and title typed by the inviter; empty ones leave what the member already has.
+  const details = Object.fromEntries(['displayName', 'mobile', 'title'].filter((key) => invite[key]).map((key) => [key, invite[key]]));
   if (!member) {
-    await OrganizationMember.create({ organizationId: invite.organizationId, userId: user._id, ...grant });
+    await OrganizationMember.create({ organizationId: invite.organizationId, userId: user._id, ...grant, ...details });
   } else if (member.deletedAt || member.status !== 'active') {
-    Object.assign(member, grant, { deletedAt: null });
+    Object.assign(member, grant, details, { deletedAt: null });
     await member.save();
   }
   invite.status = 'accepted';
@@ -145,4 +153,4 @@ async function acceptPendingInvites(user, email, inviteToken) {
   return { invitedOrganizationId, inviteError };
 }
 
-module.exports = { create, list, resend, revoke, lookup, acceptPendingInvites, serializeInvite, INCLUDING_REMOVED };
+module.exports = { create, list, resend, revoke, lookup, acceptPendingInvites, serializeInvite, INCLUDING_REMOVED, INVITE_TTL_MS };

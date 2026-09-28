@@ -211,4 +211,22 @@ describe('Invites and several organizations', () => {
     expect(different.status).toBe(422);
     expect(different.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
   });
+
+  it('an invite carries the name, mobile and title typed by the inviter into the membership', async () => {
+    const owner = await login('champ-owner@example.com');
+    const invite = await api().post('/api/v1/invites').set(bearer(owner.token)).send({
+      email: 'champ@example.com', role: 'agent', modules: ['leads', 'deals'], permissions: ['leads:delete', 'leads:view_all'],
+      displayName: 'Rohan Mehta', mobile: '+91 98765 43210', title: 'Sales',
+    });
+    expect(invite.body.data.invite).toMatchObject({ displayName: 'Rohan Mehta', mobile: '+91 98765 43210', title: 'Sales' });
+
+    await login('champ@example.com', { name: 'rohan.g', inviteToken: new URL(invite.body.data.link).searchParams.get('invite') });
+    const members = (await api().get('/api/v1/members').set(bearer(owner.token))).body.data;
+    const rohan = members.find((m) => m.email === 'champ@example.com');
+    expect(rohan).toMatchObject({ name: 'Rohan Mehta', mobile: '+91 98765 43210', title: 'Sales', role: 'agent', modules: ['leads', 'deals'], permissions: ['leads:delete', 'leads:view_all'] });
+
+    const retitled = await api().patch(`/api/v1/members/${rohan.id}`).set(bearer(owner.token)).send({ title: 'Support', role: 'viewer' });
+    expect(retitled.body.data).toMatchObject({ title: 'Support', role: 'viewer' });
+    expect((await api().post('/api/v1/invites').set(bearer(owner.token)).send({ email: 'x@example.com', role: 'agent', title: 'x'.repeat(61) })).status).toBe(400);
+  });
 });

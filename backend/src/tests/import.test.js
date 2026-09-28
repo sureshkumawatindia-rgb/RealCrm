@@ -13,6 +13,8 @@ const Document = require('../models/Document');
 const Campaign = require('../models/Campaign');
 const Workflow = require('../models/Workflow');
 const Sequence = require('../models/Sequence');
+const Invite = require('../models/Invite');
+const { DEFAULT_MODULES } = require('../constants/permissions');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 
 // Shapes copied from the old browser-only CRM (localStorage values are JSON strings).
@@ -239,9 +241,38 @@ describe('POST /imports/localstorage', () => {
     expect(after).toEqual(before);
   });
 
-  it('reports keys that move in a later update', async () => {
-    const res = await run(true, { crm_agents: JSON.stringify([{ id: 'ag_1', name: 'Old Champion' }]) });
-    expect(res.body.data.report.later).toEqual({ crm_agents: 1 });
+  it('turns Account Champions into invites: never admins, current members left alone', async () => {
+    const shop = await login('import-team@example.com');
+    await inviteAndJoin(shop.token, 'already@example.com');
+    const data = { crm_agents: JSON.stringify([
+      { id: 'ag_1', name: 'Rohan Mehta', email: 'Rohan@Example.com', mobile: '+91 98765 43210', role: 'Sales',
+        modules: ['Leads', 'Deals', 'Sales Automation', 'Unknown Page'], permissions: ['View', 'Create', 'Edit', 'Delete'] },
+      { id: 'ag_2', name: 'Vani', email: 'vani@example.com', role: 'Support', modules: [], permissions: ['View'] },
+      { id: 'ag_3', name: 'Already Here', email: 'already@example.com', permissions: ['View'] },
+      { id: 'ag_4', name: 'No Mail', permissions: ['View', 'Create'] },
+    ]) };
+
+    const preview = await run(true, data, shop.token);
+    expect(preview.body.data.report.sections.teamInvites).toMatchObject({ found: 4, created: 2, alreadyImported: 1, rejected: 1 });
+    expect(preview.body.data.report.sections.teamInvites.rejectedRows[0].reason).toMatch(/No Mail has no valid email/);
+    expect(await Invite.countDocuments({ email: 'rohan@example.com' })).toBe(0);
+
+    await run(false, data, shop.token);
+    const rohan = await Invite.findOne({ email: 'rohan@example.com' });
+    expect(rohan).toMatchObject({ role: 'agent', status: 'pending', displayName: 'Rohan Mehta', mobile: '+91 98765 43210', title: 'Sales' });
+    expect([...rohan.modules]).toEqual(['leads', 'deals', 'automation']);
+    expect([...rohan.permissions]).toEqual(['leads:delete', 'deals:delete', 'automation:delete']);
+    expect(rohan.tokenHash).toBeUndefined(); // no link was made; signing in with that email is enough
+    const vani = await Invite.findOne({ email: 'vani@example.com' });
+    expect(vani).toMatchObject({ role: 'viewer', title: 'Support' });
+    expect([...vani.modules]).toEqual([...DEFAULT_MODULES.viewer]);
+
+    await login('rohan@example.com', { name: 'rohan.g' });
+    const joined = (await api().get('/api/v1/members').set(bearer(shop.token))).body.data.find((m) => m.email === 'rohan@example.com');
+    expect(joined).toMatchObject({ name: 'Rohan Mehta', title: 'Sales', role: 'agent', mobile: '+91 98765 43210' });
+
+    const again = await run(false, data, shop.token);
+    expect(again.body.data.report.sections.teamInvites).toMatchObject({ created: 0, alreadyImported: 3, rejected: 1 });
   });
 
   it('renumbers an old ticket whose number is taken and keeps the old number', async () => {

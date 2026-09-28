@@ -14,12 +14,15 @@ const Campaign = require('../models/Campaign');
 const Workflow = require('../models/Workflow');
 const Sequence = require('../models/Sequence');
 const OrganizationMember = require('../models/OrganizationMember');
+const Invite = require('../models/Invite');
 const Import = require('../models/Import');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { normalizePhone } = require('../utils/phone');
 const { rupeesToPaise } = require('../utils/money');
 const { nextSequence } = require('../utils/counter');
+const { MODULES, MODULE_LABELS, DEFAULT_MODULES } = require('../constants/permissions');
+const { INCLUDING_REMOVED, INVITE_TTL_MS } = require('./inviteService');
 const env = require('../config/env');
 const { documentStorage } = require('../storage');
 const { cleanFileName, isBlockedFile, sha256 } = require('./documentService');
@@ -39,9 +42,11 @@ const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 const SUPPORTED_KEYS = [
   'crm_products', 'crm_customers', 'crm_accounts', 'crm_leads', 'crm_deals', 'crm_lead_activities', 'crm_quotations',
   'crm_tasks', 'crm_deal_tasks', 'crm_calendar_events', 'crm_tickets', 'crm_customer_notes', 'crm_documents',
-  'crm_campaigns', 'crm_workflows', 'crm_sequences',
+  'crm_campaigns', 'crm_workflows', 'crm_sequences', 'crm_agents',
 ];
-const LATER_KEYS = ['crm_agents'];
+// Keys that are recognised but move in a later update (none left since checkpoint F).
+const LATER_KEYS = [];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const LEAD_STAGE_MAP = { New: 'New', 'In Progress': 'Contacted', Contacted: 'Contacted', Qualified: 'Quote Sent', Proposal: 'Quote Sent', Negotiation: 'Negotiation', Won: 'Won', Lost: 'Lost' };
 const DEAL_STAGE_MAP = { Lead: 'New', Qualified: 'Quote Sent', Proposal: 'Quote Sent', Negotiation: 'Negotiation', Won: 'Won', Lost: 'Lost' };
@@ -784,6 +789,49 @@ class ImportRun {
     });
   }
 
+  // crm_agents (Account Champions). Each teammate with an email becomes a pending invite: they join
+  // when they sign in with Google using that email (no link needed), or the owner sends a new link.
+  // "View" only → viewer, otherwise agent; "Delete" → delete on their pages. Never an admin.
+  // Current, disabled and removed members, and existing invites (any status) are left alone.
+  async importChampions(list) {
+    const section = this.section('teamInvites');
+    const [members, invites] = await Promise.all([
+      OrganizationMember.find({ organizationId: this.organizationId, ...INCLUDING_REMOVED }).populate({ path: 'userId', select: 'email' }),
+      Invite.find({ organizationId: this.organizationId }).select('email'),
+    ]);
+    const known = new Set([...members.map((member) => lower(member.userId?.email)), ...invites.map((invite) => invite.email)].filter(Boolean));
+    const moduleByLabel = new Map(Object.entries(MODULE_LABELS).map(([key, label]) => [lower(label), key]));
+    for (const item of list) {
+      section.found += 1;
+      const email = lower(item.email).slice(0, 254);
+      if (!EMAIL_PATTERN.test(email)) {
+        this.reject(section, item.id, `${str(item.name, 60) || 'A teammate'} has no valid email; invite them from Account Champions`);
+        continue;
+      }
+      if (known.has(email)) { section.alreadyImported += 1; continue; }
+      const permissions = Array.isArray(item.permissions) ? item.permissions : [];
+      const role = permissions.includes('Create') || permissions.includes('Edit') ? 'agent' : 'viewer';
+      const listed = (Array.isArray(item.modules) ? item.modules : [])
+        .map((module) => moduleByLabel.get(lower(module)) || (MODULES.includes(module) ? module : null))
+        .filter(Boolean);
+      const modules = listed.length ? [...new Set(listed)] : [...DEFAULT_MODULES[role]];
+      await this.insert(Invite, {
+        email,
+        role,
+        modules,
+        permissions: role === 'agent' && permissions.includes('Delete') ? modules.map((module) => `${module}:delete`) : [],
+        displayName: str(item.name, 100),
+        mobile: str(item.mobile, 30),
+        title: str(item.role, 60),
+        status: 'pending',
+        expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+        invitedById: this.req.user._id,
+      });
+      known.add(email);
+      section.created += 1;
+    }
+  }
+
   async run(data) {
     await this.preload();
     const list = (key) => readList(data, key, this.report);
@@ -803,6 +851,7 @@ class ImportRun {
     await this.importCampaigns(list('crm_campaigns'));
     await this.importWorkflows(list('crm_workflows'));
     await this.importSequences(list('crm_sequences'));
+    await this.importChampions(list('crm_agents'));
     for (const key of LATER_KEYS) {
       const count = list(key).length;
       if (count) this.report.later[key] = count;

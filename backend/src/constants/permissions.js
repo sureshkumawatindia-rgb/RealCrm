@@ -9,6 +9,13 @@ const MODULES = Object.freeze([
   'automation', 'support', 'reports', 'insights', 'documents', 'products', 'settings',
 ]);
 
+// The page names the Account Champions grid shows (old browser data stored these labels).
+const MODULE_LABELS = Object.freeze({
+  dashboard: 'Dashboard', customers: 'Customers', leads: 'Leads', accounts: 'Accounts', deals: 'Deals',
+  tasks: 'Tasks', calendar: 'Calendar', marketing: 'Marketing', automation: 'Sales Automation', support: 'Support',
+  reports: 'Reports & Analytics', insights: 'AI Insights', documents: 'Documents', products: 'Products', settings: 'Settings',
+});
+
 const ACTIONS = Object.freeze(['view', 'create', 'edit', 'delete']);
 
 // Extra grants for agents/viewers: "<module>:delete" and "<module>:view_all" (see every record,
@@ -39,5 +46,5 @@ function canViewAll(member, module) {
 }
 
 module.exports = {
-  ROLES, INVITABLE_ROLES, MODULES, ACTIONS, PERMISSION_PATTERN, DEFAULT_MODULES, isManager, can, canViewAll,
+  ROLES, INVITABLE_ROLES, MODULES, MODULE_LABELS, ACTIONS, PERMISSION_PATTERN, DEFAULT_MODULES, isManager, can, canViewAll,
 };
