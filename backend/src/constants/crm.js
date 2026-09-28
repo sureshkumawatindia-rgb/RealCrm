@@ -30,8 +30,22 @@ const TICKET_CLOSED_STATUSES = Object.freeze(['Resolved', 'Closed']);
 const TICKET_PRIORITIES = Object.freeze(['Low', 'Medium', 'High', 'Urgent']);
 const TICKET_CATEGORIES = Object.freeze(['Technical', 'Billing', 'General', 'Feature Request', 'Bug Report']);
 const TICKET_NUMBER_START = 1001;
-// Notes belong to a ticket or a contact (notes on a lead are lead activities).
-const NOTE_PARENT_TYPES = Object.freeze(['ticket', 'contact']);
+// Notes belong to a ticket, a contact or a campaign (notes on a lead are lead activities).
+const NOTE_PARENT_TYPES = Object.freeze(['ticket', 'contact', 'campaign']);
+
+// Marketing campaigns and automation settings (same values the pages show). Workflows and
+// sequences are settings only: "Run Now" / "Enroll" create tasks; the other actions are
+// simulated until the automation engine (Phase 6).
+const CAMPAIGN_TYPES = Object.freeze(['Email', 'Social', 'SMS', 'Ads', 'Event']);
+const CAMPAIGN_STATUSES = Object.freeze(['Draft', 'Scheduled', 'Active', 'Paused', 'Completed']);
+const AUTOMATION_STATUSES = Object.freeze(['Active', 'Paused', 'Draft']);
+const WORKFLOW_TRIGGERS = Object.freeze([
+  'Lead Created', 'Lead Status Changed to Won', 'Deal Created', 'Deal Stage Changed to Won',
+  'Deal Stage Changed to Lost', 'Task Overdue', 'Customer Added',
+]);
+const WORKFLOW_ACTIONS = Object.freeze(['Create Task', 'Send Email (simulated)', 'Notify Agent', 'Update Status', 'Add to Sequence']);
+const SEQUENCE_TARGETS = Object.freeze(['Leads', 'Deals', 'Customers']);
+const SEQUENCE_STEP_TYPES = Object.freeze(['Email', 'Call', 'Task', 'Wait']);
 
 // Documents (same categories the Documents page shows). Programs and scripts are refused:
 // a CRM is no place to pass them around, even though downloads never run in the browser.
@@ -46,4 +60,6 @@ module.exports = {
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START, NOTE_PARENT_TYPES,
   DOCUMENT_CATEGORIES, BLOCKED_FILE_EXTENSIONS,
+  CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
+  SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
 };

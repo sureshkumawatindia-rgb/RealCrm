@@ -10,6 +10,9 @@ const CalendarEvent = require('../models/CalendarEvent');
 const Ticket = require('../models/Ticket');
 const Note = require('../models/Note');
 const Document = require('../models/Document');
+const Campaign = require('../models/Campaign');
+const Workflow = require('../models/Workflow');
+const Sequence = require('../models/Sequence');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 
 // Shapes copied from the old browser-only CRM (localStorage values are JSON strings).
@@ -63,8 +66,19 @@ const browserData = () => ({
     { id: 'doc_exe', name: 'Tool', fileName: 'tool.exe', fileData: `data:application/octet-stream;base64,${Buffer.from('MZ').toString('base64')}` },
     { id: 'doc_empty', name: 'Nothing attached' },
   ]),
-  crm_workflows: JSON.stringify([{ id: 'wf_1', name: 'Welcome' }]),
-  crm_campaigns: 'not json',
+  crm_campaigns: JSON.stringify([
+    { id: 'cm_1', name: 'Diwali offer', type: 'SMS', status: 'Active', startDate: '2026-10-15', endDate: '2026-10-01', budget: '5,000', leadsGenerated: '12', audience: 'Old buyers', owner: 'Priya Old',
+      notes: [{ text: 'Approved by owner', at: '2026-09-20T10:00:00.000Z', author: 'Anil' }] },
+    { id: 'cm_bad', name: '' },
+  ]),
+  crm_workflows: JSON.stringify([
+    { id: 'wf_1', name: 'Welcome', status: 'Active', owner: 'Priya Old', trigger: 'Lead Created', runsCount: 4,
+      actions: [{ type: 'Create Task', detail: 'Call within 1 hour' }, { type: 'Launch rocket', detail: 'x' }] },
+    { id: 'wf_bad', name: 'Odd', trigger: 'Moon rises' },
+  ]),
+  crm_sequences: JSON.stringify([{ id: 'sq_1', name: 'New lead cadence', targetType: 'Leads', status: 'Paused', enrolledCount: 3,
+    steps: [{ day: 0, type: 'Email', note: 'Hello' }, { day: 2, type: 'Call', note: 'Call them' }, { day: 'x', type: 'Call' }] }]),
+  crm_agents: 'not json',
 });
 
 describe('POST /imports/localstorage', () => {
@@ -80,14 +94,18 @@ describe('POST /imports/localstorage', () => {
     const { sections, later, problems } = res.body.data.report;
     expect(sections.products).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(sections.leads).toMatchObject({ found: 3, created: 3 });
-    expect(later).toEqual({ crm_workflows: 1 });
+    expect(later).toEqual({});
+    expect(sections.campaigns).toMatchObject({ found: 2, created: 1, rejected: 1 });
+    expect(sections.campaignNotes).toMatchObject({ found: 1, created: 1 });
+    expect(sections.workflows).toMatchObject({ found: 2, created: 1, rejected: 1 });
+    expect(sections.sequences).toMatchObject({ found: 1, created: 1 });
     expect(sections.documents).toMatchObject({ found: 5, created: 2, rejected: 3 });
     expect(sections.tasks).toMatchObject({ found: 3, created: 2, rejected: 1 });
     expect(sections.events).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(sections.tickets).toMatchObject({ found: 3, created: 2, rejected: 1 });
     expect(sections.ticketNotes).toMatchObject({ found: 2, created: 1, rejected: 1 });
     expect(sections.customerNotes).toMatchObject({ found: 2, created: 1, rejected: 1 });
-    expect(problems).toEqual([{ key: 'crm_campaigns', reason: 'Not valid JSON' }]);
+    expect(problems).toEqual([{ key: 'crm_agents', reason: 'Not valid JSON' }]);
     expect(await Product.countDocuments()).toBe(0);
     expect(await Lead.countDocuments()).toBe(0);
   });
@@ -179,6 +197,19 @@ describe('POST /imports/localstorage', () => {
     // New tickets continue after the imported numbers.
     const next = await api().post('/api/v1/tickets').set(bearer(owner.token)).send({ subject: 'After import' });
     expect(next.body.data.number).toBe(1004);
+
+    // Campaign budget in paise, an end date before the start is dropped; automations keep their counts.
+    const diwaliOffer = await Campaign.findOne({ legacyIds: 'cm_1' });
+    expect(diwaliOffer).toMatchObject({ type: 'SMS', status: 'Active', startDate: '2026-10-15', budgetPaise: 500000, leadsGenerated: 12, audience: 'Old buyers' });
+    expect(diwaliOffer.endDate).toBeUndefined();
+    expect((await Note.findOne({ parentType: 'campaign', parentId: diwaliOffer._id })).text).toBe('Approved by owner');
+    const welcome = await Workflow.findOne({ legacyIds: 'wf_1' });
+    expect(welcome).toMatchObject({ trigger: 'Lead Created', status: 'Active', runsCount: 4 });
+    expect(welcome.actions.map((a) => a.type)).toEqual(['Create Task']);
+    expect(unresolved.join(' ')).toMatch(/Welcome.*1 unknown action/);
+    const cadence = await Sequence.findOne({ legacyIds: 'sq_1' });
+    expect(cadence).toMatchObject({ status: 'Paused', enrolledCount: 3 });
+    expect(cadence.steps.map((st) => `${st.day}:${st.type}`)).toEqual(['0:Email', '2:Call']);
   });
 
   it('running the import again creates nothing new, and does not bring back deleted records', async () => {
@@ -186,7 +217,7 @@ describe('POST /imports/localstorage', () => {
     await api().delete(`/api/v1/tickets/${gst._id}`).set(bearer(owner.token));
     const callBack = await Task.findOne({ legacyIds: 't_1' });
     await api().delete(`/api/v1/tasks/${callBack._id}`).set(bearer(owner.token));
-    const counts = () => Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments(), Ticket.countDocuments(), Note.countDocuments(), Document.countDocuments()]);
+    const counts = () => Promise.all([Contact.countDocuments(), Lead.countDocuments(), Quotation.countDocuments(), LeadActivity.countDocuments(), Task.countDocuments(), CalendarEvent.countDocuments(), Ticket.countDocuments(), Note.countDocuments(), Document.countDocuments(), Campaign.countDocuments(), Workflow.countDocuments(), Sequence.countDocuments()]);
     const before = await counts();
     const res = await run(false);
     const { sections } = res.body.data.report;
@@ -200,8 +231,17 @@ describe('POST /imports/localstorage', () => {
     expect(sections.ticketNotes).toMatchObject({ created: 0, alreadyImported: 1 });
     expect(sections.customerNotes).toMatchObject({ created: 0, alreadyImported: 1 });
     expect(sections.documents).toMatchObject({ created: 0, alreadyImported: 2 });
+    expect(sections.campaigns).toMatchObject({ created: 0, alreadyImported: 1 });
+    expect(sections.campaignNotes).toMatchObject({ created: 0, alreadyImported: 1 });
+    expect(sections.workflows).toMatchObject({ created: 0, alreadyImported: 1 });
+    expect(sections.sequences).toMatchObject({ created: 0, alreadyImported: 1 });
     const after = await counts();
     expect(after).toEqual(before);
+  });
+
+  it('reports keys that move in a later update', async () => {
+    const res = await run(true, { crm_agents: JSON.stringify([{ id: 'ag_1', name: 'Old Champion' }]) });
+    expect(res.body.data.report.later).toEqual({ crm_agents: 1 });
   });
 
   it('renumbers an old ticket whose number is taken and keeps the old number', async () => {

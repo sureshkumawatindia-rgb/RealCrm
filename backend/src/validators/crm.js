@@ -6,6 +6,8 @@ const {
   LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, DOCUMENT_CATEGORIES,
+  CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
+  SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
 } = require('../constants/crm');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
@@ -109,6 +111,45 @@ const documentFields = {
   relatedId: objectId.allow(null, ''),
   relatedName: text(200),
 };
+
+const campaignFields = {
+  name: Joi.string().trim().min(1).max(200),
+  type: Joi.string().valid(...CAMPAIGN_TYPES),
+  status: Joi.string().valid(...CAMPAIGN_STATUSES),
+  startDate: calendarDate.allow(''),
+  endDate: calendarDate.allow(''),
+  budgetPaise: paise,
+  leadsGenerated: Joi.number().integer().min(0).max(1e9),
+  audience: text(300),
+  description: text(5000),
+  ownerId: optionalId,
+};
+
+// Runs and enrollment counts are never accepted from the browser (the server counts them).
+const workflowFields = {
+  name: Joi.string().trim().min(1).max(200),
+  status: Joi.string().valid(...AUTOMATION_STATUSES),
+  trigger: Joi.string().valid(...WORKFLOW_TRIGGERS),
+  actions: Joi.array().items(Joi.object({
+    type: Joi.string().valid(...WORKFLOW_ACTIONS).required(),
+    detail: text(300),
+  })).max(20),
+  ownerId: optionalId,
+};
+
+const sequenceFields = {
+  name: Joi.string().trim().min(1).max(200),
+  targetType: Joi.string().valid(...SEQUENCE_TARGETS),
+  status: Joi.string().valid(...AUTOMATION_STATUSES),
+  steps: Joi.array().items(Joi.object({
+    day: Joi.number().integer().min(0).max(365).required(),
+    type: Joi.string().valid(...SEQUENCE_STEP_TYPES).required(),
+    note: text(300),
+  })).max(30),
+  ownerId: optionalId,
+};
+
+const automationList = Joi.object({ ...listBase, status: Joi.string().valid(...AUTOMATION_STATUSES), ownerId: objectId });
 
 const leadContact = {
   name: Joi.string().trim().min(1).max(200),
@@ -215,6 +256,25 @@ module.exports = {
   }),
 
   noteCreate: Joi.object({ text: Joi.string().trim().min(1).max(5000).required() }),
+
+  campaignCreate: Joi.object({ ...campaignFields, name: campaignFields.name.required() }),
+  campaignPatch: Joi.object(campaignFields).min(1),
+  campaignList: Joi.object({
+    ...listBase,
+    type: Joi.string().valid(...CAMPAIGN_TYPES),
+    status: Joi.string().valid(...CAMPAIGN_STATUSES),
+    ownerId: objectId,
+    startFrom: calendarDate,
+    startTo: calendarDate,
+  }),
+
+  workflowCreate: Joi.object({ ...workflowFields, name: workflowFields.name.required(), trigger: workflowFields.trigger.required() }),
+  workflowPatch: Joi.object(workflowFields).min(1),
+  workflowList: automationList,
+
+  sequenceCreate: Joi.object({ ...sequenceFields, name: sequenceFields.name.required() }),
+  sequencePatch: Joi.object(sequenceFields).min(1),
+  sequenceList: automationList,
 
   documentCreate: Joi.object({ ...documentFields, name: documentFields.name.required() }),
   // May be empty when only a new file is sent.

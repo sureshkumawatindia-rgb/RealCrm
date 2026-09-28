@@ -8,8 +8,8 @@ const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/crm');
 
-// Tasks: read by every page that shows them; created from Tasks, the Deals follow-up panel
-// and Sales Automation runs. Events: read by Calendar, dashboard, Customer 360 and reports.
+// The standard list / create / get / patch / delete routes for a resource service
+// (tasks, events, tickets, campaigns, workflows, sequences).
 function resourceRouter(service, label, { view, write, remove, list, create, patch }) {
   const router = express.Router();
   const controller = crudController(service, label);
@@ -22,15 +22,18 @@ function resourceRouter(service, label, { view, write, remove, list, create, pat
   return router;
 }
 
+// Tasks: read by every page that shows them; created from Tasks and the Deals follow-up panel.
+// Sales Automation runs create their tasks on the server (automationService).
 const taskRoutes = resourceRouter(taskService, 'Task', {
   view: taskService.MODULES,
-  write: ['tasks', 'deals', 'automation'],
+  write: ['tasks', 'deals'],
   remove: ['tasks', 'deals'],
   list: schemas.taskList,
   create: schemas.taskCreate,
   patch: schemas.taskPatch,
 });
 
+// Events: read by Calendar, the dashboard, Customer 360 and reports.
 const eventRoutes = resourceRouter(eventService, 'Event', {
   view: eventService.MODULES,
   write: ['calendar'],

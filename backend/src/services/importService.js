@@ -10,6 +10,9 @@ const Ticket = require('../models/Ticket');
 const Note = require('../models/Note');
 const Counter = require('../models/Counter');
 const Document = require('../models/Document');
+const Campaign = require('../models/Campaign');
+const Workflow = require('../models/Workflow');
+const Sequence = require('../models/Sequence');
 const OrganizationMember = require('../models/OrganizationMember');
 const Import = require('../models/Import');
 const httpError = require('../utils/httpError');
@@ -23,7 +26,8 @@ const { cleanFileName, isBlockedFile, sha256 } = require('./documentService');
 const {
   STAGE_PROBABILITY, TASK_STATUSES, TASK_PRIORITIES, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START,
-  DOCUMENT_CATEGORIES,
+  DOCUMENT_CATEGORIES, CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
+  SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
 } = require('../constants/crm');
 const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 
@@ -35,8 +39,9 @@ const { computeItem, totalsOf, nextNumber } = require('./quotationService');
 const SUPPORTED_KEYS = [
   'crm_products', 'crm_customers', 'crm_accounts', 'crm_leads', 'crm_deals', 'crm_lead_activities', 'crm_quotations',
   'crm_tasks', 'crm_deal_tasks', 'crm_calendar_events', 'crm_tickets', 'crm_customer_notes', 'crm_documents',
+  'crm_campaigns', 'crm_workflows', 'crm_sequences',
 ];
-const LATER_KEYS = ['crm_agents', 'crm_campaigns', 'crm_workflows', 'crm_sequences'];
+const LATER_KEYS = ['crm_agents'];
 
 const LEAD_STAGE_MAP = { New: 'New', 'In Progress': 'Contacted', Contacted: 'Contacted', Qualified: 'Quote Sent', Proposal: 'Quote Sent', Negotiation: 'Negotiation', Won: 'Won', Lost: 'Lost' };
 const DEAL_STAGE_MAP = { Lead: 'New', Qualified: 'Quote Sent', Proposal: 'Quote Sent', Negotiation: 'Negotiation', Won: 'Won', Lost: 'Lost' };
@@ -616,15 +621,15 @@ class ImportRun {
     }
   }
 
-  // Documents need an owner who is a team member; unknown names give the documents to the
-  // person running the import (they can reassign them).
+  // Documents, campaigns and automations need an owner who is a team member; unknown names give
+  // the records to the person running the import (they can reassign them).
   ownerFor(name) {
     const clean = str(name, 100);
     const id = clean && this.memberByName.get(lower(clean));
     if (id) return id;
     if (clean && !this.reportedOwners.has(lower(clean))) {
       this.reportedOwners.add(lower(clean));
-      this.unresolved(`Document owner "${clean}" is not a team member yet; you own their documents for now`);
+      this.unresolved(`Owner "${clean}" is not a team member yet; you own their documents, campaigns and automations for now`);
     }
     return this.req.member._id;
   }
@@ -673,6 +678,112 @@ class ImportRun {
     }
   }
 
+  // crm_campaigns: budget in rupees → paise; the notes inside each campaign become campaign notes.
+  async importCampaigns(list) {
+    const section = this.section('campaigns');
+    const noteSection = this.section('campaignNotes');
+    const existing = await this.legacyIdMap(Campaign);
+    const existingNotes = await this.legacyIdMap(Note);
+    for (const item of list) {
+      section.found += 1;
+      const legacyId = item.id ? String(item.id) : '';
+      let campaignId = legacyId ? existing.get(legacyId) : undefined;
+      if (campaignId) {
+        section.alreadyImported += 1;
+      } else {
+        const name = str(item.name, 200);
+        if (!name) { this.reject(section, item.id, 'Campaign has no name'); continue; }
+        const startDate = calendarDay(item.startDate);
+        const endDate = calendarDay(item.endDate);
+        campaignId = await this.insert(Campaign, {
+          name,
+          type: CAMPAIGN_TYPES.includes(item.type) ? item.type : 'Email',
+          status: CAMPAIGN_STATUSES.includes(item.status) ? item.status : 'Draft',
+          startDate,
+          endDate: endDate && (!startDate || endDate >= startDate) ? endDate : undefined,
+          budgetPaise: rupeesToPaise(item.budget) || 0,
+          leadsGenerated: nonNegativeInt(item.leadsGenerated) || 0,
+          audience: str(item.audience, 300),
+          description: str(item.description, 5000),
+          ownerId: this.ownerFor(item.owner),
+          legacyIds: legacyId ? [legacyId] : undefined,
+          createdById: this.req.user._id,
+          createdByMemberId: this.req.member._id,
+          createdAt: validDate(item.createdAt),
+        });
+        section.created += 1;
+      }
+      if (legacyId && Array.isArray(item.notes)) {
+        await this.importNotes(noteSection, existingNotes, { parentType: 'campaign', parentId: campaignId, legacyParent: `campaign:${legacyId}`, notes: item.notes });
+      }
+    }
+  }
+
+  // crm_workflows and crm_sequences keep their run / enrollment counts (history from the browser).
+  // Actions and steps of unknown kinds are dropped and reported.
+  async importAutomations(list, { Model, name, build }) {
+    const section = this.section(name);
+    const existing = await this.legacyIdMap(Model);
+    for (const item of list) {
+      section.found += 1;
+      const legacyId = item.id ? String(item.id) : '';
+      if (legacyId && existing.has(legacyId)) { section.alreadyImported += 1; continue; }
+      const title = str(item.name, 200);
+      if (!title) { this.reject(section, item.id, 'No name'); continue; }
+      const fields = build(item, title);
+      if (!fields) continue;
+      await this.insert(Model, {
+        name: title,
+        status: AUTOMATION_STATUSES.includes(item.status) ? item.status : 'Draft',
+        ...fields,
+        ownerId: this.ownerFor(item.owner),
+        legacyIds: legacyId ? [legacyId] : undefined,
+        createdById: this.req.user._id,
+        createdByMemberId: this.req.member._id,
+        createdAt: validDate(item.createdAt),
+      });
+      section.created += 1;
+    }
+  }
+
+  async importWorkflows(list) {
+    const section = this.section('workflows');
+    await this.importAutomations(list, {
+      Model: Workflow,
+      name: 'workflows',
+      build: (item, title) => {
+        if (!WORKFLOW_TRIGGERS.includes(item.trigger)) { this.reject(section, item.id, 'Unknown trigger'); return null; }
+        const actions = objectsOnly(Array.isArray(item.actions) ? item.actions : []);
+        const known = actions.filter((action) => WORKFLOW_ACTIONS.includes(action.type)).slice(0, 20);
+        if (known.length < actions.length) this.unresolved(`Workflow "${title}": ${actions.length - known.length} unknown action(s) were left out`);
+        return {
+          trigger: item.trigger,
+          actions: known.map((action) => ({ type: action.type, detail: str(action.detail, 300) })),
+          runsCount: nonNegativeInt(item.runsCount) || 0,
+        };
+      },
+    });
+  }
+
+  async importSequences(list) {
+    await this.importAutomations(list, {
+      Model: Sequence,
+      name: 'sequences',
+      build: (item, title) => {
+        const steps = objectsOnly(Array.isArray(item.steps) ? item.steps : []);
+        const known = steps
+          .filter((step) => SEQUENCE_STEP_TYPES.includes(step.type) && nonNegativeInt(step.day) !== undefined && nonNegativeInt(step.day) <= 365)
+          .slice(0, 30);
+        if (known.length < steps.length) this.unresolved(`Sequence "${title}": ${steps.length - known.length} unknown step(s) were left out`);
+        return {
+          targetType: SEQUENCE_TARGETS.includes(item.targetType) ? item.targetType : 'Leads',
+          steps: known.map((step) => ({ day: nonNegativeInt(step.day), type: step.type, note: str(step.note, 300) })),
+          enrolledCount: nonNegativeInt(item.enrolledCount) || 0,
+        };
+      },
+    });
+  }
+
   async run(data) {
     await this.preload();
     const list = (key) => readList(data, key, this.report);
@@ -689,6 +800,9 @@ class ImportRun {
     await this.importTickets(list('crm_tickets'));
     await this.importCustomerNotes(readMap(data, 'crm_customer_notes', this.report));
     await this.importDocuments(list('crm_documents'));
+    await this.importCampaigns(list('crm_campaigns'));
+    await this.importWorkflows(list('crm_workflows'));
+    await this.importSequences(list('crm_sequences'));
     for (const key of LATER_KEYS) {
       const count = list(key).length;
       if (count) this.report.later[key] = count;
