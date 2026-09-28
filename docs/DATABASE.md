@@ -67,7 +67,7 @@ The file bytes are not in MongoDB: `src/storage` keeps them on local disk (`DOCU
 
 `notes.parentType` now also allows `campaign`. Per-contact `sequenceenrollments` and `automationruns` (roadmap section 5) arrive with the automation engine in Phase 6.
 
-## 2. Implemented (Phase 3, WhatsApp)
+## 1g. Implemented (Phase 3, WhatsApp)
 
 | Collection | Key fields | Indexes |
 |---|---|---|
