@@ -30,8 +30,9 @@ const TICKET_CLOSED_STATUSES = Object.freeze(['Resolved', 'Closed']);
 const TICKET_PRIORITIES = Object.freeze(['Low', 'Medium', 'High', 'Urgent']);
 const TICKET_CATEGORIES = Object.freeze(['Technical', 'Billing', 'General', 'Feature Request', 'Bug Report']);
 const TICKET_NUMBER_START = 1001;
-// Notes belong to a ticket, a contact or a campaign (notes on a lead are lead activities).
-const NOTE_PARENT_TYPES = Object.freeze(['ticket', 'contact', 'campaign']);
+// Notes belong to a ticket, a contact, a campaign or a WhatsApp conversation (internal, never
+// sent to the customer). Notes on a lead are lead activities.
+const NOTE_PARENT_TYPES = Object.freeze(['ticket', 'contact', 'campaign', 'conversation']);
 
 // Marketing campaigns and automation settings (same values the pages show). Workflows and
 // sequences are settings only: "Run Now" / "Enroll" create tasks; the other actions are

@@ -3,6 +3,7 @@ const tenantRepository = require('../repositories/tenantRepository');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { revokeMemberSessions } = require('./sessionService');
+const bus = require('../realtime/bus');
 
 const MANAGER_ROLES = ['owner', 'admin'];
 
@@ -66,6 +67,8 @@ async function update(req, id, patch) {
   Object.assign(member, patch);
   await member.save();
   if (patch.status === 'disabled') await revokeMemberSessions(member.userId._id || member.userId, member.organizationId);
+  // Live connections (inbox) reconnect with the new access, or are refused.
+  bus.emit('member:access-changed', { memberId: member._id });
 
   await audit(req, {
     action: 'member.updated',
@@ -86,6 +89,7 @@ async function remove(req, id) {
 
   await member.softDelete();
   await revokeMemberSessions(member.userId._id || member.userId, member.organizationId);
+  bus.emit('member:access-changed', { memberId: member._id });
   await audit(req, { action: 'member.removed', entityType: 'OrganizationMember', entityId: member._id, changes: { role: member.role } });
 }
 
