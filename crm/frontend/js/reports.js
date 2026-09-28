@@ -1,10 +1,10 @@
 /**
  * reports.js — Reports & Analytics module
- * Read-only aggregation across every module's localStorage keys.
+ * Read-only aggregation across every module's server data (through app.js).
  * Reuses shared helpers from app.js (getCustomers, getLeads, getAgents,
  * getProducts, getAccounts, showToast, renderSidebarUser, initSidebarToggle,
- * requireAuth). Deals / Tasks / Events / Campaigns / Tickets don't have
- * shared helpers, so they're read directly from localStorage here.
+ * requireAuth); the read* functions below wrap the getters for deals,
+ * tasks, events, campaigns and tickets.
  */
 
 requireAuth();
@@ -39,7 +39,7 @@ const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 let activeTab = "overview";
 
 // ---------------------------------------------------------------
-// Direct localStorage reads for modules without shared helpers
+// Page-local names for the shared getters
 // ---------------------------------------------------------------
 function readDeals() {
   return getDeals();

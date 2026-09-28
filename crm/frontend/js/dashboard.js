@@ -1,11 +1,10 @@
 /**
  * dashboard.js — Overview dashboard
- * Reads across every module's localStorage keys and renders a single
+ * Reads across every module's server data (through app.js) and renders a single
  * at-a-glance view. Reuses shared helpers from app.js (getCustomers,
  * getLeads, getAgents, getProducts, showToast, renderSidebarUser,
- * initSidebarToggle, requireAuth). Deals / Tasks / Calendar / Campaigns
- * don't have shared app.js helpers, so those are read directly from
- * localStorage here.
+ * initSidebarToggle, requireAuth); the read* functions below wrap the
+ * getters for deals, tasks, events and campaigns.
  */
 
 requireAuth();
@@ -64,7 +63,7 @@ function statusBadge(status) {
 }
 
 // ---------------------------------------------------------------
-// Direct localStorage reads for modules without shared helpers
+// Page-local names for the shared getters
 // ---------------------------------------------------------------
 function readDeals() {
   return getDeals();

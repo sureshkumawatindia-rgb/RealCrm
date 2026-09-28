@@ -701,17 +701,34 @@
                 </div>
 
                 <div class="settings-section">
-                  <div class="settings-section-label">Export & Import</div>
+                  <div id="serverExportSection" hidden>
+                    <div class="settings-section-label">Download CRM data</div>
+                    <p class="settings-hint">
+                      A backup of your company's CRM data on the server (customers,
+                      leads, deals, products, quotations, tasks, calendar, tickets,
+                      notes, documents list, campaigns, automations and team) as one
+                      JSON file. Uploaded files are not included; download them from
+                      Documents.
+                    </p>
+                    <div class="data-actions" style="margin-bottom: 20px">
+                      <button class="btn btn-primary" id="serverExportBtn">
+                        <i class="fa-solid fa-cloud-arrow-down"></i> Download CRM Data
+                      </button>
+                    </div>
+                  </div>
+                  <div class="settings-section-label">Old browser data</div>
                   <p class="settings-hint">
-                    Download a full backup of every module's data as a single
-                    JSON file, or restore from a previously exported file.
+                    Copies the CRM data this browser kept before it moved to the
+                    server into a JSON file, or loads such a file into this
+                    browser — for example to move it from another address before
+                    "Move my browser data to server".
                   </p>
                   <div class="data-actions">
                     <button class="btn btn-outline" id="exportBtn">
-                      <i class="fa-solid fa-download"></i> Export All Data
+                      <i class="fa-solid fa-download"></i> Export Browser Data
                     </button>
                     <button class="btn btn-outline" id="importBtn">
-                      <i class="fa-solid fa-upload"></i> Import Data
+                      <i class="fa-solid fa-upload"></i> Import Browser Data
                     </button>
                     <input type="file" id="importFileInput" accept="application/json" />
                   </div>

@@ -4,7 +4,8 @@
  *   company logo, connects Gmail and switches between companies.
  * - Company Profile: the organization on the backend (loadCompanyProfile/saveCompanyProfile).
  * - Team & Access: members and invites on the backend; owners/admins manage them.
- * - Data & Privacy: export/import/reset every 'crm_*' key in localStorage.
+ * - Data & Privacy: download the server data (owners/admins), move the old browser data to the
+ *   server, and export/import/reset the old 'crm_*' keys left in localStorage.
  * Reuses shared helpers from app.js (crmApi, getCompanyInfo, fillCompanyForm, readCompanyForm,
  * getCurrentMember, isOrgManager, showToast, renderSidebarUser, initSidebarToggle, requireAuth).
  */
@@ -703,7 +704,7 @@ function renderImportReport(report, { preview }) {
     .map(([name, section]) => {
       const parts = [
         `${section.created} ${preview ? "to add" : "added"}`,
-        section.alreadyImported ? `${section.alreadyImported} already on the server` : "",
+        section.alreadyImported ? `${section.alreadyImported} moved before` : "",
         section.merged ? `${section.merged} matched an existing contact` : "",
         section.rejected ? `${section.rejected} skipped` : "",
       ].filter(Boolean);
@@ -853,6 +854,19 @@ loadGmailConnection();
 renderStorageSummary();
 
 document.getElementById("serverImportSection").hidden = !isOrgManager();
+document.getElementById("serverExportSection").hidden = !isOrgManager();
+document.getElementById("serverExportBtn").addEventListener("click", async (e) => {
+  const button = e.currentTarget;
+  button.disabled = true;
+  try {
+    await crmDownload("/exports/crm", `crm-export-${new Date().toISOString().slice(0, 10)}.json`);
+    showToast("CRM data downloaded.", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't download the CRM data."), "error");
+  } finally {
+    button.disabled = false;
+  }
+});
 document.getElementById("serverImportBtn").addEventListener("click", moveBrowserDataToServer);
 document.getElementById("exportBtn").addEventListener("click", exportAllData);
 document.getElementById("importBtn").addEventListener("click", () => {
