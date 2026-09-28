@@ -132,6 +132,25 @@
           </button>
         </div>
 
+        <div class="panel" id="inviteLinkBox" hidden style="margin-bottom: 16px">
+          <div class="panel-head">
+            <h3>Share this invite link with <span id="inviteLinkEmail"></span></h3>
+            <button class="icon-btn" id="inviteLinkClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <p class="text-muted" style="font-size: 12.5px; margin: 0 0 8px">
+            They can open this link, or simply sign in with Google using that email. The link works for 7 days.
+          </p>
+          <div id="inviteLinkText" style="word-break: break-all; font-size: 12.5px; margin-bottom: 10px"></div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <button class="btn btn-outline" type="button" id="copyInviteBtn">
+              <i class="fa-solid fa-copy"></i> Copy
+            </button>
+            <a class="btn btn-outline" id="whatsappInviteLink" target="_blank" rel="noopener">
+              <i class="fa-brands fa-whatsapp"></i> WhatsApp
+            </a>
+          </div>
+        </div>
+
         <div class="panel agents-panel">
           <div class="panel-head">
             <h3>Agents &amp; Access</h3>
@@ -197,7 +216,8 @@
                   they need, and control exactly what they're allowed to view,
                   create, edit, or delete inside those modules. Modules you
                   don't select here won't appear in their sidebar after they
-                  log in.
+                  log in. They get an invite link and join by signing in
+                  with Google using the email you enter.
                 </p>
               </div>
             </div>
@@ -227,7 +247,7 @@
                 <label>Mobile Number</label><input type="tel" id="agMobile" placeholder="+91 98765 43210" />
               </div>
               <div class="field">
-                <label>Email Address</label><input type="email" id="agEmail" placeholder="name@company.com" />
+                <label>Email Address (their Google account)</label><input type="email" id="agEmail" placeholder="name@gmail.com" />
               </div>
             </div>
           </div>
@@ -280,7 +300,8 @@
             <p class="step-heading">Permissions</p>
             <p class="step-subheading">
               These permissions apply across every module this agent has
-              access to.
+              access to. Create or Edit makes them an Agent; View alone makes
+              them a Viewer who can only look.
             </p>
             <div class="permission-grid" id="permissionGrid">
               <label class="permission-card"><input type="checkbox" value="View" checked /><i
@@ -291,6 +312,8 @@
                   class="fa-solid fa-pen"></i><span>Edit</span></label>
               <label class="permission-card"><input type="checkbox" value="Delete" /><i
                   class="fa-solid fa-trash"></i><span>Delete</span></label>
+              <label class="permission-card"><input type="checkbox" value="ViewAll" /><i
+                  class="fa-solid fa-binoculars"></i><span>See all records</span></label>
             </div>
 
             <div class="review-box" id="agentReviewBox"></div>

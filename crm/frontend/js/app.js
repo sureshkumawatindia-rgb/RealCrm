@@ -2,8 +2,8 @@
  * app.js — shared helpers for every page.
  * Sign-in, the company profile, the team, contacts, leads/deals, products, quotations, tasks,
  * calendar events, support tickets, notes, documents, campaigns and automation settings live on
- * the CRM backend (crmApi, crmLoad). Account Champions are still stored in this browser's
- * localStorage until they move to the team API.
+ * the CRM backend (crmApi, crmLoad), and so does the team (Account Champions = members and
+ * invites). Sign-in details (KEYS) and a copy of the company profile stay in localStorage.
  */
 
 const KEYS = {
@@ -348,6 +348,7 @@ const CRM_SOURCES = {
   leads: "/leads",
   products: "/products",
   members: "/members",
+  invites: "/invites?status=pending", // owners/admins only; empty for everyone else
   quotations: "/quotations",
   tasks: "/tasks",
   events: "/events",
@@ -446,6 +447,12 @@ function getAgents() {
     role: ROLE_LABELS[member.role] || member.role,
     modules: member.modules,
   }));
+}
+// The server builds invite links from its own address; share the sign-in page of the address
+// this CRM is open on instead (the one Google already accepts for this team).
+function inviteLinkHere(serverLink) {
+  const token = new URL(serverLink).searchParams.get("invite");
+  return new URL(`login.html?invite=${encodeURIComponent(token)}`, window.location.href).toString();
 }
 function memberName(id) {
   if (!id) return "";

@@ -1,7 +1,7 @@
 /**
  * ai-insights.js — AI Insights module (read-only analytics + assistant UI)
- * Reads real CRM data from localStorage (crm_deals, crm_leads,
- * crm_customers, crm_agents). No fabricated/demo numbers — every figure
+ * Reads real CRM data from the server (deals, leads, customers and the
+ * team, through app.js). No fabricated/demo numbers — every figure
  * shown is computed from actual data, with honest empty states when
  * there isn't enough data yet.
  * Reuses shared helpers from app.js (getLeads, getCustomers, getAgents,

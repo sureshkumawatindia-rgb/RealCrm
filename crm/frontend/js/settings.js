@@ -448,10 +448,7 @@ document.getElementById("teamMemberList").addEventListener("click", async (e) =>
 });
 
 function showInviteLink(email, serverLink) {
-  // Share the sign-in page of the address this CRM is open on (the one Google already
-  // accepts for this team), not the server's default address.
-  const token = new URL(serverLink).searchParams.get("invite");
-  const link = new URL(`login.html?invite=${encodeURIComponent(token)}`, window.location.href).toString();
+  const link = inviteLinkHere(serverLink);
   const companyName = getCompanyInfo()?.name || "our company";
   document.getElementById("inviteLinkEmail").textContent = email;
   document.getElementById("inviteLinkText").textContent = link;
@@ -685,10 +682,10 @@ const IMPORT_SECTION_LABELS = {
   campaignNotes: "Campaign notes",
   workflows: "Workflows",
   sequences: "Sequences",
+  teamInvites: "Team invites (they join when they sign in with Google)",
 };
-const LATER_LABELS = {
-  crm_agents: "Account Champions",
-};
+// Browser keys that move in a later update (none left since Account Champions moved).
+const LATER_LABELS = {};
 // Session and settings keys are never sent.
 const NOT_IMPORTED = new Set([SESSION_KEY, USER_KEY, "crm_member", "crm_company", "crm_ticket_seq", "crm_deals_demo_cleared"]);
 
@@ -710,11 +707,14 @@ function renderImportReport(report, { preview }) {
         section.merged ? `${section.merged} matched an existing contact` : "",
         section.rejected ? `${section.rejected} skipped` : "",
       ].filter(Boolean);
+      // Why records were skipped (a few distinct reasons), e.g. "Rohan has no valid email".
+      const reasons = [...new Set((section.rejectedRows || []).map((row) => row.reason))].slice(0, 3);
       return `
         <div class="settings-summary-row">
           <div class="info">
             <div class="name">${escapeHtml(IMPORT_SECTION_LABELS[name] || name)}</div>
             <div class="sub">${escapeHtml(parts.join(" · "))}</div>
+            ${reasons.length ? `<div class="sub">Skipped: ${escapeHtml(reasons.join("; "))}</div>` : ""}
           </div>
           <span class="badge badge-info">${section.found}</span>
         </div>`;
