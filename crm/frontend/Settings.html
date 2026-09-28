@@ -358,6 +358,9 @@
             <button class="settings-tab" data-panel="team">
               <i class="fa-solid fa-user-group"></i> Team & Access
             </button>
+            <button class="settings-tab" data-panel="whatsapp" id="whatsappTab" style="display: none">
+              <i class="fa-brands fa-whatsapp"></i> WhatsApp
+            </button>
             <button class="settings-tab" data-panel="data">
               <i class="fa-solid fa-database"></i> Data & Privacy
             </button>
@@ -666,6 +669,96 @@
             </div>
           </div>
 
+          <!-- WHATSAPP (owners and admins) -->
+          <div class="settings-panel" data-settings-panel="whatsapp">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>WhatsApp</h3>
+                <span class="text-muted" style="font-size: 12px" id="waCount"></span>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint">
+                  Connect your WhatsApp Business number (WhatsApp Cloud API by Meta).
+                  Customers' messages then arrive in this CRM: new numbers become
+                  contacts and WhatsApp leads automatically.
+                </p>
+                <div id="waAccountList"></div>
+
+                <div class="settings-section" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Connect a number</div>
+                  <p class="settings-hint">
+                    From your Meta developer app: WhatsApp → API Setup gives the
+                    Phone number ID and WhatsApp Business Account ID; use a permanent
+                    System User access token (permissions whatsapp_business_messaging
+                    and whatsapp_business_management); App settings → Basic gives the
+                    App secret.
+                  </p>
+                  <form id="waConnectForm" autocomplete="off">
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="waName">Name (optional)</label>
+                        <input type="text" id="waName" maxlength="100" placeholder="e.g. Sales line" />
+                      </div>
+                      <div class="field">
+                        <label for="waPhoneNumberId">Phone number ID</label>
+                        <input type="text" id="waPhoneNumberId" inputmode="numeric" placeholder="e.g. 106540352242922" required />
+                      </div>
+                    </div>
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="waWabaId">WhatsApp Business Account ID</label>
+                        <input type="text" id="waWabaId" inputmode="numeric" placeholder="e.g. 102290129340398" />
+                      </div>
+                      <div class="field">
+                        <label for="waAppSecret">App secret</label>
+                        <input type="password" id="waAppSecret" required />
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label for="waAccessToken">Access token</label>
+                      <input type="password" id="waAccessToken" required />
+                    </div>
+                    <div class="data-actions" style="justify-content: space-between">
+                      <button class="btn btn-outline" type="button" id="waAddMockBtn" title="For trying the CRM without a Meta account (not available on a live server)">
+                        <i class="fa-solid fa-flask"></i> Add a test number instead
+                      </button>
+                      <button class="btn btn-primary" type="submit" id="waConnectBtn">
+                        <i class="fa-brands fa-whatsapp"></i> Connect Number
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="settings-section" id="waSimulateSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Try it: receive a test message</div>
+                  <p class="settings-hint">
+                    Pretends a customer wrote to your default number (development only;
+                    nothing is sent to WhatsApp). Check Leads and Customers afterwards.
+                  </p>
+                  <form id="waSimulateForm">
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="waSimFrom">Customer's mobile</label>
+                        <input type="tel" id="waSimFrom" placeholder="98111 00011" required />
+                      </div>
+                      <div class="field">
+                        <label for="waSimName">Their WhatsApp name</label>
+                        <input type="text" id="waSimName" placeholder="Sunita" />
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label for="waSimText">Message</label>
+                      <input type="text" id="waSimText" maxlength="4096" placeholder="Price of cumin 1kg?" required />
+                    </div>
+                    <div class="data-actions" style="justify-content: flex-end">
+                      <button class="btn btn-outline" type="submit"><i class="fa-solid fa-paper-plane"></i> Receive Test Message</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- DATA & PRIVACY -->
           <div class="settings-panel" data-settings-panel="data">
             <div class="panel">
@@ -759,5 +852,6 @@
 
     <script src="./js/app.js"></script>
     <script src="./js/settings.js"></script>
+    <script src="./js/settings-whatsapp.js"></script>
   </body>
 </html>

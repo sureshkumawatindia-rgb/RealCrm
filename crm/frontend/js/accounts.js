@@ -84,6 +84,7 @@ function wizardPermissions(person) {
 // key: the server's module name; label: what the page shows.
 const MODULES = [
   { key: "dashboard", label: "Dashboard", icon: "fa-chart-pie" },
+  { key: "inbox", label: "Inbox", icon: "fa-comments" },
   { key: "customers", label: "Customers", icon: "fa-users" },
   { key: "leads", label: "Leads", icon: "fa-bullseye" },
   { key: "accounts", label: "Accounts", icon: "fa-building" },
@@ -101,7 +102,7 @@ const MODULES = [
 ];
 const MODULE_LABEL = Object.fromEntries(MODULES.map((m) => [m.key, m.label]));
 // A new agent starts with the everyday sales and service pages.
-const DEFAULT_AGENT_MODULES = ["dashboard", "customers", "leads", "deals", "tasks", "calendar", "support", "documents", "products"];
+const DEFAULT_AGENT_MODULES = ["dashboard", "inbox", "customers", "leads", "deals", "tasks", "calendar", "support", "documents", "products"];
 
 const agentModalOverlay = document.getElementById("agentModalOverlay");
 const agentForm = document.getElementById("agentForm");
