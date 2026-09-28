@@ -250,7 +250,7 @@ Who sees which chat (D24): owners, admins and members with `inbox:view_all` see 
 | `GET` | `/conversations/:id` | One chat. |
 | `PATCH` | `/conversations/:id` | `{ status?, assigneeId? (null = back to the queue), tags? }`. The assignee must be an active member who can open the inbox (400 `ASSIGNEE_NO_INBOX`). |
 | `POST` | `/conversations/:id/read` | Sets `unreadCount` to 0. |
-| `GET` | `/conversations/:id/messages?limit=&before=<message id>` | The newest page (default 50, max 100), oldest → newest inside the page; `hasMore` and `nextBefore` for older ones. |
+| `GET` | `/conversations/:id/messages?limit=&before=<message id>` | The newest page (default 50, max 100), oldest → newest inside the page; `hasMore` and `nextBefore` for older ones. Each message has `providerMessageId` (WhatsApp's id) and `replyToProviderMessageId`, so a reply can show the message it quotes. |
 | `POST` | `/conversations/:id/messages` | `{ text, replyToMessageId? }` (`Idempotency-Key` recommended). Only within 24 hours of the customer's last message (else 422 `WINDOW_CLOSED`; templates come in 3D). The message is saved, then sent through the Cloud API: returns 201 with `status: "sent"`, or `status: "failed"` and WhatsApp's `error`. The first reply assigns an unassigned chat to the sender; a reply reopens a closed chat. |
 | `GET/POST` | `/conversations/:id/notes` | Internal notes `{ text }` (never sent to the customer). |
 | `GET` | `/quick-replies` | Saved answers of the organization. |
