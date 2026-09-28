@@ -1,0 +1,49 @@
+# Connecting WhatsApp (Cloud API)
+
+The CRM talks to WhatsApp through Meta's **WhatsApp Cloud API**. You need a Meta developer app, a WhatsApp Business Account and a phone number that is **not** active in the WhatsApp or WhatsApp Business app. Meta's own guides: [Get started](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started), [Webhooks](https://developers.facebook.com/docs/whatsapp/cloud-api/guides/set-up-webhooks/).
+
+Business verification, display-name approval and message templates can take days, so start early.
+
+## 1. In Meta
+
+1. [developers.facebook.com](https://developers.facebook.com) → My Apps → **Create app** → type **Business** → add the **WhatsApp** product.
+2. WhatsApp → **API Setup**: note the **Phone number ID** and the **WhatsApp Business Account ID**. Meta gives a free test number to start with; add your real number here later.
+3. A **permanent access token**: Business Settings → Users → **System users** → add one (Admin) → *Generate new token* for your app with the permissions `whatsapp_business_messaging` and `whatsapp_business_management`. (The 24-hour token on the API Setup page works for a quick test only.)
+4. App settings → **Basic** → **App secret** (click *Show*).
+
+Keep the token and the app secret private: paste them only into the CRM.
+
+## 2. In the CRM
+
+Settings → **WhatsApp** (owners and admins) → *Connect a number*: paste the Phone number ID, the Business Account ID, the access token and the app secret → **Connect Number**. The CRM asks Meta about the number; "Connected" means the token works.
+
+The number's card then shows a **Callback URL** and a **Verify token**.
+
+## 3. Let Meta reach the CRM (webhook)
+
+Meta only calls a **public HTTPS** address with a valid certificate. While the CRM runs on your computer (`http://127.0.0.1:3000`), use a tunnel:
+
+```
+cloudflared tunnel --url http://127.0.0.1:3000
+```
+
+It prints an address like `https://random-words.trycloudflare.com` (it changes every run; a named Cloudflare tunnel with your own domain keeps it fixed). Your callback URL is that address + the path shown in the CRM, e.g. `https://random-words.trycloudflare.com/api/v1/webhooks/whatsapp/<key>`.
+
+In the Meta app → WhatsApp → **Configuration** → Webhook → *Edit*: paste the callback URL and the verify token → *Verify and save*. Then under *Webhook fields* **subscribe to `messages`**.
+
+## 4. Check it
+
+Send a WhatsApp message from your own phone to the business number. In the CRM the number's card shows "last message from WhatsApp …", and the sender appears under Customers/Leads (a new number becomes a WhatsApp lead).
+
+## Without a Meta account
+
+In development, Settings → WhatsApp → **Add a test number instead**, then **Receive Test Message** pretends a customer wrote. Nothing is sent to WhatsApp. Test numbers and the simulator are switched off on a production server (`NODE_ENV=production`).
+
+## Settings (backend/.env)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `WHATSAPP_GRAPH_VERSION` | `v26.0` | Graph API version ([versions](https://developers.facebook.com/docs/graph-api/changelog/versions/)); update when Meta retires it. |
+| `WHATSAPP_GRAPH_URL` | `https://graph.facebook.com` | Only changed for tests. |
+| `RATE_LIMIT_WEBHOOK_PER_MINUTE` | `1200` | Requests per minute per address on the webhook URLs. |
+| `PUBLIC_URL` | `http://127.0.0.1:3000` | Used to show the callback URL; set it to your HTTPS address on a server. |

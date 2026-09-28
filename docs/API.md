@@ -216,6 +216,35 @@ Since checkpoint E the `automation` module alone no longer allows `POST /tasks`;
 | `GET` | `/imports/:id` | owner, admin | A previous run and its report. |
 | `GET` | `/exports/crm` | owner, admin | "Download CRM Data": one JSON file (`crm-export-YYYY-MM-DD.json`, streamed) with `organization`, `team` (name, email, role, title, access; no tokens) and every record of `contacts, products, leads, leadActivities, quotations, tasks, events, tickets, notes, documents, campaigns, workflows, sequences`. Deleted records, secrets and internal fields (`organizationId`, `storageKey`, `deletedAt`) are left out; uploaded files are not included. |
 
+## WhatsApp (Phase 3)
+
+Setup steps for Meta: [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md). Module for the inbox pages: `inbox`.
+
+### Numbers (Settings → WhatsApp, owners and admins)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/whatsapp/accounts` | Connected numbers: `{ id, name, provider (meta/mock), phoneNumberId, wabaId, displayPhone, verifiedName, qualityRating, status (pending/connected/error), statusMessage, isDefault, lastWebhookAt, webhookPath, webhookUrl, verifyToken, accessToken: { configured, last4 }, appSecretConfigured }`. The access token and app secret are never returned. |
+| `POST` | `/whatsapp/accounts` | `{ name?, provider?, phoneNumberId, wabaId?, accessToken, appSecret }` (Meta) or `{ provider: "mock", name? }` (development only). The CRM asks Meta about the number (`GET /<version>/<phoneNumberId>`) and saves the result as `status`. A number connected anywhere else is 409 `NUMBER_IN_USE`. |
+| `PATCH` | `/whatsapp/accounts/:id` | `{ name?, wabaId?, accessToken?, appSecret?, isDefault: true? }`; a new token is checked again. |
+| `POST` | `/whatsapp/accounts/:id/test` | Asks Meta again and updates `status`. |
+| `DELETE` | `/whatsapp/accounts/:id` | Soft delete; chats stay, the number can be connected again. |
+
+### Webhook (public, called by Meta)
+
+Each number has its own URL `/api/v1/webhooks/whatsapp/<webhookKey>` (not rate limited with the API; own limit `RATE_LIMIT_WEBHOOK_PER_MINUTE`).
+
+| Method | Purpose |
+| --- | --- |
+| `GET` | Handshake: `?hub.mode=subscribe&hub.verify_token=<verify token>&hub.challenge=<n>` → 200 with the challenge, else 403. |
+| `POST` | Messages and statuses. `X-Hub-Signature-256` must be `sha256=` + HMAC-SHA256 of the raw body with the app secret (else 401). Each message and status is stored as an `InboundEvent` (Meta's retries are ignored), the answer is 200, then: the contact is found by phone or created (source WhatsApp; a new number also gets a WhatsApp lead), the conversation is opened, the message stored, the 24-hour window moved; statuses move sent → delivered → read (never back; failed keeps Meta's error). Events that could not be processed are retried at start-up and every 5 minutes. |
+
+### Development only (404 when `NODE_ENV=production`)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/dev/simulate/whatsapp-inbound` | Owners/admins. `{ from, name?, text, accountId? }` → processes a made-up incoming text exactly like a webhook; returns `{ conversationId, messageId, contactId }`. |
+
 ## Idempotency
 
 `POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.
