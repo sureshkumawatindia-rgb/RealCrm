@@ -51,15 +51,15 @@ Uploaded files are served from `/uploads/` with `Content-Security-Policy: sandbo
 
 ## Team
 
-Roles: `owner`, `admin`, `agent`, `viewer`. Agents and viewers only see the modules in `modules` (keys in `backend/src/constants/permissions.js`); extra grants are `<module>:delete` and `<module>:view_all`.
+Roles: `owner`, `admin`, `agent`, `viewer`. Agents and viewers only see the modules in `modules` (keys in `backend/src/constants/permissions.js`); extra grants are `<module>:delete` and `<module>:view_all`. The Account Champions page (and Settings → Team & Access) use these endpoints; there is no separate agents API.
 
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/members` | any member | Team list (paginated). |
-| `PATCH` | `/members/:id` | owner, admin | `{ role?, modules?, permissions?, status?, displayName?, mobile?, assignable? }`. Nobody changes their own role/status; only owners change owners and admins; the last active owner is protected. |
+| `PATCH` | `/members/:id` | owner, admin | `{ role?, modules?, permissions?, status?, displayName?, mobile?, title?, assignable? }` (`title` = what they do, e.g. Sales, up to 60 characters). Nobody changes their own role/status; only owners change owners and admins; the last active owner is protected. |
 | `DELETE` | `/members/:id` | owner, admin | Removes the member (soft delete) and ends their sessions in this organization. |
 | `GET` | `/invites?status=pending\|accepted\|revoked\|all` | owner, admin | Invites (default pending; `status: "expired"` in the response when past `expiresAt`). |
-| `POST` | `/invites` | owner, admin | `{ email, role: admin\|agent\|viewer, modules?, permissions? }`. Returns `{ invite, link }`; the link (valid 7 days) is only shown here. Only owners invite admins. Accepts `Idempotency-Key`. |
+| `POST` | `/invites` | owner, admin | `{ email, role: admin\|agent\|viewer, modules?, permissions?, displayName?, mobile?, title? }` (name, mobile and title are copied to the membership when it is accepted). Inviting a pending email again replaces its access and link. Returns `{ invite, link }`; the link (valid 7 days) is only shown here. Only owners invite admins. Accepts `Idempotency-Key`. |
 | `POST` | `/invites/:id/resend` | owner, admin | New link; the old one stops working. |
 | `DELETE` | `/invites/:id` | owner, admin | Cancels the invite. |
 | `POST` | `/invites/lookup` | none | `{ token }` → `{ organizationName, email, role, expiresAt }` for the login page. POST keeps the token out of URL logs. |
@@ -212,7 +212,7 @@ Since checkpoint E the `automation` module alone no longer allows `POST /tasks`;
 
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`), calendar events, support tickets (old numbers kept when free, otherwise renumbered with `legacyNumber`), ticket replies, customer notes and documents (browser files go to private storage; links get `https://` when it was missing; bad links and programs are reported), campaigns (budget → paise, notes → campaign notes), workflows and sequences (unknown triggers, actions and steps reported; old run/enroll counts kept); contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new (and tasks, events, tickets, notes, documents, campaigns, workflows and sequences deleted on the server are not brought back). Returns a report per section (`found, created, alreadyImported, merged, rejected`), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
+| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`), calendar events, support tickets (old numbers kept when free, otherwise renumbered with `legacyNumber`), ticket replies, customer notes and documents (browser files go to private storage; links get `https://` when it was missing; bad links and programs are reported), campaigns (budget → paise, notes → campaign notes), workflows and sequences (unknown triggers, actions and steps reported; old run/enroll counts kept) and Account Champions (`crm_agents`, as pending invites; see MIGRATION.md); contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new (and tasks, events, tickets, notes, documents, campaigns, workflows and sequences deleted on the server are not brought back). Returns a report per section (`found, created, alreadyImported, merged, rejected`, and `rejectedRows` with the reasons), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
 | `GET` | `/imports/:id` | owner, admin | A previous run and its report. |
 
 ## Idempotency
@@ -221,4 +221,4 @@ Since checkpoint E the `automation` module alone no longer allows `POST /tasks`;
 
 ## Planned
 
-The rest of Phase 2 moves Account Champions to the team API; then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.
+Phase 2 ends with the final checks (checkpoint G); then WhatsApp, lead sources, GST quotations, orders, broadcasts and payments. See [BIZNUMA_ROADMAP.md](BIZNUMA_ROADMAP.md) section 6 for the full endpoint plan.
