@@ -116,6 +116,8 @@ describe('Inbox: messages, sending and notes', () => {
     const first = await api().get(`/api/v1/conversations/${chat.conversationId}/messages?limit=2`).set(bearer(owner.token));
     expect(first.body.data.map((m) => m.text)).toEqual(['Line 3', 'Line 4']);
     expect(first.body.hasMore).toBe(true);
+    // The Inbox matches quoted replies by WhatsApp's message id.
+    expect(first.body.data[0].providerMessageId).toMatch(/^wamid\./);
     const older = await api().get(`/api/v1/conversations/${chat.conversationId}/messages?limit=10&before=${first.body.nextBefore}`).set(bearer(owner.token));
     expect(older.body.data.map((m) => m.text)).toEqual(['Need 20kg jeera', 'Line 1', 'Line 2']);
     expect(older.body.hasMore).toBe(false);

@@ -67,6 +67,8 @@ function serializeMessage(message) {
     reply: message.reply?.title ? message.reply : null,
     reaction: message.reaction?.emoji ? message.reaction : null,
     template: message.template?.name ? message.template : null,
+    // Meta's message id (wamid): lets the page show which message a reply quotes.
+    providerMessageId: message.providerMessageId || null,
     replyToProviderMessageId: message.replyToProviderMessageId || null,
     status: message.status,
     sentAt: message.sentAt || null,
