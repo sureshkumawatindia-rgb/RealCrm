@@ -1,18 +1,16 @@
 /**
  * automation.js — Sales Automation module (Workflows + Sequences)
- * Persists to localStorage under 'crm_workflows' and 'crm_sequences'.
- * "Run Now" / "Enroll" create real tasks on the CRM backend (saveTask in app.js)
- * so the automation has a visible, tangible effect elsewhere in the CRM.
+ * Workflows and sequences live on the CRM backend (getWorkflows, getSequences,
+ * saveAutomation, removeAutomation in app.js). "Run Now" / "Enroll One" ask the
+ * server to create the tasks (runWorkflowNow, enrollInSequence); emails,
+ * notifications and status changes are not sent yet (automation engine: Phase 6).
  * Reuses shared helpers from app.js (getAgents, showToast,
- * renderSidebarUser, initSidebarToggle, requireAuth, getCurrentUser).
+ * renderSidebarUser, initSidebarToggle, requireAuth).
  */
 
 requireAuth();
 renderSidebarUser();
 initSidebarToggle();
-
-const WORKFLOWS_KEY = "crm_workflows";
-const SEQUENCES_KEY = "crm_sequences";
 
 const ACTION_TYPES = [
   "Create Task",
@@ -25,32 +23,24 @@ const STEP_TYPES = ["Email", "Call", "Task", "Wait"];
 
 let activeTab = "workflows"; // "workflows" | "sequences"
 
-// ---------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------
-function getWorkflows() {
-  const raw = localStorage.getItem(WORKFLOWS_KEY);
-  return raw ? JSON.parse(raw) : [];
+const findById = (list, id) => list.find((item) => String(item.id) === String(id));
+
+// Deletes after confirming; kind is "workflows" or "sequences".
+function confirmDeleteAutomation(kind, id, label, onDone) {
+  const item = findById(kind === "workflows" ? getWorkflows() : getSequences(), id);
+  if (!item || !confirm(`Delete "${item.name}"? This can't be undone.`)) return;
+  removeAutomation(kind, id)
+    .then(() => {
+      if (onDone) onDone();
+      showToast(`${label} deleted`, "success");
+    })
+    .catch((error) => showToast(apiErrorMessage(error, `Couldn't delete the ${label.toLowerCase()}.`), "error"))
+    .finally(renderAll);
 }
-function saveWorkflows(list) {
-  localStorage.setItem(WORKFLOWS_KEY, JSON.stringify(list));
-}
-function getSequences() {
-  const raw = localStorage.getItem(SEQUENCES_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveSequences(list) {
-  localStorage.setItem(SEQUENCES_KEY, JSON.stringify(list));
-}
-// Creates the task on the server; returns true when it was saved.
-async function pushTask(task) {
-  try {
-    await saveTask(null, { ...task, origin: "automation" });
-    return true;
-  } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't create the task."), "error");
-    return false;
-  }
+
+// "Also configured, not sent yet: Notify Agent, ..." for actions the server only simulates.
+function simulatedNote(simulated) {
+  return simulated && simulated.length ? ` (not sent yet: ${simulated.join(", ")})` : "";
 }
 
 // ---------------------------------------------------------------
@@ -72,14 +62,6 @@ function initials(name) {
 }
 function ownerNames() {
   return getAgents().map((a) => a.name);
-}
-function addDays(iso, days) {
-  const d = iso ? new Date(iso) : new Date();
-  d.setDate(d.getDate() + Number(days || 0));
-  return d.toISOString().slice(0, 10);
-}
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
 }
 function statusPillClass(status) {
   return "status-pill status-" + (status || "draft").toLowerCase();
@@ -210,45 +192,28 @@ function renderWorkflows() {
   grid.querySelectorAll(".delete-workflow-btn").forEach((btn) =>
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const wf = getWorkflows().find((w) => w.id === btn.dataset.id);
-      if (wf && confirm(`Delete "${wf.name}"? This can't be undone.`)) {
-        saveWorkflows(getWorkflows().filter((w) => w.id !== btn.dataset.id));
-        showToast("Workflow deleted", "success");
-        renderAll();
-      }
+      confirmDeleteAutomation("workflows", btn.dataset.id, "Workflow");
     }),
   );
 }
 
+// The server creates the tasks and counts the run (one run per click, even on a retry).
 async function runWorkflow(id) {
-  const list = getWorkflows();
-  const wf = list.find((w) => w.id === id);
+  const wf = findById(getWorkflows(), id);
   if (!wf) return;
-
-  let tasksCreated = 0;
-  for (const a of wf.actions || []) {
-    if (a.type === "Create Task") {
-      const created = await pushTask({
-        title: a.detail || `${wf.name} — follow up`,
-        description: `Auto-created by workflow "${wf.name}"`,
-        assignee: wf.owner || "",
-        dueDate: addDays(todayStr(), 2),
-        priority: "Medium",
-        status: "To Do",
-        relatedType: "",
-        relatedName: "",
-      });
-      if (created) tasksCreated++;
-    }
+  let result;
+  try {
+    result = await runWorkflowNow(wf.id);
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't run the workflow."), "error");
+    renderAll();
+    return;
   }
-
-  wf.runsCount = (wf.runsCount || 0) + 1;
-  saveWorkflows(list);
-
+  const tasksCreated = result.tasks.length;
   showToast(
-    tasksCreated
+    (tasksCreated
       ? `"${wf.name}" ran — created ${tasksCreated} task${tasksCreated === 1 ? "" : "s"}`
-      : `"${wf.name}" ran — no task-creating actions configured`,
+      : `"${wf.name}" ran — no task-creating actions configured`) + simulatedNote(result.simulated),
     "success",
   );
   renderAll();
@@ -341,46 +306,26 @@ function renderSequences() {
   grid.querySelectorAll(".delete-sequence-btn").forEach((btn) =>
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const sq = getSequences().find((s) => s.id === btn.dataset.id);
-      if (sq && confirm(`Delete "${sq.name}"? This can't be undone.`)) {
-        saveSequences(getSequences().filter((s) => s.id !== btn.dataset.id));
-        showToast("Sequence deleted", "success");
-        renderAll();
-      }
+      confirmDeleteAutomation("sequences", btn.dataset.id, "Sequence");
     }),
   );
 }
 
+// The server schedules the first Call/Task step as a task and counts the enrollment.
 async function enrollSequence(id) {
-  const list = getSequences();
-  const sq = list.find((s) => s.id === id);
+  const sq = findById(getSequences(), id);
   if (!sq) return;
-
-  const steps = (sq.steps || []).slice().sort((a, b) => a.day - b.day);
-  const firstTaskStep = steps.find(
-    (st) => st.type === "Task" || st.type === "Call",
-  );
-  if (firstTaskStep) {
-    await pushTask({
-      title:
-        firstTaskStep.note ||
-        `${sq.name} — Day ${firstTaskStep.day} touchpoint`,
-      description: `Auto-created by sequence "${sq.name}"`,
-      assignee: sq.owner || "",
-      dueDate: addDays(todayStr(), firstTaskStep.day),
-      priority: "Medium",
-      status: "To Do",
-      relatedType: "",
-      relatedName: "",
-    });
+  let result;
+  try {
+    result = await enrollInSequence(sq.id);
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't enroll."), "error");
+    renderAll();
+    return;
   }
-
-  sq.enrolledCount = (sq.enrolledCount || 0) + 1;
-  saveSequences(list);
-
   showToast(
-    firstTaskStep
-      ? `Enrolled — first task scheduled for Day ${firstTaskStep.day}`
+    result.task
+      ? `Enrolled — first task scheduled for Day ${result.firstTaskDay}`
       : `Enrolled in "${sq.name}"`,
     "success",
   );
@@ -448,7 +393,7 @@ function openWorkflowModal(id) {
   const deleteBtn = document.getElementById("wfDeleteBtn");
 
   if (id) {
-    const wf = getWorkflows().find((w) => w.id === id);
+    const wf = findById(getWorkflows(), id);
     if (!wf) return;
     document.getElementById("workflowModalTitle").textContent = "Edit Workflow";
     document.getElementById("wfEditId").value = wf.id;
@@ -528,7 +473,7 @@ function openSequenceModal(id) {
   const deleteBtn = document.getElementById("sqDeleteBtn");
 
   if (id) {
-    const sq = getSequences().find((s) => s.id === id);
+    const sq = findById(getSequences(), id);
     if (!sq) return;
     document.getElementById("sequenceModalTitle").textContent = "Edit Sequence";
     document.getElementById("sqEditId").value = sq.id;
@@ -591,7 +536,7 @@ function renderAll() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-crmReady(["members"], renderAll);
+crmReady(["workflows", "sequences", "members"], renderAll);
 
 document
   .getElementById("tabWorkflowsBtn")
@@ -627,15 +572,9 @@ document.getElementById("wfAddActionBtn").addEventListener("click", () => {
 });
 document.getElementById("wfDeleteBtn").addEventListener("click", () => {
   const id = document.getElementById("wfEditId").value;
-  const wf = getWorkflows().find((w) => w.id === id);
-  if (id && wf && confirm(`Delete "${wf.name}"? This can't be undone.`)) {
-    saveWorkflows(getWorkflows().filter((w) => w.id !== id));
-    closeWorkflowModal();
-    showToast("Workflow deleted", "success");
-    renderAll();
-  }
+  if (id) confirmDeleteAutomation("workflows", id, "Workflow", closeWorkflowModal);
 });
-document.getElementById("workflowForm").addEventListener("submit", (e) => {
+document.getElementById("workflowForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("wfEditId").value;
   const payload = {
@@ -649,20 +588,13 @@ document.getElementById("workflowForm").addEventListener("submit", (e) => {
     showToast("Workflow name is required.", "error");
     return;
   }
-  const list = getWorkflows();
-  if (id) {
-    const idx = list.findIndex((w) => w.id === id);
-    if (idx !== -1) list[idx] = { ...list[idx], ...payload };
-    showToast("Workflow updated", "success");
-  } else {
-    payload.id =
-      "wf_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    payload.runsCount = 0;
-    payload.createdAt = new Date().toISOString();
-    list.unshift(payload);
-    showToast("Workflow created", "success");
+  try {
+    await saveAutomation("workflows", id || null, payload);
+    showToast(id ? "Workflow updated" : "Workflow created", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the workflow."), "error");
+    return;
   }
-  saveWorkflows(list);
   closeWorkflowModal();
   renderAll();
 });
@@ -688,15 +620,9 @@ document.getElementById("sqAddStepBtn").addEventListener("click", () => {
 });
 document.getElementById("sqDeleteBtn").addEventListener("click", () => {
   const id = document.getElementById("sqEditId").value;
-  const sq = getSequences().find((s) => s.id === id);
-  if (id && sq && confirm(`Delete "${sq.name}"? This can't be undone.`)) {
-    saveSequences(getSequences().filter((s) => s.id !== id));
-    closeSequenceModal();
-    showToast("Sequence deleted", "success");
-    renderAll();
-  }
+  if (id) confirmDeleteAutomation("sequences", id, "Sequence", closeSequenceModal);
 });
-document.getElementById("sequenceForm").addEventListener("submit", (e) => {
+document.getElementById("sequenceForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("sqEditId").value;
   const payload = {
@@ -710,20 +636,13 @@ document.getElementById("sequenceForm").addEventListener("submit", (e) => {
     showToast("Sequence name is required.", "error");
     return;
   }
-  const list = getSequences();
-  if (id) {
-    const idx = list.findIndex((s) => s.id === id);
-    if (idx !== -1) list[idx] = { ...list[idx], ...payload };
-    showToast("Sequence updated", "success");
-  } else {
-    payload.id =
-      "sq_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    payload.enrolledCount = 0;
-    payload.createdAt = new Date().toISOString();
-    list.unshift(payload);
-    showToast("Sequence created", "success");
+  try {
+    await saveAutomation("sequences", id || null, payload);
+    showToast(id ? "Sequence updated" : "Sequence created", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the sequence."), "error");
+    return;
   }
-  saveSequences(list);
   closeSequenceModal();
   renderAll();
 });

@@ -1,9 +1,9 @@
 /**
  * app.js — shared helpers for every page.
  * Sign-in, the company profile, the team, contacts, leads/deals, products, quotations, tasks,
- * calendar events, support tickets, notes and documents live on the CRM backend (crmApi,
- * crmLoad). Campaigns and automations are still stored in this browser's localStorage until
- * they move too.
+ * calendar events, support tickets, notes, documents, campaigns and automation settings live on
+ * the CRM backend (crmApi, crmLoad). Account Champions are still stored in this browser's
+ * localStorage until they move to the team API.
  */
 
 const KEYS = {
@@ -339,7 +339,7 @@ function renderCompanyDashboardCard() {
 
 // ---------------------------------------------------------------
 // Server data — contacts, leads (also shown as deals), products, quotations,
-// the team, tasks, calendar events, tickets and documents. Pages call crmLoad([...]) (or crmReady) once,
+// the team, tasks, calendar events, tickets, documents, campaigns and automations. Pages call crmLoad([...]) (or crmReady) once,
 // then read synchronously with the getters below; changes go through
 // the async save/remove helpers, which update the in-memory copy.
 // ---------------------------------------------------------------
@@ -353,6 +353,9 @@ const CRM_SOURCES = {
   events: "/events",
   tickets: "/tickets",
   documents: "/documents",
+  campaigns: "/campaigns",
+  workflows: "/workflows",
+  sequences: "/sequences",
 };
 const crmCache = {};
 const MAX_LOAD_PAGES = 50; // 50 pages × 100 records per resource
@@ -750,6 +753,71 @@ async function removeDocument(id) {
 }
 async function downloadDocument(doc) {
   await crmDownload(`/documents/${doc.id}/download`, doc.fileName || doc.name);
+}
+
+// --- marketing campaigns ---------------------------------------------
+// budget: rupees on the page, paise on the server.
+const toLegacyCampaign = (campaign) => ({ ...campaign, budget: toRupees(campaign.budgetPaise) || 0, owner: memberName(campaign.ownerId) });
+
+function getCampaigns() {
+  return cached("campaigns").map(toLegacyCampaign);
+}
+async function saveCampaign(id, form) {
+  const payload = {};
+  ["name", "type", "status", "startDate", "endDate", "leadsGenerated", "audience", "description"].forEach((key) => {
+    if (key in form) payload[key] = form[key];
+  });
+  if ("budget" in form) payload.budgetPaise = toPaise(form.budget) ?? 0;
+  if ("owner" in form) payload.ownerId = agentIdByName(form.owner);
+  const campaign = await crmApi(id ? `/campaigns/${id}` : "/campaigns", jsonRequest(id ? "PATCH" : "POST", payload));
+  return toLegacyCampaign(cacheUpsert("campaigns", campaign));
+}
+async function removeCampaign(id) {
+  await crmApi(`/campaigns/${id}`, { method: "DELETE" });
+  cacheDrop("campaigns", id);
+}
+async function getCampaignNotes(campaignId) {
+  return (await crmApi(`/campaigns/${campaignId}/notes`)).map(toLegacyNote);
+}
+async function addCampaignNote(campaignId, text) {
+  return toLegacyNote(await crmApi(`/campaigns/${campaignId}/notes`, jsonRequest("POST", { text })));
+}
+
+// --- sales automation: workflows and sequences --------------------------
+// kind: "workflows" or "sequences". Run and enroll counts are kept by the server.
+const withOwnerName = (item) => ({ ...item, owner: memberName(item.ownerId) });
+
+function getWorkflows() {
+  return cached("workflows").map(withOwnerName);
+}
+function getSequences() {
+  return cached("sequences").map(withOwnerName);
+}
+async function saveAutomation(kind, id, form) {
+  const { owner, ...fields } = form;
+  const payload = "owner" in form ? { ...fields, ownerId: agentIdByName(owner) } : fields;
+  const item = await crmApi(id ? `/${kind}/${id}` : `/${kind}`, jsonRequest(id ? "PATCH" : "POST", payload));
+  return withOwnerName(cacheUpsert(kind, item));
+}
+async function removeAutomation(kind, id) {
+  await crmApi(`/${kind}/${id}`, { method: "DELETE" });
+  cacheDrop(kind, id);
+}
+// One key per click: if the request is retried, the server answers once and runs once.
+function newIdempotencyKey() {
+  return window.crypto?.randomUUID ? crypto.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+// Run Now: the server creates the workflow's tasks. Returns { workflow, tasks, simulated }.
+async function runWorkflowNow(id) {
+  const result = await crmApi(`/workflows/${id}/run`, { method: "POST", headers: { "Idempotency-Key": newIdempotencyKey() } });
+  cacheUpsert("workflows", result.workflow);
+  return result;
+}
+// Enroll One: the server schedules the first call/task step. Returns { sequence, task, firstTaskDay, simulated }.
+async function enrollInSequence(id) {
+  const result = await crmApi(`/sequences/${id}/enroll`, { method: "POST", headers: { "Idempotency-Key": newIdempotencyKey() } });
+  cacheUpsert("sequences", result.sequence);
+  return result;
 }
 
 // Items use the form's rupee values; the server computes every total.

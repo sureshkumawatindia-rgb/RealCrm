@@ -1,11 +1,10 @@
 /**
  * marketing.js — Marketing module (Campaign Kanban + Table)
- * Persists to localStorage under 'crm_campaigns'.
+ * Campaigns and their notes live on the CRM backend (getCampaigns,
+ * saveCampaign, removeCampaign, getCampaignNotes, addCampaignNote in app.js).
  * Reuses shared helpers from app.js (getAgents, showToast,
  * renderSidebarUser, initSidebarToggle, requireAuth).
  */
-
-const CAMPAIGNS_KEY = "crm_campaigns";
 
 const STATUSES = ["Draft", "Scheduled", "Active", "Paused", "Completed"];
 // Only these statuses are shown as Kanban columns unless a stage button is picked.
@@ -36,42 +35,8 @@ let currentView = "kanban";
 let draggingId = null;
 let activeStage = null;
 
-// ---------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------
-function getCampaigns() {
-  const raw = localStorage.getItem(CAMPAIGNS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-function saveCampaigns(list) {
-  localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(list));
-}
-function addCampaign(campaign) {
-  const list = getCampaigns();
-  campaign.id =
-    "cm_" +
-    Date.now().toString(36) +
-    Math.random().toString(36).slice(2, 6);
-  campaign.createdAt = new Date().toISOString();
-  campaign.notes = [];
-  list.unshift(campaign);
-  saveCampaigns(list);
-  return campaign;
-}
-function updateCampaign(id, patch) {
-  const list = getCampaigns();
-  const idx = list.findIndex((c) => c.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...patch };
-    saveCampaigns(list);
-  }
-  return list[idx];
-}
-function deleteCampaign(id) {
-  saveCampaigns(getCampaigns().filter((c) => c.id !== id));
-}
 function getCampaign(id) {
-  return getCampaigns().find((c) => c.id === id);
+  return getCampaigns().find((c) => String(c.id) === String(id));
 }
 
 // ---------------------------------------------------------------
@@ -270,9 +235,10 @@ function attachDragEvents() {
       const newStatus = col.dataset.status;
       const campaign = getCampaign(draggingId);
       if (!campaign || campaign.status === newStatus) return;
-      updateCampaign(draggingId, { status: newStatus });
-      showToast(`Moved "${campaign.name}" to ${newStatus}`, "success");
-      renderAll();
+      saveCampaign(campaign.id, { status: newStatus })
+        .then(() => showToast(`Moved "${campaign.name}" to ${newStatus}`, "success"))
+        .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the campaign."), "error"))
+        .finally(renderAll);
     });
   });
 }
@@ -502,7 +468,8 @@ function openModal(id) {
       campaign.description || "";
     deleteBtn.style.display = "inline-flex";
     timelineSection.style.display = "block";
-    renderTimeline(campaign);
+    renderTimeline(null);
+    loadTimeline(campaign.id);
   } else {
     document.getElementById("modalTitle").textContent = "New Campaign";
     document.getElementById("editId").value = "";
@@ -518,13 +485,26 @@ function closeModal() {
   document.getElementById("modalOverlay").classList.remove("open");
 }
 
-function renderTimeline(campaign) {
+// Notes load from the server each time a campaign opens (newest first).
+async function loadTimeline(id) {
+  try {
+    const notes = await getCampaignNotes(id);
+    if (document.getElementById("editId").value === String(id)) renderTimeline(notes);
+  } catch (error) {
+    document.getElementById("timelineList").innerHTML =
+      `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, "Couldn't load the activity."))}</div>`;
+  }
+}
+
+// notes: null while loading.
+function renderTimeline(notes) {
   const el = document.getElementById("timelineList");
-  const notes = campaign.notes || [];
+  if (!notes) {
+    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">Loading activity…</div>`;
+    return;
+  }
   el.innerHTML = notes.length
     ? notes
-        .slice()
-        .reverse()
         .map(
           (n) => `
 <div class="timeline-item">
@@ -539,32 +519,31 @@ function renderTimeline(campaign) {
     : `<div class="text-muted" style="font-size:12.5px">No activity yet.</div>`;
 }
 
-function addNoteToCampaign() {
+async function addNoteToCampaign() {
   const id = document.getElementById("editId").value;
   if (!id) return;
   const input = document.getElementById("noteInput");
   const text = input.value.trim();
   if (!text) return;
-  const campaign = getCampaign(id);
-  const notes = campaign.notes || [];
-  notes.push({
-    text,
-    at: new Date().toISOString(),
-    author: getCurrentUser()?.name || "You",
-  });
-  const updated = updateCampaign(id, { notes });
+  try {
+    await addCampaignNote(id, text);
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+    return;
+  }
   input.value = "";
-  renderTimeline(updated);
   showToast("Note added", "success");
+  await loadTimeline(id);
 }
 
 function confirmDelete(id) {
   const campaign = getCampaign(id);
   if (!campaign) return;
   if (confirm(`Delete "${campaign.name}"? This can't be undone.`)) {
-    deleteCampaign(id);
-    showToast("Campaign deleted", "success");
-    renderAll();
+    removeCampaign(id)
+      .then(() => showToast("Campaign deleted", "success"))
+      .catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the campaign."), "error"))
+      .finally(renderAll);
   }
 }
 
@@ -591,7 +570,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebarUser();
   initSidebarToggle();
 
-  crmReady(["members"], renderAll);
+  crmReady(["campaigns", "members"], renderAll);
   initStageFilterButtons(); // NEW: wire up the DRAFT/SCHEDULED/... pills
 
   // Search & filters
@@ -695,7 +674,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Save (create / update)
   document
     .getElementById("campaignForm")
-    .addEventListener("submit", (e) => {
+    .addEventListener("submit", async (e) => {
       e.preventDefault();
       const id = document.getElementById("editId").value;
       const payload = {
@@ -720,12 +699,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (id) {
-        updateCampaign(id, payload);
-        showToast("Campaign updated", "success");
-      } else {
-        addCampaign(payload);
-        showToast("Campaign created", "success");
+      try {
+        await saveCampaign(id || null, payload);
+        showToast(id ? "Campaign updated" : "Campaign created", "success");
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't save the campaign."), "error");
+        return;
       }
       closeModal();
       renderAll();

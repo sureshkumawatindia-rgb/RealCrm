@@ -76,8 +76,7 @@ function readEvents() {
   return getEvents();
 }
 function readCampaigns() {
-  const raw = localStorage.getItem("crm_campaigns");
-  return raw ? JSON.parse(raw) : [];
+  return getCampaigns();
 }
 
 // ---------------------------------------------------------------
@@ -491,5 +490,5 @@ function renderDashboard() {
   renderTeamWorkload();
 }
 
-crmReady(["leads", "contacts", "products", "members", "tasks", "events"], renderDashboard);
+crmReady(["leads", "contacts", "products", "members", "tasks", "events", "campaigns"], renderDashboard);
 initQuickActions();
