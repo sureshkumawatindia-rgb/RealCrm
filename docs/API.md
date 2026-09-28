@@ -239,6 +239,28 @@ Each number has its own URL `/api/v1/webhooks/whatsapp/<webhookKey>` (not rate l
 | `GET` | Handshake: `?hub.mode=subscribe&hub.verify_token=<verify token>&hub.challenge=<n>` → 200 with the challenge, else 403. |
 | `POST` | Messages and statuses. `X-Hub-Signature-256` must be `sha256=` + HMAC-SHA256 of the raw body with the app secret (else 401). Each message and status is stored as an `InboundEvent` (Meta's retries are ignored), the answer is 200, then: the contact is found by phone or created (source WhatsApp; a new number also gets a WhatsApp lead), the conversation is opened, the message stored, the 24-hour window moved; statuses move sent → delivered → read (never back; failed keeps Meta's error). Events that could not be processed are retried at start-up and every 5 minutes. |
 
+### Inbox (module `inbox`)
+
+Who sees which chat (D24): owners, admins and members with `inbox:view_all` see every chat; other inbox members see chats assigned to them and chats nobody has taken yet. Chats outside that are 404.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/conversations?view=mine\|unassigned\|all&status=open\|pending\|closed\|any&accountId=&q=&page=&limit=` | Newest first. Default status: open and pending. `q` searches the contact's name, company and number. Each item: `{ id, contact { id, name, phone, company }, account { id, name, displayPhone, verifiedName }, assigneeId, status, unreadCount, lastMessageAt, lastMessagePreview, lastMessageDirection, lastInboundAt, window { open, expiresAt }, tags }`. |
+| `GET` | `/conversations/summary` | `{ mine, unassigned, all, unread }` for the inbox tabs (open and pending chats). |
+| `GET` | `/conversations/:id` | One chat. |
+| `PATCH` | `/conversations/:id` | `{ status?, assigneeId? (null = back to the queue), tags? }`. The assignee must be an active member who can open the inbox (400 `ASSIGNEE_NO_INBOX`). |
+| `POST` | `/conversations/:id/read` | Sets `unreadCount` to 0. |
+| `GET` | `/conversations/:id/messages?limit=&before=<message id>` | The newest page (default 50, max 100), oldest → newest inside the page; `hasMore` and `nextBefore` for older ones. |
+| `POST` | `/conversations/:id/messages` | `{ text, replyToMessageId? }` (`Idempotency-Key` recommended). Only within 24 hours of the customer's last message (else 422 `WINDOW_CLOSED`; templates come in 3D). The message is saved, then sent through the Cloud API: returns 201 with `status: "sent"`, or `status: "failed"` and WhatsApp's `error`. The first reply assigns an unassigned chat to the sender; a reply reopens a closed chat. |
+| `GET/POST` | `/conversations/:id/notes` | Internal notes `{ text }` (never sent to the customer). |
+| `GET` | `/quick-replies` | Saved answers of the organization. |
+| `POST` | `/quick-replies` | `{ shortcut (a-z, 0-9, - or _, up to 30), title?, body }`; a shortcut in use is 409 `DUPLICATE_SHORTCUT`. |
+| `PATCH/DELETE` | `/quick-replies/:id` | Deleting needs `inbox:delete` for agents. |
+
+### Live updates (Socket.IO)
+
+Same address as the API (path `/socket.io`; the browser client is served at `/socket.io/socket.io.min.js`). Connect with `auth: { token: <access token> }`; members without the inbox get `FORBIDDEN`, bad tokens `UNAUTHORIZED`. Events (server → browser), only for chats the member may see: `conversation:updated` (a conversation), `message:new` (`{ conversation, message }`), `message:status` (a message), `note:new` (`{ conversationId, note }`). When a member's role, pages or status change (or they are removed) their connections are dropped; the browser reconnects with its current token and gets the new access.
+
 ### Development only (404 when `NODE_ENV=production`)
 
 | Method | Route | Purpose |

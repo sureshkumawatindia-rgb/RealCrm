@@ -74,7 +74,10 @@ The file bytes are not in MongoDB: `src/storage` keeps them on local disk (`DOCU
 | `whatsappaccounts` | `name`, `provider` (meta/mock), `phoneNumberId`, `activePhoneNumberId` (set while connected), `wabaId`, `displayPhone`, `verifiedName`, `qualityRating`, `accessTokenEnc`, `accessTokenLast4`, `appSecretEnc`, `verifyTokenEnc` (all encrypted with secretBox), `webhookKey`, `status`, `statusMessage`, `lastWebhookAt`, `isDefault`, `deletedAt` | unique sparse `activePhoneNumberId` (a number belongs to one organization); unique `webhookKey`; `(organizationId, deletedAt, isDefault)` |
 | `conversations` | `contactId`, `whatsappAccountId`, `assigneeId`, `status` (open/pending/closed), `lastInboundAt` (24-hour window), `lastMessageAt`, `lastMessagePreview`, `lastMessageDirection`, `unreadCount`, `tags[]` | unique `(organizationId, contactId, whatsappAccountId)`; `(organizationId, assigneeId, status, lastMessageAt -1)`; `(organizationId, status, lastMessageAt -1)` |
 | `messages` | `conversationId`, `contactId`, `whatsappAccountId`, `direction` (in/out), `type`, `text`, `media` { providerMediaId, mimeType, sha256, fileName, sizeBytes, storageKey, voice }, `location`, `reply` (button/list), `reaction`, `template`, `replyToProviderMessageId`, `providerMessageId` (wamid), `status` (received/queued/sent/delivered/read/failed) + `sentAt/deliveredAt/readAt/failedAt`, `error`, `pricing`, `providerTimestamp`, `sentByMemberId` | unique sparse `providerMessageId` (global); `(organizationId, conversationId, createdAt -1)` |
+| `quickreplies` | `shortcut` (lowercase), `title`, `body`, `createdByMemberId` | unique `(organizationId, shortcut)` |
 | `inboundevents` | `provider`, `eventId` (`message:<wamid>` / `status:<wamid>:<status>`), `kind`, `organizationId`, `sourceId` (the WhatsApp account), `payload`, `status` (received/processed/ignored/failed), `attempts`, `error`, `processedAt` | unique `(provider, eventId)`; `(status, createdAt)`; TTL 60 days |
+
+Internal notes on chats are `notes` with `parentType: "conversation"`.
 
 Counters used: `quotation:<financial year>`, `ticket`.
 

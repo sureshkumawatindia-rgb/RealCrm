@@ -4,7 +4,7 @@ Turning YELLOW CRM into a WhatsApp-first CRM for Indian SMBs (IndiaMART sellers,
 
 - Brief: [BIZNUMA_CRM_MASTER_PROMPT.md](BIZNUMA_CRM_MASTER_PROMPT.md)
 - Canonical backend spec: [../BACKEND-AUDIT-SPEC.md](../BACKEND-AUDIT-SPEC.md) (this roadmap extends it; where they differ, the decision log in section 9 wins and the spec gets updated in the phase that implements it)
-- Status: **Phase 3 in progress** on branch `feature/phase-3-whatsapp` (built on the Phase 2 branch; nothing merged to main or pushed yet). Checkpoint 3A (numbers + incoming messages) done on 2026-09-28; resume at 3B (conversations API, sending, realtime). Phase 2 done on 2026-09-28. Phase 1 still waits for one check with a real Google account. Phase 1 still waits for one check with a real Google account.
+- Status: **Phase 3 in progress** on branch `feature/phase-3-whatsapp` (built on the Phase 2 branch; nothing merged to main or pushed yet). Checkpoints 3A (numbers + incoming messages) and 3B (inbox API, sending, notes, quick replies, realtime) done on 2026-09-28; resume at 3C (Inbox page). Phase 2 done on 2026-09-28. Phase 1 still waits for one check with a real Google account. Phase 1 still waits for one check with a real Google account.
 
 ---
 
@@ -46,11 +46,11 @@ Checkpoints: **A sales core (done)** → **B tasks + calendar (done)** → **C t
 - [x] (G) Records deleted on the server never come back through the importer; `GET /exports/crm` and "Download CRM Data" replace the old browser export as the backup
 
 ### Phase 3 — WhatsApp Cloud API and shared team inbox
-Checkpoints: **3A numbers + incoming messages (done)** → 3B conversations API, sending (24h rule), notes, quick replies, realtime → 3C Inbox page → 3D templates, media, Customer 360 chat, click-to-chat → 3E acceptance.
-- [ ] WhatsAppAccount, Conversation, Message, InternalNote, QuickReply, MessageTemplate — (3A) WhatsAppAccount, Conversation, Message, InboundEvent
+Checkpoints: **3A numbers + incoming messages (done)** → **3B conversations API, sending (24h rule), notes, quick replies, realtime (done)** → 3C Inbox page → 3D templates, media, Customer 360 chat, click-to-chat → 3E acceptance.
+- [ ] WhatsAppAccount, Conversation, Message, InternalNote, QuickReply, MessageTemplate — (3A) WhatsAppAccount, Conversation, Message, InboundEvent; (3B) QuickReply, internal notes as `notes` (parentType conversation)
 - [x] (3A) Settings → WhatsApp (manual IDs + token); webhook GET/POST with signature check — one URL per number (`/api/v1/webhooks/whatsapp/<key>`, D22)
-- [ ] Inbound: contact upsert → conversation → message → socket; new contact → lead (source WhatsApp); media to storage — (3A) all but socket (3B) and media download (3D)
-- [ ] Outbound: text/media inside 24h, templates outside; status webhooks update ticks
+- [ ] Inbound: contact upsert → conversation → message → socket; new contact → lead (source WhatsApp); media to storage — (3A/3B) all but media download (3D)
+- [ ] Outbound: text/media inside 24h, templates outside; status webhooks update ticks — (3B) text inside 24h, ticks, idempotent sends; media and templates in 3D
 - [ ] Templates: sync, create/submit, status
 - [ ] Inbox.html + js/inbox.js + css/inbox.css (list, thread, contact panel, notifications, responsive), sidebar item after Dashboard
 - [ ] Customer 360 chat timeline; click-to-chat link + QR; dev-only inbound simulator — (3A) simulator done
@@ -459,6 +459,7 @@ Re-check each page again right before writing that integration (rule from the br
 | D18 | Production hosting | Decide before Phase 3 goes live: a small VPS with PM2 + Nginx + Let's Encrypt, or a platform like Render/Railway. Local development uses a tunnel (section 11). | Before Phase 3 |
 | D22 | WhatsApp webhook URL | One callback URL per connected number (`/api/v1/webhooks/whatsapp/<random key>`) with its own verify token and app secret, instead of one shared URL: each company can use its own Meta app, and the signature is checked before the payload is read. | Decided in Phase 3A (engineering) |
 | D23 | Background jobs in Phase 3 | Webhook items are stored first and processed in-process with a retry loop; Agenda (D10) is added when polling and broadcasts need scheduled jobs (Phase 4). | Decided in Phase 3A (engineering) |
+| D24 | Which chats an agent sees | Chats assigned to them **and** chats nobody has taken yet (a shared queue); `inbox:view_all` sees all. The first reply assigns an unassigned chat to the sender. | Decided 2026-09-28 (recommended option a) |
 | D19 | Atlas tier | Free tier is fine for development; production messaging volume needs a paid tier (storage and ops limits). | Before launch |
 
 The remaining items in `docs/DECISIONS_REQUIRED.md` are answered by D1–D17 (Account → D3, pricing/tax → D1/D2, inventory → D7, org fields → D14, email uniqueness → phone is the unique key per D3, pipeline → D4/D13, quotation lifecycle → D6, ticket SLA → basic CRUD for now, document storage → local now / S3-R2 later, permissions → D17, duplicates → phone + source ref, simulated features → real in Phase 6, AI → Phase 10 add-on). Phase 1 updates that file.
@@ -539,6 +540,7 @@ Rough engineering days (AI-assisted), plus the number of working sessions. Exter
 
 ## 14. Changelog
 
+- **2026-09-28 — Phase 3, checkpoint B (inbox API).** Conversations with mine / unassigned / all views, search, tab counts, assign (inbox members only), status, tags, read; messages page by page. Text replies only inside the 24-hour window, saved first then sent (mock or Cloud API), failures keep WhatsApp's reason, Idempotency-Key, first reply takes the chat. Internal notes, shared quick replies. Socket.IO on the same server with token auth and per-member rooms (D24); access changes drop live connections. 201 tests.
 - **2026-09-28 — Phase 3, checkpoint A (WhatsApp numbers + incoming messages).** Settings → WhatsApp connects Cloud API numbers (secrets encrypted, token shown as last 4 characters, checked with Meta, Graph API v26.0 configurable); each number has its own webhook URL and verify token. The public webhook checks `X-Hub-Signature-256` on the raw body, stores every message/status as an `InboundEvent` (retries harmless), answers 200 and then creates contact → WhatsApp lead (new numbers) → conversation → message; statuses only move forward; unprocessed items are retried. Test numbers and an inbound simulator for development. New `inbox` module. Setup guide: WHATSAPP_SETUP.md. 189 tests.
 - **2026-09-28 — Phase 2, checkpoint G (final acceptance) — Phase 2 done.** Acceptance tests: an admin and an agent with "See all records" see exactly the owner's records in every module; another organization sees none, even by id (reads, notes, downloads, runs, edits, deletes). A storage test keeps `crm_*` business keys out of the pages. `GET /exports/crm` + Settings "Download CRM Data" (owners/admins) as the server backup; the browser export/import is relabelled as old browser data. The importer no longer brings back deleted products, contacts or leads. Every page opened with a full imported data set: no script errors; an admin saw the same record ids as the owner. 179 tests.
 - **2026-09-28 — Phase 2, checkpoint F (Account Champions on the team API).** The Champions page shows the real team (members and pending invites) and its wizard invites teammates or changes their access through `/invites` and `/members`: View alone → viewer, Create/Edit → agent, Delete and a new "See all records" option → per-page `delete` / `view_all` grants. Invites carry name, mobile and title into the membership. The importer turns `crm_agents` into pending invites (never admins; people without an email reported; existing, disabled and removed members left alone); the import report now shows why records were skipped. 137 tests.
