@@ -84,6 +84,7 @@ function serializeMessage(message) {
     failedAt: message.failedAt || null,
     error: message.error?.message || message.error?.title ? message.error : null,
     sentByMemberId: message.sentByMemberId || null,
+    automation: message.automation?.kind ? { kind: message.automation.kind, ruleId: message.automation.ruleId || null } : null,
     at: message.providerTimestamp || message.createdAt,
     createdAt: message.createdAt,
   };
@@ -243,13 +244,18 @@ async function replyTarget(conversation, replyToMessageId) {
 }
 const quoting = (providerMessageId) => (providerMessageId ? { context: { message_id: providerMessageId } } : {});
 
+// Who sends: a member (their first reply takes an unassigned chat), or the CRM itself
+// (auto-replies: no sender, never takes the chat).
+const asMember = (req) => ({ memberId: req.member._id, takesChat: true });
+const AS_SYSTEM = Object.freeze({ memberId: null, takesChat: false });
+
 // The message is saved first (queued), then handed to WhatsApp: accepted → sent, refused →
 // failed with WhatsApp's reason (the message stays in the chat either way). buildBody(message)
 // returns the Cloud API message object (it may upload a file first).
-async function deliver(req, { conversation, account, contact }, fields, buildBody) {
+async function deliver(sender, { conversation, account, contact }, fields, buildBody) {
   const message = await Message.create({
     organizationId: conversation.organizationId, conversationId: conversation._id, contactId: contact._id,
-    whatsappAccountId: account._id, direction: 'out', status: 'queued', sentByMemberId: req.member._id, ...fields,
+    whatsappAccountId: account._id, direction: 'out', status: 'queued', ...(sender.memberId && { sentByMemberId: sender.memberId }), ...fields,
   });
   try {
     const body = await buildBody(message);
@@ -267,11 +273,12 @@ async function deliver(req, { conversation, account, contact }, fields, buildBod
 
   // The first reply takes an unassigned chat; a reply reopens a closed one.
   const set = { lastMessageAt: message.createdAt, lastMessagePreview: previewOf(fields), lastMessageDirection: 'out', status: 'open' };
-  if (!conversation.assigneeId) set.assigneeId = req.member._id;
+  const takes = sender.takesChat && !conversation.assigneeId;
+  if (takes) set.assigneeId = sender.memberId;
   const updated = await Conversation.findOneAndUpdate({ _id: conversation._id }, { $set: set }, { returnDocument: 'after' });
   bus.emit('message:new', { organizationId: conversation.organizationId, conversation: updated, message });
-  if (!conversation.assigneeId) {
-    await claimCustomer(updated, req.member._id);
+  if (takes) {
+    await claimCustomer(updated, sender.memberId);
     announce('conversation:updated', updated, { previousAssigneeId: null });
   }
   return serializeMessage(message);
@@ -280,7 +287,7 @@ async function deliver(req, { conversation, account, contact }, fields, buildBod
 async function sendText(req, id, { text, replyToMessageId }) {
   const context = await sendContext(req, id, { needsWindow: true });
   const replyTo = await replyTarget(context.conversation, replyToMessageId);
-  return deliver(req, context, { type: 'text', text, replyToProviderMessageId: replyTo || undefined }, async () => ({
+  return deliver(asMember(req), context, { type: 'text', text, replyToProviderMessageId: replyTo || undefined }, async () => ({
     type: 'text',
     text: { body: text, preview_url: /https?:\/\//i.test(text) },
     ...quoting(replyTo),
@@ -295,7 +302,7 @@ async function sendTemplate(req, id, { templateId, variables }) {
     throw httpError(400, 'VALIDATION_ERROR', 'This template belongs to another WhatsApp number.', [{ field: 'templateId', code: 'OTHER_NUMBER', message: 'Pick a template of this chat\'s number.' }]);
   }
   const { payload, text, values } = templateService.buildSend(template, variables);
-  return deliver(req, context, { type: 'template', text, template: { name: template.name, language: template.language, variables: values } }, async () => ({
+  return deliver(asMember(req), context, { type: 'template', text, template: { name: template.name, language: template.language, variables: values } }, async () => ({
     type: 'template',
     template: payload,
   }));
@@ -316,7 +323,7 @@ async function sendMedia(req, id, { caption = '', replyToMessageId }, file) {
     media: { mimeType: info.mimeType, fileName: info.fileName, sizeBytes: file.buffer.length, storageKey, sha256: mediaService.sha256Hex(file.buffer) },
     replyToProviderMessageId: replyTo || undefined,
   };
-  return deliver(req, context, fields, async (message) => {
+  return deliver(asMember(req), context, fields, async (message) => {
     const { mediaId } = await providerFor(context.account).uploadMedia(credentials(context.account), { buffer: file.buffer, mimeType: info.mimeType, fileName: info.fileName });
     message.media.providerMediaId = mediaId;
     return {
@@ -325,6 +332,35 @@ async function sendMedia(req, id, { caption = '', replyToMessageId }, file) {
       ...quoting(replyTo),
     };
   });
+}
+
+// The chat of a contact on a number, opened if needed (auto-replies). A new chat goes to
+// assigneeId (the lead's owner); an existing unassigned one is given to them too.
+async function ensureConversation({ organizationId, contactId, accountId, assigneeId = null }) {
+  let conversation = await Conversation.findOneAndUpdate(
+    { organizationId, contactId, whatsappAccountId: accountId },
+    { $setOnInsert: { status: 'open', assigneeId } },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+  );
+  if (assigneeId && !conversation.assigneeId) {
+    conversation = await Conversation.findOneAndUpdate({ _id: conversation._id, assigneeId: null }, { $set: { assigneeId } }, { returnDocument: 'after' }) || conversation;
+    announce('conversation:updated', conversation, { previousAssigneeId: null });
+  }
+  return conversation;
+}
+
+// A template sent by the CRM itself (auto-reply rules). automation: { kind, ruleId }.
+async function sendTemplateAutomatically({ conversation, template, variables, automation }) {
+  const [account, contact] = await Promise.all([
+    WhatsAppAccount.findOne({ _id: conversation.whatsappAccountId, organizationId: conversation.organizationId }),
+    Contact.findOne({ _id: conversation.contactId, organizationId: conversation.organizationId }),
+  ]);
+  if (!account) throw httpError(409, 'NUMBER_REMOVED', 'The WhatsApp number was removed from Settings.');
+  if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  const { payload, text, values } = templateService.buildSend(template, variables);
+  return deliver(AS_SYSTEM, { conversation, account, contact }, {
+    type: 'template', text, template: { name: template.name, language: template.language, variables: values }, automation,
+  }, async () => ({ type: 'template', template: payload }));
 }
 
 // The file of a message in a chat the member can see.
@@ -379,5 +415,6 @@ async function addNote(req, id, body) {
 
 module.exports = {
   list, summary, get, update, markRead, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
+  ensureConversation, sendTemplateAutomatically, announce,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };

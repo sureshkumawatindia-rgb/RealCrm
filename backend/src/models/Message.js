@@ -61,6 +61,11 @@ const messageSchema = new mongoose.Schema(
     // When WhatsApp says the message was sent (inbound) — may be earlier than createdAt.
     providerTimestamp: { type: Date },
     sentByMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
+    // Sent by the CRM itself (e.g. an auto-reply rule), not by a person.
+    automation: {
+      kind: { type: String },
+      ruleId: { type: mongoose.Schema.Types.ObjectId },
+    },
   },
   { timestamps: true },
 );

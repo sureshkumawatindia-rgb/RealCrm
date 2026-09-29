@@ -151,7 +151,10 @@ async function intake({ organizationId, source, sourceRef, connectionId, person 
 
     await LeadIntake.updateOne({ _id: record._id }, { $set: { outcome, reason: '', contactId: contact._id, leadId: lead._id, processedAt: now } });
     await countOutcome(connectionId, outcome);
-    bus.emit('lead:intake', { organizationId, source, connectionId: connectionId || null, leadId: lead._id, contactId: contact._id, outcome, contactCreated });
+    bus.emit('lead:intake', {
+      organizationId, source, sourceRef: ref, connectionId: connectionId || null, leadId: lead._id, contactId: contact._id, outcome, contactCreated,
+      receivedAt: record.receivedAt,
+    });
     return { outcome, leadId: lead._id, contactId: contact._id, contactCreated };
   } catch (error) {
     logger.error(`Lead intake ${source}/${ref} failed: ${error.message}`);

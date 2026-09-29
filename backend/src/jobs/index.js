@@ -2,10 +2,12 @@ const queue = require('./queue');
 const logger = require('../config/logger');
 const indiamart = require('../services/indiamartService');
 const leadWebhooks = require('../services/leadWebhookService');
+const leadRouting = require('../services/leadRoutingService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
-const definitions = [indiamart.register, leadWebhooks.register];
+// leadRouting also starts assigning and auto-replying to every new enquiry.
+const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach];
 
 function start(config) {
   definitions.forEach((register) => register(queue));

@@ -167,8 +167,10 @@ async function createLead(contact, phoneE164) {
       organizationId: contact.organizationId, leadId: lead._id, contactId: contact._id,
       type: 'Lead created', text: 'First message on WhatsApp', actorName: 'WhatsApp',
     });
+    return lead;
   } catch (error) {
     if (error.code !== 11000) throw error;
+    return null;
   }
 }
 
@@ -180,7 +182,7 @@ async function handleMessage(account, { message, contact: profile }) {
   const name = str(profile?.profile?.name, 200).trim() || phoneE164;
 
   const { contact, created } = await findOrCreateContact(organizationId, phoneE164, name);
-  if (created) await createLead(contact, phoneE164);
+  const newLead = created ? await createLead(contact, phoneE164) : null;
 
   let conversation = await Conversation.findOneAndUpdate(
     { organizationId, contactId: contact._id, whatsappAccountId: account._id },
@@ -216,6 +218,13 @@ async function handleMessage(account, { message, contact: profile }) {
   }
 
   bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created });
+  // A new WhatsApp lead goes through the assignment and auto-reply rules like any other source
+  // (after its chat exists, so the chat is assigned together with the lead).
+  if (newLead) {
+    bus.emit('lead:intake', {
+      organizationId, source: 'WhatsApp', sourceRef: newLead.sourceRef, leadId: newLead._id, contactId: contact._id, outcome: 'created', contactCreated: true, receivedAt: at,
+    });
+  }
   // Photos, voice notes and documents: copy the file now (WhatsApp keeps it only 7 days).
   if (stored.media?.providerMediaId) await media.storeInboundQuietly(stored);
   return 'processed';
