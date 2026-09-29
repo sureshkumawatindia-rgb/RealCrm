@@ -80,6 +80,16 @@ The file bytes are not in MongoDB: `src/storage` keeps them on local disk (`DOCU
 
 Internal notes on chats are `notes` with `parentType: "conversation"`. Files of messages (received and sent) are in the private document storage; `messages.media.storageKey` points to them (`sha256` is the stored file's hash). A received message keeps `media.providerMediaId` until its file is stored.
 
+## 1h. Implemented (Phase 4, lead sources)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `jobs` | `name`, `data`, `organizationId`, `uniqueKey`, `liveKey` (set while queued/running), `runAt`, `repeatEveryMs`, `status` (queued/running/done/failed), `attempts`, `maxAttempts`, `lockedBy`, `lockUntil`, `lastRunAt`, `lastError`, `finishedAt` | `(status, runAt)`; unique sparse `liveKey`; `(organizationId, name, createdAt -1)`; TTL on `finishedAt` (7 days) |
+| `leadsourceconnections` | `type` (website/indiamart/facebook/googleads/justdial/tradeindia), `name`, `status`, `statusMessage`, `publicKey` (website forms), `webhookKey` (push URLs), `credentialsEnc` (secretBox), `credentialsHint`, `settings`, `cursor`, `lastPolledAt`, `lastLeadAt`, `lastError`, `lastErrorAt`, `stats` { received, created, attached, duplicate, rejected }, `deletedAt` | unique sparse `publicKey`; unique sparse `webhookKey`; `(organizationId, deletedAt, type)` |
+| `leadintakes` | `source`, `sourceRef`, `connectionId`, `contactId`, `leadId`, `outcome` (processing/created/attached/rejected/failed), `reason`, `summary`, `raw` (≤ 20 KB), `receivedAt`, `processedAt` | unique `(organizationId, source, sourceRef)` (dedupe); `(organizationId, connectionId, createdAt -1)` |
+
+Leads from a source have `source` and `sourceRef` (unique per source); a repeat enquiry added to an open lead is a `leadactivities` entry of type "Enquiry".
+
 Counters used: `quotation:<financial year>`, `ticket`.
 
 ## 2. Data migrations

@@ -281,7 +281,33 @@ Same address as the API (path `/socket.io`; the browser client is served at `/so
 
 | Method | Route | Purpose |
 | --- | --- | --- |
+| `POST` | `/dev/simulate/lead` | Owners/admins. `{ source? (default IndiaMART), sourceRef?, name, phone, email?, company?, city?, state?, product?, quantity?, message? }` → the same intake as a real lead; returns `{ outcome, leadId, contactId, contactCreated }` (400 `LEAD_REJECTED` without a valid mobile number or email). |
 | `POST` | `/dev/simulate/whatsapp-inbound` | Owners/admins. `{ from, name?, type? (text/image/document/audio), text, accountId? }` → processes a made-up incoming message exactly like a webhook (photos, documents and voice notes only on test numbers, with a sample file; `text` is then the caption); returns `{ conversationId, messageId, contactId }`. |
+
+## Lead sources (Phase 4)
+
+### Connections (Settings → Lead sources, owners and admins)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/lead-sources` | `{ id, type (website; more in 4B/4C), source, name, status (active/paused/error), statusMessage, settings, stats { received, created, attached, duplicate, rejected }, lastLeadAt, lastError, credentials { configured, hint }, form? { publicKey, submitUrl, embedUrl } }` |
+| `POST` | `/lead-sources` | `{ type: "website", name?, settings? { title, buttonText, successMessage, redirectUrl, allowedOrigins[] (https://site, no path), askFor { email, company, city, product, message } } }` |
+| `PATCH` | `/lead-sources/:id` | `{ name?, status? (active/paused), settings? }` (settings are merged). |
+| `DELETE` | `/lead-sources/:id` | Soft delete; a website form stops working at once. |
+| `GET` | `/lead-sources/:id/intakes?limit=` | The latest enquiries: `{ source, sourceRef, outcome (created/attached/rejected/failed/processing), reason, summary, leadId, contactId, receivedAt, raw }`. |
+
+### Website enquiry form (public, no sign-in)
+
+Callable from any website (CORS without cookies); a form with `allowedOrigins` refuses other sites (403 `ORIGIN_NOT_ALLOWED`). Own rate limit per address (`RATE_LIMIT_FORM_PER_MINUTE`, default 10).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/public/forms/:publicKey/embed.js` | The script that draws the form into `<div data-yellow-crm-form="<publicKey>">` (or after the script tag). |
+| `POST` | `/public/forms/:publicKey` | `{ name, phone, email?, company?, city?, product?, quantity?, message?, submissionId? }` as JSON → 201 `{ accepted, message }`; as a plain HTML form → a thank-you page or a 303 to `redirectUrl`. Needs a valid mobile number or an email. `submissionId` makes a double click count once. The hidden `website_url` field is a honeypot (filled in → accepted but dropped). Paused forms: 403 `FORM_PAUSED`. |
+
+### How enquiries become leads
+
+Every source goes through the same intake: the same enquiry (organization + source + the source's own id) is taken once; the contact is found by mobile number (+91 by default), else email, and its blank details are filled in; if the contact has an open lead the enquiry is added to it as an "Enquiry" activity and its follow-up moves to now (D26); otherwise a New lead is created with `source`, `sourceRef`, title (the product asked for), `productId` when a product of that name exists, and quantity. Each enquiry is kept in the intake log with its raw payload (up to 20 KB).
 
 ## Idempotency
 
