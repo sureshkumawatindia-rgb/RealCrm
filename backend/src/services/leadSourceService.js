@@ -8,6 +8,8 @@ const { CONNECTION_TYPES } = require('../constants/leadSources');
 const { encrypt } = require('../utils/secretBox');
 const indiamart = require('./indiamartService');
 const { DEFAULT_QUERY_TYPES } = require('../integrations/leadSources/indiamart');
+const facebook = require('../integrations/leadSources/facebook');
+const leadWebhooks = require('./leadWebhookService');
 
 // Settings → Lead sources: the organization's connections (owners and admins).
 const WEBSITE_DEFAULTS = Object.freeze({
@@ -45,6 +47,12 @@ function serializeConnection(connection) {
     base.settings = { queryTypes: indiamart.queryTypesOf(connection) };
     base.lastPulledUntil = connection.cursor?.lastEndTime || null;
   }
+  // Values to paste into Meta's app / the Google Ads form (owners and admins only see this).
+  if (connection.type === 'facebook') {
+    base.settings = { pageId: connection.settings?.pageId || '', pageName: connection.settings?.pageName || '' };
+    base.verifyToken = leadWebhooks.secretsOf(connection).verifyToken || '';
+  }
+  if (connection.type === 'googleads') base.googleKey = leadWebhooks.secretsOf(connection).googleKey || '';
   if (connection.type === 'website') {
     const formPath = `/api/v1/public/forms/${connection.publicKey}`;
     base.form = { publicKey: connection.publicKey, submitUrl: `${env.publicUrl}${formPath}`, embedUrl: `${env.publicUrl}${formPath}/embed.js` };
@@ -63,22 +71,41 @@ async function list(req) {
   return connections.map(serializeConnection);
 }
 
-// A pasted key is kept encrypted; only its last 4 characters are ever shown again.
-function setApiKey(connection, apiKey) {
-  connection.credentialsEnc = encrypt(JSON.stringify({ apiKey }));
-  connection.credentialsHint = apiKey.slice(-4);
+// Keys, tokens and secrets are kept encrypted together; only a hint (last 4) is shown again,
+// except values the organization must paste elsewhere (Meta's verify token, the Google key).
+function setSecrets(connection, secrets, hint) {
+  const current = leadWebhooks.secretsOf(connection);
+  connection.credentialsEnc = encrypt(JSON.stringify({ ...current, ...secrets }));
+  if (hint !== undefined) connection.credentialsHint = String(hint).slice(-4);
+}
+const randomKey = (bytes) => crypto.randomBytes(bytes).toString('base64url');
+
+// Checks a Page token with Facebook and subscribes the Page to lead notifications.
+async function connectFacebookPage(pageId, pageAccessToken) {
+  const page = await facebook.getPage({ pageId, accessToken: pageAccessToken });
+  await facebook.subscribePage({ pageId, accessToken: pageAccessToken });
+  return page;
 }
 
 async function create(req, body) {
+  const pushed = ['indiamart', 'facebook', 'googleads', 'justdial', 'tradeindia'].includes(body.type);
   const connection = new LeadSourceConnection({
     organizationId: req.tenant.organizationId,
     type: body.type,
     name: body.name || `${CONNECTION_TYPES[body.type]} ${body.type === 'website' ? 'form' : ''}`.trim(),
     ...(body.type === 'website' && { publicKey: crypto.randomBytes(12).toString('hex'), settings: websiteSettings(body.settings) }),
-    ...(body.type === 'indiamart' && { webhookKey: crypto.randomBytes(16).toString('hex'), settings: { queryTypes: body.settings?.queryTypes || [...DEFAULT_QUERY_TYPES] } }),
+    ...(pushed && { webhookKey: crypto.randomBytes(16).toString('hex') }),
+    ...(body.type === 'indiamart' && { settings: { queryTypes: body.settings?.queryTypes || [...DEFAULT_QUERY_TYPES] } }),
     createdById: req.user._id,
   });
-  if (body.apiKey) setApiKey(connection, body.apiKey);
+  if (body.apiKey) setSecrets(connection, { apiKey: body.apiKey }, body.apiKey);
+  if (body.type === 'facebook') {
+    const page = await connectFacebookPage(body.pageId, body.pageAccessToken);
+    connection.settings = { pageId: body.pageId, pageName: page.name, formNames: {} };
+    if (!body.name) connection.name = page.name ? `Facebook – ${page.name}` : 'Facebook Lead Ads';
+    setSecrets(connection, { pageAccessToken: body.pageAccessToken, appSecret: body.appSecret, verifyToken: randomKey(24) }, body.pageAccessToken);
+  }
+  if (body.type === 'googleads') setSecrets(connection, { googleKey: randomKey(18) }, '');
   await connection.save();
   await indiamart.schedule(connection);
   await audit(req, { action: 'leadsource.created', entityType: 'LeadSourceConnection', entityId: connection._id, changes: { type: body.type } });
@@ -96,9 +123,14 @@ async function update(req, id, body) {
     connection.settings = connection.type === 'website' ? websiteSettings({ ...connection.settings, ...body.settings }) : { ...connection.settings, ...body.settings };
     connection.markModified('settings');
   }
-  if (body.apiKey) {
-    // A new key gets the source going again after IndiaMART refused the old one.
-    setApiKey(connection, body.apiKey);
+  if (body.pageAccessToken && connection.type === 'facebook') {
+    await connectFacebookPage(connection.settings.pageId, body.pageAccessToken);
+    setSecrets(connection, { pageAccessToken: body.pageAccessToken }, body.pageAccessToken);
+  }
+  if (body.appSecret && connection.type === 'facebook') setSecrets(connection, { appSecret: body.appSecret });
+  if (body.apiKey) setSecrets(connection, { apiKey: body.apiKey }, body.apiKey);
+  if (body.apiKey || body.pageAccessToken) {
+    // A new key or token gets the source going again after it was refused.
     if (connection.status === 'error') connection.status = 'active';
     connection.statusMessage = '';
     connection.lastError = '';

@@ -3,6 +3,8 @@ const express = require('express');
 const accountService = require('../services/whatsappAccountService');
 const inbound = require('../services/whatsappInboundService');
 const indiamart = require('../services/indiamartService');
+const leadWebhooks = require('../services/leadWebhookService');
+const queue = require('../jobs/queue');
 const { webhookLimiter } = require('../middleware/rateLimit');
 
 // Public endpoints that other services call (no sign-in). Mounted before the JSON parser and
@@ -56,6 +58,49 @@ router.post('/leads/indiamart/:webhookKey', async (req, res) => {
   }
   const { status } = await indiamart.handlePush(req.params.webhookKey, payload);
   res.sendStatus(status);
+});
+
+// The body as JSON or form fields, whatever the sender used (JustDial / TradeIndia vary).
+function parseBody(req) {
+  const text = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return Object.fromEntries(new URLSearchParams(text));
+  }
+}
+
+// Facebook Lead Ads: Meta's handshake, then signed "leadgen" notifications.
+router.get('/leads/facebook/:webhookKey', async (req, res) => {
+  const { status, body } = await leadWebhooks.facebookVerify(req.params.webhookKey, req.query);
+  if (status !== 200) return res.sendStatus(status);
+  return res.type('text/plain').send(body);
+});
+router.post('/leads/facebook/:webhookKey', async (req, res) => {
+  const { status } = await leadWebhooks.facebookReceive(req.params.webhookKey, req.body, req.get('x-hub-signature-256'), queue);
+  res.sendStatus(status);
+});
+
+// Google Ads lead forms: JSON with the key typed into the form; answered with {}.
+router.post('/leads/googleads/:webhookKey', async (req, res) => {
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '');
+  } catch {
+    return res.status(400).json({ error: 'Expected JSON' });
+  }
+  const { status, body } = await leadWebhooks.googleAdsReceive(req.params.webhookKey, payload);
+  return res.status(status).json(body);
+});
+
+// JustDial / TradeIndia: any format, as a GET with query parameters or a POST.
+router.all(['/leads/justdial/:webhookKey', '/leads/tradeindia/:webhookKey'], async (req, res) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.sendStatus(405);
+  const type = req.path.split('/')[2];
+  const payload = req.method === 'GET' ? { ...req.query } : parseBody(req);
+  const { status } = await leadWebhooks.genericReceive(type, req.params.webhookKey, payload);
+  return res.status(status).type('text/plain').send(status === 200 ? 'OK' : '');
 });
 
 module.exports = router;

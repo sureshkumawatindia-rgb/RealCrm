@@ -25,18 +25,30 @@ const indiamartSettings = Joi.object({
 });
 const apiKey = Joi.string().trim().min(10).max(300).pattern(/^\S+$/).messages({ 'string.pattern.base': 'Paste the key without spaces' });
 
+const pageToken = Joi.string().trim().min(20).max(1000).pattern(/^\S+$/).messages({ 'string.pattern.base': 'Paste the token without spaces' });
+const appSecret = Joi.string().trim().min(16).max(200);
+const only = (type, schema) => Joi.when('type', { is: type, then: schema, otherwise: Joi.forbidden() });
+
 module.exports = {
-  // Website forms (4A) and IndiaMART (4B); the other types arrive with their checkpoints.
+  // Website forms (4A), IndiaMART (4B), Facebook Lead Ads, Google Ads, JustDial and TradeIndia (4C).
   connectionCreate: Joi.object({
-    type: Joi.string().valid('website', 'indiamart').required(),
+    type: Joi.string().valid('website', 'indiamart', 'facebook', 'googleads', 'justdial', 'tradeindia').required(),
     name: text(100),
-    apiKey: Joi.when('type', { is: 'indiamart', then: apiKey, otherwise: Joi.forbidden() }),
-    settings: Joi.when('type', { is: 'website', then: websiteSettings, otherwise: indiamartSettings }),
+    apiKey: only('indiamart', apiKey),
+    pageId: only('facebook', Joi.string().trim().pattern(/^\d{5,30}$/).required().messages({ 'string.pattern.base': 'Use the Page ID (digits only)' })),
+    pageAccessToken: only('facebook', pageToken.required()),
+    appSecret: only('facebook', appSecret.required()),
+    settings: Joi.when('type', {
+      switch: [{ is: 'website', then: websiteSettings }, { is: 'indiamart', then: indiamartSettings }],
+      otherwise: Joi.forbidden(),
+    }),
   }),
   connectionPatch: Joi.object({
     name: text(100),
     status: Joi.string().valid('active', 'paused'),
     apiKey,
+    pageAccessToken: pageToken,
+    appSecret,
     settings: Joi.alternatives().try(websiteSettings, indiamartSettings),
   }).min(1),
   intakeList: Joi.object({
