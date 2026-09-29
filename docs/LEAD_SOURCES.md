@@ -38,10 +38,26 @@ Good to know:
 - If the CRM was switched off for more than 7 days, IndiaMART only gives the last 7 days; the card says so.
 - IndiaMART calls unknown buyers "IndiaMART Buyer"; the CRM uses the company name instead when there is one.
 
+## Facebook (and Instagram) Lead Ads
+
+1. You need a Meta developer app (the WhatsApp app works), your **Page ID**, a **long-lived Page access token** with leads_retrieval, pages_manage_metadata, pages_show_list, pages_read_engagement and ads_management, and the app's **App secret** (App settings → Basic).
+2. Settings → Lead sources → **Facebook Lead Ads**: paste them → Connect. The CRM checks the token and subscribes the Page to new leads.
+3. In the Meta app → **Webhooks** → choose **Page** → paste the **Callback URL** and **Verify token** from the card → verify → subscribe to the **leadgen** field. Like WhatsApp, Meta only calls a public **https** address.
+4. If leads do not arrive: Meta Business Suite → Leads Access Manager must allow the app to read leads. When the token expires or loses a permission, the card says "Needs attention": press **New token**.
+
+## Google Ads lead forms
+
+1. Settings → Lead sources → **Google Ads lead form**. The card shows a **Webhook URL** and a **Key**.
+2. In Google Ads → the lead form asset → Lead delivery → **Webhook integration**: paste both, then **Send test data**. The test appears under *Recent* as "Google Ads test data (not added to Leads)"; real leads become leads.
+
+## JustDial and TradeIndia
+
+Neither publishes a developer page. Settings → Lead sources → **JustDial** (or **TradeIndia**) gives a lead address; send it to your JustDial account manager (TradeIndia support contact) and ask them to push your leads to it. Any format is accepted. After the first lead, open *Recent*: if it says "refused", its raw data is shown so the format can be added. (TradeIndia's "My Inquiry API" pull needs the parameters from your own account page; tell us when you have them.)
+
 ## Testing without a real source
 
 In development, *Try it: receive a test lead* pretends an enquiry arrived from IndiaMART, a website, JustDial and so on.
 
 ## Coming next
 
-Facebook Lead Ads, Google Ads lead forms and JustDial/TradeIndia (4C), then auto-replies and assignment rules (4D).
+Auto-replies (a WhatsApp template within 60 seconds of a lead) and assignment rules (round-robin, by source/product/state/city, working hours) in 4D.
