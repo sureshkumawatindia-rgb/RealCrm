@@ -193,6 +193,33 @@ describe('Inbox: messages, sending and notes', () => {
   });
 });
 
+describe('Who owns a WhatsApp customer (D25)', () => {
+  it('the person handling the chat gets the unowned contact and open leads, never a teammate\'s', async () => {
+    const owner = await login('own-owner@example.com');
+    await api().post('/api/v1/whatsapp/accounts').set(bearer(owner.token)).send({ provider: 'mock' });
+    const agent = await inviteAndJoin(owner.token, 'own-agent@example.com', { role: 'agent' });
+    const agentId = await memberId(owner.token, 'own-agent@example.com');
+    const ownerId = await memberId(owner.token, 'own-owner@example.com');
+
+    // A new WhatsApp number: contact + lead without an owner; assigning the chat hands both over.
+    const fresh = await simulate(owner.token, '98300 11111', 'New customer');
+    const Lead = require('../models/Lead');
+    const Contact = require('../models/Contact');
+    const freshLead = await Lead.findOne({ contactId: fresh.contactId });
+    expect(freshLead.ownerId).toBeFalsy();
+    await api().patch(`/api/v1/conversations/${fresh.conversationId}`).set(bearer(owner.token)).send({ assigneeId: agentId });
+    expect(String((await Lead.findById(freshLead._id)).ownerId)).toBe(agentId);
+    expect(String((await Contact.findById(fresh.contactId)).ownerId)).toBe(agentId);
+
+    // A customer the owner already looks after keeps its owner when the agent takes the chat.
+    const known = (await api().post('/api/v1/leads').set(bearer(owner.token)).send({ contact: { name: 'Known', phone: '98300 22222' }, title: 'Bulk order' })).body.data;
+    const chat = await simulate(owner.token, '98300 22222', 'Hello again');
+    await api().post(`/api/v1/conversations/${chat.conversationId}/messages`).set(bearer(agent.token)).send({ text: 'Namaste' });
+    expect(String((await Lead.findById(known.id)).ownerId)).toBe(ownerId);
+    expect(String((await Contact.findById(known.contactId)).ownerId)).toBe(ownerId);
+  });
+});
+
 describe('Quick replies', () => {
   it('are shared by the organization; shortcuts are unique; deleting needs inbox:delete', async () => {
     const owner = await login('qr-owner@example.com');

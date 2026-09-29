@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Contact = require('../models/Contact');
+const Lead = require('../models/Lead');
 const WhatsAppAccount = require('../models/WhatsAppAccount');
 const OrganizationMember = require('../models/OrganizationMember');
 const httpError = require('../utils/httpError');
@@ -10,6 +11,7 @@ const { audit } = require('../utils/audit');
 const { toPage, paginationMeta } = require('../utils/pagination');
 const { isManager, canViewAll } = require('../constants/permissions');
 const { SERVICE_WINDOW_MS } = require('../constants/whatsapp');
+const { OPEN_STAGES } = require('../constants/crm');
 const { providerFor } = require('../integrations/whatsapp');
 const { credentials } = require('./whatsappAccountService');
 const noteService = require('./noteService');
@@ -91,6 +93,17 @@ const POPULATE = [
   { path: 'contactId', select: 'name phone phoneE164 company' },
   { path: 'whatsappAccountId', select: 'name displayPhone verifiedName phoneNumberId' },
 ];
+
+// D25: whoever handles a chat becomes the owner of its contact and the contact's open leads when
+// nobody owns them yet (WhatsApp leads start without one). A teammate's record is never taken.
+async function claimCustomer(conversation, memberId) {
+  if (!memberId) return;
+  const unowned = { organizationId: conversation.organizationId, ownerId: null };
+  await Promise.all([
+    Contact.updateOne({ ...unowned, _id: conversation.contactId }, { $set: { ownerId: memberId } }),
+    Lead.updateMany({ ...unowned, contactId: conversation.contactId, stage: { $in: OPEN_STAGES } }, { $set: { ownerId: memberId } }),
+  ]);
+}
 
 async function findVisible(req, id) {
   const conversation = await Conversation.findOne({ _id: id, organizationId: req.tenant.organizationId, ...scopeFilter(req) });
@@ -175,6 +188,7 @@ async function update(req, id, body) {
   if ('status' in body) conversation.status = body.status;
   if ('tags' in body) conversation.tags = [...new Set(body.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 20);
   await conversation.save();
+  if (conversation.assigneeId && String(conversation.assigneeId) !== String(previousAssigneeId)) await claimCustomer(conversation, conversation.assigneeId);
   await audit(req, { action: 'conversation.updated', entityType: 'Conversation', entityId: conversation._id, changes: Object.keys(body) });
   announce('conversation:updated', conversation, { previousAssigneeId });
   return loadSerialized(conversation._id);
@@ -256,7 +270,10 @@ async function deliver(req, { conversation, account, contact }, fields, buildBod
   if (!conversation.assigneeId) set.assigneeId = req.member._id;
   const updated = await Conversation.findOneAndUpdate({ _id: conversation._id }, { $set: set }, { returnDocument: 'after' });
   bus.emit('message:new', { organizationId: conversation.organizationId, conversation: updated, message });
-  if (!conversation.assigneeId) announce('conversation:updated', updated, { previousAssigneeId: null });
+  if (!conversation.assigneeId) {
+    await claimCustomer(updated, req.member._id);
+    announce('conversation:updated', updated, { previousAssigneeId: null });
+  }
   return serializeMessage(message);
 }
 
@@ -342,6 +359,7 @@ async function start(req, { contactId, accountId }) {
     { $setOnInsert: { status: 'open', assigneeId: req.member._id } },
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
+  await claimCustomer(conversation, conversation.assigneeId);
   await audit(req, { action: 'conversation.started', entityType: 'Conversation', entityId: conversation._id, changes: { contactId: contact._id } });
   announce('conversation:updated', conversation, { previousAssigneeId: null });
   return { conversation: await loadSerialized(conversation._id), created: true };
