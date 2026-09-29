@@ -11,6 +11,7 @@ const KEYS = {
   USER: "crm_user",
   MEMBER: "crm_member",
   COMPANY: "crm_company",
+  PREFS: "crm_prefs", // this browser's page preferences (e.g. inbox sound), never business data
 };
 
 // When the backend serves this page (http://127.0.0.1:3000/crm/frontend/ or a real domain) the
@@ -128,6 +129,25 @@ function getCurrentMember() {
 
 function isOrgManager() {
   return ["owner", "admin"].includes(getCurrentMember()?.role);
+}
+
+// Small per-browser preferences (storage can be blocked or full: then the default is used).
+function getPreference(name, fallback) {
+  try {
+    const prefs = JSON.parse(localStorage.getItem(KEYS.PREFS)) || {};
+    return name in prefs ? prefs[name] : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function setPreference(name, value) {
+  try {
+    const prefs = JSON.parse(localStorage.getItem(KEYS.PREFS)) || {};
+    prefs[name] = value;
+    localStorage.setItem(KEYS.PREFS, JSON.stringify(prefs));
+  } catch {
+    /* the preference just isn't remembered */
+  }
 }
 
 function requireAuth() {

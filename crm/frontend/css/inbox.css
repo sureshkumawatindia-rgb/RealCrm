@@ -555,6 +555,7 @@
 .composer-row textarea {
   flex: 1;
   resize: none;
+  overflow-y: hidden;
   max-height: 140px;
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -733,6 +734,63 @@
   margin-top: 6px;
 }
 .note-form .btn {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
+/* Sales context: leads, quotations, follow-ups */
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 12.5px;
+}
+.ctx-item:last-child {
+  border-bottom: 0;
+}
+.ctx-main {
+  flex: 1;
+  min-width: 0;
+}
+.ctx-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ctx-meta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.ctx-amount {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.details-section .ctx-item select {
+  width: auto;
+  max-width: 130px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.ctx-item .icon-btn {
+  flex-shrink: 0;
+}
+.ctx-empty {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 2px 0 4px;
+}
+.followup-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  margin-top: 6px;
+}
+.followup-form input[type="text"] {
+  grid-column: 1 / -1;
+}
+.followup-form .btn {
   padding: 6px 12px;
   font-size: 12.5px;
 }

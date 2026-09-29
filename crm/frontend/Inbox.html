@@ -147,6 +147,7 @@
             <button class="btn btn-outline inbox-notify-btn" id="inboxNotifyBtn" type="button" hidden>
               <i class="fa-regular fa-bell"></i> Turn on notifications
             </button>
+            <button class="icon-btn" id="inboxSoundBtn" type="button" aria-pressed="true" title="Sound for new messages: on"><i class="fa-solid fa-volume-high"></i></button>
           </div>
         </header>
 
@@ -254,6 +255,20 @@
               <div class="details-section">
                 <label for="detailsTags">Tags</label>
                 <input type="text" id="detailsTags" placeholder="e.g. bulk, vip (comma separated)" />
+              </div>
+              <div class="details-section" id="detailsSales" hidden>
+                <label>Sales <span class="text-muted">(leads and quotations)</span></label>
+                <div id="detailsLeads"></div>
+                <div id="detailsQuotes"></div>
+              </div>
+              <div class="details-section" id="detailsTasksSection" hidden>
+                <label>Follow-ups <span class="text-muted">(open tasks)</span></label>
+                <div id="detailsTasks"></div>
+                <form class="followup-form" id="followUpForm" hidden>
+                  <input type="text" id="followUpTitle" maxlength="300" placeholder="Follow up about…" aria-label="Follow-up" required />
+                  <input type="date" id="followUpDate" aria-label="Due date" />
+                  <button class="btn btn-outline" type="submit">Add</button>
+                </form>
               </div>
               <div class="details-section">
                 <label>Internal notes <span class="text-muted">(only your team sees these)</span></label>

@@ -376,6 +376,8 @@
     if (!state.current || String(state.current.id) !== String(c.id)) {
       forgetMedia();
       clearFile();
+      state.context = null;
+      renderContext();
     }
     state.current = c;
     state.replyTo = null;
@@ -402,6 +404,7 @@
       state.notes = notes;
       renderMessages();
       renderNotes();
+      loadContext();
       if (c.unreadCount) markRead();
       if (!$("composerText").disabled) $("composerText").focus();
     } catch (error) {
@@ -466,6 +469,8 @@
   function autoSize() {
     composer.style.height = "auto";
     composer.style.height = `${Math.min(composer.scrollHeight, 140)}px`;
+    // A scrollbar only once the text is taller than the box can grow.
+    composer.style.overflowY = composer.scrollHeight > 140 ? "auto" : "hidden";
   }
 
   // --- a file to send (the text box becomes its caption) ---
@@ -813,6 +818,140 @@
       : '<p class="text-muted" style="font-size:12.5px;margin:0">No notes yet.</p>';
   }
 
+  // --- sales context: the customer's leads, quotations and open follow-ups ------------
+  // Each part shows only when the member may open that page (the API answers 403 otherwise)
+  // and lists only the records they may see.
+  const LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation", "Won", "Lost"];
+  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  function memberCan(module, action) {
+    if (["owner", "admin"].includes(me.role)) return true;
+    if (!(me.modules || []).includes(module)) return false;
+    if (action === "view") return true;
+    if (me.role === "viewer") return false;
+    if (action === "delete") return (me.permissions || []).includes(`${module}:delete`);
+    return true;
+  }
+  async function loadContext() {
+    const c = state.current;
+    if (!c) return;
+    // Taking a chat can make you the owner of the customer's lead (D25): reload when that changes.
+    state.contextAssignee = String(c.assigneeId || "");
+    const id = encodeURIComponent(c.contact.id);
+    const [leads, quotes, tasks] = await Promise.all([
+      crmApi(`/leads?contactId=${id}&limit=5`).catch(() => null),
+      crmApi(`/quotations?contactId=${id}&limit=3`).catch(() => null),
+      crmApi(`/tasks?relatedType=Customer&relatedId=${id}&limit=50`).catch(() => null),
+    ]);
+    if (!state.current || String(state.current.id) !== String(c.id)) return;
+    state.context = { leads, quotes, tasks };
+    renderContext();
+  }
+  function renderContext() {
+    const { leads, quotes, tasks } = state.context || {};
+    $("detailsSales").hidden = !Array.isArray(leads) && !Array.isArray(quotes);
+    const canMove = memberCan("leads", "edit") || memberCan("deals", "edit");
+    $("detailsLeads").innerHTML = Array.isArray(leads)
+      ? leads.length
+        ? leads
+            .map((l) => {
+              const title = l.title || (l.source === "WhatsApp" ? "WhatsApp enquiry" : "Enquiry");
+              const stage = canMove
+                ? `<select data-lead-stage="${escapeHtml(l.id)}" aria-label="Stage of ${escapeHtml(title)}">${LEAD_STAGES.map((s) => `<option${s === l.stage ? " selected" : ""}>${s}</option>`).join("")}</select>`
+                : `<span class="badge badge-info">${escapeHtml(l.stage)}</span>`;
+              return `
+            <div class="ctx-item">
+              <div class="ctx-main">
+                <div class="ctx-title">${escapeHtml(title)}${l.expectedValuePaise ? ` · ${rupees(l.expectedValuePaise)}` : ""}</div>
+                <div class="ctx-meta">${l.ownerId ? `Owner: ${escapeHtml(memberNameOf(l.ownerId))}` : "No owner yet"}</div>
+              </div>
+              ${stage}
+            </div>`;
+            })
+            .join("")
+        : `<p class="ctx-empty">${seesAll ? "No lead for this customer yet." : "No lead of this customer that you can see."}</p>`
+      : "";
+    $("detailsQuotes").innerHTML = Array.isArray(quotes) && quotes.length
+      ? quotes
+          .map(
+            (q) => `
+          <div class="ctx-item">
+            <div class="ctx-main"><div class="ctx-title">Quotation ${escapeHtml(q.number || q.legacyNumber || "")}</div><div class="ctx-meta">${escapeHtml(shortTime(q.quotationDate || q.createdAt))}</div></div>
+            <span class="ctx-amount">${rupees(q.totals?.grandTotalPaise)}</span> <span class="badge badge-neutral">${escapeHtml(q.status)}</span>
+          </div>`,
+          )
+          .join("")
+      : "";
+
+    $("detailsTasksSection").hidden = !Array.isArray(tasks);
+    $("followUpForm").hidden = !memberCan("tasks", "create");
+    const open = (tasks || []).filter((t) => t.status !== "Done").slice(0, 5);
+    const canFinish = memberCan("tasks", "edit");
+    $("detailsTasks").innerHTML = open.length
+      ? open
+          .map(
+            (t) => `
+          <div class="ctx-item">
+            ${canFinish ? `<button class="icon-btn" type="button" data-task-done="${escapeHtml(t.id)}" title="Mark as done"><i class="fa-regular fa-square"></i></button>` : ""}
+            <div class="ctx-main"><div class="ctx-title">${escapeHtml(t.title)}</div><div class="ctx-meta">${t.dueDate ? `Due ${escapeHtml(new Date(`${t.dueDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" }))}` : "No due date"}${t.assigneeId ? ` · ${escapeHtml(memberNameOf(t.assigneeId))}` : ""}</div></div>
+          </div>`,
+          )
+          .join("")
+      : '<p class="ctx-empty">No open follow-up.</p>';
+  }
+  $("detailsLeads").addEventListener("change", async (e) => {
+    const select = e.target.closest("[data-lead-stage]");
+    if (!select) return;
+    const lead = state.context.leads.find((l) => String(l.id) === select.dataset.leadStage);
+    let lostReason = "";
+    if (select.value === "Lost") {
+      lostReason = (window.prompt("Why was this lead lost? (for example: price too high)") || "").trim();
+      if (!lostReason) {
+        select.value = lead.stage;
+        return;
+      }
+    }
+    try {
+      const updated = await crmApi(`/leads/${lead.id}/stage`, jsonRequest("POST", { stage: select.value, version: lead.version, ...(lostReason && { lostReason }) }));
+      Object.assign(lead, updated);
+      showToast(`Stage changed to ${updated.stage}.`, "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't change the stage."), "error");
+    }
+    renderContext();
+  });
+  $("detailsTasks").addEventListener("click", async (e) => {
+    const done = e.target.closest("[data-task-done]");
+    if (!done) return;
+    done.disabled = true;
+    try {
+      await crmApi(`/tasks/${done.dataset.taskDone}`, jsonRequest("PATCH", { status: "Done" }));
+      state.context.tasks = state.context.tasks.map((t) => (String(t.id) === done.dataset.taskDone ? { ...t, status: "Done" } : t));
+      renderContext();
+      showToast("Follow-up done.", "success");
+    } catch (error) {
+      done.disabled = false;
+      showToast(apiErrorMessage(error, "Couldn't update the task."), "error");
+    }
+  });
+  $("followUpForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const c = state.current;
+    const title = $("followUpTitle").value.trim();
+    if (!c || !title) return;
+    const dueDate = $("followUpDate").value;
+    try {
+      const task = await crmApi("/tasks", jsonRequest("POST", {
+        title, relatedType: "Customer", relatedId: c.contact.id, relatedName: c.contact.name || c.contact.phone, assigneeId: me.id, ...(dueDate && { dueDate }),
+      }));
+      state.context.tasks = [task, ...(state.context.tasks || [])];
+      e.target.reset();
+      renderContext();
+      showToast("Follow-up added to Tasks.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't add the follow-up."), "error");
+    }
+  });
+
   async function patchConversation(body, success) {
     if (!state.current) return;
     try {
@@ -825,6 +964,7 @@
         upsertConversation(updated);
         renderThreadHead();
         renderDetails();
+        if (state.contextAssignee !== String(updated.assigneeId || "")) loadContext();
         if (success) showToast(success, "success");
       }
       scheduleSummary();
@@ -991,7 +1131,55 @@
     }
     updateNotifyButton();
   });
+  // A short two-tone chime for new customer messages (made in the browser, no sound file).
+  // Browsers only allow sound after the first click on the page.
+  let soundOn = getPreference("inboxSound", true);
+  let audio = null;
+  function renderSoundButton() {
+    const button = $("inboxSoundBtn");
+    button.setAttribute("aria-pressed", String(soundOn));
+    button.title = `Sound for new messages: ${soundOn ? "on" : "off"}`;
+    button.innerHTML = `<i class="fa-solid ${soundOn ? "fa-volume-high" : "fa-volume-xmark"}"></i>`;
+  }
+  $("inboxSoundBtn").addEventListener("click", () => {
+    soundOn = !soundOn;
+    setPreference("inboxSound", soundOn);
+    renderSoundButton();
+    if (soundOn) chime();
+  });
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      try {
+        audio = audio || new AudioContext();
+        audio.resume();
+      } catch {
+        /* no Web Audio */
+      }
+    },
+    { once: true },
+  );
+  function chime() {
+    if (!soundOn || !audio || audio.state !== "running") return;
+    const start = audio.currentTime;
+    [880, 1320].forEach((frequency, i) => {
+      const tone = audio.createOscillator();
+      const volume = audio.createGain();
+      const at = start + i * 0.12;
+      tone.type = "sine";
+      tone.frequency.value = frequency;
+      volume.gain.setValueAtTime(0.0001, at);
+      volume.gain.exponentialRampToValueAtTime(0.15, at + 0.02);
+      volume.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
+      tone.connect(volume).connect(audio.destination);
+      tone.start(at);
+      tone.stop(at + 0.32);
+    });
+  }
+  renderSoundButton();
+
   function notify(conversation, message) {
+    chime();
     if (!canNotify()) return;
     const notification = new Notification(conversation.contact.name || conversation.contact.phone, {
       body: message.text || conversation.lastMessagePreview || "New WhatsApp message",
@@ -1033,6 +1221,7 @@
         state.current = conversation;
         renderThreadHead();
         renderDetails();
+        if (state.contextAssignee !== String(conversation.assigneeId || "")) loadContext();
       }
     }
     scheduleSummary();
