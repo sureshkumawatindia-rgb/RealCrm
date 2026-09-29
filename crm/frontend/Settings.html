@@ -107,6 +107,27 @@
         gap: 10px;
       }
       /* Settings → Lead sources */
+      .field label.ls-check {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        margin: 0 16px 6px 0;
+        font-size: 13px;
+        font-weight: 500;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--text);
+      }
+      .ls-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .field label.ls-check input {
+        width: auto;
+        margin: 0;
+      }
       .ls-code {
         flex: 1;
         width: 100%;
@@ -1041,13 +1062,41 @@
                 <p class="settings-hint">
                   Where your enquiries come from. Every enquiry becomes a contact and a lead
                   (the same mobile number is never added twice; a new enquiry from someone with an
-                  open lead is added to that lead). IndiaMART, Facebook and the others follow in
-                  the next updates.
+                  open lead is added to that lead). Facebook, Google Ads, JustDial and TradeIndia
+                  follow in the next updates.
                 </p>
                 <div id="lsList"></div>
                 <div class="data-actions" style="margin-top: 14px">
                   <button class="btn btn-primary" type="button" id="lsAddWebsite"><i class="fa-solid fa-globe"></i> New website form</button>
+                  <button class="btn btn-outline" type="button" id="lsAddIndiamart"><i class="fa-solid fa-store"></i> Connect IndiaMART</button>
                 </div>
+                <form class="settings-section wa-block" id="lsIndiamartForm" autocomplete="off" hidden>
+                  <div class="settings-section-label">Connect IndiaMART</div>
+                  <p class="settings-hint">
+                    In IndiaMART Seller Panel → Lead Manager → <strong>Import/Export Leads</strong> → CRM Integration,
+                    generate the <strong>CRM API key</strong> (it comes by email) and paste it here. The CRM then
+                    pulls your IndiaMART leads every 5 minutes (IndiaMART allows no more), and IndiaMART
+                    can also push each lead at once to the address shown after connecting.
+                  </p>
+                  <div class="field-row">
+                    <div class="field">
+                      <label for="lsImName">Name</label>
+                      <input type="text" id="lsImName" maxlength="100" value="IndiaMART" />
+                    </div>
+                    <div class="field">
+                      <label for="lsImKey">CRM API key</label>
+                      <input type="password" id="lsImKey" maxlength="300" required />
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Take these kinds of leads</label>
+                    <div id="lsImTypes"></div>
+                  </div>
+                  <div class="data-actions" style="justify-content: flex-end">
+                    <button class="btn btn-outline" type="button" id="lsImCancel">Cancel</button>
+                    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plug"></i> Connect</button>
+                  </div>
+                </form>
 
                 <div class="settings-section wa-block" id="lsSimulateSection">
                   <div class="settings-section-label">Try it: receive a test lead</div>

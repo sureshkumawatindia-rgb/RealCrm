@@ -33,7 +33,7 @@
   function websiteHtml(s) {
     const set = s.settings;
     const ask = set.askFor || {};
-    const check = (key, label) => `<label style="display:inline-flex;gap:6px;align-items:center;margin-right:14px;font-size:13px"><input type="checkbox" data-ask="${key}" ${ask[key] ? "checked" : ""} /> ${label}</label>`;
+    const check = (key, label) => `<label class="ls-check"><input type="checkbox" data-ask="${key}" ${ask[key] ? "checked" : ""} /> ${label}</label>`;
     return `
       <div class="sub" style="margin-top:10px"><strong>Put this on your website</strong> where the form should appear:</div>
       <div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">
@@ -59,6 +59,34 @@
       </details>`;
   }
 
+  // --- IndiaMART ---
+  const IM_TYPES = { W: "Direct enquiries", B: "Buy-leads", P: "Phone calls (PNS)", WA: "WhatsApp enquiries", BIZ: "Catalogue views" };
+  const IM_DEFAULT = ["W", "B", "P", "WA"];
+  const typeBoxes = (selected, attr) =>
+    Object.entries(IM_TYPES)
+      .map(([code, label]) => `<label class="ls-check"><input type="checkbox" ${attr}="${code}" ${selected.includes(code) ? "checked" : ""} /> ${label}</label>`)
+      .join("");
+  // IndiaMART can only push to a public HTTPS address.
+  const isLocal = (url) => !/^https:\/\//.test(url) || /\/\/(127\.0\.0\.1|localhost)[:/]/.test(url);
+
+  function indiamartHtml(s) {
+    const pushHint = isLocal(s.pushUrl)
+      ? `<div class="sub" style="margin-top:4px">IndiaMART can only push to a public <strong>https</strong> address. On a server with HTTPS (or through a tunnel while testing) the address becomes <strong>https://&lt;your address&gt;${escapeHtml(new URL(s.pushUrl).pathname)}</strong>. Pulling every 5 minutes works without it.</div>`
+      : "";
+    return `
+      <div class="sub" style="margin-top:8px">${s.lastPulledUntil ? `Leads pulled up to ${escapeHtml(when(s.lastPulledUntil))}. ` : "The first pull brings the last 24 hours. "}The CRM pulls again every 5 minutes.</div>
+      <div class="sub" style="margin-top:10px"><strong>Instant leads (optional):</strong> in IndiaMART Lead Manager → Import/Export Leads → <strong>Push API</strong>, enter this address:</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;min-width:0">
+        <code style="word-break:break-all;font-size:12px;flex:1">${escapeHtml(s.pushUrl)}</code>
+        <button class="btn btn-outline" type="button" data-ls-copy-push="${escapeHtml(s.id)}" title="Copy the address"><i class="fa-solid fa-copy"></i></button>
+      </div>
+      ${pushHint}
+      <details style="margin-top:10px"><summary class="sub" style="cursor:pointer"><strong>Kinds of leads to take</strong></summary>
+        <div style="margin-top:8px">${typeBoxes(s.settings.queryTypes || IM_DEFAULT, "data-im-type")}</div>
+        <div class="data-actions" style="justify-content:flex-end;margin-top:8px"><button class="btn btn-primary" type="button" data-im-save="${escapeHtml(s.id)}">Save</button></div>
+      </details>`;
+  }
+
   function sourceHtml(s) {
     const paused = s.status !== "active";
     return `
@@ -66,16 +94,19 @@
         <div class="info" style="min-width:0;flex:1">
           <div class="name"><i class="fa-solid ${TYPE_ICON[s.type] || "fa-inbox"}"></i> ${escapeHtml(s.name || s.source)}
             <span class="badge badge-neutral">${escapeHtml(s.source)}</span>
-            ${paused ? '<span class="badge badge-warning">Paused</span>' : '<span class="badge badge-success">Active</span>'}</div>
+            ${s.status === "error" ? '<span class="badge badge-danger">Needs attention</span>' : paused ? '<span class="badge badge-warning">Paused</span>' : '<span class="badge badge-success">Active</span>'}
+            ${s.credentials.configured ? `<span class="sub">key …${escapeHtml(s.credentials.hint)}</span>` : ""}</div>
           <div class="sub">${escapeHtml(statsLine(s.stats))}${s.lastLeadAt ? ` · last lead ${escapeHtml(when(s.lastLeadAt))}` : ""}</div>
-          ${s.lastError ? `<div class="sub" style="color:var(--danger)">${escapeHtml(s.lastError)}</div>` : ""}
-          ${s.type === "website" ? websiteHtml(s) : ""}
+          ${s.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(s.statusMessage)}</div>` : s.lastError ? `<div class="sub" style="color:var(--danger)">${escapeHtml(s.lastError)}</div>` : ""}
+          <div class="ls-actions">
+            ${s.type === "indiamart" ? `<button class="btn btn-outline" type="button" data-ls-pull="${escapeHtml(s.id)}"><i class="fa-solid fa-rotate"></i> Pull now</button><button class="btn btn-outline" type="button" data-ls-key="${escapeHtml(s.id)}"><i class="fa-solid fa-key"></i> New key</button>` : ""}
+            <button class="btn btn-outline" type="button" data-ls-log-toggle="${escapeHtml(s.id)}"><i class="fa-solid fa-list"></i> Recent</button>
+            <button class="btn btn-outline" type="button" data-ls-status="${escapeHtml(s.id)}">${paused ? "Resume" : "Pause"}</button>
+            <button class="icon-btn danger" type="button" data-ls-remove="${escapeHtml(s.id)}" title="Remove"><i class="fa-solid fa-trash"></i></button>
+          </div>
           <div class="ls-log" data-ls-log="${escapeHtml(s.id)}" hidden></div>
-        </div>
-        <div style="display:flex;gap:8px;flex-shrink:0">
-          <button class="btn btn-outline" type="button" data-ls-log-toggle="${escapeHtml(s.id)}"><i class="fa-solid fa-list"></i> Recent</button>
-          <button class="btn btn-outline" type="button" data-ls-status="${escapeHtml(s.id)}">${paused ? "Resume" : "Pause"}</button>
-          <button class="icon-btn danger" type="button" data-ls-remove="${escapeHtml(s.id)}" title="Remove"><i class="fa-solid fa-trash"></i></button>
+          ${s.type === "website" ? websiteHtml(s) : ""}
+          ${s.type === "indiamart" ? indiamartHtml(s) : ""}
         </div>
       </div>`;
   }
@@ -149,6 +180,65 @@
     const status = target("data-ls-status");
     const remove = target("data-ls-remove");
     const save = target("data-ls-save");
+    const pull = target("data-ls-pull");
+    const key = target("data-ls-key");
+    const copyPush = target("data-ls-copy-push");
+    const saveTypes = target("data-im-save");
+    if (pull) {
+      pull.disabled = true;
+      try {
+        const result = await crmApi(`/lead-sources/${pull.dataset.lsPull}/pull`, { method: "POST" });
+        const o = result.outcomes || {};
+        showToast(
+          result.error === "KEY_REFUSED"
+            ? "IndiaMART refused the key. Paste a new one."
+            : `Pulled ${result.fetched || 0} lead${result.fetched === 1 ? "" : "s"}: ${o.created || 0} new, ${o.attached || 0} added to open leads, ${o.duplicate || 0} already here${o.skipped ? `, ${o.skipped} skipped` : ""}.`,
+          result.error ? "error" : "success",
+        );
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't pull from IndiaMART."), "error");
+      }
+      await load();
+      return;
+    }
+    if (key) {
+      const value = (window.prompt("Paste the new IndiaMART CRM API key (it is stored encrypted):") || "").trim();
+      if (!value) return;
+      try {
+        await crmApi(`/lead-sources/${key.dataset.lsKey}`, jsonRequest("PATCH", { apiKey: value }));
+        showToast("Key saved. The next pull uses it.", "success");
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't save the key."), "error");
+      }
+      await load();
+      return;
+    }
+    if (copyPush) {
+      const source = sources.find((s) => s.id === copyPush.dataset.lsCopyPush);
+      try {
+        await navigator.clipboard.writeText(source.pushUrl);
+        showToast("Address copied.", "success");
+      } catch {
+        showToast("Copy failed — select the address and copy it by hand.", "error");
+      }
+      return;
+    }
+    if (saveTypes) {
+      const row = saveTypes.closest("[data-ls-id]");
+      const queryTypes = [...row.querySelectorAll("[data-im-type]:checked")].map((box) => box.dataset.imType);
+      if (!queryTypes.length) {
+        showToast("Choose at least one kind of lead.", "error");
+        return;
+      }
+      try {
+        await crmApi(`/lead-sources/${saveTypes.dataset.imSave}`, jsonRequest("PATCH", { settings: { queryTypes } }));
+        showToast("Saved. The next pull takes these kinds of leads.", "success");
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't save."), "error");
+      }
+      await load();
+      return;
+    }
     if (copy) {
       const source = sources.find((s) => s.id === copy.dataset.lsCopy);
       try {
@@ -208,6 +298,32 @@
       showToast("Website form ready. Copy its code into your website.", "success");
     } catch (error) {
       showToast(apiErrorMessage(error, "Couldn't add the form."), "error");
+    }
+    await load();
+  });
+
+  // Connect IndiaMART.
+  $("lsImTypes").innerHTML = typeBoxes(IM_DEFAULT, "data-new-im-type");
+  $("lsAddIndiamart").addEventListener("click", () => {
+    $("lsIndiamartForm").hidden = false;
+    $("lsImKey").focus();
+  });
+  $("lsImCancel").addEventListener("click", () => {
+    $("lsIndiamartForm").hidden = true;
+    $("lsImKey").value = "";
+  });
+  $("lsIndiamartForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const queryTypes = [...document.querySelectorAll("[data-new-im-type]:checked")].map((box) => box.dataset.newImType);
+    try {
+      await crmApi("/lead-sources", jsonRequest("POST", { type: "indiamart", name: $("lsImName").value.trim(), apiKey: $("lsImKey").value.trim(), settings: { queryTypes } }));
+      showToast("IndiaMART connected. The first pull runs within a minute and brings the last 24 hours.", "success");
+      $("lsImKey").value = "";
+      $("lsIndiamartForm").hidden = true;
+      // Show the first pull's result once it is in.
+      setTimeout(load, 8000);
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't connect IndiaMART."), "error");
     }
     await load();
   });
