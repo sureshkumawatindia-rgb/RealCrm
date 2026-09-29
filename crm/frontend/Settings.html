@@ -118,6 +118,29 @@
         letter-spacing: 0;
         color: var(--text);
       }
+      .ls-copy {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 6px;
+        min-width: 0;
+      }
+      .ls-copy-label {
+        flex-shrink: 0;
+        width: 110px;
+      }
+      .ls-copy code {
+        flex: 1;
+        min-width: 160px;
+        word-break: break-all;
+        font-size: 12px;
+      }
+      @media (max-width: 600px) {
+        .ls-copy-label {
+          width: 100%;
+        }
+      }
       .ls-actions {
         display: flex;
         gap: 8px;
@@ -1062,14 +1085,46 @@
                 <p class="settings-hint">
                   Where your enquiries come from. Every enquiry becomes a contact and a lead
                   (the same mobile number is never added twice; a new enquiry from someone with an
-                  open lead is added to that lead). Facebook, Google Ads, JustDial and TradeIndia
-                  follow in the next updates.
+                  open lead is added to that lead). Auto-replies and assignment rules follow in the
+                  next update.
                 </p>
                 <div id="lsList"></div>
                 <div class="data-actions" style="margin-top: 14px">
                   <button class="btn btn-primary" type="button" id="lsAddWebsite"><i class="fa-solid fa-globe"></i> New website form</button>
                   <button class="btn btn-outline" type="button" id="lsAddIndiamart"><i class="fa-solid fa-store"></i> Connect IndiaMART</button>
+                  <button class="btn btn-outline" type="button" id="lsAddFacebook"><i class="fa-brands fa-facebook"></i> Facebook Lead Ads</button>
+                  <button class="btn btn-outline" type="button" data-ls-create="googleads"><i class="fa-brands fa-google"></i> Google Ads lead form</button>
+                  <button class="btn btn-outline" type="button" data-ls-create="justdial"><i class="fa-solid fa-phone"></i> JustDial</button>
+                  <button class="btn btn-outline" type="button" data-ls-create="tradeindia"><i class="fa-solid fa-industry"></i> TradeIndia</button>
                 </div>
+                <form class="settings-section wa-block" id="lsFacebookForm" autocomplete="off" hidden>
+                  <div class="settings-section-label">Connect Facebook Lead Ads</div>
+                  <p class="settings-hint">
+                    You need a Meta developer app (the WhatsApp one works too), the <strong>Page ID</strong>, a
+                    <strong>long-lived Page access token</strong> with the permissions leads_retrieval,
+                    pages_manage_metadata, pages_show_list, pages_read_engagement and ads_management, and the app's
+                    <strong>App secret</strong> (App settings → Basic). The CRM checks the token and subscribes the
+                    Page to new leads.
+                  </p>
+                  <div class="field-row">
+                    <div class="field">
+                      <label for="lsFbPageId">Page ID</label>
+                      <input type="text" id="lsFbPageId" inputmode="numeric" maxlength="30" required />
+                    </div>
+                    <div class="field">
+                      <label for="lsFbSecret">App secret</label>
+                      <input type="password" id="lsFbSecret" maxlength="200" required />
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="lsFbToken">Page access token</label>
+                    <input type="password" id="lsFbToken" maxlength="1000" required />
+                  </div>
+                  <div class="data-actions" style="justify-content: flex-end">
+                    <button class="btn btn-outline" type="button" id="lsFbCancel">Cancel</button>
+                    <button class="btn btn-primary" type="submit"><i class="fa-brands fa-facebook"></i> Connect</button>
+                  </div>
+                </form>
                 <form class="settings-section wa-block" id="lsIndiamartForm" autocomplete="off" hidden>
                   <div class="settings-section-label">Connect IndiaMART</div>
                   <p class="settings-hint">

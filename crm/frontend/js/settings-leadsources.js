@@ -87,6 +87,41 @@
       </details>`;
   }
 
+  // --- sources that push to an address: Facebook, Google Ads, JustDial, TradeIndia ---
+  const copyRow = (label, value) => `
+      <div class="ls-copy">
+        <span class="sub ls-copy-label">${escapeHtml(label)}</span>
+        <code>${escapeHtml(value)}</code>
+        <button class="btn btn-outline" type="button" data-ls-copy-value="${escapeHtml(value)}" title="Copy"><i class="fa-solid fa-copy"></i></button>
+      </div>`;
+  const publicNote = (s) =>
+    isLocal(s.pushUrl)
+      ? `<div class="sub" style="margin-top:6px">${escapeHtml(s.source)} can only send leads to a public <strong>https</strong> address: this works once the CRM runs on a server with HTTPS (or through a tunnel while testing).</div>`
+      : "";
+
+  function facebookHtml(s) {
+    return `
+      <div class="sub" style="margin-top:8px">Page: <strong>${escapeHtml(s.settings.pageName || s.settings.pageId)}</strong> (subscribed to new leads).
+        <strong>In the Meta app → Webhooks → Page:</strong> paste these two values, then subscribe to the <strong>leadgen</strong> field.</div>
+      ${copyRow("Callback URL", s.pushUrl)}
+      ${copyRow("Verify token", s.verifyToken)}
+      ${publicNote(s)}
+      <div class="sub" style="margin-top:6px">If leads do not arrive, check Meta Business Suite → Leads Access Manager: the app must be allowed to read leads.</div>`;
+  }
+  function googleAdsHtml(s) {
+    return `
+      <div class="sub" style="margin-top:8px"><strong>In Google Ads → your lead form → Lead delivery → Webhook integration:</strong> paste the URL and the key, then press <em>Send test data</em>; the test shows under Recent.</div>
+      ${copyRow("Webhook URL", s.pushUrl)}
+      ${copyRow("Key", s.googleKey)}
+      ${publicNote(s)}`;
+  }
+  function genericHtml(s) {
+    return `
+      <div class="sub" style="margin-top:8px">${escapeHtml(s.source)} has no public set-up page: send this address to your ${s.type === "justdial" ? "JustDial account manager" : "TradeIndia support contact"} and ask them to push your leads to it (any format). After the first lead, open <strong>Recent</strong>: if it says "refused", the raw data is shown there so the format can be added.</div>
+      ${copyRow("Lead address", s.pushUrl)}
+      ${publicNote(s)}`;
+  }
+
   function sourceHtml(s) {
     const paused = s.status !== "active";
     return `
@@ -95,11 +130,12 @@
           <div class="name"><i class="fa-solid ${TYPE_ICON[s.type] || "fa-inbox"}"></i> ${escapeHtml(s.name || s.source)}
             <span class="badge badge-neutral">${escapeHtml(s.source)}</span>
             ${s.status === "error" ? '<span class="badge badge-danger">Needs attention</span>' : paused ? '<span class="badge badge-warning">Paused</span>' : '<span class="badge badge-success">Active</span>'}
-            ${s.credentials.configured ? `<span class="sub">key …${escapeHtml(s.credentials.hint)}</span>` : ""}</div>
+            ${s.credentials.hint ? `<span class="sub">${s.type === "facebook" ? "token" : "key"} …${escapeHtml(s.credentials.hint)}</span>` : ""}</div>
           <div class="sub">${escapeHtml(statsLine(s.stats))}${s.lastLeadAt ? ` · last lead ${escapeHtml(when(s.lastLeadAt))}` : ""}</div>
           ${s.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(s.statusMessage)}</div>` : s.lastError ? `<div class="sub" style="color:var(--danger)">${escapeHtml(s.lastError)}</div>` : ""}
           <div class="ls-actions">
             ${s.type === "indiamart" ? `<button class="btn btn-outline" type="button" data-ls-pull="${escapeHtml(s.id)}"><i class="fa-solid fa-rotate"></i> Pull now</button><button class="btn btn-outline" type="button" data-ls-key="${escapeHtml(s.id)}"><i class="fa-solid fa-key"></i> New key</button>` : ""}
+            ${s.type === "facebook" ? `<button class="btn btn-outline" type="button" data-ls-fb-token="${escapeHtml(s.id)}"><i class="fa-solid fa-key"></i> New token</button>` : ""}
             <button class="btn btn-outline" type="button" data-ls-log-toggle="${escapeHtml(s.id)}"><i class="fa-solid fa-list"></i> Recent</button>
             <button class="btn btn-outline" type="button" data-ls-status="${escapeHtml(s.id)}">${paused ? "Resume" : "Pause"}</button>
             <button class="icon-btn danger" type="button" data-ls-remove="${escapeHtml(s.id)}" title="Remove"><i class="fa-solid fa-trash"></i></button>
@@ -107,6 +143,9 @@
           <div class="ls-log" data-ls-log="${escapeHtml(s.id)}" hidden></div>
           ${s.type === "website" ? websiteHtml(s) : ""}
           ${s.type === "indiamart" ? indiamartHtml(s) : ""}
+          ${s.type === "facebook" ? facebookHtml(s) : ""}
+          ${s.type === "googleads" ? googleAdsHtml(s) : ""}
+          ${s.type === "justdial" || s.type === "tradeindia" ? genericHtml(s) : ""}
         </div>
       </div>`;
   }
@@ -184,6 +223,29 @@
     const key = target("data-ls-key");
     const copyPush = target("data-ls-copy-push");
     const saveTypes = target("data-im-save");
+    const copyValue = target("data-ls-copy-value");
+    const fbToken = target("data-ls-fb-token");
+    if (copyValue) {
+      try {
+        await navigator.clipboard.writeText(copyValue.dataset.lsCopyValue);
+        showToast("Copied.", "success");
+      } catch {
+        showToast("Copy failed — select the text and copy it by hand.", "error");
+      }
+      return;
+    }
+    if (fbToken) {
+      const value = (window.prompt("Paste the new long-lived Page access token (it is stored encrypted):") || "").trim();
+      if (!value) return;
+      try {
+        await crmApi(`/lead-sources/${fbToken.dataset.lsFbToken}`, jsonRequest("PATCH", { pageAccessToken: value }));
+        showToast("Token checked and saved.", "success");
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Facebook did not accept the token."), "error");
+      }
+      await load();
+      return;
+    }
     if (pull) {
       pull.disabled = true;
       try {
@@ -327,6 +389,41 @@
     }
     await load();
   });
+
+  // Connect Facebook Lead Ads.
+  $("lsAddFacebook").addEventListener("click", () => {
+    $("lsFacebookForm").hidden = false;
+    $("lsFbPageId").focus();
+  });
+  $("lsFbCancel").addEventListener("click", () => {
+    $("lsFacebookForm").reset();
+    $("lsFacebookForm").hidden = true;
+  });
+  $("lsFacebookForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await crmApi("/lead-sources", jsonRequest("POST", { type: "facebook", pageId: $("lsFbPageId").value.trim(), pageAccessToken: $("lsFbToken").value.trim(), appSecret: $("lsFbSecret").value.trim() }));
+      showToast("Facebook Page connected. Now set the webhook in the Meta app (see the card).", "success");
+      e.target.reset();
+      e.target.hidden = true;
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't connect the Facebook Page."), "error");
+    }
+    await load();
+  });
+
+  // Google Ads, JustDial and TradeIndia only need their address.
+  document.querySelectorAll("[data-ls-create]").forEach((button) =>
+    button.addEventListener("click", async () => {
+      try {
+        await crmApi("/lead-sources", jsonRequest("POST", { type: button.dataset.lsCreate }));
+        showToast("Added. Copy its address from the card.", "success");
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't add it."), "error");
+      }
+      await load();
+    }),
+  );
 
   $("lsSimulateForm").addEventListener("submit", async (e) => {
     e.preventDefault();
