@@ -18,5 +18,7 @@ const apiLimiter = perMinute(env.rateLimit.apiPerMinute, { skip: (req) => req.pa
 const authLimiter = perMinute(env.rateLimit.authPerMinute);
 // Meta sends webhooks in bursts from a few addresses; this only stops floods.
 const webhookLimiter = perMinute(env.rateLimit.webhookPerMinute);
+// Website enquiry forms: a person sends one or two; more from one address is a bot.
+const formLimiter = perMinute(env.rateLimit.formPerMinute);
 
-module.exports = { apiLimiter, authLimiter, webhookLimiter };
+module.exports = { apiLimiter, authLimiter, webhookLimiter, formLimiter };

@@ -36,6 +36,8 @@ const schema = Joi.object({
   RATE_LIMIT_API_PER_MINUTE: Joi.number().integer().min(1).default(300),
   RATE_LIMIT_AUTH_PER_MINUTE: Joi.number().integer().min(1).default(20),
   RATE_LIMIT_WEBHOOK_PER_MINUTE: Joi.number().integer().min(1).default(1200),
+  // Enquiries per minute from one address to the public website forms.
+  RATE_LIMIT_FORM_PER_MINUTE: Joi.number().integer().min(1).default(10),
   JWT_EXPIRES_IN: Joi.string().allow(''),
 }).unknown(true);
 
@@ -83,6 +85,7 @@ const env = {
     apiPerMinute: value.RATE_LIMIT_API_PER_MINUTE,
     authPerMinute: value.RATE_LIMIT_AUTH_PER_MINUTE,
     webhookPerMinute: value.RATE_LIMIT_WEBHOOK_PER_MINUTE,
+    formPerMinute: value.RATE_LIMIT_FORM_PER_MINUTE,
   },
   whatsapp: {
     graphUrl: value.WHATSAPP_GRAPH_URL.replace(/\/+$/, ''),

@@ -8,6 +8,7 @@ const { apiLimiter } = require('./middleware/rateLimit');
 const errorHandler = require('./middleware/errorHandler');
 const routes = require('./routes');
 const webhookRoutes = require('./routes/webhooks');
+const publicRoutes = require('./routes/public');
 const logger = require('./config/logger');
 const path = require('path');
 const env = require('./config/env');
@@ -52,6 +53,8 @@ app.use(morgan(':remote-addr :method :path :status :res[content-length] - :respo
 
 // Public webhooks (WhatsApp; later lead sources and payments) have their own rate limit.
 app.use('/api/v1/webhooks', webhookRoutes);
+// Website enquiry forms: called from the organization's own sites, with their own rate limit.
+app.use('/api/v1/public', publicRoutes);
 app.use('/api/v1', apiLimiter, routes);
 
 // 404 handler

@@ -11,6 +11,8 @@ const httpError = require('../utils/httpError');
 const { normalizePhone } = require('../utils/phone');
 const schemas = require('../validators/whatsapp');
 const mock = require('../integrations/whatsapp/mock');
+const leadIntake = require('../services/leadIntakeService');
+const leadSchemas = require('../validators/leadSources');
 
 // Development helpers. They do not exist in production (404).
 const router = express.Router();
@@ -63,6 +65,23 @@ router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbou
   const message = await Message.findOne({ providerMessageId: messageId, organizationId: account.organizationId });
   if (!message) throw httpError(500, 'SIMULATION_FAILED', 'The simulated message was not stored.');
   res.status(201).json({ success: true, data: { conversationId: message.conversationId, messageId: message._id, contactId: message.contactId } });
+});
+
+// Pretends a lead arrived from a source (IndiaMART by default): the same intake as a real one.
+router.post('/simulate/lead', validate({ body: leadSchemas.simulateLead }), async (req, res) => {
+  const { source, sourceRef, name, phone, email, company, city, state, product, quantity, message } = req.body;
+  const result = await leadIntake.intake({
+    organizationId: req.tenant.organizationId,
+    source,
+    sourceRef: sourceRef || `sim:${crypto.randomBytes(8).toString('hex')}`,
+    person: { name, phone, email, company, city, state },
+    enquiry: { product, quantity, message },
+    raw: { simulated: true, ...req.body },
+  });
+  if (result.outcome === 'rejected') {
+    return res.status(400).json({ success: false, code: 'LEAD_REJECTED', message: 'The lead needs a valid mobile number or email.', data: result });
+  }
+  return res.status(201).json({ success: true, data: result });
 });
 
 module.exports = router;
