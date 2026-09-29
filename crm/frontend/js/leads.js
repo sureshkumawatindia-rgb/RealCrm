@@ -719,7 +719,9 @@ function renderTable() {
     const matchesSearch =
       l.name.toLowerCase().includes(searchTerm) ||
       (l.email || "").toLowerCase().includes(searchTerm) ||
-      (l.company || "").toLowerCase().includes(searchTerm);
+      (l.company || "").toLowerCase().includes(searchTerm) ||
+      (l.source || "").toLowerCase().includes(searchTerm) ||
+      (l.title || "").toLowerCase().includes(searchTerm);
     const matchesStatus = statusFilter === "all" || l.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -731,17 +733,20 @@ function renderTable() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Product</th><th>Status</th><th>Value</th><th>Follow-up</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Product</th><th>Source</th><th>Status</th><th>Value</th><th>Follow-up</th><th></th></tr></thead>
       <tbody>
         ${filtered
           .map((l) => {
             const noteCount = getLeadNoteEntries(l).length;
+            // An enquiry from a lead source names the product in its title when it is not in the catalogue.
+            const productText = l.product ? getProductName(l.product) : l.title && !/ enquiry$/.test(l.title) ? l.title : "—";
             return `
           <tr data-id="${l.id}">
             <td class="inline-edit-cell" data-field="name">${escapeHtml(l.name)}</td>
             <td class="inline-edit-cell" data-field="company">${escapeHtml(l.company) || "—"}</td>
             <td class="inline-edit-cell" data-field="email">${escapeHtml(l.email) || "—"}</td>
-            <td class="inline-edit-cell" data-field="product">${escapeHtml(getProductName(l.product))}${l.product && l.quantity ? ` <span class="badge badge-neutral">x${escapeHtml(l.quantity)}</span>` : ""}</td>
+            <td class="inline-edit-cell" data-field="product">${escapeHtml(productText)}${l.quantity ? ` <span class="badge badge-neutral">x${escapeHtml(l.quantity)}</span>` : ""}</td>
+            <td><span class="badge badge-neutral">${escapeHtml(l.source || "Manual")}</span></td>
             <td class="inline-edit-cell" data-field="status">${statusBadge(l.status)}</td>
             <td class="inline-edit-cell" data-field="value">${l.value ? "₹" + Number(l.value).toLocaleString("en-IN") : "—"}</td>
             <td class="inline-edit-cell" data-field="followUp">${l.followUp || "—"}</td>

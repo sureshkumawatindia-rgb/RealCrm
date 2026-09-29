@@ -106,6 +106,37 @@
         flex-wrap: wrap;
         gap: 10px;
       }
+      /* Settings → Lead sources */
+      .ls-code {
+        flex: 1;
+        width: 100%;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm, 10px);
+        padding: 8px 10px;
+        background: var(--bg, #f7f7f8);
+        resize: vertical;
+      }
+      .ls-log {
+        margin-top: 10px;
+        border-top: 1px solid var(--border-soft);
+        padding-top: 8px;
+      }
+      .ls-log[hidden] {
+        display: none;
+      }
+      .ls-log-row {
+        font-size: 12.5px;
+        padding: 4px 0;
+      }
+      .ls-preview {
+        margin-top: 10px;
+        padding: 16px;
+        border: 1px dashed var(--border);
+        border-radius: var(--radius-sm, 10px);
+        background: #fff;
+      }
       /* Settings → WhatsApp: templates and click-to-chat */
       .wa-block {
         margin-top: 24px;
@@ -479,6 +510,9 @@
             </button>
             <button class="settings-tab" data-panel="whatsapp" id="whatsappTab" style="display: none">
               <i class="fa-brands fa-whatsapp"></i> WhatsApp
+            </button>
+            <button class="settings-tab" data-panel="leadsources" id="leadSourcesTab" style="display: none">
+              <i class="fa-solid fa-inbox"></i> Lead sources
             </button>
             <button class="settings-tab" data-panel="data">
               <i class="fa-solid fa-database"></i> Data & Privacy
@@ -996,6 +1030,69 @@
             </div>
           </div>
 
+          <!-- LEAD SOURCES -->
+          <div class="settings-panel" data-settings-panel="leadsources">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Lead sources</h3>
+                <span class="text-muted" style="font-size: 12px" id="lsCount"></span>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint">
+                  Where your enquiries come from. Every enquiry becomes a contact and a lead
+                  (the same mobile number is never added twice; a new enquiry from someone with an
+                  open lead is added to that lead). IndiaMART, Facebook and the others follow in
+                  the next updates.
+                </p>
+                <div id="lsList"></div>
+                <div class="data-actions" style="margin-top: 14px">
+                  <button class="btn btn-primary" type="button" id="lsAddWebsite"><i class="fa-solid fa-globe"></i> New website form</button>
+                </div>
+
+                <div class="settings-section wa-block" id="lsSimulateSection">
+                  <div class="settings-section-label">Try it: receive a test lead</div>
+                  <p class="settings-hint">Pretends an enquiry arrived (development only). Check Leads and Customers afterwards.</p>
+                  <form id="lsSimulateForm">
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="lsSimSource">Source</label>
+                        <select id="lsSimSource">
+                          <option>IndiaMART</option>
+                          <option>Website</option>
+                          <option>JustDial</option>
+                          <option>TradeIndia</option>
+                          <option>Facebook</option>
+                          <option>Google Ads</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label for="lsSimName">Buyer's name</label>
+                        <input type="text" id="lsSimName" maxlength="120" placeholder="Ravi Traders" required />
+                      </div>
+                      <div class="field">
+                        <label for="lsSimPhone">Mobile</label>
+                        <input type="tel" id="lsSimPhone" maxlength="30" placeholder="98290 12345" required />
+                      </div>
+                    </div>
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="lsSimProduct">Product</label>
+                        <input type="text" id="lsSimProduct" maxlength="200" placeholder="Cumin Seeds" />
+                      </div>
+                      <div class="field">
+                        <label for="lsSimMessage">Requirement</label>
+                        <input type="text" id="lsSimMessage" maxlength="2000" placeholder="Need 50kg, send rate" />
+                      </div>
+                    </div>
+                    <div class="data-actions" style="justify-content: flex-end">
+                      <button class="btn btn-outline" type="submit"><i class="fa-solid fa-paper-plane"></i> Receive Test Lead</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- DATA & PRIVACY -->
           <div class="settings-panel" data-settings-panel="data">
             <div class="panel">
@@ -1090,5 +1187,6 @@
     <script src="./js/app.js"></script>
     <script src="./js/settings.js"></script>
     <script src="./js/settings-whatsapp.js"></script>
+    <script src="./js/settings-leadsources.js"></script>
   </body>
 </html>
