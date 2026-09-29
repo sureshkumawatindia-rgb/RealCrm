@@ -5,7 +5,7 @@
  * Runs after settings.js; everything stays inside this function so no names clash.
  */
 (function settingsLeadSources() {
-  if (!isOrgManager()) return;
+  if (!isOrgManager()) return leaveManagerTab("leadsources");
   document.getElementById("leadSourcesTab").style.display = "";
 
   const $ = (id) => document.getElementById(id);
@@ -431,8 +431,9 @@
     try {
       const result = await crmApi("/dev/simulate/lead", jsonRequest("POST", {
         source: value("lsSimSource"), name: value("lsSimName"), phone: value("lsSimPhone"), product: value("lsSimProduct"), message: value("lsSimMessage"),
+        city: value("lsSimCity"), state: value("lsSimState"),
       }));
-      showToast(result.outcome === "attached" ? "Test enquiry added to the open lead of this number." : "Test lead received. See Leads.", "success");
+      showToast(result.outcome === "attached" ? "Test enquiry added to the open lead of this number." : "Test lead received. The lead rules run now; see Leads and the Inbox.", "success");
       e.target.reset();
     } catch (error) {
       showToast(error.status === 404 ? "Test leads are turned off on this server." : apiErrorMessage(error, "Couldn't receive the test lead."), "error");

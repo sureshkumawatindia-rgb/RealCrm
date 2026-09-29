@@ -66,6 +66,13 @@ function initTabs() {
   });
 }
 
+// Owners/admins only: someone else who follows a link to this tab sees their profile instead.
+function leaveManagerTab(panel) {
+  if (document.querySelector(`[data-settings-panel="${panel}"]`)?.classList.contains("active")) {
+    document.querySelector('.settings-tab[data-panel="profile"]')?.click();
+  }
+}
+
 function activateRequestedTab() {
   const tabName = new URLSearchParams(window.location.search).get("tab");
   if (!tabName) return;

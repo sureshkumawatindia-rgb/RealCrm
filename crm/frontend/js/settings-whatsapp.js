@@ -7,7 +7,7 @@
  * Runs after settings.js; everything stays inside this function so no names clash.
  */
 (function settingsWhatsApp() {
-  if (!isOrgManager()) return;
+  if (!isOrgManager()) return leaveManagerTab("whatsapp");
   document.getElementById("whatsappTab").style.display = "";
 
   const STATUS_BADGE = {

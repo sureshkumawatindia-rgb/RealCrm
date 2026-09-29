@@ -84,7 +84,9 @@
         font-weight: 700;
         font-size: 13.5px;
       }
-      .settings-summary-row .info .sub {
+      .settings-summary-row .info .sub,
+      .lr-rule .sub,
+      .lr-form .sub {
         font-size: 12px;
         color: var(--text-muted, #6b7280);
         margin-top: 2px;
@@ -140,6 +142,71 @@
         .ls-copy-label {
           width: 100%;
         }
+      }
+      .lr-stack label.ls-check {
+        display: flex;
+      }
+      .lr-picks {
+        max-height: 170px;
+        overflow: auto;
+        border: 1px solid var(--border-soft, #eef0f3);
+        border-radius: var(--radius-sm, 10px);
+        padding: 8px 10px 2px;
+      }
+      .lr-hours {
+        grid-template-columns: 1fr 1fr 1.4fr;
+      }
+      @media (max-width: 600px) {
+        .lr-hours {
+          grid-template-columns: 1fr 1fr;
+        }
+        .lr-rule {
+          flex-wrap: wrap;
+        }
+      }
+      .lr-rule {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .lr-rule .info {
+        flex: 1 1 240px;
+        min-width: 0;
+      }
+      .lr-rule .ls-actions {
+        flex-wrap: wrap;
+      }
+      .lr-rule .name {
+        font-weight: 700;
+        font-size: 13.5px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .lr-rule .order {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .lr-preview {
+        background: #efeae2;
+        border-radius: var(--radius-sm, 10px);
+        padding: 10px 12px;
+      }
+      .lr-preview > div {
+        background: #fff;
+        border-radius: 10px;
+        padding: 8px 10px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: 13px;
+        max-width: 420px;
+      }
+      .lr-var select {
+        max-width: 240px;
       }
       .ls-actions {
         display: flex;
@@ -557,6 +624,9 @@
             </button>
             <button class="settings-tab" data-panel="leadsources" id="leadSourcesTab" style="display: none">
               <i class="fa-solid fa-inbox"></i> Lead sources
+            </button>
+            <button class="settings-tab" data-panel="leadrules" id="leadRulesTab" style="display: none">
+              <i class="fa-solid fa-route"></i> Lead rules
             </button>
             <button class="settings-tab" data-panel="data">
               <i class="fa-solid fa-database"></i> Data & Privacy
@@ -1188,8 +1258,118 @@
                         <input type="text" id="lsSimMessage" maxlength="2000" placeholder="Need 50kg, send rate" />
                       </div>
                     </div>
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="lsSimCity">City</label>
+                        <input type="text" id="lsSimCity" maxlength="100" placeholder="Jaipur" />
+                      </div>
+                      <div class="field">
+                        <label for="lsSimState">State</label>
+                        <input type="text" id="lsSimState" maxlength="100" placeholder="Rajasthan" />
+                      </div>
+                    </div>
                     <div class="data-actions" style="justify-content: flex-end">
                       <button class="btn btn-outline" type="submit"><i class="fa-solid fa-paper-plane"></i> Receive Test Lead</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- LEAD RULES -->
+          <div class="settings-panel" data-settings-panel="leadrules">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Lead rules</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint">
+                  What happens the moment an enquiry arrives (from any lead source, or a customer's first
+                  WhatsApp message): who gets the lead, and the instant WhatsApp reply.
+                </p>
+
+                <form class="settings-section" id="lrHoursForm">
+                  <div class="settings-section-label">Working hours</div>
+                  <div class="field"><label>Days</label><div id="lrDays"></div></div>
+                  <div class="field-row lr-hours">
+                    <div class="field"><label for="lrStart">From</label><input type="time" id="lrStart" required /></div>
+                    <div class="field"><label for="lrEnd">To</label><input type="time" id="lrEnd" required /></div>
+                    <div class="field"><label for="lrTz">Time zone</label><input type="text" id="lrTz" maxlength="60" placeholder="Asia/Kolkata" /></div>
+                  </div>
+                  <div class="data-actions" style="justify-content: space-between; align-items: center">
+                    <span class="settings-hint" style="margin: 0" id="lrOpenNow"></span>
+                    <button class="btn btn-primary" type="submit">Save hours</button>
+                  </div>
+                </form>
+
+                <div class="settings-section wa-block">
+                  <div class="settings-section-label">Who gets a new lead</div>
+                  <p class="settings-hint">
+                    Rules are tried from the top; the first that fits the enquiry decides. A lead that no rule
+                    fits stays unassigned: everyone with "See all" sees it in Leads, and its WhatsApp chat waits in the queue.
+                  </p>
+                  <div id="lrAssignList"></div>
+                  <div class="data-actions" style="margin-top: 10px">
+                    <button class="btn btn-outline" type="button" id="lrAssignNew"><i class="fa-solid fa-plus"></i> New rule</button>
+                  </div>
+                  <form class="wa-new lr-form" id="lrAssignForm" hidden autocomplete="off">
+                    <input type="hidden" id="lrAssignId" />
+                    <div class="field"><label for="lrAssignName">Rule name</label><input type="text" id="lrAssignName" maxlength="100" placeholder="IndiaMART leads from Rajasthan" /></div>
+                    <div class="field"><label>Leads from (none ticked = any source)</label><div id="lrAssignSources"></div></div>
+                    <div class="field-row">
+                      <div class="field"><label for="lrAssignStates">Only these states (optional, comma separated)</label><input type="text" id="lrAssignStates" maxlength="1000" placeholder="Rajasthan, Gujarat" /></div>
+                      <div class="field"><label for="lrAssignCities">Only these cities (optional)</label><input type="text" id="lrAssignCities" maxlength="1000" placeholder="Jaipur, Jodhpur" /></div>
+                    </div>
+                    <div class="field"><label>Only these products (optional)</label><div id="lrAssignProducts"></div></div>
+                    <div class="field">
+                      <label>How</label>
+                      <div class="lr-stack">
+                        <label class="ls-check"><input type="radio" name="lrStrategy" value="round_robin" checked /> In turns (round-robin) among the people ticked</label>
+                        <label class="ls-check"><input type="radio" name="lrStrategy" value="specific" /> Always the first person ticked</label>
+                      </div>
+                    </div>
+                    <div class="field"><label>People</label><div id="lrAssignMembers"></div></div>
+                    <div class="field-row">
+                      <div class="field">
+                        <label>Working hours</label>
+                        <label class="ls-check"><input type="checkbox" id="lrAssignHours" /> Outside working hours, give the lead to the fallback person</label>
+                      </div>
+                      <div class="field"><label for="lrAssignFallback">Fallback person</label><select id="lrAssignFallback"></select></div>
+                    </div>
+                    <div class="data-actions" style="justify-content: flex-end">
+                      <button class="btn btn-outline" type="button" id="lrAssignCancel">Cancel</button>
+                      <button class="btn btn-primary" type="submit">Save rule</button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="settings-section wa-block">
+                  <div class="settings-section-label">Instant WhatsApp reply</div>
+                  <p class="settings-hint">
+                    Sends one of your approved WhatsApp templates within seconds of a new enquiry, in the chat of
+                    the lead's owner, marked "Auto-reply". Repeat enquiries, enquiries older than the limit (for example
+                    IndiaMART's first pull of the last 24 hours) and customers without a mobile number get none.
+                  </p>
+                  <div id="lrReplyList"></div>
+                  <div class="data-actions" style="margin-top: 10px">
+                    <button class="btn btn-outline" type="button" id="lrReplyNew"><i class="fa-solid fa-plus"></i> New auto-reply</button>
+                  </div>
+                  <form class="wa-new lr-form" id="lrReplyForm" hidden autocomplete="off">
+                    <input type="hidden" id="lrReplyId" />
+                    <div class="field"><label for="lrReplyName">Name</label><input type="text" id="lrReplyName" maxlength="100" placeholder="Welcome IndiaMART buyers" /></div>
+                    <div class="field"><label>For leads from (none ticked = any source)</label><div id="lrReplySources"></div></div>
+                    <div class="field"><label for="lrReplyTemplate">WhatsApp template</label><select id="lrReplyTemplate" required></select></div>
+                    <div id="lrReplyVars"></div>
+                    <div class="field"><label>Preview</label><div class="lr-preview" id="lrReplyPreview"></div></div>
+                    <div class="field-row">
+                      <div class="field"><label for="lrReplyAge">Skip enquiries older than (minutes, 0 = never)</label><input type="number" id="lrReplyAge" min="0" max="10080" value="60" /></div>
+                      <div class="field"><label for="lrReplyDelay">Wait before sending (seconds)</label><input type="number" id="lrReplyDelay" min="0" max="3600" value="0" /></div>
+                    </div>
+                    <div class="field"><label class="ls-check"><input type="checkbox" id="lrReplyOnlyNew" checked /> Only people who are new to the CRM (no second greeting)</label></div>
+                    <div class="data-actions" style="justify-content: flex-end">
+                      <button class="btn btn-outline" type="button" id="lrReplyCancel">Cancel</button>
+                      <button class="btn btn-primary" type="submit">Save auto-reply</button>
                     </div>
                   </form>
                 </div>
@@ -1292,5 +1472,6 @@
     <script src="./js/settings.js"></script>
     <script src="./js/settings-whatsapp.js"></script>
     <script src="./js/settings-leadsources.js"></script>
+    <script src="./js/settings-routing.js"></script>
   </body>
 </html>
