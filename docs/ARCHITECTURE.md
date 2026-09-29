@@ -71,7 +71,8 @@ Helmet on the API, CORS allowlist (`CORS_ORIGINS` plus the public URL and local 
 - Integrations: `integrations/whatsapp` (`metaCloud` = Graph API client with timeouts: messages, templates, media upload/lookup/download; `mock` for development with sample templates and sample files; `providerFor(account)`).
 - WhatsApp files: `whatsappMediaService` copies received files into the document storage right after the message is stored (checksum checked; a failure is retried when someone opens the file), classifies files to send by extension against Meta's types and limits, and streams files back only through the signed-in API. Sending (`conversationService.deliver`) always saves the message first, then uploads/sends, then records sent or failed.
 - Templates: `templateService` turns Meta's components into variables for the picker, checks new templates against Meta's layout rules before submitting, and builds the send payload (positional or named parameters); the template status webhook updates status and reason.
-- Frontend guards: `frontendScripts.test.js` (page scripts compile together) and `frontendStorage.test.js` (no `crm_*` business keys; only app.js, login.js and the Settings migration screen write localStorage).
+- Frontend guards: `frontendScripts.test.js` (page scripts compile together; every `escapeHtml` also escapes quotes, because escaped text is used inside attributes) and `frontendStorage.test.js` (no `crm_*` business keys; only app.js, login.js and the Settings migration screen write localStorage; `crm_prefs` holds page preferences such as the inbox sound, via `getPreference` / `setPreference`).
+- Customer ownership from chats (D25): `conversationService.claimCustomer` gives an unowned contact and its open leads to whoever the chat is assigned to; it never overwrites an owner.
 - Migrations: `src/migrations`, each idempotent, recorded in `migrations`.
 
 ## 7. Transactions
