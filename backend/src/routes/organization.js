@@ -4,9 +4,10 @@ const controller = require('../controllers/organizationController');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
-const { organizationPatch } = require('../validators/organization');
+const { organizationPatch, billing: billingSchema } = require('../validators/organization');
 const routingSchemas = require('../validators/routing');
 const assignment = require('../services/assignmentService');
+const organizationService = require('../services/organizationService');
 
 const router = express.Router();
 const upload = multer({
@@ -33,6 +34,13 @@ router.get('/business-hours', async (req, res) => {
 });
 router.put('/business-hours', requireRole('owner', 'admin'), validate({ body: routingSchemas.businessHours }), async (req, res) => {
   res.json({ success: true, data: await assignment.setBusinessHours(req, req.body), message: 'Working hours saved' });
+});
+// Quotation and order settings (bank, UPI, terms, prefixes); owners and admins.
+router.get('/billing', requireRole('owner', 'admin'), async (req, res) => {
+  res.json({ success: true, data: await organizationService.getBilling(req) });
+});
+router.put('/billing', requireRole('owner', 'admin'), validate({ body: billingSchema }), async (req, res) => {
+  res.json({ success: true, data: await organizationService.setBilling(req, req.body), message: 'Billing settings saved' });
 });
 router.patch('/', requireRole('owner', 'admin'), validate({ body: organizationPatch }), controller.update);
 router.post('/logo', requireRole('owner', 'admin'), uploadLogo, controller.uploadLogo);

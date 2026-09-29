@@ -19,6 +19,27 @@ const organizationSchema = new mongoose.Schema(
     country: { type: String, trim: true },
     postalCode: { type: String, trim: true },
     description: { type: String, trim: true },
+    // Quotations and orders (Phase 5): what the PDF shows and how documents are numbered.
+    billing: {
+      bank: {
+        accountName: { type: String, trim: true, default: '' },
+        accountNumber: { type: String, trim: true, default: '' },
+        ifsc: { type: String, trim: true, uppercase: true, default: '' },
+        bankName: { type: String, trim: true, default: '' },
+        branch: { type: String, trim: true, default: '' },
+      },
+      upiId: { type: String, trim: true, default: '' },
+      terms: { type: String, default: '' },
+      validityDays: { type: Number, min: 1, max: 365, default: 15 },
+      prefixes: {
+        quotation: { type: String, default: 'QT' },
+        estimate: { type: String, default: 'EST' },
+        proforma: { type: String, default: 'PI' },
+        order: { type: String, default: 'SO' },
+      },
+      roundOff: { type: Boolean, default: true }, // D28
+      reduceStockOnDispatch: { type: Boolean, default: false },
+    },
   },
   // strict:false keeps fields written by older versions until a migration moves them.
   { timestamps: true, strict: false },
