@@ -83,8 +83,9 @@ function getCustomerIdFromUrl() {
   return new URLSearchParams(window.location.search).get("id");
 }
 
+// A direct link (e.g. from the Inbox) may point at a contact that is still a lead.
 function findCustomer(id) {
-  return getCustomers().find((c) => c.id === id) || null;
+  return getContacts().find((c) => c.id === id) || null;
 }
 
 // ---------------------------------------------------------------
@@ -450,6 +451,90 @@ function renderTimelineTab(customer) {
 }
 
 // ---------------------------------------------------------------
+// WhatsApp — the customer's chat (latest messages, read-only) and a
+// way to start one. Only for members who can open the Inbox.
+// ---------------------------------------------------------------
+const WA_KIND = { image: "Photo", video: "Video", audio: "Audio", document: "Document", sticker: "Sticker", location: "Location", contacts: "Contact card", reaction: "Reaction", unsupported: "Message" };
+
+function canUseInbox() {
+  return isOrgManager() || (getCurrentMember()?.modules || []).includes("inbox");
+}
+
+function whatsappLine(m) {
+  const time = new Date(m.at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" });
+  const label = m.type === "document" && m.media?.fileName ? m.media.fileName : m.type === "audio" && m.media?.voice ? "Voice message" : WA_KIND[m.type];
+  const kind = WA_KIND[m.type] ? `<span class="kind">${escapeHtml(label)}</span>${m.text ? "\n" : ""}` : "";
+  const who = m.direction === "out" ? `${m.type === "template" ? "Template · " : ""}${escapeHtml(memberName(m.sentByMemberId) || "Team")} · ` : "";
+  const failed = m.status === "failed" ? " · not sent" : "";
+  return `<div class="c360-wa-msg ${m.direction === "out" ? "out" : ""}">${kind}${escapeHtml(m.text || "")}<span class="meta">${who}${escapeHtml(time)}${failed}</span></div>`;
+}
+
+async function showWhatsAppChat(chat) {
+  const list = document.getElementById("c360WaMessages");
+  list.innerHTML = relEmptyBlock("fa-spinner", "Loading messages…");
+  try {
+    const page = await crmRequest(`/conversations/${chat.id}/messages?limit=30`);
+    list.innerHTML = page.data.length
+      ? `<div class="c360-wa-list">${page.data.map(whatsappLine).join("")}</div>`
+      : relEmptyBlock("fa-comments", "No messages in this chat yet. Open it in the Inbox to send a template.");
+    const box = list.querySelector(".c360-wa-list");
+    if (box) box.scrollTop = box.scrollHeight;
+  } catch (error) {
+    list.innerHTML = relEmptyBlock("fa-triangle-exclamation", apiErrorMessage(error, "Couldn't load the chat."));
+  }
+}
+
+async function startWhatsAppChat(customer, button) {
+  button.disabled = true;
+  try {
+    const chat = await crmApi("/conversations", jsonRequest("POST", { contactId: customer.id }));
+    window.location.href = `Inbox.html?c=${encodeURIComponent(chat.id)}`;
+  } catch (error) {
+    button.disabled = false;
+    showToast(apiErrorMessage(error, "Couldn't open a WhatsApp chat."), "error");
+  }
+}
+
+async function renderWhatsAppTab(customer) {
+  if (!canUseInbox()) return;
+  document.getElementById("c360WhatsAppTab").hidden = false;
+  const head = document.getElementById("c360WaHead");
+  const list = document.getElementById("c360WaMessages");
+  let chats = [];
+  try {
+    chats = await crmApi(`/conversations?contactId=${encodeURIComponent(customer.id)}&status=any&limit=10`);
+  } catch (error) {
+    list.innerHTML = relEmptyBlock("fa-triangle-exclamation", apiErrorMessage(error, "Couldn't load WhatsApp chats."));
+    return;
+  }
+  if (!chats.length) {
+    head.innerHTML = "";
+    list.innerHTML = `${relEmptyBlock("fa-comments", customer.phone ? "No WhatsApp chat with this customer yet." : "Add a mobile number to this customer to chat on WhatsApp.")}${
+      customer.phone ? '<div style="text-align:center;padding:0 16px 24px"><button class="btn btn-primary" type="button" id="c360WaStart"><i class="fa-brands fa-whatsapp"></i> Message on WhatsApp</button></div>' : ""
+    }`;
+    const start = document.getElementById("c360WaStart");
+    if (start) start.addEventListener("click", () => startWhatsAppChat(customer, start));
+    return;
+  }
+  const label = (c) => `${c.account?.verifiedName || c.account?.name || "WhatsApp"}${c.account?.displayPhone ? ` · ${c.account.displayPhone}` : ""}`;
+  const describe = (c) => `${c.status} · ${c.assigneeId ? `with ${memberName(c.assigneeId) || "a teammate"}` : "in the queue"}`;
+  head.innerHTML = `
+    ${chats.length > 1 ? `<select id="c360WaPick" aria-label="WhatsApp number">${chats.map((c, i) => `<option value="${i}">${escapeHtml(label(c))}</option>`).join("")}</select>` : `<span><i class="fa-brands fa-whatsapp" style="color:#25d366"></i> ${escapeHtml(label(chats[0]))}</span>`}
+    <span id="c360WaState">${escapeHtml(describe(chats[0]))}</span>
+    <a class="btn btn-outline" id="c360WaOpen" href="Inbox.html?c=${encodeURIComponent(chats[0].id)}"><i class="fa-solid fa-comments"></i> Open in Inbox</a>`;
+  const pick = document.getElementById("c360WaPick");
+  if (pick) {
+    pick.addEventListener("change", () => {
+      const chat = chats[Number(pick.value)];
+      document.getElementById("c360WaState").textContent = describe(chat);
+      document.getElementById("c360WaOpen").href = `Inbox.html?c=${encodeURIComponent(chat.id)}`;
+      showWhatsAppChat(chat);
+    });
+  }
+  showWhatsAppChat(chats[0]);
+}
+
+// ---------------------------------------------------------------
 // Tabs wiring
 // ---------------------------------------------------------------
 function initTabs() {
@@ -492,6 +577,7 @@ crmReady(["leads", "contacts", "products", "members", "tasks", "events", "ticket
     renderDocumentsTab(customer);
     renderNotesTab(customer);
     initTabs();
+    renderWhatsAppTab(customer);
 
     document.getElementById("c360AddNoteBtn").addEventListener("click", () => addNote(customer));
     document.getElementById("c360NoteInput").addEventListener("keydown", (e) => {

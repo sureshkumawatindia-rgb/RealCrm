@@ -243,6 +243,69 @@
         padding: 12px 16px;
         border-top: 1px solid var(--border-soft);
       }
+
+      /* WhatsApp tab: the latest messages of the customer's chat (read-only). */
+      .c360-tab[hidden] {
+        display: none;
+      }
+      .c360-wa-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-soft);
+        font-size: 12.5px;
+        color: var(--text-muted);
+      }
+      .c360-wa-head:empty {
+        display: none;
+      }
+      .c360-wa-head select {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 6px 8px;
+        font: inherit;
+      }
+      .c360-wa-head .btn {
+        margin-left: auto;
+        font-size: 12.5px;
+        padding: 6px 12px;
+      }
+      .c360-wa-list {
+        background: #efeae2;
+        padding: 12px 16px;
+        display: grid;
+        gap: 6px;
+        max-height: 520px;
+        overflow-y: auto;
+      }
+      .c360-wa-msg {
+        max-width: 78%;
+        background: #fff;
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-size: 13px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+      }
+      .c360-wa-msg.out {
+        justify-self: end;
+        background: #dcf8c6;
+      }
+      .c360-wa-msg .meta {
+        display: block;
+        text-align: right;
+        font-size: 10.5px;
+        color: var(--text-faint);
+        margin-top: 2px;
+      }
+      .c360-wa-msg .kind {
+        color: var(--text-muted);
+        font-style: italic;
+      }
       .note-input-row input {
         flex: 1;
         border: 1px solid var(--border);
@@ -438,8 +501,13 @@
                   <button class="c360-tab" data-tab="tickets">Support Tickets</button>
                   <button class="c360-tab" data-tab="documents">Documents</button>
                   <button class="c360-tab" data-tab="notes">Notes</button>
+                  <button class="c360-tab" data-tab="whatsapp" id="c360WhatsAppTab" hidden><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
                 </div>
 
+                <div class="panel c360-panel" data-panel="whatsapp">
+                  <div class="c360-wa-head" id="c360WaHead"></div>
+                  <div id="c360WaMessages"></div>
+                </div>
                 <div class="panel c360-panel active" data-panel="timeline">
                   <div id="c360Timeline"></div>
                 </div>

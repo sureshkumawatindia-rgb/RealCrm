@@ -1,8 +1,9 @@
 /**
  * inbox.js — WhatsApp team inbox (Inbox.html)
- * Chats, messages, notes and quick replies come from the CRM backend (/conversations,
- * /quick-replies); live updates arrive over Socket.IO. Everything customers write is shown
- * as text only (escapeHtml), never as HTML.
+ * Chats, messages, notes, quick replies and templates come from the CRM backend
+ * (/conversations, /quick-replies, /templates); live updates arrive over Socket.IO. Everything
+ * customers write is shown as text only (escapeHtml), never as HTML. Files are fetched through
+ * the signed-in API and shown from object URLs (photos, audio, video) or downloaded.
  * Which chats appear (decision D24): owners, admins and inbox:view_all see every chat; other
  * members see their own chats and the queue of chats nobody has taken yet.
  * Reuses app.js: crmApi, crmRequest, crmLoad, cached, jsonRequest, newIdempotencyKey,
@@ -32,6 +33,10 @@
     document: ["fa-file-lines", "Document"],
     sticker: ["fa-note-sticky", "Sticker"],
   };
+  // Files the page shows itself (anything else is only offered as a download).
+  const PREVIEW_TYPES = ["image/jpeg", "image/png", "image/webp", "audio/aac", "audio/amr", "audio/mpeg", "audio/mp4", "audio/ogg", "audio/wav", "video/mp4", "video/3gpp"];
+  const baseMime = (mime) => String(mime || "").split(";")[0].trim().toLowerCase();
+  const fileSize = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
   const state = {
     view: "all",
@@ -48,6 +53,9 @@
     replyTo: null,
     quickIndex: 0,
     unread: 0,
+    file: null, // a file waiting to be sent
+    templates: null, // approved templates (loaded when the picker opens)
+    template: null, // the one picked
   };
 
   // --- small helpers -------------------------------------------------------
@@ -180,13 +188,29 @@
   }
 
   // --- thread --------------------------------------------------------------
+  // Photos load as previews; audio and video load when played; documents download. The file
+  // always comes through the API (signed in), never from a public address.
+  function mediaHtml(m) {
+    const [icon, label] = MEDIA[m.type];
+    const id = escapeHtml(m.id);
+    const name = m.type === "audio" && m.media?.voice ? "Voice message" : m.media?.fileName || label;
+    if (!m.media) return `<div class="attachment"><i class="fa-solid ${icon}"></i><span>${escapeHtml(name)}</span></div>`;
+    const viewable = PREVIEW_TYPES.includes(baseMime(m.media.mimeType));
+    if ((m.type === "image" || m.type === "sticker") && viewable) {
+      const url = mediaUrls.get(m.id);
+      const inner = typeof url === "string" ? `<img src="${url}" alt="${escapeHtml(m.text || "Photo")}" />` : '<span class="media-wait"><i class="fa-solid fa-image"></i></span>';
+      return `<button class="media-photo" type="button" data-photo="${id}" title="Open the photo">${inner}</button>`;
+    }
+    if ((m.type === "audio" || m.type === "video") && viewable) {
+      return `<div class="media-player" data-player="${id}"><button class="btn btn-outline media-play" type="button" data-play="${id}"><i class="fa-solid fa-play"></i> ${escapeHtml(name)}</button></div>`;
+    }
+    const size = m.media.sizeBytes ? fileSize(m.media.sizeBytes) : "";
+    return `<div class="attachment doc"><i class="fa-solid ${m.type === "document" ? "fa-file-lines" : icon}"></i><span class="doc-name">${escapeHtml(name)}</span>${size ? `<span class="doc-size">${size}</span>` : ""}<button class="icon-btn" type="button" data-download="${id}" title="Download"><i class="fa-solid fa-download"></i></button></div>`;
+  }
+
   function messageBody(m) {
     const text = m.text ? linkify(escapeHtml(m.text)) : "";
-    if (MEDIA[m.type]) {
-      const [icon, label] = MEDIA[m.type];
-      const name = m.type === "audio" && m.media?.voice ? "Voice message" : m.media?.fileName || label;
-      return `<div class="attachment"><i class="fa-solid ${icon}"></i><span>${escapeHtml(name)}</span></div>${text}`;
-    }
+    if (MEDIA[m.type]) return `${mediaHtml(m)}${text ? `<div class="caption">${text}</div>` : ""}`;
     if (m.type === "location" && m.location) {
       const { latitude, longitude, name, address } = m.location;
       const url = `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
@@ -211,7 +235,7 @@
         <div class="bubble">
           ${quoted ? `<div class="quote">${escapeHtml(quoted.text || quoted.type)}</div>` : ""}
           <div class="bubble-body">${messageBody(m)}</div>
-          <div class="bubble-meta">${who}${escapeHtml(time)} ${m.direction === "out" ? TICKS[m.status] || "" : ""}</div>
+          <div class="bubble-meta">${m.type === "template" ? '<span class="tpl-tag">Template</span>' : ""}${who}${escapeHtml(time)} ${m.direction === "out" ? TICKS[m.status] || "" : ""}</div>
           ${m.status === "failed" && m.error ? `<div class="msg-error">${escapeHtml(m.error.message || m.error.title || "WhatsApp did not accept this message.")}</div>` : ""}
         </div>
         ${replyButton}
@@ -223,6 +247,11 @@
     const previousHeight = box.scrollHeight;
     const previousTop = box.scrollTop;
     let lastDay = "";
+    // Audio and video players survive the re-render (and keep playing).
+    const players = [...document.querySelectorAll("#messageList [data-player]")]
+      .map((slot) => [slot.dataset.player, slot.querySelector("audio, video")])
+      .filter(([, player]) => player)
+      .map(([id, player]) => ({ id, player, playing: !player.paused }));
     $("messageList").innerHTML = state.messages
       .map((m) => {
         const day = dayLabel(new Date(m.at));
@@ -231,9 +260,90 @@
         return separator + messageHtml(m);
       })
       .join("");
+    if (!state.messages.length) {
+      $("messageList").innerHTML = '<div class="inbox-list-empty">No messages yet. WhatsApp lets you write first with an approved template.</div>';
+    }
+    players.forEach(({ id, player, playing }) => {
+      const slot = document.querySelector(`#messageList [data-player="${CSS.escape(id)}"]`);
+      if (!slot) return;
+      slot.replaceChildren(player);
+      if (playing) player.play().catch(() => {});
+    });
     $("olderMessages").hidden = !state.nextBefore;
     // Loading older messages keeps the view where it was; new ones scroll to the bottom.
     box.scrollTop = stickToBottom ? box.scrollHeight : box.scrollHeight - previousHeight + previousTop;
+    box.querySelectorAll("#messageList img").forEach(keepBottomOnLoad);
+    showPhotos();
+  }
+  // A photo gets its height only once it has loaded: stay at the bottom if the view was there.
+  function keepBottomOnLoad(img) {
+    if (img.complete) return;
+    const box = $("threadMessages");
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    if (atBottom) img.addEventListener("load", () => (box.scrollTop = box.scrollHeight), { once: true });
+  }
+
+  // --- files in messages ---------------------------------------------------------
+  // Object URLs of downloaded files, per message (freed when another chat opens).
+  const mediaUrls = new Map();
+  const mediaPath = (m) => `/conversations/${m.conversationId}/messages/${m.id}/media`;
+  function forgetMedia() {
+    mediaUrls.forEach((url) => {
+      if (typeof url === "string") URL.revokeObjectURL(url);
+    });
+    mediaUrls.clear();
+  }
+  async function mediaUrl(m) {
+    if (mediaUrls.has(m.id)) return mediaUrls.get(m.id);
+    const loading = crmRequest(mediaPath(m), {}, { blob: true }).then((blob) => {
+      // The download is typed as a plain file; the page gives it its real (allowed) type.
+      const url = URL.createObjectURL(new Blob([blob], { type: baseMime(m.media.mimeType) }));
+      mediaUrls.set(m.id, url);
+      return url;
+    });
+    mediaUrls.set(m.id, loading);
+    loading.catch(() => mediaUrls.delete(m.id));
+    return loading;
+  }
+  const messageById = (id) => state.messages.find((m) => String(m.id) === String(id));
+  function showPhotos() {
+    document.querySelectorAll("#messageList [data-photo]").forEach(async (button) => {
+      const m = messageById(button.dataset.photo);
+      if (!m || button.querySelector("img")) return;
+      try {
+        const url = await mediaUrl(m);
+        if (!button.isConnected) return;
+        button.innerHTML = `<img src="${url}" alt="${escapeHtml(m.text || "Photo")}" />`;
+        keepBottomOnLoad(button.querySelector("img"));
+      } catch (error) {
+        if (button.isConnected) button.outerHTML = `<div class="attachment"><i class="fa-solid fa-image"></i><span>${escapeHtml(apiErrorMessage(error, "Photo not available"))}</span></div>`;
+      }
+    });
+  }
+  async function playMedia(button) {
+    const m = messageById(button.dataset.play);
+    if (!m) return;
+    button.disabled = true;
+    try {
+      const url = await mediaUrl(m);
+      const player = document.createElement(m.type === "video" ? "video" : "audio");
+      player.controls = true;
+      player.src = url;
+      button.replaceWith(player);
+      player.play().catch(() => {});
+    } catch (error) {
+      button.disabled = false;
+      showToast(apiErrorMessage(error, "Couldn't load the file."), "error");
+    }
+  }
+  async function downloadMedia(id) {
+    const m = messageById(id);
+    if (!m) return;
+    try {
+      await crmDownload(mediaPath(m), m.media?.fileName || `whatsapp-${m.type}`);
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't download the file."), "error");
+    }
   }
 
   function renderThreadHead() {
@@ -251,6 +361,8 @@
     $("composerText").disabled = !open;
     $("composerSend").disabled = !open;
     $("quickRepliesBtn").disabled = !open;
+    $("attachBtn").disabled = !open;
+    if (!open) clearFile();
   }
 
   async function openConversation(id, { fromList = true } = {}) {
@@ -260,6 +372,10 @@
     } catch (error) {
       showToast(apiErrorMessage(error, "Couldn't open this chat."), "error");
       return;
+    }
+    if (!state.current || String(state.current.id) !== String(c.id)) {
+      forgetMedia();
+      clearFile();
     }
     state.current = c;
     state.replyTo = null;
@@ -296,6 +412,8 @@
   function closeThread(message) {
     state.current = null;
     state.messages = [];
+    forgetMedia();
+    clearFile();
     $("threadView").hidden = true;
     $("detailsView").hidden = true;
     $("threadEmpty").hidden = false;
@@ -350,19 +468,60 @@
     composer.style.height = `${Math.min(composer.scrollHeight, 140)}px`;
   }
 
+  // --- a file to send (the text box becomes its caption) ---
+  // Phones have room for a short hint only.
+  const defaultPlaceholder = () => (window.matchMedia("(max-width: 520px)").matches ? "Message" : "Message · / for quick replies");
+  composer.placeholder = defaultPlaceholder();
+  function clearFile() {
+    state.file = null;
+    $("fileInput").value = "";
+    $("fileBar").hidden = true;
+    composer.placeholder = defaultPlaceholder();
+  }
+  $("attachBtn").addEventListener("click", () => $("fileInput").click());
+  $("fileInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 100 * 1024 * 1024) {
+      showToast("WhatsApp carries files up to 100 MB.", "error");
+      clearFile();
+      return;
+    }
+    state.file = file;
+    $("fileName").textContent = file.name;
+    $("fileSize").textContent = fileSize(file.size);
+    $("fileBar").hidden = false;
+    composer.placeholder = "Add a caption (optional)";
+    composer.focus();
+  });
+  $("fileCancel").addEventListener("click", clearFile);
+
+  function sendRequest(conversation, text) {
+    const headers = { "Idempotency-Key": newIdempotencyKey() };
+    if (state.file) {
+      const form = new FormData();
+      form.append("file", state.file, state.file.name);
+      if (text) form.append("caption", text);
+      if (state.replyTo) form.append("replyToMessageId", state.replyTo.id);
+      return crmApi(`/conversations/${conversation.id}/messages/media`, { method: "POST", headers, body: form });
+    }
+    return crmApi(`/conversations/${conversation.id}/messages`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ text, ...(state.replyTo && { replyToMessageId: state.replyTo.id }) }),
+    });
+  }
+
   async function sendMessage() {
     const text = composer.value.trim();
-    if (!text || !state.current) return;
+    if ((!text && !state.file) || !state.current) return;
     const conversation = state.current;
     const sendButton = $("composerSend");
     sendButton.disabled = true;
     try {
-      const message = await crmApi(`/conversations/${conversation.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
-        body: JSON.stringify({ text, ...(state.replyTo && { replyToMessageId: state.replyTo.id }) }),
-      });
+      const message = await sendRequest(conversation, text);
       composer.value = "";
+      clearFile();
       autoSize();
       state.replyTo = null;
       $("replyBar").hidden = true;
@@ -465,7 +624,17 @@
     e.preventDefault();
     sendMessage();
   });
-  $("messageList").addEventListener("click", (e) => {
+  $("messageList").addEventListener("click", async (e) => {
+    const photo = e.target.closest("[data-photo]");
+    if (photo) {
+      const url = mediaUrls.get(photo.dataset.photo);
+      if (typeof url === "string") window.open(url, "_blank", "noopener");
+      return;
+    }
+    const play = e.target.closest("[data-play]");
+    if (play) return playMedia(play);
+    const download = e.target.closest("[data-download]");
+    if (download) return downloadMedia(download.dataset.download);
     const button = e.target.closest("[data-reply]");
     if (!button) return;
     state.replyTo = state.messages.find((m) => String(m.id) === button.dataset.reply) || null;
@@ -479,6 +648,140 @@
     $("replyBar").hidden = true;
   });
   $("olderMessages").addEventListener("click", loadOlder);
+
+  // --- template picker -------------------------------------------------------
+  // Approved templates can be sent any time; they are the only way to write first or after
+  // the 24-hour window. Variables become form fields with a live preview.
+  async function loadTemplates(force = false) {
+    if (state.templates && !force) return state.templates;
+    state.templates = await crmApi("/templates?status=APPROVED");
+    return state.templates;
+  }
+  const templatesForChat = () =>
+    (state.templates || []).filter((t) => t.sendable && (!state.current?.account?.id || String(t.accountId) === String(state.current.account.id)));
+  // "{{1}}" / "{{name}}" in escaped text, replaced by the typed value or highlighted.
+  function fillPreview(text, values) {
+    return escapeHtml(text).replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (match, name) =>
+      values[name] ? `<mark>${escapeHtml(values[name])}</mark>` : `<mark class="empty">{{${escapeHtml(name)}}}</mark>`,
+    );
+  }
+  function renderTemplateList() {
+    const q = $("templateSearch").value.trim().toLowerCase();
+    const list = templatesForChat().filter((t) => !q || `${t.name} ${t.body.text}`.toLowerCase().includes(q));
+    const manage = isOrgManager() ? ' Add or sync them in <a href="Settings.html?tab=whatsapp">Settings → WhatsApp</a>.' : " Ask an owner or admin to add them in Settings → WhatsApp.";
+    $("templateList").innerHTML = list.length
+      ? list
+          .map(
+            (t) => `
+          <button class="template-item" type="button" data-template="${escapeHtml(t.id)}">
+            <div class="template-item-head"><strong>${escapeHtml(t.name)}</strong> <span class="badge badge-neutral">${escapeHtml(t.language)}</span> <span class="badge badge-info">${escapeHtml(t.category.toLowerCase())}</span></div>
+            <div class="template-item-body">${escapeHtml(t.body.text)}</div>
+          </button>`,
+          )
+          .join("")
+      : `<p class="text-muted template-empty">${templatesForChat().length ? "No template matches your search." : `This number has no approved templates yet.${manage}`}</p>`;
+  }
+  function templateValues() {
+    const values = { header: {}, body: {}, buttons: {} };
+    document.querySelectorAll("#templateFields [data-part]").forEach((input) => {
+      values[input.dataset.part][input.dataset.name] = input.value.trim();
+    });
+    return values;
+  }
+  function renderTemplatePreview() {
+    const t = state.template;
+    if (!t) return;
+    const values = templateValues();
+    $("templatePreview").innerHTML = [
+      t.header?.text ? `<div class="tp-header">${fillPreview(t.header.text, values.header)}</div>` : "",
+      `<div class="tp-body">${fillPreview(t.body.text, values.body)}</div>`,
+      t.footer ? `<div class="tp-footer">${escapeHtml(t.footer)}</div>` : "",
+      t.buttons.length ? `<div class="tp-buttons">${t.buttons.map((b) => `<span>${escapeHtml(b.text)}</span>`).join("")}</div>` : "",
+    ].join("");
+  }
+  function pickTemplate(id) {
+    const t = templatesForChat().find((item) => String(item.id) === String(id));
+    if (!t) return;
+    state.template = t;
+    $("templatePickedName").textContent = t.name;
+    $("templatePickedMeta").textContent = ` · ${t.language} · ${t.category.toLowerCase()}`;
+    const contactName = state.current?.contact?.name || "";
+    const field = (part, name, label, value = "") => `
+      <div class="field">
+        <label for="tv-${part}-${escapeHtml(name)}">${escapeHtml(label)}</label>
+        <input type="text" id="tv-${part}-${escapeHtml(name)}" data-part="${part}" data-name="${escapeHtml(name)}" maxlength="${part === "header" ? 60 : 1024}" value="${escapeHtml(value)}" required />
+      </div>`;
+    // Named variables that ask for a name start with the customer's name.
+    const guess = (name) => (/name/i.test(name) && !/^\d+$/.test(name) ? contactName : "");
+    $("templateFields").innerHTML =
+      (t.header?.variables || []).map((name) => field("header", name, `Header {{${name}}}`, guess(name))).join("") +
+      t.body.variables.map((name) => field("body", name, `{{${name}}}`, guess(name))).join("") +
+      t.buttons.filter((b) => b.variables.length).map((b) => field("buttons", String(b.index), `Link of the "${b.text}" button (end of ${b.url})`)).join("") ||
+      '<p class="text-muted template-empty">This template has no variables.</p>';
+    $("templateChooser").hidden = true;
+    $("templateForm").hidden = false;
+    renderTemplatePreview();
+    $("templateFields").querySelector("input")?.focus();
+  }
+  async function openTemplatePicker() {
+    if (!state.current) return;
+    state.template = null;
+    $("templateChooser").hidden = false;
+    $("templateForm").hidden = true;
+    $("templateSearch").value = "";
+    $("templateList").innerHTML = '<p class="text-muted template-empty">Loading templates…</p>';
+    $("templateModal").classList.add("open");
+    try {
+      await loadTemplates(true);
+      renderTemplateList();
+      $("templateSearch").focus();
+    } catch (error) {
+      $("templateList").innerHTML = `<p class="text-muted template-empty">${escapeHtml(apiErrorMessage(error, "Couldn't load the templates."))}</p>`;
+    }
+  }
+  const closeTemplatePicker = () => $("templateModal").classList.remove("open");
+  $("templateBtn").addEventListener("click", openTemplatePicker);
+  $("closedTemplateBtn").addEventListener("click", openTemplatePicker);
+  $("templateModalClose").addEventListener("click", closeTemplatePicker);
+  $("templateModal").addEventListener("click", (e) => {
+    if (e.target.id === "templateModal") closeTemplatePicker();
+  });
+  $("templateSearch").addEventListener("input", renderTemplateList);
+  $("templateList").addEventListener("click", (e) => {
+    const item = e.target.closest("[data-template]");
+    if (item) pickTemplate(item.dataset.template);
+  });
+  $("templateChange").addEventListener("click", () => {
+    state.template = null;
+    $("templateForm").hidden = true;
+    $("templateChooser").hidden = false;
+  });
+  $("templateFields").addEventListener("input", renderTemplatePreview);
+  $("templateForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const conversation = state.current;
+    if (!state.template || !conversation) return;
+    const button = $("templateSend");
+    button.disabled = true;
+    try {
+      const message = await crmApi(`/conversations/${conversation.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
+        body: JSON.stringify({ type: "template", templateId: state.template.id, variables: templateValues() }),
+      });
+      closeTemplatePicker();
+      if (state.current && String(state.current.id) === String(conversation.id)) {
+        addOrReplaceMessage(message);
+        renderMessages();
+      }
+      if (message.status === "failed") showToast(`WhatsApp did not send it: ${message.error?.message || "unknown reason"}`, "error");
+      else showToast("Template sent.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't send the template."), "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   // --- details panel ------------------------------------------------------
   function inboxMembers() {

@@ -203,11 +203,21 @@
                 </div>
                 <div class="composer-closed" id="composerClosed" hidden>
                   <i class="fa-solid fa-lock"></i>
-                  <span>The customer has not written in the last 24 hours, so WhatsApp only allows an approved template message (templates come in the next update). You can still add internal notes.</span>
+                  <span>The customer has not written in the last 24 hours, so WhatsApp only allows an approved template now. You can still add internal notes.</span>
+                  <button class="btn btn-outline" id="closedTemplateBtn" type="button"><i class="fa-solid fa-file-lines"></i> Send a template</button>
+                </div>
+                <div class="composer-file" id="fileBar" hidden>
+                  <i class="fa-solid fa-paperclip"></i>
+                  <span class="name" id="fileName"></span>
+                  <span class="text-muted" id="fileSize"></span>
+                  <button class="icon-btn" id="fileCancel" type="button" aria-label="Remove the file"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="quick-menu" id="quickMenu" hidden></div>
                 <form class="composer-row" id="composerForm">
                   <button class="icon-btn" id="quickRepliesBtn" type="button" title="Quick replies (type / )"><i class="fa-solid fa-bolt"></i></button>
+                  <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document"><i class="fa-solid fa-paperclip"></i></button>
+                  <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)"><i class="fa-solid fa-file-lines"></i></button>
+                  <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.mp4,.3gp,.aac,.amr,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
                   <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies"></textarea>
                   <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)"><i class="fa-solid fa-paper-plane"></i></button>
                 </form>
@@ -288,6 +298,40 @@
             <div style="display: flex; justify-content: flex-end; gap: 8px">
               <button class="btn btn-outline" id="quickReset" type="button">Clear</button>
               <button class="btn btn-primary" type="submit" id="quickSave">Save</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template picker -->
+    <div class="modal-overlay" id="templateModal">
+      <div class="modal template-modal">
+        <div class="modal-head">
+          <h3>Send a template</h3>
+          <button class="icon-btn" id="templateModalClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <div id="templateChooser">
+            <p class="text-muted template-hint">Approved templates of this chat's WhatsApp number. They can be sent any time, also after 24 hours.</p>
+            <input type="search" class="template-search" id="templateSearch" placeholder="Search templates" aria-label="Search templates" />
+            <div class="template-list" id="templateList"></div>
+          </div>
+          <form id="templateForm" hidden>
+            <div class="template-picked">
+              <div>
+                <strong id="templatePickedName"></strong>
+                <span class="text-muted" id="templatePickedMeta"></span>
+              </div>
+              <button class="btn btn-outline" id="templateChange" type="button">Change</button>
+            </div>
+            <div id="templateFields"></div>
+            <div class="field">
+              <label>Preview</label>
+              <div class="template-preview" id="templatePreview"></div>
+            </div>
+            <div class="template-actions">
+              <button class="btn btn-primary" id="templateSend" type="submit"><i class="fa-solid fa-paper-plane"></i> Send template</button>
             </div>
           </form>
         </div>

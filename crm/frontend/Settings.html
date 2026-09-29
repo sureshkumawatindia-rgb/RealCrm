@@ -106,6 +106,125 @@
         flex-wrap: wrap;
         gap: 10px;
       }
+      /* Settings → WhatsApp: templates and click-to-chat */
+      .wa-block {
+        margin-top: 24px;
+        border-top: 1px solid var(--border);
+        padding-top: 20px;
+      }
+      .wa-block[hidden],
+      .wa-link[hidden] {
+        display: none;
+      }
+      .wa-toolbar {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+      .wa-toolbar .field {
+        margin-bottom: 0;
+        min-width: 220px;
+      }
+      .wa-tpl {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .wa-tpl .info {
+        flex: 1;
+        min-width: 0;
+      }
+      .wa-tpl .name {
+        font-weight: 700;
+        font-size: 13.5px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      .wa-tpl .body {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        margin-top: 3px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .wa-tpl .why {
+        font-size: 12px;
+        color: var(--danger);
+        margin-top: 3px;
+      }
+      .wa-new {
+        margin-top: 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm, 10px);
+        padding: 10px 14px;
+      }
+      .wa-new summary {
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .wa-new[open] summary {
+        margin-bottom: 12px;
+      }
+      .wa-button-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .wa-button-row select,
+      .wa-button-row input {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm, 10px);
+        padding: 8px 10px;
+        font: inherit;
+        font-size: 13px;
+        background: var(--surface, #fff);
+      }
+      .wa-button-row select {
+        width: 150px;
+      }
+      .wa-button-row input {
+        flex: 1;
+        min-width: 140px;
+      }
+      .wa-button-row input[hidden] {
+        display: none;
+      }
+      .wa-link {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .wa-link img {
+        width: 168px;
+        height: 168px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+      }
+      .wa-link-info {
+        flex: 1;
+        min-width: 220px;
+      }
+      .wa-link-info code {
+        display: block;
+        word-break: break-all;
+        font-size: 12.5px;
+        margin-bottom: 10px;
+      }
+      .wa-link-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
       #importFileInput {
         display: none;
       }
@@ -684,6 +803,113 @@
                 </p>
                 <div id="waAccountList"></div>
 
+                <div class="settings-section wa-block" id="waTemplatesSection" hidden>
+                  <div class="settings-section-label">Message templates</div>
+                  <p class="settings-hint">
+                    WhatsApp allows only approved templates when a customer has not written in the
+                    last 24 hours (and for writing first). Meta reviews every new template, usually
+                    within minutes, sometimes up to a day.
+                  </p>
+                  <div class="wa-toolbar">
+                    <div class="field">
+                      <label for="waTplAccount">Number</label>
+                      <select id="waTplAccount"></select>
+                    </div>
+                    <button class="btn btn-outline" id="waTplSync" type="button"><i class="fa-solid fa-rotate"></i> Sync from Meta</button>
+                  </div>
+                  <div id="waTplList"></div>
+                  <details class="wa-new" id="waTplNew">
+                    <summary><i class="fa-solid fa-plus"></i> New template</summary>
+                    <form id="waTplForm" autocomplete="off">
+                      <div class="field-row">
+                        <div class="field">
+                          <label for="waTplName">Name</label>
+                          <input type="text" id="waTplName" maxlength="512" placeholder="order_update" required />
+                        </div>
+                        <div class="field">
+                          <label for="waTplLanguage">Language</label>
+                          <select id="waTplLanguage">
+                            <option value="en">English (en)</option>
+                            <option value="en_US">English US (en_US)</option>
+                            <option value="en_GB">English UK (en_GB)</option>
+                            <option value="hi">Hindi (hi)</option>
+                            <option value="gu">Gujarati (gu)</option>
+                            <option value="mr">Marathi (mr)</option>
+                            <option value="pa">Punjabi (pa)</option>
+                            <option value="bn">Bengali (bn)</option>
+                            <option value="ta">Tamil (ta)</option>
+                            <option value="te">Telugu (te)</option>
+                            <option value="kn">Kannada (kn)</option>
+                            <option value="ml">Malayalam (ml)</option>
+                          </select>
+                        </div>
+                        <div class="field">
+                          <label for="waTplCategory">Category</label>
+                          <select id="waTplCategory">
+                            <option value="UTILITY">Utility (orders, updates)</option>
+                            <option value="MARKETING">Marketing (offers, follow-ups)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="field">
+                        <label for="waTplHeader">Header (optional, up to 60 characters)</label>
+                        <input type="text" id="waTplHeader" maxlength="60" placeholder="Order update" />
+                      </div>
+                      <div class="field">
+                        <label for="waTplBody">Message</label>
+                        <textarea id="waTplBody" rows="4" maxlength="1024" required placeholder="Namaste {{1}}, your order {{2}} has been dispatched today."></textarea>
+                        <p class="settings-hint" style="margin: 6px 0 0">
+                          Write {{1}}, {{2}} … where you fill in details when sending. Do not start or end the message with one.
+                        </p>
+                      </div>
+                      <div id="waTplExamples"></div>
+                      <div class="field">
+                        <label for="waTplFooter">Footer (optional)</label>
+                        <input type="text" id="waTplFooter" maxlength="60" placeholder="Reply STOP to stop updates" />
+                      </div>
+                      <div class="field">
+                        <label>Buttons (optional, up to 3)</label>
+                        <div id="waTplButtons"></div>
+                        <button class="btn btn-outline" id="waTplAddButton" type="button"><i class="fa-solid fa-plus"></i> Add a button</button>
+                      </div>
+                      <div class="data-actions" style="justify-content: flex-end">
+                        <button class="btn btn-primary" type="submit" id="waTplSubmit"><i class="fa-solid fa-paper-plane"></i> Submit to Meta</button>
+                      </div>
+                    </form>
+                  </details>
+                </div>
+
+                <div class="settings-section wa-block" id="waLinkSection" hidden>
+                  <div class="settings-section-label">Click-to-chat link and QR code</div>
+                  <p class="settings-hint">
+                    Put the link on your website, IndiaMART profile or email signature, and the QR code
+                    on your shop counter, visiting card or packaging. A customer who taps or scans it
+                    starts a WhatsApp chat with you, and the chat lands in the Inbox.
+                  </p>
+                  <div class="field-row">
+                    <div class="field">
+                      <label for="waLinkAccount">Number</label>
+                      <select id="waLinkAccount"></select>
+                    </div>
+                    <div class="field">
+                      <label for="waLinkText">Message already typed for the customer (optional)</label>
+                      <input type="text" id="waLinkText" maxlength="500" placeholder="Hi, I want the price list" />
+                    </div>
+                  </div>
+                  <div class="wa-link" id="waLinkResult" hidden>
+                    <img id="waLinkQr" alt="QR code of the click-to-chat link" />
+                    <div class="wa-link-info">
+                      <code id="waLinkUrl"></code>
+                      <div class="wa-link-actions">
+                        <button class="btn btn-outline" type="button" id="waLinkCopy"><i class="fa-solid fa-copy"></i> Copy link</button>
+                        <a class="btn btn-outline" id="waLinkOpen" href="#" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i> Try it</a>
+                        <button class="btn btn-outline" type="button" id="waLinkPng"><i class="fa-solid fa-download"></i> QR code (PNG)</button>
+                      </div>
+                    </div>
+                  </div>
+                  <p class="logo-upload-error" id="waLinkError" hidden></p>
+                </div>
+
                 <div class="settings-section" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
                   <div class="settings-section-label">Connect a number</div>
                   <p class="settings-hint">
@@ -746,9 +972,20 @@
                         <input type="text" id="waSimName" placeholder="Sunita" />
                       </div>
                     </div>
-                    <div class="field">
-                      <label for="waSimText">Message</label>
-                      <input type="text" id="waSimText" maxlength="4096" placeholder="Price of cumin 1kg?" required />
+                    <div class="field-row">
+                      <div class="field" style="max-width: 220px">
+                        <label for="waSimType">Kind</label>
+                        <select id="waSimType" title="Photos, documents and voice notes work on test numbers">
+                          <option value="text">Text</option>
+                          <option value="image">Photo (test number)</option>
+                          <option value="document">Document (test number)</option>
+                          <option value="audio">Voice note (test number)</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label for="waSimText" id="waSimTextLabel">Message</label>
+                        <input type="text" id="waSimText" maxlength="4096" placeholder="Price of cumin 1kg?" required />
+                      </div>
                     </div>
                     <div class="data-actions" style="justify-content: flex-end">
                       <button class="btn btn-outline" type="submit"><i class="fa-solid fa-paper-plane"></i> Receive Test Message</button>
