@@ -1,6 +1,7 @@
 const Joi = require('joi');
 const { objectId } = require('./common');
 const { LEAD_SOURCES } = require('../constants/crm');
+const { QUERY_TYPES } = require('../integrations/leadSources/indiamart');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
 // A website address like https://www.example.com (no path): where a form may be embedded.
@@ -18,17 +19,25 @@ const websiteSettings = Joi.object({
   }),
 });
 
+// IndiaMART: which kinds of leads to take (W, B, P, WA, BIZ).
+const indiamartSettings = Joi.object({
+  queryTypes: Joi.array().items(Joi.string().valid(...Object.keys(QUERY_TYPES))).min(1).unique(),
+});
+const apiKey = Joi.string().trim().min(10).max(300).pattern(/^\S+$/).messages({ 'string.pattern.base': 'Paste the key without spaces' });
+
 module.exports = {
-  // Phase 4A: website forms; the other types arrive with their checkpoints.
+  // Website forms (4A) and IndiaMART (4B); the other types arrive with their checkpoints.
   connectionCreate: Joi.object({
-    type: Joi.string().valid('website').required(),
+    type: Joi.string().valid('website', 'indiamart').required(),
     name: text(100),
-    settings: websiteSettings,
+    apiKey: Joi.when('type', { is: 'indiamart', then: apiKey, otherwise: Joi.forbidden() }),
+    settings: Joi.when('type', { is: 'website', then: websiteSettings, otherwise: indiamartSettings }),
   }),
   connectionPatch: Joi.object({
     name: text(100),
     status: Joi.string().valid('active', 'paused'),
-    settings: websiteSettings,
+    apiKey,
+    settings: Joi.alternatives().try(websiteSettings, indiamartSettings),
   }).min(1),
   intakeList: Joi.object({
     limit: Joi.number().integer().min(1).max(100).default(20),

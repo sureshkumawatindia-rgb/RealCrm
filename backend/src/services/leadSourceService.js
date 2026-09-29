@@ -5,6 +5,9 @@ const env = require('../config/env');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { CONNECTION_TYPES } = require('../constants/leadSources');
+const { encrypt } = require('../utils/secretBox');
+const indiamart = require('./indiamartService');
+const { DEFAULT_QUERY_TYPES } = require('../integrations/leadSources/indiamart');
 
 // Settings → Lead sources: the organization's connections (owners and admins).
 const WEBSITE_DEFAULTS = Object.freeze({
@@ -37,6 +40,11 @@ function serializeConnection(connection) {
     credentials: { configured: Boolean(connection.credentialsEnc), hint: connection.credentialsHint },
     createdAt: connection.createdAt,
   };
+  if (connection.webhookKey) base.pushUrl = `${env.publicUrl}/api/v1/webhooks/leads/${connection.type}/${connection.webhookKey}`;
+  if (connection.type === 'indiamart') {
+    base.settings = { queryTypes: indiamart.queryTypesOf(connection) };
+    base.lastPulledUntil = connection.cursor?.lastEndTime || null;
+  }
   if (connection.type === 'website') {
     const formPath = `/api/v1/public/forms/${connection.publicKey}`;
     base.form = { publicKey: connection.publicKey, submitUrl: `${env.publicUrl}${formPath}`, embedUrl: `${env.publicUrl}${formPath}/embed.js` };
@@ -55,14 +63,24 @@ async function list(req) {
   return connections.map(serializeConnection);
 }
 
+// A pasted key is kept encrypted; only its last 4 characters are ever shown again.
+function setApiKey(connection, apiKey) {
+  connection.credentialsEnc = encrypt(JSON.stringify({ apiKey }));
+  connection.credentialsHint = apiKey.slice(-4);
+}
+
 async function create(req, body) {
-  const connection = await LeadSourceConnection.create({
+  const connection = new LeadSourceConnection({
     organizationId: req.tenant.organizationId,
     type: body.type,
     name: body.name || `${CONNECTION_TYPES[body.type]} ${body.type === 'website' ? 'form' : ''}`.trim(),
     ...(body.type === 'website' && { publicKey: crypto.randomBytes(12).toString('hex'), settings: websiteSettings(body.settings) }),
+    ...(body.type === 'indiamart' && { webhookKey: crypto.randomBytes(16).toString('hex'), settings: { queryTypes: body.settings?.queryTypes || [...DEFAULT_QUERY_TYPES] } }),
     createdById: req.user._id,
   });
+  if (body.apiKey) setApiKey(connection, body.apiKey);
+  await connection.save();
+  await indiamart.schedule(connection);
   await audit(req, { action: 'leadsource.created', entityType: 'LeadSourceConnection', entityId: connection._id, changes: { type: body.type } });
   return serializeConnection(connection);
 }
@@ -78,7 +96,16 @@ async function update(req, id, body) {
     connection.settings = connection.type === 'website' ? websiteSettings({ ...connection.settings, ...body.settings }) : { ...connection.settings, ...body.settings };
     connection.markModified('settings');
   }
+  if (body.apiKey) {
+    // A new key gets the source going again after IndiaMART refused the old one.
+    setApiKey(connection, body.apiKey);
+    if (connection.status === 'error') connection.status = 'active';
+    connection.statusMessage = '';
+    connection.lastError = '';
+  }
   await connection.save();
+  if (connection.status === 'active') await indiamart.schedule(connection);
+  else await indiamart.unschedule(connection);
   await audit(req, { action: 'leadsource.updated', entityType: 'LeadSourceConnection', entityId: connection._id, changes: Object.keys(body) });
   return serializeConnection(connection);
 }
@@ -86,6 +113,7 @@ async function update(req, id, body) {
 async function remove(req, id) {
   const connection = await findInOrg(req, id);
   await connection.softDelete();
+  await indiamart.unschedule(connection);
   await audit(req, { action: 'leadsource.deleted', entityType: 'LeadSourceConnection', entityId: connection._id });
 }
 
@@ -107,4 +135,12 @@ async function intakes(req, id, { limit = 20 } = {}) {
   }));
 }
 
-module.exports = { list, create, update, remove, intakes, findInOrg, serializeConnection, websiteSettings };
+// Settings → "Pull now" (IndiaMART).
+async function pull(req, id) {
+  const connection = await findInOrg(req, id);
+  if (connection.type !== 'indiamart') throw httpError(400, 'NOT_PULLABLE', 'Only IndiaMART leads are pulled.');
+  const result = await indiamart.pullNow(connection);
+  return { ...result, connection: serializeConnection(await LeadSourceConnection.findById(connection._id)) };
+}
+
+module.exports = { list, create, update, remove, intakes, pull, findInOrg, serializeConnection, websiteSettings };

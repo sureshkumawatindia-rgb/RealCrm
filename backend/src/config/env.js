@@ -33,6 +33,8 @@ const schema = Joi.object({
   // WhatsApp Cloud API (Meta Graph API). Keep the version current (developers.facebook.com/docs/graph-api/changelog).
   WHATSAPP_GRAPH_URL: Joi.string().uri({ scheme: ['http', 'https'] }).default('https://graph.facebook.com'),
   WHATSAPP_GRAPH_VERSION: Joi.string().pattern(/^v\d+\.\d+$/).default('v26.0'),
+  // IndiaMART CRM Pull API v2 (changed only for tests).
+  INDIAMART_PULL_URL: Joi.string().uri({ scheme: ['http', 'https'] }).default('https://mapi.indiamart.com/wservce/crm/crmListing/v2/'),
   RATE_LIMIT_API_PER_MINUTE: Joi.number().integer().min(1).default(300),
   RATE_LIMIT_AUTH_PER_MINUTE: Joi.number().integer().min(1).default(20),
   RATE_LIMIT_WEBHOOK_PER_MINUTE: Joi.number().integer().min(1).default(1200),
@@ -86,6 +88,9 @@ const env = {
     authPerMinute: value.RATE_LIMIT_AUTH_PER_MINUTE,
     webhookPerMinute: value.RATE_LIMIT_WEBHOOK_PER_MINUTE,
     formPerMinute: value.RATE_LIMIT_FORM_PER_MINUTE,
+  },
+  leadSources: {
+    indiamartUrl: value.INDIAMART_PULL_URL,
   },
   whatsapp: {
     graphUrl: value.WHATSAPP_GRAPH_URL.replace(/\/+$/, ''),

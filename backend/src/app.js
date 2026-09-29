@@ -46,7 +46,7 @@ app.use('/uploads', (req, res, next) => {
 }, express.static(path.resolve(env.uploadDir)));
 
 // Paths only: query strings can carry OAuth codes and invite tokens; webhook keys are masked.
-morgan.token('path', (req) => req.originalUrl.split('?')[0].replace(/^(\/api\/v1\/webhooks\/[a-z-]+\/)[^/]+/, '$1…'));
+morgan.token('path', (req) => req.originalUrl.split('?')[0].replace(/^(\/api\/v1\/webhooks\/(?:leads\/)?[a-z-]+\/)[^/]+/, '$1…'));
 app.use(morgan(':remote-addr :method :path :status :res[content-length] - :response-time ms', {
   stream: { write: message => logger.info(message.trim()) }
 }));

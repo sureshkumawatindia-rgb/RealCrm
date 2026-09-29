@@ -23,6 +23,10 @@ router.delete('/:id', validate({ params: idParams }), async (req, res) => {
   await leadSourceService.remove(req, req.valid.params.id);
   res.json({ success: true, data: { deleted: true }, message: 'Lead source removed' });
 });
+// IndiaMART: pull at once (IndiaMART allows one pull every 5 minutes).
+router.post('/:id/pull', validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await leadSourceService.pull(req, req.valid.params.id) });
+});
 router.get('/:id/intakes', validate({ params: idParams, query: schemas.intakeList }), async (req, res) => {
   res.json({ success: true, data: await leadSourceService.intakes(req, req.valid.params.id, req.valid.query) });
 });

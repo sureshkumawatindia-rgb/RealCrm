@@ -1,13 +1,16 @@
 const queue = require('./queue');
+const logger = require('../config/logger');
+const indiamart = require('../services/indiamartService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
-// (Lead source polling and auto-replies are added with Phase 4B and 4D.)
-const definitions = [];
+const definitions = [indiamart.register];
 
 function start(config) {
   definitions.forEach((register) => register(queue));
   queue.start(config);
+  // Recurring pulls of active sources exist even if their job was lost (e.g. a restored database).
+  indiamart.ensureSchedules(queue).catch((error) => logger.error(`Scheduling IndiaMART pulls failed: ${error.message}`));
 }
 
 module.exports = { start, stop: queue.stop, queue };

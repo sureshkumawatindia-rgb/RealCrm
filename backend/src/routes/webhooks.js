@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const accountService = require('../services/whatsappAccountService');
 const inbound = require('../services/whatsappInboundService');
+const indiamart = require('../services/indiamartService');
 const { webhookLimiter } = require('../middleware/rateLimit');
 
 // Public endpoints that other services call (no sign-in). Mounted before the JSON parser and
@@ -42,6 +43,19 @@ router.post('/whatsapp/:webhookKey', async (req, res) => {
   const ids = await inbound.ingest(account, payload);
   res.sendStatus(200);
   inbound.processLater(ids);
+});
+
+// IndiaMART push: one lead per POST, JSON { CODE, STATUS, RESPONSE: { UNIQUE_QUERY_ID, … } }. There
+// is no signature; the random key in the URL is the secret. IndiaMART retries until it gets 200.
+router.post('/leads/indiamart/:webhookKey', async (req, res) => {
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '{}');
+  } catch {
+    return res.sendStatus(400);
+  }
+  const { status } = await indiamart.handlePush(req.params.webhookKey, payload);
+  res.sendStatus(status);
 });
 
 module.exports = router;
