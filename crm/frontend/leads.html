@@ -67,6 +67,32 @@
       .notes-count-badge {
         margin-left: 4px;
       }
+      /* The lead's history (assigned, auto-reply, stage changes…) under its notes */
+      .lead-history {
+        margin-top: 18px;
+        border-top: 1px solid var(--border-soft, #eef0f3);
+        padding-top: 12px;
+      }
+      .lead-history h4 {
+        margin: 0 0 8px;
+        font-size: 13px;
+      }
+      .lead-history-item {
+        display: flex;
+        gap: 10px;
+        padding: 6px 0;
+        font-size: 12.5px;
+        line-height: 1.45;
+      }
+      .lead-history-item .type {
+        flex-shrink: 0;
+        min-width: 86px;
+      }
+      .lead-history-item .meta {
+        font-size: 11px;
+        color: var(--text-faint, #9ca3af);
+        margin-top: 2px;
+      }
 
       /* Product field + inline "Add Product" button inside the lead modal */
       .field-with-action {
@@ -468,6 +494,10 @@
             </svg>
             Note
           </button>
+          <div class="lead-history">
+            <h4>History</h4>
+            <div id="leadHistoryList"></div>
+          </div>
         </div>
         <div class="modal-foot">
           <button class="btn btn-primary" id="notesDoneBtn" type="button">

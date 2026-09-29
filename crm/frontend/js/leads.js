@@ -523,7 +523,35 @@ function openNotesModal(leadId) {
   document.getElementById("notesModalTitle").textContent =
     "Notes — " + lead.name;
   renderNotesList();
+  renderLeadHistory(leadId);
   notesModalOverlay.classList.add("open");
+}
+
+// What happened to the lead: who got it and why, the auto-reply, stage changes, enquiries.
+const HISTORY_BADGE = { Assigned: "badge-info", "Auto-reply": "badge-success", Enquiry: "badge-warning", "Stage change": "badge-neutral" };
+async function renderLeadHistory(leadId) {
+  const el = document.getElementById("leadHistoryList");
+  el.innerHTML = '<p class="text-muted" style="font-size:12.5px;margin:0">Loading…</p>';
+  try {
+    const activities = await getLeadActivities(leadId);
+    if (currentNotesLeadId !== leadId) return;
+    el.innerHTML = activities.length
+      ? activities
+          .map(
+            (a) => `
+        <div class="lead-history-item">
+          <span class="type"><span class="badge ${HISTORY_BADGE[a.type] || "badge-neutral"}">${escapeHtml(a.type)}</span></span>
+          <div>
+            <div>${escapeHtml(a.text || "")}</div>
+            <div class="meta">${escapeHtml(a.actorName || "")}${a.actorName ? " · " : ""}${escapeHtml(new Date(a.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</div>
+          </div>
+        </div>`,
+          )
+          .join("")
+      : '<p class="text-muted" style="font-size:12.5px;margin:0">Nothing yet.</p>';
+  } catch (error) {
+    el.innerHTML = `<p class="text-muted" style="font-size:12.5px;margin:0">${escapeHtml(apiErrorMessage(error, "Couldn't load the history."))}</p>`;
+  }
 }
 
 function closeNotesModal() {
@@ -733,7 +761,7 @@ function renderTable() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Product</th><th>Source</th><th>Status</th><th>Value</th><th>Follow-up</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Product</th><th>Source</th><th>Owner</th><th>Status</th><th>Value</th><th>Follow-up</th><th></th></tr></thead>
       <tbody>
         ${filtered
           .map((l) => {
@@ -747,13 +775,14 @@ function renderTable() {
             <td class="inline-edit-cell" data-field="email">${escapeHtml(l.email) || "—"}</td>
             <td class="inline-edit-cell" data-field="product">${escapeHtml(productText)}${l.quantity ? ` <span class="badge badge-neutral">x${escapeHtml(l.quantity)}</span>` : ""}</td>
             <td><span class="badge badge-neutral">${escapeHtml(l.source || "Manual")}</span></td>
+            <td>${l.owner ? escapeHtml(l.owner) : '<span class="text-muted">Unassigned</span>'}</td>
             <td class="inline-edit-cell" data-field="status">${statusBadge(l.status)}</td>
             <td class="inline-edit-cell" data-field="value">${l.value ? "₹" + Number(l.value).toLocaleString("en-IN") : "—"}</td>
             <td class="inline-edit-cell" data-field="followUp">${l.followUp || "—"}</td>
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-btn" data-id="${l.id}" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                <button class="icon-btn notes-btn" data-id="${l.id}" title="Notes">
+                <button class="icon-btn notes-btn" data-id="${l.id}" title="Notes and history">
                   <i class="fa-solid fa-list-check"></i>${noteCount ? ` <span class="badge badge-info notes-count-badge">${noteCount}</span>` : ""}
                 </button>
                 <button class="icon-btn danger delete-btn" data-id="${l.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
