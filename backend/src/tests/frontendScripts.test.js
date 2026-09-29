@@ -26,3 +26,19 @@ describe('Frontend pages', () => {
     expect(() => new vm.Script(combined, { filename: page })).not.toThrow();
   });
 });
+
+// Customers' own text (WhatsApp names, captions, messages) reaches the pages, often inside HTML
+// attributes: every escapeHtml must escape quotes as well as <, > and &.
+const scriptFiles = fs.readdirSync(path.join(FRONTEND, 'js')).filter((file) => file.endsWith('.js'));
+describe('escapeHtml', () => {
+  it.each(scriptFiles)('js/%s escapes quotes wherever it defines escapeHtml', (file) => {
+    const code = fs.readFileSync(path.join(FRONTEND, 'js', file), 'utf8');
+    const match = /function escapeHtml\(str\) \{[\s\S]*?\n\}/.exec(code);
+    if (!match) return;
+    const sandbox = {
+      document: { createElement: () => ({ set textContent(v) { this.html = String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }, get innerHTML() { return this.html; } }) },
+    };
+    const escapeHtml = new vm.Script(`(${match[0]})`).runInNewContext(sandbox);
+    expect(escapeHtml('x" onerror="alert(1)\' <b>&')).toBe('x&quot; onerror=&quot;alert(1)&#39; &lt;b&gt;&amp;');
+  });
+});
