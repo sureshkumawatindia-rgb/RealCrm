@@ -88,6 +88,12 @@ Internal notes on chats are `notes` with `parentType: "conversation"`. Files of 
 | `leadsourceconnections` | `type` (website/indiamart/facebook/googleads/justdial/tradeindia), `name`, `status`, `statusMessage`, `publicKey` (website forms), `webhookKey` (push URLs), `credentialsEnc` (secretBox), `credentialsHint`, `settings`, `cursor`, `lastPolledAt`, `lastLeadAt`, `lastError`, `lastErrorAt`, `stats` { received, created, attached, duplicate, rejected }, `deletedAt` | unique sparse `publicKey`; unique sparse `webhookKey`; `(organizationId, deletedAt, type)` |
 | `leadintakes` | `source`, `sourceRef`, `connectionId`, `contactId`, `leadId`, `outcome` (processing/created/attached/rejected/failed), `reason`, `summary`, `raw` (≤ 20 KB), `receivedAt`, `processedAt` | unique `(organizationId, source, sourceRef)` (dedupe); `(organizationId, connectionId, createdAt -1)` |
 
+| `assignmentrules` | `name`, `active`, `priority`, `conditions` { sources[], productIds[], states[], cities[] }, `strategy` (round_robin/specific), `memberIds[]`, `respectWorkingHours`, `fallbackMemberId`, `rrCounter` (atomic turn), `stats` { assigned, lastAssignedAt } | `(organizationId, active, priority)` |
+| `assignmenthistories` | `entityType` (Lead), `entityId`, `contactId`, `fromMemberId`, `toMemberId`, `ruleId`, `reason` | `(organizationId, entityType, entityId, createdAt -1)`; `(organizationId, toMemberId, createdAt -1)` |
+| `autoreplyrules` | `name`, `active`, `priority`, `sources[]`, `onlyNewContacts`, `maxAgeMinutes`, `delaySeconds`, `templateId`, `variables` { header, body, buttons }, `stats` { sent, failed, skipped, lastSentAt } | `(organizationId, active, priority)` |
+
+`organizations.businessHours` { timezone, days[], start, end } (default Mon–Sat 10:00–19:00 Asia/Kolkata). `messages.automation` { kind, ruleId } marks messages the CRM sent itself (auto-replies).
+
 Leads from a source have `source` and `sourceRef` (unique per source); a repeat enquiry added to an open lead is a `leadactivities` entry of type "Enquiry".
 
 Counters used: `quotation:<financial year>`, `ticket`.

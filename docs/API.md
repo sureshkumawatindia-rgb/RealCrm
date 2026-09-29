@@ -321,6 +321,23 @@ Callable from any website (CORS without cookies); a form with `allowedOrigins` r
 | `POST` | `/webhooks/leads/googleads/<key>` | Google Ads lead form JSON. `google_key` must equal the connection's key (else 400, which Google does not retry). `lead_id` is the sourceRef; column ids FULL_NAME, FIRST/LAST_NAME, EMAIL, WORK_EMAIL, PHONE_NUMBER(_VERIFIED), WORK_PHONE, CITY, REGION, COMPANY_NAME, STREET_ADDRESS, POSTAL_CODE fill the contact, other columns go into the enquiry. `is_test` leads are logged ("Google Ads test data") but not added. Answers `{}`. |
 | `GET`/`POST` | `/webhooks/leads/justdial/<key>`, `/webhooks/leads/tradeindia/<key>` | No public format exists: query string, form fields or JSON (one lead, or a list under data/leads/response/…) are read, and the usual field names are recognised (name, mobile/phone, email, company, city, state, product/category/subject, message/requirement, lead/enquiry id). Without an id the content itself dedupes retries. Unreadable leads are kept in the log with their raw data. Answers `OK`. |
 
+### Assignment and auto-reply rules (owners and admins)
+
+After an enquiry is taken (or a first WhatsApp message makes a lead), a job assigns it and then sends the auto-reply. Rules look at the source of that enquiry.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET/PUT` | `/organization/business-hours` | `{ timezone (IANA, default Asia/Kolkata), days [0 Sun … 6 Sat], start "HH:MM", end "HH:MM" }` (end after start). GET (anyone) also returns `openNow`; PUT owners/admins. Default Mon–Sat 10:00–19:00. |
+| `GET/POST` | `/assignment-rules` | `{ name, active, priority (lower first), conditions { sources[], productIds[], states[], cities[] } (empty = any; states/cities ignore case), strategy (round_robin \| specific), memberIds[] (≥ 1, own team), respectWorkingHours, fallbackMemberId }` → with `stats { assigned, lastAssignedAt }`. |
+| `PATCH/DELETE` | `/assignment-rules/:id` | Change or remove a rule. |
+| `GET` | `/assignment-rules/history?leadId=` | Anyone who may open Leads: the automatic assignments of a lead `{ toMemberId, fromMemberId, ruleId, reason, at }` (also when no rule matched). |
+| `GET/POST` | `/auto-reply-rules` | `{ name, active, priority, sources[] (empty = any), onlyNewContacts (default true), maxAgeMinutes (default 60), delaySeconds (0–3600), templateId, variables { header, body, buttons } }` — each template variable must be mapped to `contact.name`, `contact.company`, `contact.city`, `lead.product`, `owner.name`, `org.name` or `text:<fixed words>` (400 `VARIABLE_REQUIRED`). → with `stats { sent, failed, skipped, lastSentAt }`. |
+| `PATCH/DELETE` | `/auto-reply-rules/:id` | Change or remove a rule. |
+
+Assignment: only leads without an owner; the first active rule whose conditions all match decides; round-robin takes one atomic turn per lead among the rule's active people who can open Leads; "respect working hours" sends leads outside the hours to the fallback person (or leaves them unassigned). The lead, its unowned contact and its unassigned WhatsApp chats get the owner; a lead activity "Assigned" and a history entry say why.
+
+Auto-reply: the first active rule for the source; sent by the CRM (`message.automation = { kind: "auto-reply", ruleId }`, no `sentByMemberId`, the chat keeps its assignee) in the chat with the lead's owner; skipped (reason on the lead) for repeat enquiries when `onlyNewContacts`, enquiries older than `maxAgeMinutes`, no mobile number, a template that is no longer approved, and marketing templates to contacts who opted out.
+
 ### How enquiries become leads
 
 Every source goes through the same intake: the same enquiry (organization + source + the source's own id) is taken once; the contact is found by mobile number (+91 by default), else email, and its blank details are filled in; if the contact has an open lead the enquiry is added to it as an "Enquiry" activity and its follow-up moves to now (D26); otherwise a New lead is created with `source`, `sourceRef`, title (the product asked for), `productId` when a product of that name exists, and quantity. Each enquiry is kept in the intake log with its raw payload (up to 20 KB).
