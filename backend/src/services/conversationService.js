@@ -13,6 +13,11 @@ const { SERVICE_WINDOW_MS } = require('../constants/whatsapp');
 const { providerFor } = require('../integrations/whatsapp');
 const { credentials } = require('./whatsappAccountService');
 const noteService = require('./noteService');
+const templateService = require('./templateService');
+const mediaService = require('./whatsappMediaService');
+const { previewOf } = require('./whatsappInboundService');
+const { visibilityFilter } = require('./access');
+const { documentStorage } = require('../storage');
 
 // The shared WhatsApp inbox. Who sees which chat (D24): owners, admins and members with
 // inbox:view_all see every chat; other inbox members see chats assigned to them and chats
@@ -102,7 +107,8 @@ function announce(event, conversation, extra = {}) {
   bus.emit(event, { organizationId: conversation.organizationId, conversation, ...extra });
 }
 
-// view: mine | unassigned | all; status: open | pending | closed | any (default open + pending).
+// view: mine | unassigned | all; status: open | pending | closed | any (default open + pending);
+// contactId: one customer's chats (Customer 360; q is ignored then).
 async function list(req, query) {
   const filter = { organizationId: req.tenant.organizationId };
   if (query.view === 'mine') filter.assigneeId = req.member._id;
@@ -110,7 +116,8 @@ async function list(req, query) {
   if (query.status && query.status !== 'any') filter.status = query.status;
   if (!query.status) filter.status = { $in: ['open', 'pending'] };
   if (query.accountId) filter.whatsappAccountId = query.accountId;
-  if (query.q) {
+  if (query.contactId) filter.contactId = query.contactId;
+  if (query.q && !query.contactId) {
     const pattern = new RegExp(query.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     const digits = query.q.replace(/\D/g, '');
     const contacts = await Contact.find({
@@ -198,12 +205,12 @@ async function listMessages(req, id, { before, limit = MESSAGE_PAGE } = {}) {
   return { items: items.map(serializeMessage), hasMore, nextBefore: hasMore ? items[0]._id : null };
 }
 
-// Sends a text. The message is saved first (queued), then handed to WhatsApp: accepted → sent,
-// refused → failed with WhatsApp's reason (the message stays in the chat either way).
-async function sendText(req, id, { text, replyToMessageId }) {
+// --- sending ---------------------------------------------------------------------
+// The chat, its number and the customer's phone. Free-form messages (text, files) need the
+// 24-hour window; approved templates do not.
+async function sendContext(req, id, { needsWindow }) {
   const conversation = await findVisible(req, id);
-  const window = serviceWindow(conversation);
-  if (!window.open) {
+  if (needsWindow && !serviceWindow(conversation).open) {
     throw httpError(422, 'WINDOW_CLOSED', 'The customer has not written in the last 24 hours. WhatsApp only allows an approved template now.');
   }
   const [account, contact] = await Promise.all([
@@ -212,24 +219,27 @@ async function sendText(req, id, { text, replyToMessageId }) {
   ]);
   if (!account) throw httpError(409, 'NUMBER_REMOVED', 'This chat\'s WhatsApp number was removed from Settings.');
   if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  return { conversation, account, contact };
+}
 
-  let replyTo = null;
-  if (replyToMessageId) {
-    replyTo = await Message.findOne({ _id: replyToMessageId, conversationId: conversation._id }).select('providerMessageId');
-  }
+async function replyTarget(conversation, replyToMessageId) {
+  if (!replyToMessageId) return null;
+  const message = await Message.findOne({ _id: replyToMessageId, conversationId: conversation._id }).select('providerMessageId');
+  return message?.providerMessageId || null;
+}
+const quoting = (providerMessageId) => (providerMessageId ? { context: { message_id: providerMessageId } } : {});
+
+// The message is saved first (queued), then handed to WhatsApp: accepted → sent, refused →
+// failed with WhatsApp's reason (the message stays in the chat either way). buildBody(message)
+// returns the Cloud API message object (it may upload a file first).
+async function deliver(req, { conversation, account, contact }, fields, buildBody) {
   const message = await Message.create({
     organizationId: conversation.organizationId, conversationId: conversation._id, contactId: contact._id,
-    whatsappAccountId: account._id, direction: 'out', type: 'text', text, status: 'queued',
-    replyToProviderMessageId: replyTo?.providerMessageId || undefined, sentByMemberId: req.member._id,
+    whatsappAccountId: account._id, direction: 'out', status: 'queued', sentByMemberId: req.member._id, ...fields,
   });
-
   try {
-    const { providerMessageId } = await providerFor(account).sendMessage(credentials(account), {
-      to: contact.phoneE164.slice(1),
-      type: 'text',
-      text: { body: text, preview_url: /https?:\/\//i.test(text) },
-      ...(replyTo?.providerMessageId && { context: { message_id: replyTo.providerMessageId } }),
-    });
+    const body = await buildBody(message);
+    const { providerMessageId } = await providerFor(account).sendMessage(credentials(account), { to: contact.phoneE164.slice(1), ...body });
     message.providerMessageId = providerMessageId || undefined;
     message.status = 'sent';
     message.sentAt = new Date();
@@ -242,12 +252,99 @@ async function sendText(req, id, { text, replyToMessageId }) {
   await message.save();
 
   // The first reply takes an unassigned chat; a reply reopens a closed one.
-  const set = { lastMessageAt: message.createdAt, lastMessagePreview: text.replace(/\s+/g, ' ').slice(0, 200), lastMessageDirection: 'out', status: 'open' };
+  const set = { lastMessageAt: message.createdAt, lastMessagePreview: previewOf(fields), lastMessageDirection: 'out', status: 'open' };
   if (!conversation.assigneeId) set.assigneeId = req.member._id;
   const updated = await Conversation.findOneAndUpdate({ _id: conversation._id }, { $set: set }, { returnDocument: 'after' });
   bus.emit('message:new', { organizationId: conversation.organizationId, conversation: updated, message });
   if (!conversation.assigneeId) announce('conversation:updated', updated, { previousAssigneeId: null });
   return serializeMessage(message);
+}
+
+async function sendText(req, id, { text, replyToMessageId }) {
+  const context = await sendContext(req, id, { needsWindow: true });
+  const replyTo = await replyTarget(context.conversation, replyToMessageId);
+  return deliver(req, context, { type: 'text', text, replyToProviderMessageId: replyTo || undefined }, async () => ({
+    type: 'text',
+    text: { body: text, preview_url: /https?:\/\//i.test(text) },
+    ...quoting(replyTo),
+  }));
+}
+
+// An approved template of the chat's number, with its variables filled in.
+async function sendTemplate(req, id, { templateId, variables }) {
+  const context = await sendContext(req, id, { needsWindow: false });
+  const template = await templateService.findSendable(req.tenant.organizationId, templateId);
+  if (String(template.whatsappAccountId) !== String(context.account._id)) {
+    throw httpError(400, 'VALIDATION_ERROR', 'This template belongs to another WhatsApp number.', [{ field: 'templateId', code: 'OTHER_NUMBER', message: 'Pick a template of this chat\'s number.' }]);
+  }
+  const { payload, text, values } = templateService.buildSend(template, variables);
+  return deliver(req, context, { type: 'template', text, template: { name: template.name, language: template.language, variables: values } }, async () => ({
+    type: 'template',
+    template: payload,
+  }));
+}
+
+// A photo, video, audio file or document. A copy stays in the CRM's storage.
+async function sendMedia(req, id, { caption = '', replyToMessageId }, file) {
+  const context = await sendContext(req, id, { needsWindow: true });
+  const info = mediaService.classify(file);
+  if (caption && info.type === 'audio') {
+    throw httpError(400, 'VALIDATION_ERROR', 'WhatsApp does not show a caption on audio files.', [{ field: 'caption', code: 'NO_CAPTION', message: 'Send the text as a separate message.' }]);
+  }
+  const replyTo = await replyTarget(context.conversation, replyToMessageId);
+  const storageKey = await documentStorage.put(context.conversation.organizationId, file.buffer);
+  const fields = {
+    type: info.type,
+    text: caption,
+    media: { mimeType: info.mimeType, fileName: info.fileName, sizeBytes: file.buffer.length, storageKey, sha256: mediaService.sha256Hex(file.buffer) },
+    replyToProviderMessageId: replyTo || undefined,
+  };
+  return deliver(req, context, fields, async (message) => {
+    const { mediaId } = await providerFor(context.account).uploadMedia(credentials(context.account), { buffer: file.buffer, mimeType: info.mimeType, fileName: info.fileName });
+    message.media.providerMediaId = mediaId;
+    return {
+      type: info.type,
+      [info.type]: { id: mediaId, ...(caption && { caption }), ...(info.type === 'document' && { filename: info.fileName }) },
+      ...quoting(replyTo),
+    };
+  });
+}
+
+// The file of a message in a chat the member can see.
+async function openMedia(req, id, messageId) {
+  const conversation = await findVisible(req, id);
+  const message = await Message.findOne({ _id: messageId, conversationId: conversation._id, organizationId: conversation.organizationId });
+  if (!message) throw httpError(404, 'NOT_FOUND', 'Message not found');
+  return mediaService.open(message);
+}
+
+// Opens (or finds) the chat with a contact on one of the organization's numbers, e.g. to send
+// a template to a lead who has not written yet. A new chat is assigned to the person who opens it.
+async function start(req, { contactId, accountId }) {
+  const organizationId = req.tenant.organizationId;
+  const contact = await Contact.findOne({ _id: contactId, organizationId, ...visibilityFilter(req, ['customers', 'leads', 'inbox']) });
+  if (!contact) throw httpError(404, 'NOT_FOUND', 'Contact not found');
+  if (!contact.phoneE164) throw httpError(400, 'NO_PHONE', 'Add a mobile number to this contact first.');
+  const account = accountId
+    ? await WhatsAppAccount.findOne({ _id: accountId, organizationId })
+    : await WhatsAppAccount.findOne({ organizationId }).sort({ isDefault: -1, createdAt: 1 });
+  if (!account) throw httpError(400, 'NO_WHATSAPP_NUMBER', 'Add a WhatsApp number in Settings → WhatsApp first.');
+
+  const existing = await Conversation.findOne({ organizationId, contactId: contact._id, whatsappAccountId: account._id });
+  if (existing) {
+    if (!seesAll(req.member) && existing.assigneeId && String(existing.assigneeId) !== String(req.member._id)) {
+      throw httpError(409, 'CHAT_ASSIGNED', 'A teammate is handling this customer\'s WhatsApp chat.');
+    }
+    return { conversation: await loadSerialized(existing._id), created: false };
+  }
+  const conversation = await Conversation.findOneAndUpdate(
+    { organizationId, contactId: contact._id, whatsappAccountId: account._id },
+    { $setOnInsert: { status: 'open', assigneeId: req.member._id } },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+  );
+  await audit(req, { action: 'conversation.started', entityType: 'Conversation', entityId: conversation._id, changes: { contactId: contact._id } });
+  announce('conversation:updated', conversation, { previousAssigneeId: null });
+  return { conversation: await loadSerialized(conversation._id), created: true };
 }
 
 async function listNotes(req, id) {
@@ -263,6 +360,6 @@ async function addNote(req, id, body) {
 }
 
 module.exports = {
-  list, summary, get, update, markRead, listMessages, sendText, listNotes, addNote,
+  list, summary, get, update, markRead, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };

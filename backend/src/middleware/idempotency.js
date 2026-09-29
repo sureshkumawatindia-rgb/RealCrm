@@ -18,7 +18,10 @@ function idempotency(req, res, next) {
     operation: `${req.method} ${req.originalUrl.split('?')[0]}`,
     key,
   };
-  const requestHash = crypto.createHash('sha256').update(JSON.stringify(req.body ?? {})).digest('hex');
+  // An uploaded file (multer, before this middleware) is part of the request too.
+  const hash = crypto.createHash('sha256').update(JSON.stringify(req.body ?? {}));
+  if (req.file?.buffer) hash.update(req.file.buffer);
+  const requestHash = hash.digest('hex');
 
   (async () => {
     try {

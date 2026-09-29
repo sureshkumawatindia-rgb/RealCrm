@@ -9,6 +9,8 @@ const Message = require('../models/Message');
 const logger = require('../config/logger');
 const bus = require('../realtime/bus');
 const { appSecretOf } = require('./whatsappAccountService');
+const media = require('./whatsappMediaService');
+const templateService = require('./templateService');
 const { STAGE_PROBABILITY } = require('../constants/crm');
 const { MESSAGE_TYPES, MEDIA_TYPES, STATUS_RANK } = require('../constants/whatsapp');
 
@@ -17,6 +19,7 @@ const { MESSAGE_TYPES, MEDIA_TYPES, STATUS_RANK } = require('../constants/whatsa
 // 1. The route checks X-Hub-Signature-256 (HMAC-SHA256 of the raw body with the app secret).
 // 2. ingest() stores each message and status as an InboundEvent (unique id: Meta's retries are harmless).
 // 3. After answering 200, processLater() turns them into contacts, leads, conversations and messages.
+// Template status changes (field message_template_status_update) are stored and handled the same way.
 const MAX_ATTEMPTS = 5;
 const TEXT_LIMIT = 8000;
 
@@ -39,21 +42,38 @@ function signatureOk(account, rawBody, header) {
 // Returns the ids of the events that are new (retries of stored events are skipped).
 async function ingest(account, payload) {
   const items = [];
+  // One Meta app (one callback URL) can serve several numbers of the same company: items of
+  // another connected number of this organization go to that number; unknown numbers are skipped.
+  const numbers = new Map([[account.phoneNumberId, account]]);
+  const numberFor = async (phoneNumberId) => {
+    if (!phoneNumberId) return account;
+    const id = String(phoneNumberId);
+    if (!numbers.has(id)) numbers.set(id, await WhatsAppAccount.findOne({ organizationId: account.organizationId, activePhoneNumberId: id }));
+    return numbers.get(id);
+  };
   for (const entry of Array.isArray(payload?.entry) ? payload.entry : []) {
     for (const change of Array.isArray(entry?.changes) ? entry.changes : []) {
+      const value = change?.value || {};
+      if (change?.field === 'message_template_status_update') {
+        if (!value.message_template_id || !value.event) continue;
+        items.push({
+          kind: 'template_status', sourceId: account._id,
+          eventId: `template:${value.message_template_id}:${value.event}:${entry.time || ''}`, payload: { value },
+        });
+        continue;
+      }
       if (change?.field !== 'messages') continue;
-      const value = change.value || {};
-      // One Meta app can serve several numbers: keep only this account's.
-      if (value.metadata?.phone_number_id && String(value.metadata.phone_number_id) !== account.phoneNumberId) continue;
+      const target = await numberFor(value.metadata?.phone_number_id);
+      if (!target) continue;
       const contacts = Array.isArray(value.contacts) ? value.contacts : [];
       for (const message of Array.isArray(value.messages) ? value.messages : []) {
         if (!message?.id) continue;
         const contact = contacts.find((c) => c?.wa_id === message.from) || contacts[0] || null;
-        items.push({ kind: 'message', eventId: `message:${message.id}`, payload: { message, contact } });
+        items.push({ kind: 'message', sourceId: target._id, eventId: `message:${message.id}`, payload: { message, contact } });
       }
       for (const status of Array.isArray(value.statuses) ? value.statuses : []) {
         if (!status?.id || !status.status) continue;
-        items.push({ kind: 'status', eventId: `status:${status.id}:${status.status}`, payload: { status } });
+        items.push({ kind: 'status', sourceId: target._id, eventId: `status:${status.id}:${status.status}`, payload: { status } });
       }
     }
   }
@@ -61,9 +81,7 @@ async function ingest(account, payload) {
   const ids = [];
   for (const item of items) {
     try {
-      const event = await InboundEvent.create({
-        provider: 'whatsapp', ...item, organizationId: account.organizationId, sourceId: account._id,
-      });
+      const event = await InboundEvent.create({ provider: 'whatsapp', ...item, organizationId: account.organizationId });
       ids.push(event._id);
     } catch (error) {
       if (error.code !== 11000) throw error; // already received
@@ -198,6 +216,8 @@ async function handleMessage(account, { message, contact: profile }) {
   }
 
   bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created });
+  // Photos, voice notes and documents: copy the file now (WhatsApp keeps it only 7 days).
+  if (stored.media?.providerMediaId) await media.storeInboundQuietly(stored);
   return 'processed';
 }
 
@@ -235,9 +255,12 @@ async function processEvent(id) {
   if (!event) return;
   try {
     const account = await WhatsAppAccount.findOne({ _id: event.sourceId, organizationId: event.organizationId });
-    const outcome = !account ? 'ignored' : event.kind === 'message'
-      ? await handleMessage(account, event.payload)
-      : await handleStatus(account, event.payload, event.attempts);
+    const handlers = {
+      message: () => handleMessage(account, event.payload),
+      status: () => handleStatus(account, event.payload, event.attempts),
+      template_status: () => templateService.applyStatusUpdate(account, event.payload.value || {}),
+    };
+    const outcome = !account || !handlers[event.kind] ? 'ignored' : await handlers[event.kind]();
     await InboundEvent.updateOne({ _id: event._id }, { status: outcome, processedAt: new Date(), error: '' });
   } catch (error) {
     logger.error(`WhatsApp event ${event.eventId} failed: ${error.message}`);

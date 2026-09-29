@@ -1,5 +1,6 @@
 const express = require('express');
 const accountService = require('../services/whatsappAccountService');
+const clickToChat = require('../services/clickToChatService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -25,6 +26,18 @@ router.post('/accounts/:id/test', validate({ params: idParams }), async (req, re
 router.delete('/accounts/:id', validate({ params: idParams }), async (req, res) => {
   await accountService.remove(req, req.valid.params.id);
   res.json({ success: true, data: { deleted: true }, message: 'WhatsApp number removed' });
+});
+
+// Click-to-chat link + QR code for a number (?accountId=&text=).
+router.get('/click-to-chat', validate({ query: schemas.clickToChat }), async (req, res) => {
+  res.json({ success: true, data: await clickToChat.link(req, req.valid.query) });
+});
+router.get('/click-to-chat/qr.png', validate({ query: schemas.clickToChat }), async (req, res) => {
+  const png = await clickToChat.png(req, req.valid.query);
+  res.attachment('whatsapp-qr.png');
+  res.type('image/png');
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.send(png);
 });
 
 module.exports = router;

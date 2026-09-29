@@ -10,24 +10,40 @@ const validate = require('../middleware/validate');
 const httpError = require('../utils/httpError');
 const { normalizePhone } = require('../utils/phone');
 const schemas = require('../validators/whatsapp');
+const mock = require('../integrations/whatsapp/mock');
 
 // Development helpers. They do not exist in production (404).
 const router = express.Router();
 router.use((req, res, next) => next(env.isProduction ? httpError(404, 'NOT_FOUND', 'Resource not found') : undefined));
 router.use(authenticate, requireRole('owner', 'admin'));
 
-// Pretends a customer sent a WhatsApp text: the same processing as a real webhook, without Meta.
+// The webhook message object for a simulated photo, document or voice note (test numbers:
+// the mock provider hands out a sample file for these media ids).
+function simulatedMedia(type, caption) {
+  const id = mock.mockMediaId(type);
+  const { buffer, mimeType } = mock.sampleFile(type);
+  const sha256 = crypto.createHash('sha256').update(buffer).digest('base64');
+  if (type === 'image') return { image: { id, mime_type: mimeType, sha256, ...(caption && { caption }) } };
+  if (type === 'document') return { document: { id, mime_type: mimeType, sha256, filename: 'Sample document.pdf', ...(caption && { caption }) } };
+  return { audio: { id, mime_type: mimeType, sha256, voice: true } };
+}
+
+// Pretends a customer sent a WhatsApp message: the same processing as a real webhook, without Meta.
 router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbound }), async (req, res) => {
-  const { accountId, from, name, text } = req.body;
+  const { accountId, from, name, type, text } = req.body;
   const account = accountId
     ? await accountService.findInOrg(req, accountId)
     : await accountService.defaultAccount(req.tenant.organizationId);
   if (!account) throw httpError(400, 'NO_WHATSAPP_NUMBER', 'Add a WhatsApp number in Settings → WhatsApp first.');
+  if (type !== 'text' && account.provider !== 'mock') {
+    throw httpError(400, 'VALIDATION_ERROR', 'Photos, documents and voice notes can only be simulated on a test number.');
+  }
   const phone = normalizePhone(from);
   if (!phone) throw httpError(400, 'VALIDATION_ERROR', 'That is not a valid phone number.', [{ field: 'from', code: 'INVALID_PHONE', message: 'Use a number like 98290 12345 or +91 98290 12345.' }]);
 
   const waId = phone.slice(1);
   const messageId = `wamid.SIM${crypto.randomBytes(12).toString('hex')}`;
+  const content = type === 'text' ? { text: { body: text } } : simulatedMedia(type, text);
   const payload = {
     object: 'whatsapp_business_account',
     entry: [{
@@ -38,7 +54,7 @@ router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbou
           messaging_product: 'whatsapp',
           metadata: { display_phone_number: account.displayPhone, phone_number_id: account.phoneNumberId },
           contacts: [{ profile: { name: name || '' }, wa_id: waId }],
-          messages: [{ from: waId, id: messageId, timestamp: String(Math.floor(Date.now() / 1000)), type: 'text', text: { body: text } }],
+          messages: [{ from: waId, id: messageId, timestamp: String(Math.floor(Date.now() / 1000)), type, ...content }],
         },
       }],
     }],
