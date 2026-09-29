@@ -225,7 +225,8 @@
 
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
-    const who = m.direction === "out" && m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "";
+    // Sent by a teammate, or by the CRM itself (an auto-reply rule).
+    const who = m.direction !== "out" ? "" : m.automation ? "Auto-reply · " : m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "";
     const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
     const replyButton = m.providerMessageId && m.direction === "in"
       ? `<button class="reply-btn" type="button" data-reply="${escapeHtml(m.id)}" title="Reply to this message"><i class="fa-solid fa-reply"></i></button>`

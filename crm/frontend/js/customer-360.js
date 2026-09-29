@@ -465,7 +465,8 @@ function whatsappLine(m) {
   const time = new Date(m.at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" });
   const label = m.type === "document" && m.media?.fileName ? m.media.fileName : m.type === "audio" && m.media?.voice ? "Voice message" : WA_KIND[m.type];
   const kind = WA_KIND[m.type] ? `<span class="kind">${escapeHtml(label)}</span>${m.text ? "\n" : ""}` : "";
-  const who = m.direction === "out" ? `${m.type === "template" ? "Template · " : ""}${escapeHtml(memberName(m.sentByMemberId) || "Team")} · ` : "";
+  const sender = m.automation ? "Auto-reply" : memberName(m.sentByMemberId) || "Team";
+  const who = m.direction === "out" ? `${m.type === "template" ? "Template · " : ""}${escapeHtml(sender)} · ` : "";
   const failed = m.status === "failed" ? " · not sent" : "";
   return `<div class="c360-wa-msg ${m.direction === "out" ? "out" : ""}">${kind}${escapeHtml(m.text || "")}<span class="meta">${who}${escapeHtml(time)}${failed}</span></div>`;
 }
