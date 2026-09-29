@@ -29,15 +29,21 @@ cloudflared tunnel --url http://127.0.0.1:3000
 
 It prints an address like `https://random-words.trycloudflare.com` (it changes every run; a named Cloudflare tunnel with your own domain keeps it fixed). Your callback URL is that address + the path shown in the CRM, e.g. `https://random-words.trycloudflare.com/api/v1/webhooks/whatsapp/<key>`.
 
-In the Meta app → WhatsApp → **Configuration** → Webhook → *Edit*: paste the callback URL and the verify token → *Verify and save*. Then under *Webhook fields* **subscribe to `messages`**.
+In the Meta app → WhatsApp → **Configuration** → Webhook → *Edit*: paste the callback URL and the verify token → *Verify and save*. Then under *Webhook fields* **subscribe to `messages`** and **`message_template_status_update`** (so template approvals and rejections show up in the CRM). If several of your numbers use the same Meta app, one callback URL is enough: messages for your other connected numbers are sorted to the right number.
 
 ## 4. Check it
 
 Send a WhatsApp message from your own phone to the business number. In the CRM the number's card shows "last message from WhatsApp …", and the sender appears under Customers/Leads (a new number becomes a WhatsApp lead).
 
+## 5. Templates, files and the click-to-chat link
+
+- **Templates** (Settings → WhatsApp → *Message templates*) need the number's **WhatsApp Business Account ID** and a token with `whatsapp_business_management`. *Sync from Meta* brings the templates you made in WhatsApp Manager; *New template* submits one for Meta's review. Only approved templates can be sent — they are the only messages allowed when the customer has not written for 24 hours, and for writing first (Customer 360 → WhatsApp → *Message on WhatsApp*).
+- **Files**: photos (JPG/PNG up to 5 MB), videos and audio (16 MB) and documents (PDF, Word, Excel, PowerPoint, TXT up to 100 MB) can be sent from the Inbox inside the 24-hour window. Received files are copied into the CRM's private document folder (`DOCUMENT_DIR`) at once, because WhatsApp keeps them only 7 days.
+- **Click-to-chat**: Settings → WhatsApp shows a `wa.me` link (optionally with a message already typed) and a QR code to print; customers who use it land in the Inbox.
+
 ## Without a Meta account
 
-In development, Settings → WhatsApp → **Add a test number instead**, then **Receive Test Message** pretends a customer wrote. Nothing is sent to WhatsApp. Test numbers and the simulator are switched off on a production server (`NODE_ENV=production`).
+In development, Settings → WhatsApp → **Add a test number instead**, then **Receive Test Message** pretends a customer wrote (a text, or a sample photo, document or voice note). A test number has four sample templates and approves new ones at once. Nothing is sent to WhatsApp. Test numbers and the simulator are switched off on a production server (`NODE_ENV=production`).
 
 ## Settings (backend/.env)
 

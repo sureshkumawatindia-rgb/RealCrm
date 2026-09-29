@@ -229,6 +229,8 @@ Setup steps for Meta: [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md). Module for the inb
 | `PATCH` | `/whatsapp/accounts/:id` | `{ name?, wabaId?, accessToken?, appSecret?, isDefault: true? }`; a new token is checked again. |
 | `POST` | `/whatsapp/accounts/:id/test` | Asks Meta again and updates `status`. |
 | `DELETE` | `/whatsapp/accounts/:id` | Soft delete; chats stay, the number can be connected again. |
+| `GET` | `/whatsapp/click-to-chat?accountId=&text=` | `{ accountId, phone, link, qrDataUrl }`: the `https://wa.me/<number>?text=<pre-filled message>` link of a number (default number if none given) and its QR code as an SVG data URL. 400 `NO_DISPLAY_PHONE` until the number was checked with Meta. |
+| `GET` | `/whatsapp/click-to-chat/qr.png?accountId=&text=` | The same QR code as an 800 px PNG download (`whatsapp-qr.png`). |
 
 ### Webhook (public, called by Meta)
 
@@ -237,7 +239,7 @@ Each number has its own URL `/api/v1/webhooks/whatsapp/<webhookKey>` (not rate l
 | Method | Purpose |
 | --- | --- |
 | `GET` | Handshake: `?hub.mode=subscribe&hub.verify_token=<verify token>&hub.challenge=<n>` → 200 with the challenge, else 403. |
-| `POST` | Messages and statuses. `X-Hub-Signature-256` must be `sha256=` + HMAC-SHA256 of the raw body with the app secret (else 401). Each message and status is stored as an `InboundEvent` (Meta's retries are ignored), the answer is 200, then: the contact is found by phone or created (source WhatsApp; a new number also gets a WhatsApp lead), the conversation is opened, the message stored, the 24-hour window moved; statuses move sent → delivered → read (never back; failed keeps Meta's error). Events that could not be processed are retried at start-up and every 5 minutes. |
+| `POST` | Messages, statuses and template status changes (fields `messages` and `message_template_status_update`). `X-Hub-Signature-256` must be `sha256=` + HMAC-SHA256 of the raw body with the app secret (else 401). Items for another connected number of the same organization (one Meta app, one callback URL) go to that number; unknown numbers are skipped. Each message and status is stored as an `InboundEvent` (Meta's retries are ignored), the answer is 200, then: the contact is found by phone or created (source WhatsApp; a new number also gets a WhatsApp lead), the conversation is opened, the message stored, the 24-hour window moved; statuses move sent → delivered → read (never back; failed keeps Meta's error); photos, documents, audio and video are copied into private storage (see "Files in chats"); a template status change updates the template (reason kept). Events that could not be processed are retried at start-up and every 5 minutes. |
 
 ### Inbox (module `inbox`)
 
@@ -245,27 +247,41 @@ Who sees which chat (D24): owners, admins and members with `inbox:view_all` see 
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/conversations?view=mine\|unassigned\|all&status=open\|pending\|closed\|any&accountId=&q=&page=&limit=` | Newest first. Default status: open and pending. `q` searches the contact's name, company and number. Each item: `{ id, contact { id, name, phone, company }, account { id, name, displayPhone, verifiedName }, assigneeId, status, unreadCount, lastMessageAt, lastMessagePreview, lastMessageDirection, lastInboundAt, window { open, expiresAt }, tags }`. |
+| `POST` | `/conversations` | `{ contactId, accountId? }`: opens the chat with a contact the member can see (201, assigned to them; the window is closed until the customer writes, so the first message is a template), or returns the existing one (200). 409 `CHAT_ASSIGNED` if a teammate has it; 400 `NO_PHONE` without a mobile number. |
+| `GET` | `/conversations?view=mine\|unassigned\|all&status=open\|pending\|closed\|any&accountId=&contactId=&q=&page=&limit=` | Newest first. `contactId` lists one customer's chats (Customer 360). Default status: open and pending. `q` searches the contact's name, company and number. Each item: `{ id, contact { id, name, phone, company }, account { id, name, displayPhone, verifiedName }, assigneeId, status, unreadCount, lastMessageAt, lastMessagePreview, lastMessageDirection, lastInboundAt, window { open, expiresAt }, tags }`. |
 | `GET` | `/conversations/summary` | `{ mine, unassigned, all, unread }` for the inbox tabs (open and pending chats). |
 | `GET` | `/conversations/:id` | One chat. |
 | `PATCH` | `/conversations/:id` | `{ status?, assigneeId? (null = back to the queue), tags? }`. The assignee must be an active member who can open the inbox (400 `ASSIGNEE_NO_INBOX`). |
 | `POST` | `/conversations/:id/read` | Sets `unreadCount` to 0. |
 | `GET` | `/conversations/:id/messages?limit=&before=<message id>` | The newest page (default 50, max 100), oldest → newest inside the page; `hasMore` and `nextBefore` for older ones. Each message has `providerMessageId` (WhatsApp's id) and `replyToProviderMessageId`, so a reply can show the message it quotes. |
-| `POST` | `/conversations/:id/messages` | `{ text, replyToMessageId? }` (`Idempotency-Key` recommended). Only within 24 hours of the customer's last message (else 422 `WINDOW_CLOSED`; templates come in 3D). The message is saved, then sent through the Cloud API: returns 201 with `status: "sent"`, or `status: "failed"` and WhatsApp's `error`. The first reply assigns an unassigned chat to the sender; a reply reopens a closed chat. |
+| `POST` | `/conversations/:id/messages` | A text `{ text, replyToMessageId? }`, or a template `{ type: "template", templateId, variables: { header: { "1": "…" }, body: { "1": "…" \| "customer_name": "…" }, buttons: { "<button index>": "<end of the link>" } } }` (`Idempotency-Key` recommended). Texts only within 24 hours of the customer's last message (else 422 `WINDOW_CLOSED`); an approved template of the chat's number can be sent any time (422 `TEMPLATE_NOT_SENDABLE` otherwise; every variable must be filled, without line breaks or tabs). The chat shows the template with its values filled in. The message is saved, then sent through the Cloud API: returns 201 with `status: "sent"`, or `status: "failed"` and WhatsApp's `error`. The first reply assigns an unassigned chat to the sender; a reply reopens a closed chat. |
+| `POST` | `/conversations/:id/messages/media` | Multipart: `file` + optional `caption` (not for audio) and `replyToMessageId`; inside the 24-hour window. WhatsApp's types and limits: photos JPG/PNG 5 MB, video MP4/3GP 16 MB, audio MP3/OGG/AAC/AMR/M4A 16 MB, documents PDF/Word/Excel/PowerPoint/TXT 100 MB (else 400 `UNSUPPORTED_FILE` / 413 `FILE_TOO_LARGE`). The file is kept in private storage, uploaded to WhatsApp, then sent. `Idempotency-Key` covers the file too. |
+| `GET` | `/conversations/:id/messages/:messageId/media` | The message's file, always as a download (`application/octet-stream`, `Content-Security-Policy: sandbox`). A received file not stored yet is fetched from WhatsApp first (404 `MEDIA_UNAVAILABLE` after WhatsApp's 7 days). |
 | `GET/POST` | `/conversations/:id/notes` | Internal notes `{ text }` (never sent to the customer). |
 | `GET` | `/quick-replies` | Saved answers of the organization. |
 | `POST` | `/quick-replies` | `{ shortcut (a-z, 0-9, - or _, up to 30), title?, body }`; a shortcut in use is 409 `DUPLICATE_SHORTCUT`. |
 | `PATCH/DELETE` | `/quick-replies/:id` | Deleting needs `inbox:delete` for agents. |
 
+### Message templates
+
+Templates belong to a number's WhatsApp Business Account: a Meta number needs its `wabaId` (400 `WABA_ID_MISSING`). Inbox members read them; owners and admins change them.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/templates?accountId=&status=APPROVED` | `{ id, accountId, name, language, category, status, parameterFormat (POSITIONAL/NAMED), rejectedReason, qualityScore, header { format, text, variables }, body { text, variables }, footer, buttons [{ index, type, text, url, phoneNumber, variables }], sendable, notSendableReason }`. Not sendable: not approved, authentication templates, photo/video/document headers, button types the CRM cannot fill. |
+| `POST` | `/templates/sync` | `{ accountId? }`: reads all of the number's templates from Meta (every page) and removes the ones Meta no longer has. |
+| `POST` | `/templates` | `{ accountId?, name (a-z, 0-9, _), language (en, en_US, hi …), category (UTILITY/MARKETING), headerText?, headerExample?, bodyText, bodyExamples? { "1": "…" }, footerText?, buttons? [{ type: QUICK_REPLY \| URL (url) \| PHONE_NUMBER (phoneNumber), text }] (up to 3) }` → submitted to Meta for review (status usually PENDING; test numbers approve at once). Checked first: variables all numbers {{1}}, {{2}} … without gaps or all names, an example for each, the message may not start or end with a variable, one header variable at most, none in the footer or links. 409 `TEMPLATE_EXISTS`. |
+| `DELETE` | `/templates/:id` | Deletes this language of the template at Meta (`hsm_id`) and here. |
+
 ### Live updates (Socket.IO)
 
-Same address as the API (path `/socket.io`; the browser client is served at `/socket.io/socket.io.min.js`). Connect with `auth: { token: <access token> }`; members without the inbox get `FORBIDDEN`, bad tokens `UNAUTHORIZED`. Events (server → browser), only for chats the member may see: `conversation:updated` (a conversation), `message:new` (`{ conversation, message }`), `message:status` (a message), `note:new` (`{ conversationId, note }`). When a member's role, pages or status change (or they are removed) their connections are dropped; the browser reconnects with its current token and gets the new access.
+Same address as the API (path `/socket.io`; the browser client is served at `/socket.io/socket.io.min.js`). Connect with `auth: { token: <access token> }`; members without the inbox get `FORBIDDEN`, bad tokens `UNAUTHORIZED`. Events (server → browser), only for chats the member may see: `conversation:updated` (a conversation), `message:new` (`{ conversation, message }`), `message:status` (a message; also sent when a received file has been stored), `note:new` (`{ conversationId, note }`). When a member's role, pages or status change (or they are removed) their connections are dropped; the browser reconnects with its current token and gets the new access.
 
 ### Development only (404 when `NODE_ENV=production`)
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `POST` | `/dev/simulate/whatsapp-inbound` | Owners/admins. `{ from, name?, text, accountId? }` → processes a made-up incoming text exactly like a webhook; returns `{ conversationId, messageId, contactId }`. |
+| `POST` | `/dev/simulate/whatsapp-inbound` | Owners/admins. `{ from, name?, type? (text/image/document/audio), text, accountId? }` → processes a made-up incoming message exactly like a webhook (photos, documents and voice notes only on test numbers, with a sample file; `text` is then the caption); returns `{ conversationId, messageId, contactId }`. |
 
 ## Idempotency
 
