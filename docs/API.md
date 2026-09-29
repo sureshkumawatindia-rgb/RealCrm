@@ -110,16 +110,27 @@ Stages: `New → Contacted → Quote Sent → Negotiation → Won / Lost`. The s
 | `POST` | `/leads/:id/stage` | `{ stage, lostReason?, version? }`. Lost without a reason is 422 `LOST_REASON_REQUIRED`. Won makes the contact a customer. |
 | `POST` | `/leads/:id/convert` | Idempotent: moves to Won and marks the contact as customer once. |
 | `GET/POST` | `/leads/:id/activities` | Timeline (created, stage changes, notes, quotations); POST `{ text, type? }` adds a note. |
-| `POST` | `/leads/:id/quotations` | `{ items: [{ productId?, name?, quantity, unitPricePaise, discountPaise?, taxRatePct? }], validUntil? }` — creates the lead's draft quotation (201) or updates it (200). Totals are computed on the server. |
+| `POST` | `/leads/:id/quotations` | Phase 2 lead form: `{ items: [{ productId?, name?, quantity, unitPricePaise, discountPaise?, taxRatePct? }], validUntil? }` — creates the lead's draft quotation (201) or updates it (200), priced like `POST /quotations`. |
 
-### Quotations
+### Quotations, estimates, proforma invoices (Phase 5)
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/quotations?leadId=&contactId=&status=` | Numbers per financial year: `QT/2026-27/0001`. |
-| `GET` | `/quotations/:id` | |
-| `PATCH` | `/quotations/:id` | `{ status }` (Draft, Sent, Viewed, Accepted, Rejected, Expired). |
-| `DELETE` | `/quotations/:id` | Soft delete. |
+| `GET` | `/quotations?leadId=&contactId=&status=&type=&q=` | `q` searches the number and the customer's name or company. List items leave out `revisions`. |
+| `POST` | `/quotations` | `{ leadId \| contactId \| conversationId, type? (Quotation, Estimate, Proforma Invoice), items, billTo?, placeOfSupplyCode?, zeroRated?, validUntil?, terms?, notes? }` → 201. A chat's quotation is for its customer and their newest open lead. Accepts `Idempotency-Key`. |
+| `GET` | `/quotations/:id` | With `revisions[]` (earlier versions). |
+| `PATCH` | `/quotations/:id` | Content (the fields of POST except the customer and type) — drafts only, else 409 `NOT_DRAFT`; and/or `{ status: Sent \| Accepted \| Rejected, rejectedReason? }` (409 `INVALID_STATUS` for other moves; Accepted can go back to Sent while no order exists). |
+| `POST` | `/quotations/:id/revise` | Sent, Viewed, Rejected or Expired → a new revision as a Draft; the old version goes to `revisions` (409 `NOT_REVISABLE` for drafts and accepted ones). |
+| `DELETE` | `/quotations/:id` | Soft delete (not when an order was made from it). |
+| `POST` | `/pricing/preview` | The editor's live totals: the body of POST (customer optional), nothing saved → `{ items, totals, supply (with warnings), billTo }`. |
+
+Items: `{ productId? , name?, description?, hsnSac?, unit?, quantity, unitPricePaise?, discountType (amount \| percent), discountValue (paise or %), gstRatePct? }` — missing values come from the product. The server computes everything in paise: quantity × price, minus the discount = taxable value; GST per line on the taxable value, rounded to the paisa; same state as the organization → CGST + SGST (UTGST in Chandigarh, Ladakh, Lakshadweep, Andaman and Nicobar, Dadra and Nagar Haveli and Daman and Diu), else IGST; `zeroRated` (export/SEZ under LUT) → no GST; the grand total is rounded to the rupee (`roundOffPaise`) when Settings → Billing says so (D28). The place of supply: `placeOfSupplyCode` if chosen, else the customer's GSTIN, else their state; unknown → the organization's state, with `supply.stateAssumed` and a warning (D30). `totals.byRate[]` summarizes each rate. Numbers: `<prefix>/<financial year>/<0001>`, each type counted on its own (default prefixes QT, EST, PI). Sending (status Sent) moves a New or Contacted lead to Quote Sent. Sent and Viewed quotations past `validUntil` become Expired (hourly job).
+
+### Billing settings (owners and admins)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET/PUT` | `/organization/billing` | `{ bank { accountName, accountNumber, ifsc, bankName, branch }, upiId, terms, validityDays (default 15), prefixes { quotation, estimate, proforma, order }, roundOff (default true), reduceStockOnDispatch }`. GET also returns the GST state used for quotations (`stateCode`, `state`, `stateFrom`: gstin \| address), which comes from the company profile. Prefixes must differ. |
 
 ## Tasks and calendar (Phase 2)
 

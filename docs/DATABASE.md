@@ -28,7 +28,7 @@ Only hashes of refresh tokens and invite tokens are stored. Gmail tokens are enc
 | `products` | `name`, `sku`, `category`, `description`, `unit`, `hsnSac`, `pricePaise`, `gstRatePct`, `moq`, `stockQty`, `images[]`, `active`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, active, category)`; `(organizationId, name)`; `(organizationId, legacyIds)` |
 | `leads` | `contactId`, `title`, `stage`, `probability`, `lostReason`, `source`, `sourceRef`, `productId`, `quantity`, `expectedValuePaise`, `expectedCloseDate`, `followUpAt`, `ownerId`, `notes`, `noteEntries[]`, `stageChangedAt`, `convertedAt`, `lastActivityAt`, `version`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, stage, createdAt -1)`; `(organizationId, ownerId, stage)`; `(organizationId, followUpAt)`; `(organizationId, contactId)`; unique `(organizationId, source, sourceRef)` when set; `(organizationId, legacyIds)` |
 | `leadactivities` | `leadId`, `contactId`, `type`, `text`, `actorUserId`, `actorName`, `meta`, `legacyIds[]`, `createdAt` | `(organizationId, leadId, createdAt -1)`; `(organizationId, legacyIds)` |
-| `quotations` | `number`, `financialYear`, `leadId`, `contactId`, `ownerId`, `status`, `quotationDate`, `validUntil`, `items[]` (product snapshot, paise), `totals`, `legacyNumber`, `legacyIds[]`, `deletedAt` | unique `(organizationId, number)`; `(organizationId, leadId, status)`; `(organizationId, contactId, createdAt -1)` |
+| `quotations` | Phase 5 shape (`schemaVersion` 2): `type` (Quotation/Estimate/Proforma Invoice), `number`, `financialYear`, `revision`, `leadId`, `contactId`, `ownerId`, `status`, `quotationDate`, `validUntil`, `billTo` and `seller` (copied details), `supply` { sellerStateCode, placeOfSupplyCode, interState, zeroRated, taxLabel SGST/UTGST, stateAssumed }, `placeOfSupplyCode` (chosen by hand), `roundOff`, `items[]` { product, name, hsnSac, unit, quantity, unitPricePaise, discountType, discountValue, subtotal/discount/taxable, gstRatePct, cgst/sgst/igst, tax, total — paise }, `totals` { … roundOffPaise, grandTotalPaise, byRate[] }, `terms`, `notes`, `revisions[]` (earlier versions), `sentAt`, `sentVia`, `viewedAt`, `viewCount`, `acceptedAt`, `rejectedAt`, `rejectedReason`, `expiredAt`, `orderId`, `legacyNumber`, `legacyIds[]`, `deletedAt` | unique `(organizationId, number)`; `(organizationId, leadId, status)`; `(organizationId, contactId, createdAt -1)`; `(organizationId, status, validUntil)` |
 | `imports` | `dryRun`, `status`, `report`, `error`, `createdById` | `(organizationId, createdAt -1)` |
 
 ## 1c. Implemented (Phase 2, tasks and calendar)
@@ -96,13 +96,16 @@ Internal notes on chats are `notes` with `parentType: "conversation"`. Files of 
 
 Leads from a source have `source` and `sourceRef` (unique per source); a repeat enquiry added to an open lead is a `leadactivities` entry of type "Enquiry".
 
-Counters used: `quotation:<financial year>`, `ticket`.
+`organizations.billing` { bank { accountName, accountNumber, ifsc, bankName, branch }, upiId, terms, validityDays, prefixes { quotation, estimate, proforma, order }, roundOff, reduceStockOnDispatch } (Phase 5).
+
+Counters used: `quotation:<financial year>`, `estimate:<financial year>`, `proforma:<financial year>`, `ticket`.
 
 ## 2. Data migrations
 
 | Migration | What it does |
 |---|---|
 | `001-organization-field-names` | `gst → gstin` (uppercased), `pincode → postalCode`, `founded → foundedYear` (only real years; other text stays in `founded`), derives `stateCode` from the GSTIN. |
+| `002-quotations-v2` | Phase 2 quotations get the Phase 5 shape: each line's tax split into CGST + SGST or IGST (organization vs customer state), taxable values, the rate summary, customer and seller details, type Quotation, revision 0; no round-off, so no amount changes. Only documents without `schemaVersion: 2`. |
 
 ## 3. Planned (Phase 2 onwards)
 
