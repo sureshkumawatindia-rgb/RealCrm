@@ -25,10 +25,23 @@ Protection: at most `RATE_LIMIT_FORM_PER_MINUTE` enquiries per minute from one a
 
 The CRM must be reachable from the internet for a real website to send enquiries (on a server with HTTPS, or through a tunnel while testing; see WHATSAPP_SETUP.md section 3). `PUBLIC_URL` in backend/.env must be that public address, because the embed code points to it.
 
+## IndiaMART
+
+1. In IndiaMART Seller Panel → Lead Manager → **Import/Export Leads** → CRM Integration, generate the **CRM API key** (IndiaMART emails it). A paid seller account is needed.
+2. Settings → Lead sources → **Connect IndiaMART**, paste the key, choose the kinds of leads (direct enquiries, buy-leads, phone calls, WhatsApp enquiries; catalogue views are off by default) → **Connect**.
+3. Within a minute the first pull brings the last 24 hours of leads. After that the CRM pulls every 5 minutes; IndiaMART blocks keys that are called more often, so the CRM never does (also not with **Pull now**).
+4. Optional, for leads the moment they arrive: in Lead Manager → Import/Export Leads → **Push API**, enter the address shown on the IndiaMART card. IndiaMART only pushes to a public **https** address, so this works once the CRM runs on a server with HTTPS (or through a tunnel while testing). A lead that arrives by push and by pull is taken once.
+
+Good to know:
+
+- An IndiaMART key **expires after 7 days without use**. The CRM uses it every 5 minutes while the source is active; if IndiaMART refuses the key, the card says "Needs attention" and pulling stops until you press **New key** and paste a fresh one.
+- If the CRM was switched off for more than 7 days, IndiaMART only gives the last 7 days; the card says so.
+- IndiaMART calls unknown buyers "IndiaMART Buyer"; the CRM uses the company name instead when there is one.
+
 ## Testing without a real source
 
 In development, *Try it: receive a test lead* pretends an enquiry arrived from IndiaMART, a website, JustDial and so on.
 
 ## Coming next
 
-IndiaMART (4B), Facebook Lead Ads, Google Ads lead forms and JustDial/TradeIndia (4C), then auto-replies and assignment rules (4D).
+Facebook Lead Ads, Google Ads lead forms and JustDial/TradeIndia (4C), then auto-replies and assignment rules (4D).

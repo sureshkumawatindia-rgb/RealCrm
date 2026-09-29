@@ -290,9 +290,10 @@ Same address as the API (path `/socket.io`; the browser client is served at `/so
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/lead-sources` | `{ id, type (website; more in 4B/4C), source, name, status (active/paused/error), statusMessage, settings, stats { received, created, attached, duplicate, rejected }, lastLeadAt, lastError, credentials { configured, hint }, form? { publicKey, submitUrl, embedUrl } }` |
-| `POST` | `/lead-sources` | `{ type: "website", name?, settings? { title, buttonText, successMessage, redirectUrl, allowedOrigins[] (https://site, no path), askFor { email, company, city, product, message } } }` |
-| `PATCH` | `/lead-sources/:id` | `{ name?, status? (active/paused), settings? }` (settings are merged). |
+| `GET` | `/lead-sources` | `{ id, type (website, indiamart; more in 4C), source, name, status (active/paused/error), statusMessage, settings, stats { received, created, attached, duplicate, rejected }, lastLeadAt, lastError, credentials { configured, hint (last 4) }, form? { publicKey, submitUrl, embedUrl }, pushUrl? (IndiaMART), lastPulledUntil? }`. Keys are never returned. |
+| `POST` | `/lead-sources` | Website form: `{ type: "website", name?, settings? { title, buttonText, successMessage, redirectUrl, allowedOrigins[] (https://site, no path), askFor { email, company, city, product, message } } }`. IndiaMART: `{ type: "indiamart", name?, apiKey (CRM API key), settings? { queryTypes: ["W","B","P","WA","BIZ"] } }` (default W, B, P, WA) — starts pulling at once. |
+| `PATCH` | `/lead-sources/:id` | `{ name?, status? (active/paused), apiKey? (a new key also re-activates a source IndiaMART refused), settings? }` (settings are merged). Pausing stops pulls. |
+| `POST` | `/lead-sources/:id/pull` | IndiaMART: pull now → `{ called, fetched, outcomes { created, attached, duplicate, skipped, rejected }, connection }`; within 5 minutes of the last call 429 `TOO_SOON` with the minutes to wait. |
 | `DELETE` | `/lead-sources/:id` | Soft delete; a website form stops working at once. |
 | `GET` | `/lead-sources/:id/intakes?limit=` | The latest enquiries: `{ source, sourceRef, outcome (created/attached/rejected/failed/processing), reason, summary, leadId, contactId, receivedAt, raw }`. |
 
@@ -304,6 +305,12 @@ Callable from any website (CORS without cookies); a form with `allowedOrigins` r
 | --- | --- | --- |
 | `GET` | `/public/forms/:publicKey/embed.js` | The script that draws the form into `<div data-yellow-crm-form="<publicKey>">` (or after the script tag). |
 | `POST` | `/public/forms/:publicKey` | `{ name, phone, email?, company?, city?, product?, quantity?, message?, submissionId? }` as JSON → 201 `{ accepted, message }`; as a plain HTML form → a thank-you page or a 303 to `redirectUrl`. Needs a valid mobile number or an email. `submissionId` makes a double click count once. The hidden `website_url` field is a honeypot (filled in → accepted but dropped). Paused forms: 403 `FORM_PAUSED`. |
+
+### IndiaMART
+
+- **Pull** (CRM Pull API v2): a job per connection every 5½ minutes (IndiaMART allows one call per 5 minutes; an atomic "last call" stamp keeps that across workers and "Pull now"). The first window is the last 24 hours; later windows start 5 minutes before the previous end; never more than 7 days. Times are sent in IST (`DD-MM-YYYYHH:MM:SS`). CODE 401 → the source goes to `error` ("paste a new key") and stops; 429 and other errors keep the cursor, so the next pull catches up.
+- **Push** (public): `POST /webhooks/leads/indiamart/<key>` with IndiaMART's `{ CODE, STATUS, RESPONSE: { UNIQUE_QUERY_ID, … } }` → 200 (also for repeats and while paused, so IndiaMART never switches the push off; paused leads are dropped); unknown key 404; not JSON 400. IndiaMART signs nothing: the random key in the address is the secret, and it is masked in the request log.
+- Each lead: `sourceRef` = `UNIQUE_QUERY_ID`; name (or the company when IndiaMART only says "IndiaMART Buyer"), mobile (else alternate mobile/phone), email, company, city, state, address; product = `QUERY_PRODUCT_NAME` (else category); the enquiry text starts with the kind of lead (Direct enquiry, Buy-lead, Phone call (PNS), WhatsApp enquiry, Catalogue view); `QUERY_TIME` (IST) is when it was received.
 
 ### How enquiries become leads
 
