@@ -36,6 +36,7 @@ router.use('/contacts', contactRoutes);
 router.use('/products', productRoutes);
 router.use('/leads', leadRoutes);
 router.use('/quotations', quotationRoutes);
+router.use('/pricing', quotationRoutes.pricingRouter);
 router.use('/imports', importRoutes);
 router.use('/exports', exportRoutes);
 router.use('/whatsapp', whatsappRoutes);

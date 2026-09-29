@@ -1,118 +1,373 @@
 const mongoose = require('mongoose');
-const Quotation = require('../models/Quotation');
+const Contact = require('../models/Contact');
+const Lead = require('../models/Lead');
+const Organization = require('../models/Organization');
 const Product = require('../models/Product');
+const Quotation = require('../models/Quotation');
 const httpError = require('../utils/httpError');
+const logger = require('../config/logger');
 const { audit } = require('../utils/audit');
 const { nextSequence } = require('../utils/counter');
 const { financialYear } = require('../utils/money');
+const { indiaDate } = require('../utils/dates');
+const { stateCodeFromGstin, normalizeGstin } = require('../utils/gstin');
+const { supplyFor, priceDocument } = require('../utils/gst');
+const { stateCodeFor, stateName } = require('../constants/gst');
+const { OPEN_STAGES } = require('../constants/crm');
+const { billingOf, sellerStateCode, DEFAULT_PREFIXES: DEFAULT_PREFIX } = require('./organizationService');
 const { toPage, paginationMeta } = require('../utils/pagination');
 const { visibilityFilter } = require('./access');
 const leadService = require('./leadService');
+const contactService = require('./contactService');
+const conversationService = require('./conversationService');
 
+// Quotations, estimates and proforma invoices (Phase 5). The browser sends quantities,
+// prices, discounts and rates; every amount is computed here (utils/gst). A draft is edited
+// in place; a sent one gets a new revision (the old one is kept). Sending moves a New or
+// Contacted lead to Quote Sent. An hourly job marks sent quotations past their validity Expired.
 const MODULES = leadService.MODULES;
+const EXPIRE_JOB = 'quotations.expire';
+const PREFIX_KEY = { Quotation: 'quotation', Estimate: 'estimate', 'Proforma Invoice': 'proforma' };
+const COUNTER_KEY = { Quotation: 'quotation', Estimate: 'estimate', 'Proforma Invoice': 'proforma' };
+// Which status changes a person may make (Viewed and Expired are set by the CRM itself).
+const NEXT = {
+  Draft: ['Sent', 'Accepted', 'Rejected'],
+  Sent: ['Accepted', 'Rejected'],
+  Viewed: ['Accepted', 'Rejected'],
+  Expired: ['Accepted', 'Rejected'],
+  Rejected: [],
+  Accepted: ['Sent'], // undo, while no order was made from it
+};
+const REVISABLE = ['Sent', 'Viewed', 'Rejected', 'Expired'];
+const PARTY_FIELDS = ['name', 'company', 'phone', 'email', 'gstin', 'address', 'city', 'state', 'stateCode', 'postalCode'];
 
-// Line maths in integer paise: subtotal = qty × unit price; tax on (subtotal − discount).
-// The browser only sends quantities, prices, discounts and rates; totals are always computed here.
-function computeItem(input, product) {
-  const quantity = Number(input.quantity) || 0;
-  const unitPricePaise = Math.round(Number(input.unitPricePaise) || 0);
-  const subtotalPaise = Math.round(quantity * unitPricePaise);
-  const discountPaise = Math.min(Math.round(Number(input.discountPaise) || 0), subtotalPaise);
-  const taxRatePct = Number(input.taxRatePct) || 0;
-  const taxPaise = Math.round(((subtotalPaise - discountPaise) * taxRatePct) / 100);
+const scope = (req) => ({ organizationId: req.tenant.organizationId, ...visibilityFilter(req, MODULES) });
+const calendarDate = (value) => (value ? new Date(`${new Date(value).toISOString().slice(0, 10)}T00:00:00.000Z`) : undefined);
+const today = () => new Date(`${indiaDate(0)}T00:00:00.000Z`);
+
+// --- the seller and the customer ------------------------------------------------------------
+
+function sellerOf(org) {
+  const code = sellerStateCode(org);
   return {
-    productId: input.productId || undefined,
-    name: product?.name || input.name || '',
-    quantity,
-    unitPricePaise,
-    discountPaise,
-    taxRatePct,
-    subtotalPaise,
-    taxPaise,
-    totalPaise: subtotalPaise - discountPaise + taxPaise,
+    name: org?.name || '', gstin: org?.gstin || '', address: org?.address || '', city: org?.city || '',
+    state: stateName(code) || org?.state || '', stateCode: code, postalCode: org?.postalCode || '', phone: org?.phone || '', email: org?.email || '',
   };
 }
 
-function totalsOf(items) {
-  const sum = (field) => items.reduce((total, item) => total + item[field], 0);
-  const subtotalPaise = sum('subtotalPaise');
-  const discountPaise = sum('discountPaise');
-  const taxPaise = sum('taxPaise');
-  return { subtotalPaise, discountPaise, taxPaise, grandTotalPaise: subtotalPaise - discountPaise + taxPaise };
+function partyFromContact(contact) {
+  const code = stateCodeFromGstin(contact?.gstin) || contact?.stateCode || stateCodeFor(contact?.state);
+  return {
+    name: contact?.name || '', company: contact?.company || '', phone: contact?.phone || contact?.phoneE164 || '', email: contact?.email || '',
+    gstin: contact?.gstin || '', address: contact?.address || '', city: contact?.city || '', state: contact?.state || stateName(code), stateCode: code, postalCode: '',
+  };
 }
 
-function serializeQuotation(quotation) {
+// The editor may correct the customer's details on the document (address, GSTIN, state).
+function mergeParty(base, override = {}) {
+  const party = { ...base };
+  for (const field of PARTY_FIELDS) if (typeof override[field] === 'string') party[field] = override[field].trim();
+  party.gstin = normalizeGstin(party.gstin);
+  // The GSTIN decides the state; otherwise a chosen code or the typed state name.
+  const typed = override.state !== undefined || override.stateCode !== undefined;
+  party.stateCode = stateCodeFromGstin(party.gstin) || stateCodeFor(override.stateCode) || stateCodeFor(party.state) || (typed ? '' : base.stateCode || '');
+  if (party.stateCode && (!party.state || stateCodeFor(party.state) !== party.stateCode)) party.state = stateName(party.stateCode);
+  return party;
+}
+
+// A quotation is for a lead, a contact or a WhatsApp chat's customer (and its newest open lead).
+async function resolveCustomer(req, { leadId, contactId, conversationId }, session) {
+  if (leadId) {
+    const lead = await leadService.findVisible(req, leadId, session);
+    const contact = await Contact.findOne({ _id: lead.contactId, organizationId: req.tenant.organizationId }).session(session || null);
+    return { lead, contact, ownerId: lead.ownerId || contact?.ownerId || req.member._id };
+  }
+  let contact;
+  if (conversationId) {
+    const conversation = await conversationService.findVisible(req, conversationId);
+    contact = await Contact.findOne({ _id: conversation.contactId, organizationId: req.tenant.organizationId }).session(session || null);
+  } else if (contactId) {
+    contact = await contactService.findVisible(req, contactId, session);
+  }
+  if (!contact) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Choose the customer (a lead, contact or chat).', [{ field: 'leadId', code: 'CUSTOMER_REQUIRED', message: 'Choose the customer.' }]);
+  }
+  const lead = await Lead.findOne({ organizationId: req.tenant.organizationId, contactId: contact._id, stage: { $in: OPEN_STAGES }, ...visibilityFilter(req, MODULES) })
+    .sort({ createdAt: -1 }).session(session || null);
+  return { lead, contact, ownerId: lead?.ownerId || contact.ownerId || req.member._id };
+}
+
+// --- lines ------------------------------------------------------------------------------------
+// Missing names, units, HSN codes, prices and rates come from the product. Older clients send
+// discountPaise and taxRatePct.
+async function linesFrom(organizationId, items, session) {
+  const ids = items.map((item) => item.productId).filter(Boolean);
+  const products = await Product.find({ _id: { $in: ids }, organizationId }).session(session || null);
+  const byId = new Map(products.map((product) => [String(product._id), product]));
+  return items.map((item) => {
+    const product = item.productId ? byId.get(String(item.productId)) : null;
+    if (item.productId && !product) {
+      throw httpError(400, 'VALIDATION_ERROR', 'Unknown product in the quotation.', [{ field: 'items', code: 'INVALID_PRODUCT', message: 'Pick products from your catalog.' }]);
+    }
+    const legacyDiscount = item.discountPaise !== undefined && item.discountValue === undefined;
+    return {
+      productId: product?._id,
+      name: item.name || product?.name || 'Item',
+      description: item.description ?? product?.description ?? '',
+      hsnSac: item.hsnSac ?? product?.hsnSac ?? '',
+      unit: item.unit || product?.unit || '',
+      quantity: item.quantity,
+      unitPricePaise: item.unitPricePaise ?? product?.pricePaise ?? 0,
+      discountType: legacyDiscount ? 'amount' : item.discountType || 'amount',
+      discountValue: legacyDiscount ? item.discountPaise : item.discountValue || 0,
+      gstRatePct: item.gstRatePct ?? item.taxRatePct ?? product?.gstRatePct ?? 0,
+    };
+  });
+}
+
+// Everything a document's amounts depend on, priced.
+async function priceFor(org, { items, billTo, placeOfSupplyCode, zeroRated, roundOff }, session) {
+  const supply = supplyFor({ sellerStateCode: sellerStateCode(org), buyerGstin: billTo.gstin, buyerStateCode: billTo.stateCode, buyerState: billTo.state, placeOfSupplyCode, zeroRated });
+  const lines = await linesFrom(org._id, items, session);
+  return { supply, ...priceDocument(lines, supply, { roundOff }) };
+}
+
+// --- serializing --------------------------------------------------------------------------
+function serializeQuotation(quotation, { full = true } = {}) {
+  const plain = (value) => (value?.toObject ? value.toObject() : value);
   return {
     id: quotation._id,
+    type: quotation.type || 'Quotation',
     number: quotation.number,
     financialYear: quotation.financialYear,
+    revision: quotation.revision || 0,
     leadId: quotation.leadId || null,
     contactId: quotation.contactId || null,
     ownerId: quotation.ownerId || null,
     status: quotation.status,
     quotationDate: quotation.quotationDate,
     validUntil: quotation.validUntil || null,
-    items: quotation.items,
-    totals: quotation.totals,
+    billTo: plain(quotation.billTo) || {},
+    seller: plain(quotation.seller) || {},
+    supply: { ...(plain(quotation.supply) || {}), placeOfSupply: stateName(quotation.supply?.placeOfSupplyCode) },
+    placeOfSupplyCode: quotation.placeOfSupplyCode || '', // chosen by hand ('' = from the customer)
+    roundOff: quotation.roundOff !== false,
+    items: plain(quotation.items) || [],
+    totals: plain(quotation.totals) || {},
+    terms: quotation.terms || '',
+    notes: quotation.notes || '',
+    sentAt: quotation.sentAt || null,
+    sentVia: quotation.sentVia || null,
+    viewedAt: quotation.viewedAt || null,
+    lastViewedAt: quotation.lastViewedAt || null,
+    viewCount: quotation.viewCount || 0,
+    acceptedAt: quotation.acceptedAt || null,
+    rejectedAt: quotation.rejectedAt || null,
+    rejectedReason: quotation.rejectedReason || '',
+    expiredAt: quotation.expiredAt || null,
+    orderId: quotation.orderId || null,
     legacyNumber: quotation.legacyNumber || '',
+    ...(full && { revisions: (quotation.revisions || []).map(plain) }),
+    revisionCount: (quotation.revisions || []).length,
     createdAt: quotation.createdAt,
     updatedAt: quotation.updatedAt,
   };
 }
 
-async function nextNumber(organizationId, session) {
+// --- numbering ------------------------------------------------------------------------------
+// Each type has its own counter per financial year (Quotation keeps the Phase 2 counter).
+async function nextNumber(organizationId, session, { type = 'Quotation', prefixes } = {}) {
   const year = financialYear();
-  const seq = await nextSequence(organizationId, `quotation:${year}`, { session });
-  return { number: `QT/${year}/${String(seq).padStart(4, '0')}`, financialYear: year };
+  const seq = await nextSequence(organizationId, `${COUNTER_KEY[type]}:${year}`, { session });
+  const prefix = (prefixes || DEFAULT_PREFIX)[PREFIX_KEY[type]] || DEFAULT_PREFIX[PREFIX_KEY[type]];
+  return { number: `${prefix}/${year}/${String(seq).padStart(4, '0')}`, financialYear: year };
 }
 
-async function buildItems(req, items, session) {
-  const ids = items.map((item) => item.productId).filter(Boolean);
-  const products = await Product.find({ _id: { $in: ids }, organizationId: req.tenant.organizationId }).session(session || null);
-  const byId = new Map(products.map((product) => [String(product._id), product]));
-  return items.map((item) => {
-    if (item.productId && !byId.has(String(item.productId))) {
-      throw httpError(400, 'VALIDATION_ERROR', 'Unknown product in the quotation.', [{ field: 'items', code: 'INVALID_PRODUCT', message: 'Pick products from your catalog.' }]);
-    }
-    return computeItem(item, byId.get(String(item.productId)));
-  });
+async function loadOrg(req, session) {
+  return Organization.findById(req.tenant.organizationId).session(session || null);
 }
 
-// POST /leads/:id/quotations — creates the lead's draft quotation, or updates it if one exists.
-async function saveDraftForLead(req, leadId, { items, validUntil }) {
-  let result;
-  await mongoose.connection.transaction(async (session) => {
-    const lead = await leadService.findVisible(req, leadId, session);
-    const computed = await buildItems(req, items, session);
-    let quotation = await Quotation.findOne({ organizationId: lead.organizationId, leadId: lead._id, status: 'Draft' }).session(session);
-    const action = quotation ? 'updated' : 'created';
-    if (!quotation) {
-      quotation = new Quotation({
-        organizationId: lead.organizationId,
-        leadId: lead._id,
-        contactId: lead.contactId,
-        ownerId: lead.ownerId,
-        ...(await nextNumber(lead.organizationId, session)),
-        createdById: req.user._id,
-      });
-    }
-    quotation.items = computed;
-    quotation.totals = totalsOf(computed);
-    if (validUntil !== undefined) quotation.validUntil = validUntil;
-    await quotation.save({ session });
-    await leadService.addActivity(req, lead, `Quotation ${action}`, `Quotation ${action}: ${quotation.number}`, { session });
-    result = { quotation, action };
-  });
-  await audit(req, { action: `quotation.${result.action}`, entityType: 'Quotation', entityId: result.quotation._id });
-  return { ...serializeQuotation(result.quotation), action: result.action };
+// Details the editor filled in (GSTIN, state, city, address) complete a contact's blank fields.
+async function fillContact(contact, billTo, session) {
+  if (!contact) return;
+  const set = {};
+  for (const field of ['gstin', 'state', 'city', 'address']) if (billTo[field] && !contact[field]) set[field] = billTo[field];
+  if (set.gstin || (!contact.stateCode && billTo.stateCode)) set.stateCode = stateCodeFromGstin(set.gstin || contact.gstin) || billTo.stateCode;
+  if (Object.keys(set).length) await Contact.updateOne({ _id: contact._id }, { $set: set }, { session });
 }
 
-const scope = (req) => ({ organizationId: req.tenant.organizationId, ...visibilityFilter(req, MODULES) });
-
-async function findVisible(req, id) {
-  const quotation = await Quotation.findOne({ _id: id, ...scope(req) });
+async function findVisible(req, id, session) {
+  const quotation = await Quotation.findOne({ _id: id, ...scope(req) }).session(session || null);
   if (!quotation) throw httpError(404, 'NOT_FOUND', 'Quotation not found');
   return quotation;
+}
+
+async function leadOf(quotation, session) {
+  return quotation.leadId ? Lead.findById(quotation.leadId).session(session || null) : null;
+}
+
+// --- the API -------------------------------------------------------------------------------
+// POST /pricing/preview — the editor's live totals, without saving anything.
+async function preview(req, body) {
+  const org = await loadOrg(req);
+  let base = {};
+  if (body.leadId || body.contactId || body.conversationId) base = partyFromContact((await resolveCustomer(req, body)).contact);
+  const billTo = mergeParty(base, body.billTo);
+  const priced = await priceFor(org, { ...body, billTo, roundOff: body.roundOff ?? billingOf(org).roundOff });
+  return { items: priced.items, totals: priced.totals, supply: { ...priced.supply, placeOfSupply: stateName(priced.supply.placeOfSupplyCode) }, billTo };
+}
+
+async function create(req, body) {
+  let quotation;
+  await mongoose.connection.transaction(async (session) => {
+    const org = await loadOrg(req, session);
+    const billing = billingOf(org);
+    const { lead, contact, ownerId } = await resolveCustomer(req, body, session);
+    const billTo = mergeParty(partyFromContact(contact), body.billTo);
+    const roundOff = billing.roundOff;
+    const priced = await priceFor(org, { ...body, billTo, roundOff }, session);
+    const type = body.type || 'Quotation';
+    quotation = new Quotation({
+      organizationId: org._id,
+      type,
+      ...(await nextNumber(org._id, session, { type, prefixes: billing.prefixes })),
+      leadId: lead?._id,
+      contactId: contact._id,
+      ownerId,
+      quotationDate: new Date(),
+      validUntil: body.validUntil ? calendarDate(body.validUntil) : new Date(`${indiaDate(billing.validityDays)}T00:00:00.000Z`),
+      billTo,
+      seller: sellerOf(org),
+      supply: priced.supply,
+      placeOfSupplyCode: body.placeOfSupplyCode || '',
+      roundOff,
+      items: priced.items,
+      totals: priced.totals,
+      terms: body.terms ?? billing.terms,
+      notes: body.notes || '',
+      createdById: req.user._id,
+    });
+    await quotation.save({ session });
+    await fillContact(contact, billTo, session);
+    if (lead) await leadService.addActivity(req, lead, 'Quotation', `${type} ${quotation.number} created (₹${(quotation.totals.grandTotalPaise / 100).toLocaleString('en-IN')})`, { session });
+  });
+  await audit(req, { action: 'quotation.created', entityType: 'Quotation', entityId: quotation._id });
+  return serializeQuotation(quotation);
+}
+
+function assertDraft(quotation) {
+  if (quotation.status !== 'Draft') {
+    throw httpError(409, 'NOT_DRAFT', `This ${quotation.type.toLowerCase()} was ${quotation.status.toLowerCase()}; revise it to change it.`);
+  }
+}
+
+// PATCH /quotations/:id — content (drafts only) and/or a status change.
+async function update(req, id, body) {
+  const { status, rejectedReason, ...content } = body;
+  let quotation;
+  let events = [];
+  await mongoose.connection.transaction(async (session) => {
+    events = [];
+    quotation = await findVisible(req, id, session);
+    if (Object.keys(content).length) {
+      assertDraft(quotation);
+      const org = await loadOrg(req, session);
+      const billTo = content.billTo ? mergeParty(quotation.billTo?.toObject?.() || {}, content.billTo) : quotation.billTo.toObject();
+      if (content.placeOfSupplyCode !== undefined) quotation.placeOfSupplyCode = content.placeOfSupplyCode;
+      const input = {
+        items: content.items || quotation.items.map((item) => item.toObject()),
+        billTo,
+        placeOfSupplyCode: quotation.placeOfSupplyCode,
+        zeroRated: content.zeroRated ?? quotation.supply?.zeroRated,
+        roundOff: quotation.roundOff !== false,
+      };
+      const priced = await priceFor(org, input, session);
+      Object.assign(quotation, { billTo, supply: priced.supply, items: priced.items, totals: priced.totals, seller: sellerOf(org) });
+      if (content.validUntil !== undefined) quotation.validUntil = content.validUntil ? calendarDate(content.validUntil) : undefined;
+      for (const field of ['terms', 'notes']) if (content[field] !== undefined) quotation[field] = content[field];
+      if (content.type && content.type !== quotation.type) {
+        throw httpError(409, 'TYPE_FIXED', 'The document type cannot change after it is numbered. Make a new one instead.');
+      }
+      await fillContact(await Contact.findById(quotation.contactId).session(session), billTo, session);
+      events.push(['Quotation', `${quotation.type} ${quotation.number} updated (₹${(quotation.totals.grandTotalPaise / 100).toLocaleString('en-IN')})`]);
+    }
+    if (status && status !== quotation.status) events.push(...(await changeStatus(req, quotation, status, { rejectedReason, session })));
+    await quotation.save({ session });
+    const lead = events.length ? await leadOf(quotation, session) : null;
+    if (lead) for (const [type, text] of events) await leadService.addActivity(req, lead, type, text, { session });
+  });
+  await audit(req, { action: status ? 'quotation.status_changed' : 'quotation.updated', entityType: 'Quotation', entityId: quotation._id, changes: status ? { status } : Object.keys(content) });
+  return serializeQuotation(quotation);
+}
+
+// Applies a status change a person asked for; returns the lead timeline entries.
+async function changeStatus(req, quotation, status, { rejectedReason, session, via = 'manual' }) {
+  if (!NEXT[quotation.status].includes(status)) {
+    throw httpError(409, 'INVALID_STATUS', `A ${quotation.status.toLowerCase()} ${quotation.type.toLowerCase()} cannot be marked ${status.toLowerCase()}.`);
+  }
+  if (quotation.status === 'Accepted' && quotation.orderId) {
+    throw httpError(409, 'HAS_ORDER', 'An order was made from this quotation; cancel the order first.');
+  }
+  const events = [];
+  const label = `${quotation.type} ${quotation.number}`;
+  quotation.status = status;
+  if (status === 'Sent' && quotation.acceptedAt) {
+    quotation.acceptedAt = undefined; // "accepted" undone
+    events.push(['Quotation', `${label}: acceptance undone`]);
+  } else if (status === 'Sent') {
+    quotation.sentAt = quotation.sentAt || new Date();
+    quotation.sentVia = via;
+    events.push(['Quotation', `${label} sent${via === 'whatsapp' ? ' on WhatsApp' : ''}`]);
+    const lead = await leadOf(quotation, session);
+    // Sending a quote moves an early lead forward (never back from Negotiation, Won or Lost).
+    if (lead && ['New', 'Contacted'].includes(lead.stage)) {
+      const from = lead.stage;
+      leadService.applyStage(lead, 'Quote Sent');
+      lead.version += 1;
+      lead.lastActivityAt = new Date();
+      await lead.save({ session });
+      events.push(['Stage changed', `${from} → Quote Sent`]);
+    }
+  } else if (status === 'Accepted') {
+    quotation.acceptedAt = new Date();
+    events.push(['Quotation', `${label} accepted`]);
+  } else if (status === 'Rejected') {
+    quotation.rejectedAt = new Date();
+    quotation.rejectedReason = String(rejectedReason || '').trim();
+    events.push(['Quotation', `${label} rejected${quotation.rejectedReason ? `: ${quotation.rejectedReason}` : ''}`]);
+  }
+  return events;
+}
+
+// POST /quotations/:id/revise — keeps the current version and reopens the document as a draft.
+async function revise(req, id) {
+  let quotation;
+  await mongoose.connection.transaction(async (session) => {
+    quotation = await findVisible(req, id, session);
+    if (!REVISABLE.includes(quotation.status)) {
+      throw httpError(409, 'NOT_REVISABLE', quotation.status === 'Draft' ? 'This is still a draft: change it directly.' : 'An accepted quotation cannot be revised; make a new one.');
+    }
+    const org = await loadOrg(req, session);
+    const snapshot = {
+      revision: quotation.revision, status: quotation.status, quotationDate: quotation.quotationDate, validUntil: quotation.validUntil,
+      items: quotation.items, totals: quotation.totals, supply: quotation.supply, billTo: quotation.billTo, terms: quotation.terms, notes: quotation.notes,
+      replacedAt: new Date(), replacedById: req.user._id,
+    };
+    quotation.revisions.push(snapshot);
+    quotation.revision += 1;
+    quotation.status = 'Draft';
+    quotation.quotationDate = new Date();
+    if (!quotation.validUntil || quotation.validUntil < today()) quotation.validUntil = new Date(`${indiaDate(billingOf(org).validityDays)}T00:00:00.000Z`);
+    for (const field of ['sentAt', 'sentVia', 'viewedAt', 'lastViewedAt', 'acceptedAt', 'rejectedAt', 'expiredAt']) quotation[field] = undefined;
+    quotation.viewCount = 0;
+    quotation.rejectedReason = '';
+    quotation.seller = sellerOf(org);
+    await quotation.save({ session });
+    const lead = await leadOf(quotation, session);
+    if (lead) await leadService.addActivity(req, lead, 'Quotation', `${quotation.type} ${quotation.number} revised (revision ${quotation.revision})`, { session });
+  });
+  await audit(req, { action: 'quotation.revised', entityType: 'Quotation', entityId: quotation._id, changes: { revision: quotation.revision } });
+  return serializeQuotation(quotation);
 }
 
 async function list(req, query) {
@@ -121,30 +376,61 @@ async function list(req, query) {
     ...(query.leadId && { leadId: query.leadId }),
     ...(query.contactId && { contactId: query.contactId }),
     ...(query.status && { status: query.status }),
+    ...(query.type && { type: query.type }),
   };
+  if (query.q) {
+    const pattern = new RegExp(query.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    filter.$or = [{ number: pattern }, { 'billTo.name': pattern }, { 'billTo.company': pattern }, { legacyNumber: pattern }];
+  }
   const page = toPage(query);
   const [items, total] = await Promise.all([
-    Quotation.find(filter).sort({ createdAt: -1, _id: -1 }).skip(page.skip).limit(page.limit),
+    Quotation.find(filter).select('-revisions').sort({ createdAt: -1, _id: -1 }).skip(page.skip).limit(page.limit),
     Quotation.countDocuments(filter),
   ]);
-  return { items: items.map(serializeQuotation), pagination: paginationMeta(page, total) };
-}
-
-async function updateStatus(req, id, { status }) {
-  const quotation = await findVisible(req, id);
-  quotation.status = status;
-  await quotation.save();
-  await audit(req, { action: 'quotation.status_changed', entityType: 'Quotation', entityId: quotation._id, changes: { status } });
-  return serializeQuotation(quotation);
+  return { items: items.map((q) => serializeQuotation(q, { full: false })), pagination: paginationMeta(page, total) };
 }
 
 async function remove(req, id) {
   const quotation = await findVisible(req, id);
+  if (quotation.orderId) throw httpError(409, 'HAS_ORDER', 'An order was made from this quotation; it cannot be deleted.');
   await quotation.softDelete();
   await audit(req, { action: 'quotation.deleted', entityType: 'Quotation', entityId: quotation._id });
 }
 
+// POST /leads/:id/quotations (Phase 2 lead form): the lead's draft quotation, created or updated.
+async function saveDraftForLead(req, leadId, { items, validUntil }) {
+  const lead = await leadService.findVisible(req, leadId);
+  const draft = await Quotation.findOne({ organizationId: lead.organizationId, leadId: lead._id, status: 'Draft' }).select('_id');
+  const body = { items, ...(validUntil !== undefined && { validUntil }) };
+  if (draft) return { ...(await update(req, draft._id, body)), action: 'updated' };
+  return { ...(await create(req, { ...body, leadId })), action: 'created' };
+}
+
+// Importing old browser data: the same maths, amounts kept exact (no round-off).
+async function buildImported(organizationId, contact, items) {
+  const org = await Organization.findById(organizationId);
+  const billTo = partyFromContact(contact);
+  const priced = await priceFor(org, { items, billTo, roundOff: false });
+  return { billTo, seller: sellerOf(org), supply: priced.supply, roundOff: false, items: priced.items, totals: priced.totals };
+}
+
+// Sent quotations past their last valid day become Expired (hourly).
+async function expireDue() {
+  const result = await Quotation.updateMany(
+    { status: { $in: ['Sent', 'Viewed'] }, validUntil: { $lt: today() }, deletedAt: null },
+    { $set: { status: 'Expired', expiredAt: new Date() } },
+  );
+  if (result.modifiedCount) logger.info(`Quotations expired: ${result.modifiedCount}`);
+  return result.modifiedCount;
+}
+
+function register(queue) {
+  queue.define(EXPIRE_JOB, expireDue, { maxAttempts: 3 });
+  queue.every(EXPIRE_JOB, 60 * 60 * 1000).catch((error) => logger.error(`Scheduling ${EXPIRE_JOB} failed: ${error.message}`));
+}
+
 module.exports = {
-  saveDraftForLead, list, updateStatus, remove, computeItem, totalsOf, nextNumber, serializeQuotation,
+  preview, create, update, revise, list, remove, saveDraftForLead, buildImported, expireDue, register, nextNumber,
+  serializeQuotation, sellerOf, changeStatus, findVisible, EXPIRE_JOB,
   get: async (req, id) => serializeQuotation(await findVisible(req, id)),
 };

@@ -5,6 +5,7 @@ const logger = require('../config/logger');
 // Every migration must be idempotent: safe to run again if the server stops halfway.
 const MIGRATIONS = [
   require('./001-organization-field-names'),
+  require('./002-quotations-v2'),
 ];
 
 async function runMigrations() {

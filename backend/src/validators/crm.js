@@ -3,7 +3,7 @@ const { objectId } = require('./common');
 const { paginationQuery } = require('../utils/pagination');
 const { GSTIN_PATTERN } = require('../utils/gstin');
 const {
-  LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES,
+  LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, DOCUMENT_CATEGORIES,
   CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
@@ -219,13 +219,6 @@ module.exports = {
     })).min(1).max(100).required(),
     validUntil: Joi.date().allow(null, '').empty(''),
   }),
-  quotationList: Joi.object({
-    ...paginationQuery,
-    leadId: objectId,
-    contactId: objectId,
-    status: Joi.string().valid(...QUOTATION_STATUSES),
-  }),
-  quotationPatch: Joi.object({ status: Joi.string().valid(...QUOTATION_STATUSES).required() }),
 
   taskCreate: Joi.object({ ...taskFields, title: taskFields.title.required() }),
   taskPatch: Joi.object(taskFields).fork(['origin'], (field) => field.forbidden()).min(1),

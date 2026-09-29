@@ -2,7 +2,6 @@ jest.mock('../integrations/google/idToken', () => require('./helpers/fakeGoogle'
 
 const { normalizePhone } = require('../utils/phone');
 const { financialYear, rupeesToPaise } = require('../utils/money');
-const { computeItem, totalsOf } = require('../services/quotationService');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 
 describe('Phone normalization (E.164, +91 default)', () => {
@@ -29,13 +28,7 @@ describe('Money helpers', () => {
     expect(financialYear(new Date('2027-03-31T19:00:00Z'))).toBe('2027-28'); // already 1 April in India
   });
 
-  it('computes quotation lines on the server in paise', () => {
-    const line = computeItem({ quantity: 3, unitPricePaise: 10050, discountPaise: 150, taxRatePct: 18 });
-    expect(line).toMatchObject({ subtotalPaise: 30150, discountPaise: 150, taxPaise: 5400, totalPaise: 35400 });
-    const capped = computeItem({ quantity: 1, unitPricePaise: 100, discountPaise: 500, taxRatePct: 5 });
-    expect(capped.totalPaise).toBe(0);
-    expect(totalsOf([line, capped])).toEqual({ subtotalPaise: 30250, discountPaise: 250, taxPaise: 5400, grandTotalPaise: 35400 });
-  });
+  // Quotation line maths: gst.test.js (Phase 5).
 });
 
 describe('Contacts', () => {

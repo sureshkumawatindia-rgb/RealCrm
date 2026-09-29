@@ -239,5 +239,5 @@ module.exports = {
   list, create, update, convert, remove, listActivities, addNote,
   get: loadSerialized,
   changeStage: (req, id, { stage, lostReason, version }) => update(req, id, { stage, lostReason, version }),
-  findVisible, addActivity, serializeLead, MODULES,
+  findVisible, addActivity, applyStage, serializeLead, MODULES,
 };

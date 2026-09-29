@@ -32,7 +32,7 @@ const {
   DOCUMENT_CATEGORIES, CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
   SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
 } = require('../constants/crm');
-const { computeItem, totalsOf, nextNumber } = require('./quotationService');
+const { buildImported, nextNumber } = require('./quotationService');
 
 // "Move my browser data to server": imports the localStorage keys of the old browser-only CRM.
 // - dryRun runs the same mapping without writing and reports what would happen.
@@ -422,25 +422,28 @@ class ImportRun {
       if (this.deletedLegacy.leads.has(String(item.leadId))) { section.alreadyImported += 1; continue; }
       const leadId = this.ids.leads.get(item.leadId);
       if (!leadId) { this.reject(section, item.id, 'Its lead was not imported'); continue; }
-      const items = (Array.isArray(item.items) ? item.items : []).slice(0, 100).map((line) => computeItem({
+      const lines = (Array.isArray(item.items) ? item.items : []).slice(0, 100).map((line) => ({
         productId: line.productId ? this.ids.products.get(line.productId) : undefined,
+        name: str(line.name || line.productName, 200),
         quantity: Number(line.quantity) || 1,
         unitPricePaise: rupeesToPaise(line.unitPrice) ?? 0,
-        discountPaise: rupeesToPaise(line.discount) ?? 0,
-        taxRatePct: Math.min(Math.max(Number(line.tax) || 0, 0), 100),
+        discountType: 'amount',
+        discountValue: rupeesToPaise(line.discount) ?? 0,
+        gstRatePct: Math.min(Math.max(Number(line.tax) || 0, 0), 100),
       }));
-      if (!items.length) { this.reject(section, item.id, 'Quotation has no items'); continue; }
-      const numbering = this.dryRun ? { number: 'preview', financialYear: '' } : await nextNumber(this.organizationId);
+      if (!lines.length) { this.reject(section, item.id, 'Quotation has no items'); continue; }
+      if (this.dryRun) { section.created += 1; continue; }
+      const contactId = this.leadContact.get(String(leadId));
+      const priced = await buildImported(this.organizationId, await Contact.findById(contactId), lines);
       await this.insert(Quotation, {
-        ...numbering,
+        ...(await nextNumber(this.organizationId)),
+        ...priced,
         leadId,
-        contactId: this.leadContact.get(String(leadId)),
+        contactId,
         ownerId: this.req.member._id,
         status: ['Draft', 'Sent', 'Viewed', 'Accepted', 'Rejected', 'Expired'].includes(item.status) ? item.status : 'Draft',
         quotationDate: validDate(item.quotationDate) || new Date(),
         validUntil: validDate(item.validUntil),
-        items,
-        totals: totalsOf(items),
         legacyNumber: str(item.quotationNumber || item.number, 60),
         legacyIds: item.id ? [String(item.id)] : undefined,
         createdById: this.req.user._id,

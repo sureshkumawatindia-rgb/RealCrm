@@ -415,6 +415,6 @@ async function addNote(req, id, body) {
 
 module.exports = {
   list, summary, get, update, markRead, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
-  ensureConversation, sendTemplateAutomatically, announce,
+  ensureConversation, sendTemplateAutomatically, announce, findVisible,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };
