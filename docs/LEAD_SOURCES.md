@@ -60,12 +60,16 @@ In development, *Try it: receive a test lead* pretends an enquiry arrived from I
 
 ## Who gets a lead, and the instant WhatsApp reply
 
-These run for every new enquiry (and for a customer's first WhatsApp message). Their Settings screens come in the next update; the rules already work through the API (docs/API.md).
+These run for every new enquiry (and for a customer's first WhatsApp message). Set them up in **Settings → Lead rules** (owners and admins); the API is in docs/API.md.
 
 - **Assignment rules** give a new lead to someone: the first rule that fits the enquiry's source, product, state and city; either in turns (round-robin) among the people you pick, or always one person. With "respect working hours" a lead outside your hours goes to a fallback person. The lead's timeline says who got it and why.
 - **Auto-reply rules** send an approved WhatsApp template within seconds, filled in with the customer's name, the product and so on. Repeat enquiries, enquiries older than an hour (for example what IndiaMART's first pull brings from the last 24 hours) and customers without a mobile number get no auto-reply; the lead says why.
 - **Working hours**: default Monday–Saturday 10:00–19:00 India time.
 
-## Coming next
+Start with the suggestions on the screen: "give every new lead in turns to everyone who can take leads" and "greet every new enquiry with your approved template". The preview shows the WhatsApp message with the values it will use. In **Leads**, the Owner column shows who got each lead; the notes button (Notes and history) shows why, and whether the auto-reply went out.
 
-Settings screens for working hours, assignment rules and auto-replies, and the end-to-end check "an IndiaMART lead is in the inbox, answered and assigned within 60 seconds" (4E).
+To try it: *Try it: receive a test lead* (Settings → Lead sources, development only) with source IndiaMART and, if a rule looks at the state, a state such as Rajasthan. The lead appears in the owner's Inbox with the auto-reply within a second or two. IndiaMART leads that are pulled arrive within about 5 minutes of the enquiry (IndiaMART allows one pull every 5 minutes); the push address brings them at once.
+
+## Still to check with real accounts
+
+IndiaMART (your CRM API key), Facebook Lead Ads (a Page and the Meta app) and Google Ads lead forms work against test stand-ins; each needs one check with the real account. TradeIndia's pull waits for the parameters from your account page.
