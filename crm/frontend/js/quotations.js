@@ -341,6 +341,9 @@
       if (["Sent", "Viewed", "Rejected", "Expired"].includes(q.status)) buttons.push(button("revise", "Revise (new revision)", "btn-primary", "fa-pen"));
       if (q.status === "Accepted" && !q.orderId) buttons.push(button("unaccept", "Undo “accepted”", "btn-outline", "fa-rotate-left"));
     }
+    if (q && canChat() && can("edit") && ["Draft", "Sent", "Viewed", "Accepted"].includes(q.status)) {
+      buttons.unshift(button("whatsapp", q.status === "Draft" ? "Send on WhatsApp" : "Send again on WhatsApp", q.status === "Draft" ? "btn-primary" : "btn-outline", "fa-paper-plane"));
+    }
     if (q) {
       buttons.push(button("pdf", "Download PDF", "btn-outline", "fa-file-pdf"));
       if (q.status !== "Draft") {
@@ -659,6 +662,15 @@
       } else if (action === "revise") {
         saved = await crmApi(`/quotations/${ed.q.id}/revise`, { method: "POST" });
         showToast(`Revision ${saved.revision} opened. Make the changes, then save and send it.`, "success");
+      } else if (action === "whatsapp") {
+        if (ed.dirty && ed.q.status === "Draft") {
+          saved = await save();
+          if (!saved) return;
+          applySaved(saved);
+          saved = null;
+        }
+        await openSend();
+        return;
       } else if (action === "pdf") {
         if (ed.dirty && ed.q.status === "Draft") {
           saved = await save();
@@ -692,6 +704,145 @@
       showToast(apiErrorMessage(error, "That didn't work."), "error");
     } finally {
       button.disabled = false;
+    }
+  });
+
+  // --- send on WhatsApp ---
+  // The PDF as a document while the customer's 24-hour window is open; otherwise an approved
+  // template (one with a PDF header carries the quotation).
+  const canChat = () => isOrgManager() || (me.modules || []).includes("inbox");
+  const send = { options: null, mode: "document", templateId: "", done: false };
+
+  function templateVars(template) {
+    if (!template) return [];
+    return [
+      ...(template.header?.variables || []).map((name) => ["header", name, `{{${name}}} in the heading`]),
+      ...template.body.variables.map((name) => ["body", name, `{{${name}}} in the message`]),
+      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), `The end of the "${b.text}" button link`]),
+    ];
+  }
+  function sendPreview(template) {
+    if (!template) return "";
+    const values = { header: {}, body: {}, buttons: {} };
+    document.querySelectorAll("#sendBody [data-send-var]").forEach((input) => {
+      values[input.dataset.part][input.dataset.sendVar] = input.value;
+    });
+    const fill = (text, part) => String(text || "").replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (match, name) => values[part][name] || match);
+    return [template.documentHeader ? `📄 ${ed.q.number}.pdf` : "", template.header?.text ? fill(template.header.text, "header") : "", fill(template.body.text, "body"), template.footer].filter(Boolean).join("\n\n");
+  }
+
+  function renderSend() {
+    const o = send.options;
+    const body = $("sendBody");
+    $("sendGo").hidden = true;
+    if (send.done) {
+      body.innerHTML = `<div class="q-send-done"><i class="fa-solid fa-circle-check"></i><p>Sent to ${escapeHtml(ed.q.billTo?.name || "the customer")} on WhatsApp.</p>
+        <a class="btn btn-outline" href="Inbox.html?c=${encodeURIComponent(send.done)}"><i class="fa-solid fa-comments"></i> Open the chat</a></div>`;
+      $("sendCancel").textContent = "Close";
+      return;
+    }
+    if (!o) {
+      body.innerHTML = '<p class="q-muted">Loading…</p>';
+      return;
+    }
+    if (o.blocked) {
+      body.innerHTML = `<div class="q-warning">${escapeHtml(o.blocked)}</div>`;
+      return;
+    }
+    const windowOpen = Boolean(o.conversation?.windowOpen);
+    if (!windowOpen) send.mode = "template";
+    const template = o.templates.find((t) => String(t.id) === send.templateId) || null;
+    const to = `To <strong>${escapeHtml(ed.q.billTo?.name || "")}</strong> · ${escapeHtml(o.phone)}${o.account ? ` · from ${escapeHtml(o.account.name || o.account.phone)}` : ""}`;
+    const modes = windowOpen
+      ? `<div class="q-send-mode">
+          <label><input type="radio" name="sendMode" value="document" ${send.mode === "document" ? "checked" : ""} /><span>The PDF in the chat, with a message<small>The customer wrote in the last 24 hours, so any message can go.</small></span></label>
+          <label><input type="radio" name="sendMode" value="template" ${send.mode === "template" ? "checked" : ""} /><span>An approved template<small>For example one with the PDF as its header.</small></span></label>
+        </div>`
+      : '<div class="q-warning">The customer has not written in the last 24 hours, so WhatsApp allows only an approved template. A template with a PDF (document) header carries the quotation; others send only their text.</div>';
+    let detail = "";
+    if (send.mode === "document") {
+      detail = `<div class="field"><label for="sendCaption">Message with the PDF</label><textarea id="sendCaption" rows="4" maxlength="1024">${escapeHtml(send.caption ?? o.caption)}</textarea></div>`;
+    } else if (!o.templates.length) {
+      detail = '<p class="q-muted">No approved template on this WhatsApp number yet. Make one in Settings → WhatsApp → Message templates (or in WhatsApp Manager — for the PDF, choose a "Document" header) and wait for Meta to approve it.</p>';
+    } else {
+      detail = `<div class="field"><label for="sendTemplate">Template</label><select id="sendTemplate"><option value="">Choose a template…</option>${o.templates
+        .map((t) => `<option value="${escapeHtml(t.id)}" ${String(t.id) === send.templateId ? "selected" : ""}>${escapeHtml(t.name)} (${escapeHtml(t.language)})${t.documentHeader ? " — with the PDF" : ""}</option>`)
+        .join("")}</select></div>
+        ${templateVars(template)
+          .map(([part, name, label]) => `<div class="field"><label>${escapeHtml(label)}</label><input type="text" maxlength="1024" data-part="${part}" data-send-var="${escapeHtml(name)}" value="${escapeHtml(template.suggested?.[part]?.[name] || "")}" /></div>`)
+          .join("")}
+        ${template ? `<div class="q-send-preview"><div id="sendPreview">${escapeHtml(sendPreview(template))}</div></div>${template.documentHeader ? "" : '<p class="q-muted" style="margin-top:8px">This template has no PDF header: only its text goes. Put the online link in it if you can.</p>'}` : ""}`;
+    }
+    body.innerHTML = `<div class="q-send-to">${to}</div>${modes}${detail}`;
+    if (template) $("sendPreview").textContent = sendPreview(template);
+    $("sendGo").hidden = send.mode === "template" && !template;
+  }
+
+  async function openSend() {
+    send.options = null;
+    send.done = false;
+    send.caption = undefined;
+    send.templateId = "";
+    send.mode = "document";
+    $("sendCancel").textContent = "Cancel";
+    $("sendOverlay").classList.add("open");
+    renderSend();
+    try {
+      send.options = await crmApi(`/quotations/${ed.q.id}/send-options`);
+      const withPdf = send.options.templates.find((t) => t.documentHeader);
+      if (withPdf) send.templateId = String(withPdf.id);
+    } catch (error) {
+      send.options = { blocked: apiErrorMessage(error, "Couldn't check WhatsApp.") };
+    }
+    renderSend();
+  }
+  function closeSend() {
+    $("sendOverlay").classList.remove("open");
+  }
+  $("sendClose").addEventListener("click", closeSend);
+  $("sendCancel").addEventListener("click", closeSend);
+  $("sendOverlay").addEventListener("click", (e) => {
+    if (e.target === $("sendOverlay")) closeSend();
+  });
+  $("sendBody").addEventListener("change", (e) => {
+    if (e.target.name === "sendMode") {
+      send.mode = e.target.value;
+      renderSend();
+    } else if (e.target.id === "sendTemplate") {
+      send.templateId = e.target.value;
+      renderSend();
+    }
+  });
+  $("sendBody").addEventListener("input", (e) => {
+    if (e.target.id === "sendCaption") send.caption = e.target.value;
+    if (e.target.dataset.sendVar !== undefined) {
+      const template = send.options.templates.find((t) => String(t.id) === send.templateId);
+      $("sendPreview").textContent = sendPreview(template);
+    }
+  });
+  $("sendGo").addEventListener("click", async () => {
+    const body = { mode: send.mode };
+    if (send.mode === "document") body.caption = (send.caption ?? send.options.caption).trim();
+    else {
+      body.templateId = send.templateId;
+      body.variables = { header: {}, body: {}, buttons: {} };
+      document.querySelectorAll("#sendBody [data-send-var]").forEach((input) => {
+        body.variables[input.dataset.part][input.dataset.sendVar] = input.value.trim();
+      });
+    }
+    $("sendGo").disabled = true;
+    try {
+      const request = jsonRequest("POST", body);
+      request.headers["Idempotency-Key"] = newIdempotencyKey();
+      const result = await crmApi(`/quotations/${ed.q.id}/send`, request);
+      applySaved(result.quotation);
+      send.done = String(result.conversationId);
+      renderSend();
+      showToast("Sent on WhatsApp.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't send it on WhatsApp."), "error");
+    } finally {
+      $("sendGo").disabled = false;
     }
   });
 

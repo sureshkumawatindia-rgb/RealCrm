@@ -273,6 +273,61 @@
   font-size: 13px;
 }
 
+/* send on WhatsApp */
+.q-send .modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.q-send-to {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.q-send-mode {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.q-send-mode label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 13.5px;
+}
+.q-send-mode input {
+  width: auto;
+  margin-top: 3px;
+}
+.q-send-mode small {
+  display: block;
+  color: var(--text-muted);
+}
+.q-send-preview {
+  background: #efeae2;
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  margin-top: 8px;
+}
+.q-send-preview > div {
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+.q-send-done {
+  text-align: center;
+  padding: 10px 0;
+}
+.q-send-done i {
+  font-size: 34px;
+  color: var(--success);
+}
+
 /* read-only (sent, accepted …) */
 .q-locked .q-line-remove,
 .q-locked #qAddItem {

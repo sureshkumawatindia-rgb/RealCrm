@@ -211,6 +211,7 @@
   function messageBody(m) {
     const text = m.text ? linkify(escapeHtml(m.text)) : "";
     if (MEDIA[m.type]) return `${mediaHtml(m)}${text ? `<div class="caption">${text}</div>` : ""}`;
+    if (m.type === "template" && m.media) return `${mediaHtml({ ...m, type: "document" })}${text ? `<div class="caption">${text}</div>` : ""}`;
     if (m.type === "location" && m.location) {
       const { latitude, longitude, name, address } = m.location;
       const url = `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
