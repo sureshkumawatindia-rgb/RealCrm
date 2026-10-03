@@ -27,18 +27,20 @@ const variables = Joi.object({
   body: Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, variableSpec),
   buttons: Joi.object().pattern(/^\d{1,2}$/, variableSpec),
 });
+// Labels make messages like "Step 2 (WhatsApp template): Template is required".
+const tagText = Joi.string().trim().min(1).max(50).required().label('Tag');
 const STEP_PARAMS = {
-  'whatsapp.text': Joi.object({ text: Joi.string().trim().min(1).max(4096).required() }),
-  'whatsapp.template': Joi.object({ templateId: objectId.required(), variables: variables.default({}) }),
-  assign: Joi.object({ memberId: objectId.required() }),
-  'tag.add': Joi.object({ tag: Joi.string().trim().min(1).max(50).required() }),
-  'tag.remove': Joi.object({ tag: Joi.string().trim().min(1).max(50).required() }),
+  'whatsapp.text': Joi.object({ text: Joi.string().trim().min(1).max(4096).required().label('Message') }),
+  'whatsapp.template': Joi.object({ templateId: objectId.required().label('Template'), variables: variables.default({}) }),
+  assign: Joi.object({ memberId: objectId.required().label('Person') }),
+  'tag.add': Joi.object({ tag: tagText }),
+  'tag.remove': Joi.object({ tag: tagText }),
   'stage.change': Joi.object({
-    stage: Joi.string().valid(...LEAD_STAGES).required(),
-    lostReason: Joi.when('stage', { is: 'Lost', then: Joi.string().trim().min(1).max(500).required(), otherwise: text(500) }),
+    stage: Joi.string().valid(...LEAD_STAGES).required().label('Stage'),
+    lostReason: Joi.when('stage', { is: 'Lost', then: Joi.string().trim().min(1).max(500).required(), otherwise: text(500) }).label('Reason for losing'),
   }),
   'task.create': Joi.object({
-    title: Joi.string().trim().min(1).max(300).required(),
+    title: Joi.string().trim().min(1).max(300).required().label('Task title'),
     description: text(2000),
     dueInDays: Joi.number().integer().min(0).max(365).default(1),
     assignTo: Joi.alternatives(Joi.string().valid('owner'), objectId).default('owner'),
@@ -46,18 +48,25 @@ const STEP_PARAMS = {
   }),
   'agent.notify': Joi.object({
     to: Joi.alternatives(Joi.string().valid('owner', 'managers'), objectId).default('owner'),
-    message: Joi.string().trim().min(1).max(500).required(),
+    message: Joi.string().trim().min(1).max(500).required().label('Message'),
   }),
-  wait: Joi.object({ amount: Joi.number().integer().min(1).max(999).required(), unit: Joi.string().valid('minutes', 'hours', 'days').default('hours') })
+  wait: Joi.object({ amount: Joi.number().integer().min(1).max(999).required().label('Wait time'), unit: Joi.string().valid('minutes', 'hours', 'days').default('hours') })
     .custom((value, helpers) => (value.amount * { minutes: 1, hours: 60, days: 1440 }[value.unit] <= 90 * 1440 ? value : helpers.message('A wait can be at most 90 days'))),
-  'webhook.call': Joi.object({ url: Joi.string().trim().max(500).uri({ scheme: ['https'] }).required().messages({ 'string.uriCustomScheme': 'Webhook addresses must start with https://' }) }),
+  'webhook.call': Joi.object({ url: Joi.string().trim().max(500).uri({ scheme: ['https'] }).required().label('Webhook address').messages({ 'string.uriCustomScheme': 'Webhook addresses must start with https://' }) }),
+};
+
+const STEP_NAMES = {
+  'whatsapp.text': 'WhatsApp message', 'whatsapp.template': 'WhatsApp template', assign: 'Give the lead', 'tag.add': 'Add tag', 'tag.remove': 'Remove tag',
+  'stage.change': 'Move stage', 'task.create': 'Create task', 'agent.notify': 'Notify', wait: 'Wait', 'webhook.call': 'Webhook',
 };
 
 // Validates `params` with the schema of the item's type (and gives back the cleaned value).
 const byType = (schemas, what) => (value, helpers) => {
   const { error, value: params } = schemas[value.type].validate(value.params || {}, { abortEarly: true, stripUnknown: true });
-  if (error) return helpers.message(`${what} "${value.type}": ${error.message.replace(/"/g, '')}`);
-  return { ...value, params };
+  if (!error) return { ...value, params };
+  const where = what === 'Step' ? `Step ${Number(helpers.state.path.at(-1)) + 1} (${STEP_NAMES[value.type]})` : 'Trigger';
+  // Joi reads {…} in a message as a template: keep the text literal.
+  return helpers.message(`${where}: ${error.message.replace(/"/g, '').replace(/[{}]/g, '')}`);
 };
 
 const trigger = Joi.object({ type: Joi.string().valid(...TRIGGER_TYPES).required(), params: Joi.object().unknown(true).default({}) }).custom(byType(TRIGGER_PARAMS, 'Trigger'));

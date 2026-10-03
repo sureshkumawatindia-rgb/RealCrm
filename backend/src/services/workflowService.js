@@ -139,7 +139,8 @@ async function checkReferences(req, { conditions = [], steps = [] }) {
 async function stopRuns(workflow, reason) {
   const { modifiedCount } = await AutomationRun.updateMany(
     { workflowId: workflow._id, status: { $in: STOPPABLE } },
-    { $set: { status: 'cancelled', error: reason, finishedAt: new Date() }, $unset: { nextAt: 1 } },
+    { $set: { status: 'cancelled', error: reason, finishedAt: new Date(), 'steps.$[waiting].status': 'skipped' }, $unset: { nextAt: 1 } },
+    { arrayFilters: [{ 'waiting.status': 'waiting' }] },
   );
   return modifiedCount;
 }

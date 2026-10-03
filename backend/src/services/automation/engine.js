@@ -132,6 +132,10 @@ async function finish(run, status, error = '') {
   run.error = String(error || '').slice(0, 1000);
   run.finishedAt = new Date();
   run.nextAt = undefined;
+  // A run stopped inside a wait never carries on.
+  run.steps.forEach((step) => {
+    if (step.status === 'waiting') step.status = 'skipped';
+  });
   await run.save();
   if (status === 'done' || status === 'failed') await Workflow.updateOne({ _id: run.workflowId }, { $inc: { [`stats.${status}`]: 1 } });
 }

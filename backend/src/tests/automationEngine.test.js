@@ -270,7 +270,7 @@ describe('Automation engine', () => {
     const waiting = (await runsOf(flow.id))[1];
     expect(waiting.status).toBe('waiting');
     const cancelled = await api().post(`/api/v1/automation-runs/${waiting._id}/cancel`).set(bearer(owner.token));
-    expect(cancelled.body.data).toMatchObject({ status: 'cancelled', error: 'Stopped by Asha.' });
+    expect(cancelled.body.data).toMatchObject({ status: 'cancelled', error: 'Stopped by Asha.', steps: [{ status: 'done' }, { type: 'wait', status: 'skipped' }] });
     expect((await api().post(`/api/v1/automation-runs/${waiting._id}/cancel`).set(bearer(owner.token))).status).toBe(409);
     expect(await Job.countDocuments({ name: 'automation.step', status: 'queued', 'data.runId': String(waiting._id) })).toBe(0);
 
@@ -281,6 +281,7 @@ describe('Automation engine', () => {
     await pause(flow.id);
     const paused = (await runsOf(flow.id))[2];
     expect(paused).toMatchObject({ status: 'cancelled', error: 'Stopped: the workflow was set to Paused.' });
+    expect(paused.steps.map((s) => s.status)).toEqual(['done', 'skipped']);
     await Job.updateMany({ name: 'automation.step', status: 'queued' }, { $set: { runAt: new Date() } });
     await settle();
     expect((await runsOf(flow.id))[2].steps).toHaveLength(2); // nothing ran after the pause
