@@ -380,7 +380,8 @@
   function renderBotChip(c) {
     const chip = $("threadBot");
     const waiting = Boolean(c.bot?.handedOffAt);
-    chip.hidden = !state.botEnabled || (Boolean(c.assigneeId) && !waiting);
+    // Someone has the chat: the bot is quiet there anyway, nothing to switch.
+    chip.hidden = !state.botEnabled || Boolean(c.assigneeId);
     chip.className = `bot-chip ${waiting ? "off" : ""}`;
     chip.innerHTML = waiting ? '<i class="fa-solid fa-robot"></i> Bot off' : '<i class="fa-solid fa-robot"></i> Bot answering';
     chip.title = waiting
