@@ -625,6 +625,9 @@
             <button class="settings-tab" data-panel="leadsources" id="leadSourcesTab" style="display: none">
               <i class="fa-solid fa-inbox"></i> Lead sources
             </button>
+            <button class="settings-tab" data-panel="billing" id="billingTab" style="display: none">
+              <i class="fa-solid fa-file-invoice"></i> Billing
+            </button>
             <button class="settings-tab" data-panel="leadrules" id="leadRulesTab" style="display: none">
               <i class="fa-solid fa-route"></i> Lead rules
             </button>
@@ -1277,6 +1280,73 @@
             </div>
           </div>
 
+          <!-- BILLING -->
+          <div class="settings-panel" data-settings-panel="billing">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Billing</h3>
+              </div>
+              <form style="padding: 20px" id="billForm" autocomplete="off">
+                <p class="settings-hint">What your quotations, estimates, proforma invoices and orders show, and how they are numbered.</p>
+
+                <div class="settings-section">
+                  <div class="settings-section-label">GST</div>
+                  <p class="settings-hint" id="billGstState" style="margin: 0"></p>
+                </div>
+
+                <div class="settings-section wa-block">
+                  <div class="settings-section-label">Bank account (printed on quotations)</div>
+                  <div class="field-row">
+                    <div class="field"><label for="billAccName">Account name</label><input type="text" id="billAccName" maxlength="200" /></div>
+                    <div class="field"><label for="billAccNo">Account number</label><input type="text" id="billAccNo" inputmode="numeric" maxlength="20" /></div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field"><label for="billIfsc">IFSC</label><input type="text" id="billIfsc" maxlength="11" placeholder="e.g. HDFC0001234" /></div>
+                    <div class="field"><label for="billBank">Bank</label><input type="text" id="billBank" maxlength="200" placeholder="e.g. HDFC Bank" /></div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field"><label for="billBranch">Branch</label><input type="text" id="billBranch" maxlength="200" /></div>
+                    <div class="field"><label for="billUpi">UPI ID (for the QR code)</label><input type="text" id="billUpi" maxlength="300" placeholder="e.g. yourshop@okhdfcbank" /></div>
+                  </div>
+                </div>
+
+                <div class="settings-section wa-block">
+                  <div class="settings-section-label">Quotations</div>
+                  <div class="field"><label for="billTerms">Standard terms and conditions</label><textarea id="billTerms" rows="5" maxlength="5000" placeholder="e.g. 50% advance, balance before dispatch. Prices ex-works. Delivery in 7 days."></textarea></div>
+                  <div class="field-row">
+                    <div class="field"><label for="billValidity">Valid for (days)</label><input type="number" id="billValidity" min="1" max="365" /></div>
+                    <div class="field">
+                      <label>Total</label>
+                      <label class="ls-check"><input type="checkbox" id="billRound" /> Round the total to the nearest rupee</label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-section wa-block">
+                  <div class="settings-section-label">Numbers</div>
+                  <p class="settings-hint">Each kind of document is numbered on its own, starting again every financial year (April): <strong id="billExample"></strong></p>
+                  <div class="field-row lr-hours">
+                    <div class="field"><label for="billPreQ">Quotation prefix</label><input type="text" id="billPreQ" maxlength="10" data-prefix="quotation" /></div>
+                    <div class="field"><label for="billPreE">Estimate prefix</label><input type="text" id="billPreE" maxlength="10" data-prefix="estimate" /></div>
+                    <div class="field"><label for="billPreP">Proforma invoice prefix</label><input type="text" id="billPreP" maxlength="10" data-prefix="proforma" /></div>
+                  </div>
+                  <div class="field-row lr-hours">
+                    <div class="field"><label for="billPreO">Order prefix</label><input type="text" id="billPreO" maxlength="10" data-prefix="order" /></div>
+                  </div>
+                </div>
+
+                <div class="settings-section wa-block">
+                  <div class="settings-section-label">Orders</div>
+                  <label class="ls-check"><input type="checkbox" id="billStock" /> Reduce product stock when an order is dispatched</label>
+                </div>
+
+                <div class="data-actions" style="justify-content: flex-end">
+                  <button class="btn btn-primary" type="submit">Save billing settings</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
           <!-- LEAD RULES -->
           <div class="settings-panel" data-settings-panel="leadrules">
             <div class="panel">
@@ -1473,5 +1543,6 @@
     <script src="./js/settings-whatsapp.js"></script>
     <script src="./js/settings-leadsources.js"></script>
     <script src="./js/settings-routing.js"></script>
+    <script src="./js/settings-billing.js"></script>
   </body>
 </html>
