@@ -23,7 +23,7 @@ function supplyFor({ sellerStateCode = '', buyerGstin = '', buyerStateCode = '',
   const warnings = [];
   let place = stateCodeFor(placeOfSupplyCode) || stateCodeFromGstin(buyerGstin) || stateCodeFor(buyerStateCode) || stateCodeFor(buyerState);
   let stateAssumed = false;
-  if (!seller) warnings.push({ code: 'SELLER_STATE_UNKNOWN', message: 'Add your GSTIN or state in Settings → Billing, so the right GST is charged.' });
+  if (!seller) warnings.push({ code: 'SELLER_STATE_UNKNOWN', message: 'Add your GSTIN or state in Settings → Company, so the right GST is charged.' });
   if (!place) {
     place = seller;
     stateAssumed = true;

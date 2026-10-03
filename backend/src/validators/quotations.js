@@ -16,7 +16,7 @@ const item = Joi.object({
   productId: objectId.allow(null),
   name: text(200),
   description: text(1000),
-  hsnSac: Joi.string().trim().pattern(/^[0-9]{0,8}$/).allow('').messages({ 'string.pattern.base': 'HSN/SAC is up to 8 digits' }),
+  hsnSac: Joi.string().trim().pattern(/^(\d{4,8})?$/).allow('').messages({ 'string.pattern.base': 'HSN/SAC is 4 to 8 digits' }),
   unit: text(20),
   quantity: Joi.number().greater(0).max(1e9).required(),
   unitPricePaise: paise,
@@ -50,7 +50,8 @@ module.exports = {
     status: Joi.string().valid(...QUOTATION_STATUSES.filter((s) => !['Draft', 'Viewed', 'Expired'].includes(s))),
     rejectedReason: text(500),
   }).min(1),
-  pricingPreview: Joi.object({ ...customer, ...content, items: content.items.required(), roundOff: Joi.boolean() }),
+  // Items may be empty: the editor's first call only fetches the customer's details and defaults.
+  pricingPreview: Joi.object({ ...customer, ...content, items: Joi.array().items(item).max(200).default([]), roundOff: Joi.boolean() }),
   quotationList: Joi.object({
     ...paginationQuery,
     leadId: objectId,

@@ -109,6 +109,13 @@ describe('Quotations', () => {
     expect(typed.body.data.supply).toMatchObject({ interState: true, stateAssumed: false, placeOfSupply: 'Punjab' });
     expect(await Quotation.countDocuments()).toBe(before);
     expect((await post('/pricing/preview', { items: [{ quantity: 1 }] })).status).toBe(400); // a line needs a product or a name
+    // With no items it still returns the customer's details and the document defaults.
+    const first = (await post('/pricing/preview', { leadId: lead.id })).body.data;
+    expect(first).toMatchObject({ billTo: { name: 'Ravi Traders', stateCode: '08' }, totals: { grandTotalPaise: 0 } });
+    expect(first.defaults.validUntil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const states = (await api().get('/api/v1/pricing/states').set(bearer(owner.token))).body.data;
+    expect(states).toContainEqual({ code: '08', name: 'Rajasthan' });
+    expect(states).toHaveLength(38);
   });
 
   it('edits a draft in place; a GSTIN typed on the quotation switches to IGST and completes the contact', async () => {

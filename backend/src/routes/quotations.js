@@ -6,6 +6,7 @@ const idempotency = require('../middleware/idempotency');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/quotations');
+const { GST_STATES } = require('../constants/gst');
 
 // Quotations, estimates and proforma invoices (Phase 5): the same permissions as leads.
 const router = express.Router();
@@ -40,6 +41,10 @@ const pricingRouter = express.Router();
 pricingRouter.use(authenticate);
 pricingRouter.post('/preview', can('view'), validate({ body: schemas.pricingPreview }), async (req, res) => {
   res.json({ success: true, data: await quotationService.preview(req, req.body) });
+});
+// The GST state codes, for the editor's state and place-of-supply lists.
+pricingRouter.get('/states', (req, res) => {
+  res.json({ success: true, data: GST_STATES.map(({ code, name }) => ({ code, name })) });
 });
 
 module.exports = router;

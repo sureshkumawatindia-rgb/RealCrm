@@ -213,8 +213,16 @@ async function preview(req, body) {
   let base = {};
   if (body.leadId || body.contactId || body.conversationId) base = partyFromContact((await resolveCustomer(req, body)).contact);
   const billTo = mergeParty(base, body.billTo);
-  const priced = await priceFor(org, { ...body, billTo, roundOff: body.roundOff ?? billingOf(org).roundOff });
-  return { items: priced.items, totals: priced.totals, supply: { ...priced.supply, placeOfSupply: stateName(priced.supply.placeOfSupplyCode) }, billTo };
+  const billing = billingOf(org);
+  const priced = await priceFor(org, { ...body, billTo, roundOff: body.roundOff ?? billing.roundOff });
+  return {
+    items: priced.items,
+    totals: priced.totals,
+    supply: { ...priced.supply, placeOfSupply: stateName(priced.supply.placeOfSupplyCode) },
+    billTo,
+    // What a new document starts with (Settings → Billing).
+    defaults: { terms: billing.terms, validUntil: indiaDate(billing.validityDays) },
+  };
 }
 
 async function create(req, body) {
