@@ -9,6 +9,7 @@ const errorHandler = require('./middleware/errorHandler');
 const routes = require('./routes');
 const webhookRoutes = require('./routes/webhooks');
 const publicRoutes = require('./routes/public');
+const quotationLinkRoutes = require('./routes/quotationLinks');
 const logger = require('./config/logger');
 const path = require('path');
 const env = require('./config/env');
@@ -55,6 +56,8 @@ app.use(morgan(':remote-addr :method :path :status :res[content-length] - :respo
 app.use('/api/v1/webhooks', webhookRoutes);
 // Website enquiry forms: called from the organization's own sites, with their own rate limit.
 app.use('/api/v1/public', publicRoutes);
+// Customers' quotation links (/q/<signed id>), with their own rate limit and strict headers.
+app.use('/q', quotationLinkRoutes);
 app.use('/api/v1', apiLimiter, routes);
 
 // 404 handler

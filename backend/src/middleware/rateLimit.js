@@ -20,5 +20,9 @@ const authLimiter = perMinute(env.rateLimit.authPerMinute);
 const webhookLimiter = perMinute(env.rateLimit.webhookPerMinute);
 // Website enquiry forms: a person sends one or two; more from one address is a bot.
 const formLimiter = perMinute(env.rateLimit.formPerMinute);
+// Customers' quotation links: a page and a PDF or two; a flood means someone is guessing.
+const linkLimiter = perMinute(60, {
+  handler: (req, res) => res.status(429).type('text').send('Too many requests. Please wait a minute and try again.'),
+});
 
-module.exports = { apiLimiter, authLimiter, webhookLimiter, formLimiter };
+module.exports = { apiLimiter, authLimiter, webhookLimiter, formLimiter, linkLimiter };

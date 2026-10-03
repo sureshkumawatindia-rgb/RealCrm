@@ -1,11 +1,15 @@
 const mongoose = require('mongoose');
 const Contact = require('../models/Contact');
 const Lead = require('../models/Lead');
+const LeadActivity = require('../models/LeadActivity');
 const Organization = require('../models/Organization');
 const Product = require('../models/Product');
 const Quotation = require('../models/Quotation');
 const httpError = require('../utils/httpError');
 const logger = require('../config/logger');
+const env = require('../config/env');
+const signedLink = require('../utils/signedLink');
+const { renderQuotationPdf, fileNameOf } = require('./quotationPdf');
 const { audit } = require('../utils/audit');
 const { nextSequence } = require('../utils/counter');
 const { financialYear } = require('../utils/money');
@@ -44,6 +48,9 @@ const PARTY_FIELDS = ['name', 'company', 'phone', 'email', 'gstin', 'address', '
 const scope = (req) => ({ organizationId: req.tenant.organizationId, ...visibilityFilter(req, MODULES) });
 const calendarDate = (value) => (value ? new Date(`${new Date(value).toISOString().slice(0, 10)}T00:00:00.000Z`) : undefined);
 const today = () => new Date(`${indiaDate(0)}T00:00:00.000Z`);
+// The customer's link: /q/<id>.<signature> (no sign-in; opening it marks the quotation Viewed).
+const LINK_PURPOSE = 'quotation';
+const shareUrlOf = (quotation) => `${env.publicUrl}/q/${signedLink.sign(LINK_PURPOSE, quotation._id)}`;
 
 // --- the seller and the customer ------------------------------------------------------------
 
@@ -167,6 +174,7 @@ function serializeQuotation(quotation, { full = true } = {}) {
     expiredAt: quotation.expiredAt || null,
     orderId: quotation.orderId || null,
     legacyNumber: quotation.legacyNumber || '',
+    shareUrl: shareUrlOf(quotation),
     ...(full && { revisions: (quotation.revisions || []).map(plain) }),
     revisionCount: (quotation.revisions || []).length,
     createdAt: quotation.createdAt,
@@ -437,7 +445,49 @@ function register(queue) {
   queue.every(EXPIRE_JOB, 60 * 60 * 1000).catch((error) => logger.error(`Scheduling ${EXPIRE_JOB} failed: ${error.message}`));
 }
 
+// --- the PDF and the customer's link -------------------------------------------------------
+async function pdfFor(quotation) {
+  const organization = await Organization.findById(quotation.organizationId);
+  const buffer = await renderQuotationPdf({ quotation, organization, shareUrl: shareUrlOf(quotation) });
+  return { buffer, fileName: fileNameOf(quotation) };
+}
+
+// GET /quotations/:id/pdf (signed-in members who may see it).
+async function pdf(req, id) {
+  return pdfFor(await findVisible(req, id));
+}
+
+// A customer opened the link: count it; the first view of a sent quotation makes it Viewed
+// and says so on the lead's timeline.
+async function recordView(quotation) {
+  const now = new Date();
+  await Quotation.updateOne({ _id: quotation._id }, { $inc: { viewCount: 1 }, $set: { lastViewedAt: now } });
+  await Quotation.updateOne({ _id: quotation._id, viewedAt: null }, { $set: { viewedAt: now } });
+  const turned = await Quotation.findOneAndUpdate({ _id: quotation._id, status: 'Sent' }, { $set: { status: 'Viewed' } });
+  if (turned?.leadId) {
+    await LeadActivity.create({
+      organizationId: turned.organizationId, leadId: turned.leadId, contactId: turned.contactId, type: 'Quotation',
+      text: `${turned.type} ${turned.number} opened by the customer`, actorName: 'Customer',
+    });
+  }
+}
+
+// /q/<token>: → { quotation, organization } or null (bad link, deleted). Drafts are not shown
+// and not counted; preview (the CRM's own "open customer view") is not counted either.
+async function openShared(token, { count = true } = {}) {
+  const id = signedLink.verify(LINK_PURPOSE, token);
+  if (!id) return null;
+  const quotation = await Quotation.findById(id);
+  if (!quotation) return null;
+  if (count && quotation.status !== 'Draft') {
+    await recordView(quotation);
+    return { quotation: await Quotation.findById(id), organization: await Organization.findById(quotation.organizationId) };
+  }
+  return { quotation, organization: await Organization.findById(quotation.organizationId) };
+}
+
 module.exports = {
+  pdf, pdfFor, openShared, recordView, shareUrlOf,
   preview, create, update, revise, list, remove, saveDraftForLead, buildImported, expireDue, register, nextNumber,
   serializeQuotation, sellerOf, changeStatus, findVisible, EXPIRE_JOB,
   get: async (req, id) => serializeQuotation(await findVisible(req, id)),

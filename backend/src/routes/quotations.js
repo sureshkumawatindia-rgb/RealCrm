@@ -27,6 +27,13 @@ router.get('/:id', can('view'), validate({ params: idParams }), async (req, res)
 router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.quotationPatch }), async (req, res) => {
   res.json({ success: true, data: await quotationService.update(req, req.valid.params.id, req.body) });
 });
+router.get('/:id/pdf', can('view'), validate({ params: idParams }), async (req, res) => {
+  const { buffer, fileName } = await quotationService.pdf(req, req.valid.params.id);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.send(buffer);
+});
 router.post('/:id/revise', can('edit'), validate({ params: idParams }), async (req, res) => {
   const quotation = await quotationService.revise(req, req.valid.params.id);
   res.json({ success: true, data: quotation, message: `Revision ${quotation.revision} opened` });
