@@ -160,6 +160,9 @@
               <button class="automation-tab" id="tabSequencesBtn">
                 <i class="fa-solid fa-layer-group"></i> Sequences
               </button>
+              <button class="automation-tab" id="tabBotBtn" hidden>
+                <i class="fa-solid fa-robot"></i> FAQ bot
+              </button>
             </div>
             <div class="search-box" id="searchBox">
               <i class="fa-solid fa-magnifying-glass"></i>
@@ -216,6 +219,68 @@
                 <button class="btn btn-outline" id="runMoreBtn" type="button" hidden>
                   Load more
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ BOT (owners and admins; js/automation-bot.js) -->
+          <div id="botPanel" style="display: none">
+            <div class="au-bot-grid">
+              <div class="panel au-bot-card">
+                <div class="au-bot-head">
+                  <h3><i class="fa-brands fa-whatsapp"></i> WhatsApp bot</h3>
+                  <label class="au-check"><input type="checkbox" id="botEnabled" /> On</label>
+                </div>
+                <p class="au-hint">
+                  Answers customers who write on WhatsApp while nobody from the team has the chat.
+                  It stops in a chat when the customer asks for a person or a teammate replies.
+                </p>
+                <section class="au-section">
+                  <div class="au-section-head">
+                    <label class="au-check"><input type="checkbox" id="botGreetingOn" /> Greeting</label>
+                    <span class="au-hint" style="margin: 0">when someone writes</span>
+                  </div>
+                  <div id="botGreeting"></div>
+                </section>
+                <section class="au-section">
+                  <div class="au-section-head">
+                    <label class="au-check"><input type="checkbox" id="botAwayOn" /> Away message</label>
+                    <span class="au-hint" style="margin: 0">outside working hours (Settings → Lead rules)</span>
+                  </div>
+                  <div id="botAway"></div>
+                </section>
+                <section class="au-section">
+                  <div class="au-section-head"><span class="au-tag au-tag--if">Talk to a person</span></div>
+                  <div class="field">
+                    <label for="botHandoffKeywords">When the customer writes (commas between)</label>
+                    <input type="text" id="botHandoffKeywords" maxlength="1200" placeholder="agent, human, call me, baat karni hai" />
+                  </div>
+                  <div class="field">
+                    <label for="botHandoffText">The bot replies, then waits for your team</label>
+                    <input type="text" id="botHandoffText" maxlength="1024" />
+                  </div>
+                </section>
+                <div class="au-inline" style="margin-bottom: 14px">
+                  <span>Greeting and away message at most once per chat every</span>
+                  <input type="number" id="botRepeat" min="1" max="168" />
+                  <span>hours</span>
+                </div>
+                <button class="btn btn-primary" id="botSaveBtn" type="button">
+                  <i class="fa-solid fa-floppy-disk"></i> Save bot settings
+                </button>
+              </div>
+              <div class="panel au-bot-card">
+                <div class="au-bot-head">
+                  <h3><i class="fa-solid fa-comments"></i> Answers</h3>
+                  <button class="btn btn-outline" id="botAddRuleBtn" type="button">
+                    <i class="fa-solid fa-plus"></i> New answer
+                  </button>
+                </div>
+                <p class="au-hint">
+                  When a message has one of an answer's words, the bot sends that answer. Options
+                  become buttons (1–3) or a list (4–10); each opens another answer or a person.
+                </p>
+                <div id="botRules" class="au-bot-rules"></div>
               </div>
             </div>
           </div>
@@ -462,6 +527,49 @@
       </div>
     </div>
 
+    <!-- ONE BOT ANSWER -->
+    <div class="modal-overlay" id="ruleModalOverlay">
+      <div class="modal modal--wide au-builder">
+        <div class="modal-head">
+          <h3 id="ruleModalTitle">New answer</h3>
+          <button class="icon-btn" id="ruleModalClose" type="button" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="ruleForm" novalidate>
+            <div class="field-row">
+              <div class="field">
+                <label for="ruleName">Name</label>
+                <input type="text" id="ruleName" maxlength="100" placeholder="e.g. Price list" required />
+              </div>
+              <div class="field">
+                <label for="rulePriority">Order (lower is tried first)</label>
+                <input type="number" id="rulePriority" min="0" max="10000" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="ruleKeywords">Words that bring this answer (commas between)</label>
+              <input type="text" id="ruleKeywords" maxlength="1800" placeholder="price, rate, दाम" />
+              <p class="au-hint">Whole words, capitals ignored. Leave empty for an answer that only opens from another answer's option.</p>
+            </div>
+            <label class="au-check" style="margin-bottom: 12px"><input type="checkbox" id="ruleActive" /> Active</label>
+            <section class="au-section">
+              <div class="au-section-head"><span class="au-tag au-tag--then">Answer</span></div>
+              <div id="ruleAnswer"></div>
+            </section>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-danger-outline" id="ruleDeleteBtn" type="button" style="display: none; margin-right: auto">
+            <i class="fa-solid fa-trash"></i> Delete
+          </button>
+          <button class="btn btn-outline" id="ruleCancelBtn" type="button">Cancel</button>
+          <button class="btn btn-primary" type="submit" form="ruleForm" id="ruleSaveBtn">Save answer</button>
+        </div>
+      </div>
+    </div>
+
     <!-- PEOPLE IN A SEQUENCE -->
     <div class="modal-overlay" id="peopleModalOverlay">
       <div class="modal modal--wide">
@@ -499,5 +607,6 @@
 
     <script src="./js/app.js"></script>
     <script src="./js/automation.js"></script>
+    <script src="./js/automation-bot.js"></script>
   </body>
 </html>

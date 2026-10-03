@@ -4,7 +4,8 @@
  * <steps>" (/workflows, /workflows/meta). The run log lists what each workflow did, step by step
  * (/automation-runs); a test run starts a workflow now for one lead (/workflows/:id/run).
  * Sequences send follow-ups per customer on day 0, 2, 5 … and stop when the customer replies
- * (/sequences, /sequence-enrollments). Workflows and sequences share the step editor.
+ * (/sequences, /sequence-enrollments). Workflows and sequences share the step editor. The FAQ bot
+ * tab is js/automation-bot.js (it hears "automation:tab").
  * Uses app.js: crmReady, cached, crmApi, crmRequest, crmFetchAll, jsonRequest, newIdempotencyKey,
  * escapeHtml, isOrgManager, getCurrentMember, showToast, apiErrorMessage. Everything stays
  * inside this function so no names clash with app.js.
@@ -20,7 +21,7 @@
   const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
   const clone = (value) => JSON.parse(JSON.stringify(value ?? {}));
 
-  let activeTab = "workflows"; // workflows | runs | sequences
+  let activeTab = "workflows"; // workflows | runs | sequences | bot
   let meta = null; // what the builders offer (GET /workflows/meta)
   let templates = []; // WhatsApp templates (empty without Inbox access)
   let workflows = [];
@@ -1126,15 +1127,19 @@
   // ===========================================================================================
   function setTab(tab) {
     activeTab = tab;
-    const panels = { workflows: "workflowsPanel", runs: "runsPanel", sequences: "sequencesPanel" };
-    const buttons = { workflows: "tabWorkflowsBtn", runs: "tabRunsBtn", sequences: "tabSequencesBtn" };
+    const panels = { workflows: "workflowsPanel", runs: "runsPanel", sequences: "sequencesPanel", bot: "botPanel" };
+    const buttons = { workflows: "tabWorkflowsBtn", runs: "tabRunsBtn", sequences: "tabSequencesBtn", bot: "tabBotBtn" };
     Object.entries(panels).forEach(([key, panel]) => ($(panel).style.display = key === tab ? "block" : "none"));
     Object.entries(buttons).forEach(([key, button]) => $(button).classList.toggle("active", key === tab));
-    $("searchBox").style.display = tab === "runs" ? "none" : "";
-    $("addBtn").style.display = tab === "runs" ? "none" : "";
+    const ownList = tab === "runs" || tab === "bot"; // these tabs have their own buttons
+    $("searchBox").style.display = ownList ? "none" : "";
+    $("addBtn").style.display = ownList ? "none" : "";
     $("addBtnLabel").textContent = tab === "sequences" ? "New Sequence" : "New Workflow";
     $("searchInput").placeholder = tab === "sequences" ? "Search sequences..." : "Search workflows...";
-    if (tab === "runs") {
+    document.dispatchEvent(new CustomEvent("automation:tab", { detail: tab }));
+    if (tab === "bot") {
+      renderAll();
+    } else if (tab === "runs") {
       fillWorkflowFilter();
       loadRuns();
       renderAll();
@@ -1154,6 +1159,7 @@
   $("tabWorkflowsBtn").addEventListener("click", () => setTab("workflows"));
   $("tabRunsBtn").addEventListener("click", () => setTab("runs"));
   $("tabSequencesBtn").addEventListener("click", () => setTab("sequences"));
+  $("tabBotBtn").addEventListener("click", () => setTab("bot"));
   $("searchInput").addEventListener("input", renderAll);
   $("addBtn").addEventListener("click", () => (activeTab === "sequences" ? openSequenceModal(null) : openBuilder(null)));
   document.addEventListener("keydown", (event) => {
@@ -1171,7 +1177,7 @@
         workflows = cached("workflows").slice();
         sequences = cached("sequences").slice();
         const tab = new URLSearchParams(window.location.search).get("tab");
-        if (tab === "runs" || tab === "sequences") setTab(tab);
+        if (tab === "runs" || tab === "sequences" || (tab === "bot" && manager)) setTab(tab);
         else renderAll();
       })
       .catch((error) => showToast(apiErrorMessage(error, "Couldn't load the automation settings."), "error"));

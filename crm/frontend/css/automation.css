@@ -746,3 +746,101 @@
 .au-person details .au-runlog {
   margin-top: 8px;
 }
+
+/* ============================================================
+   FAQ BOT (Phase 6C)
+   ============================================================ */
+.automation-tab[hidden] {
+  display: none;
+}
+.au-bot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.au-bot-card {
+  padding: 18px;
+}
+.au-bot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.au-bot-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.au-answer-text {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.au-answer-text:focus {
+  outline: none;
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.au-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.au-option {
+  flex-wrap: wrap;
+}
+.au-option input[data-o="title"] {
+  width: 170px;
+}
+.au-option select {
+  flex: 1;
+  min-width: 150px;
+}
+.au-bot-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.au-bot-rule {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.au-bot-rule.off {
+  opacity: 0.65;
+}
+.au-bot-rule .au-hint {
+  margin: 0;
+}
+.au-bot-rule-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.au-bot-rule-tools {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+@media (max-width: 960px) {
+  .au-bot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.au-inline[hidden] {
+  display: none;
+}

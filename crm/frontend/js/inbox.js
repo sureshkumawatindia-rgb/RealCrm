@@ -56,6 +56,7 @@
     file: null, // a file waiting to be sent
     templates: null, // approved templates (loaded when the picker opens)
     template: null, // the one picked
+    botEnabled: false, // the organization's WhatsApp FAQ bot is on (GET /bot/status)
   };
 
   // --- small helpers -------------------------------------------------------
@@ -218,6 +219,12 @@
       return `<div class="attachment"><i class="fa-solid fa-location-dot"></i><a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(name || address || "Location")}</a></div>`;
     }
     if (m.type === "reaction") return `Reacted ${escapeHtml(m.reaction?.emoji || "")}`;
+    // The bot's buttons or list (sent), or the customer's choice (received).
+    if (m.type === "interactive" && m.direction === "out" && m.interactive) {
+      const options = m.interactive.options.map((o) => `<span class="bot-option">${escapeHtml(o.title)}</span>`).join("");
+      const list = m.interactive.kind === "list" ? `<div class="bot-list-btn"><i class="fa-solid fa-list-ul"></i> ${escapeHtml(m.interactive.listButton || "Choose")}</div>` : "";
+      return `${text}<div class="bot-options">${options}</div>${list}`;
+    }
     if (m.type === "interactive" || m.type === "button") return `<i class="fa-solid fa-reply"></i> ${text}`;
     if (m.type === "contacts") return `<div class="attachment"><i class="fa-solid fa-address-card"></i><span>${escapeHtml(m.text || "Contact card")}</span></div>`;
     if (m.type === "unsupported") return '<span class="text-muted">This message type cannot be shown here. Open WhatsApp on the phone.</span>';
@@ -227,7 +234,7 @@
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
-    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · " }[m.automation.kind] || "Automation · ") : "";
+    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · " }[m.automation.kind] || "Automation · ") : "";
     const who = m.direction !== "out" ? "" : robot || (m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "");
     const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
     const replyButton = m.providerMessageId && m.direction === "in"
@@ -360,12 +367,36 @@
     const open = isWindowOpen(c);
     chip.textContent = open ? `Reply window: ${left} left` : "Reply window closed";
     chip.className = `window-chip ${open ? "" : "closed"}`;
+    renderBotChip(c);
     $("composerClosed").hidden = open;
     $("composerText").disabled = !open;
     $("composerSend").disabled = !open;
     $("quickRepliesBtn").disabled = !open;
     $("attachBtn").disabled = !open;
     if (!open) clearFile();
+  }
+
+  // D33: the bot answers while nobody has the chat and the customer has not asked for a person.
+  function renderBotChip(c) {
+    const chip = $("threadBot");
+    const waiting = Boolean(c.bot?.handedOffAt);
+    chip.hidden = !state.botEnabled || (Boolean(c.assigneeId) && !waiting);
+    chip.className = `bot-chip ${waiting ? "off" : ""}`;
+    chip.innerHTML = waiting ? '<i class="fa-solid fa-robot"></i> Bot off' : '<i class="fa-solid fa-robot"></i> Bot answering';
+    chip.title = waiting
+      ? `${c.bot.handoffReason || "Waiting for a person."} Click to let the bot answer this chat again (closing the chat does it too).`
+      : "The FAQ bot answers this chat until someone from the team takes it. Click to turn it off here.";
+  }
+  async function toggleBot() {
+    const c = state.current;
+    if (!c) return;
+    try {
+      const updated = await crmApi(`/conversations/${c.id}/bot`, jsonRequest("POST", { active: Boolean(c.bot?.handedOffAt) }));
+      onConversationUpdated(updated);
+      showToast(updated.bot?.handedOffAt ? "The bot is off in this chat" : "The bot answers this chat again", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't switch the bot."), "error");
+    }
   }
 
   async function openConversation(id, { fromList = true } = {}) {
@@ -1328,8 +1359,13 @@
   });
 
   // --- start -----------------------------------------------------------------
+  $("threadBot").addEventListener("click", toggleBot);
   crmReady(["members"], async () => {
     updateNotifyButton();
+    crmApi("/bot/status").then((status) => {
+      state.botEnabled = Boolean(status?.enabled);
+      if (state.current) renderThreadHead();
+    }).catch(() => {});
     await Promise.all([loadConversations(), loadSummary(), loadQuickReplies()]);
     const deepLink = new URLSearchParams(window.location.search).get("c");
     if (deepLink) openConversation(deepLink, { fromList: false });
