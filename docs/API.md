@@ -147,6 +147,26 @@ Items: `{ productId? , name?, description?, hsnSac?, unit?, quantity, unitPriceP
 | --- | --- | --- |
 | `GET/PUT` | `/organization/billing` | `{ bank { accountName, accountNumber, ifsc, bankName, branch }, upiId, terms, validityDays (default 15), prefixes { quotation, estimate, proforma, order }, roundOff (default true), reduceStockOnDispatch }`. GET also returns the GST state used for quotations (`stateCode`, `state`, `stateFrom`: gstin \| address), which comes from the company profile. Prefixes must differ. |
 
+### "Quote Sent, no reply"
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/quotations/awaiting-reply?days=3` | Leads at Quote Sent whose latest Sent/Viewed quotation went out at least `days` (1–60, default 3) ago and the customer has not written on WhatsApp since: `[{ lead, quotation { id, type, number, status, sentAt, viewCount, lastViewedAt, grandTotalPaise }, conversationId, waitingDays }]`, longest wait first. |
+
+### Orders (Phase 5)
+
+Same permissions as leads and quotations; agents see the orders of their own leads.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/orders?stage=&contactId=&leadId=&q=` | `q` searches the order and quotation numbers, the customer and the LR number. |
+| `GET` | `/orders/summary` | `{ counts { <stage>: n }, total }`. |
+| `POST` | `/orders` | `{ quotationId }` — from an accepted quotation, once (409 `NOT_ACCEPTED`, `ORDER_EXISTS`); copies its lines, totals and parties; number `<order prefix>/<financial year>/<0001>` (default SO). Accepts `Idempotency-Key`. The quotation can then not be un-accepted or deleted. |
+| `GET/PATCH` | `/orders/:id` | PATCH `{ dispatch { transporter, lrNumber, vehicleNumber, expectedDeliveryDate }, notes }`. |
+| `POST` | `/orders/:id/stage` | `{ stage, note?, cancelReason?, dispatch? }`. Stages: Received → Processing → Dispatched → Delivered → Payment Collected (any step, forwards or back), or Cancelled (reason required, 422 `CANCEL_REASON_REQUIRED`; not once paid, 409 `ORDER_PAID`; final, 409 `ORDER_CANCELLED`). Dispatched stamps `dispatch.dispatchedAt`, Delivered `deliveredAt`, Payment Collected `paidAt` and wins the lead (the contact becomes a customer). With "reduce stock on dispatch" the products' stock goes down once (never below 0) when the order reaches Dispatched or later, and comes back if it is cancelled or moved back. Each move goes to `history` and the lead's timeline. |
+| `GET` | `/orders/:id/notify-options` | Needs `inbox` too. `{ blocked, windowOpen, text (a ready message for the stage), templates [with suggested values: name, order number, stage, transporter + LR] }`. |
+| `POST` | `/orders/:id/notify` | Needs `inbox` too. `{ mode: "text", text }` (24-hour window open, else 422 `WINDOW_CLOSED`) or `{ mode: "template", templateId, variables }`; marks the latest history entry `notified`. |
+
 ## Tasks and calendar (Phase 2)
 
 Calendar days are `YYYY-MM-DD` strings and times are `HH:MM` wall-clock times in `Asia/Kolkata`, so a date never shifts with the browser's timezone. Agents and viewers see tasks and events assigned to them or created by them; `<module>:view_all` on any module that reads them shows all. Any member may assign work to an active teammate (400 `INVALID_ASSIGNEE` otherwise).

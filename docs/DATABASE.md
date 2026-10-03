@@ -98,7 +98,9 @@ Leads from a source have `source` and `sourceRef` (unique per source); a repeat 
 
 `organizations.billing` { bank { accountName, accountNumber, ifsc, bankName, branch }, upiId, terms, validityDays, prefixes { quotation, estimate, proforma, order }, roundOff, reduceStockOnDispatch } (Phase 5).
 
-Counters used: `quotation:<financial year>`, `estimate:<financial year>`, `proforma:<financial year>`, `ticket`.
+`orders` (Phase 5): `number`, `financialYear`, `quotationId` (unique when set), `quotationNumber`, `leadId`, `contactId`, `ownerId`, `stage` (Received, Processing, Dispatched, Delivered, Payment Collected, Cancelled), `orderDate`, `billTo`, `seller`, `supply`, `items[]`, `totals` (copied from the quotation; shared schemas in `models/schemas/documentParts.js`), `dispatch` { transporter, lrNumber, vehicleNumber, dispatchedAt, expectedDeliveryDate }, `deliveredAt`, `paidAt`, `cancelledAt`, `cancelReason`, `notes`, `stockReduced`, `stockMoves[]` { productId, quantity }, `history[]` { stage, from, at, byUserId, byName, note, notified }, `deletedAt`. Indexes: unique `(organizationId, number)`; `(organizationId, stage, createdAt -1)`; `(organizationId, contactId, createdAt -1)`.
+
+Counters used: `quotation:<financial year>`, `estimate:<financial year>`, `proforma:<financial year>`, `order:<financial year>`, `ticket`.
 
 ## 2. Data migrations
 
