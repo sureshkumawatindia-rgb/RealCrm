@@ -346,12 +346,12 @@
       </div>
     </div>
 
-    <!-- TEST RUN MODAL -->
+    <!-- LEAD PICKER: a workflow's test run, or adding a customer to a sequence -->
     <div class="modal-overlay" id="testModalOverlay">
       <div class="modal">
         <div class="modal-head">
           <div>
-            <h3>Test run</h3>
+            <h3 id="testModalTitle">Test run</h3>
             <p class="modal-subtitle" id="testModalSub"></p>
           </div>
           <button class="icon-btn" id="testModalClose" type="button" aria-label="Close">
@@ -359,10 +359,7 @@
           </button>
         </div>
         <div class="modal-body">
-          <p class="au-hint">
-            The workflow runs now for the lead you pick, whatever its trigger. Its steps
-            really happen: messages are sent and tasks are created.
-          </p>
+          <p class="au-hint" id="testModalHint"></p>
           <div class="field">
             <label for="testLeadSearch">Lead</label>
             <input
@@ -377,57 +374,73 @@
       </div>
     </div>
 
-    <!-- SEQUENCE MODAL -->
+    <!-- SEQUENCE MODAL: follow-up steps on days after a customer is added -->
     <div class="modal-overlay" id="sequenceModalOverlay">
-      <div class="modal modal--wide">
+      <div class="modal modal--wide au-builder">
         <div class="modal-head">
           <h3 id="sequenceModalTitle">New Sequence</h3>
-          <button class="icon-btn" id="sequenceModalClose">
+          <button class="icon-btn" id="sequenceModalClose" type="button" aria-label="Close">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
         <div class="modal-body">
-          <form id="sequenceForm">
+          <form id="sequenceForm" novalidate>
             <input type="hidden" id="sqEditId" />
+            <div id="sqNotes" class="au-notes" hidden></div>
             <div class="field">
-              <label>Sequence Name</label>
+              <label for="sqName">Sequence name</label>
               <input
                 type="text"
                 id="sqName"
-                placeholder="e.g. New Lead Nurture — 5 touches"
+                maxlength="200"
+                placeholder="e.g. Quotation follow-up — 3 touches"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Applies To</label>
-                <select id="sqTarget">
-                  <option>Leads</option>
-                  <option>Deals</option>
-                  <option>Customers</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Status</label>
+                <label for="sqStatus">Status</label>
                 <select id="sqStatus">
-                  <option>Active</option>
-                  <option>Paused</option>
-                  <option>Draft</option>
+                  <option value="Active">Active — takes customers</option>
+                  <option value="Paused">Paused</option>
+                  <option value="Draft">Draft</option>
                 </select>
               </div>
-            </div>
-            <div class="field">
-              <label>Owner</label>
-              <select id="sqOwner" required></select>
+              <div class="field" id="sqOwnerField">
+                <label for="sqOwner">Owner</label>
+                <select id="sqOwner"></select>
+              </div>
             </div>
 
-            <div class="step-heading-row">
-              <p class="step-heading" style="margin: 4px 0 0">Touchpoints</p>
-              <button type="button" class="link-mini" id="sqAddStepBtn">
-                <i class="fa-solid fa-plus"></i> Add step
-              </button>
-            </div>
-            <div id="sqStepsList" class="dynamic-list"></div>
+            <section class="au-section">
+              <div class="au-section-head">
+                <span class="au-tag au-tag--if">Stops</span> for a customer when
+              </div>
+              <div class="au-checks">
+                <label class="au-check"><input type="checkbox" id="sqStopOnReply" /> they reply on WhatsApp</label>
+                <label class="au-check"><input type="checkbox" id="sqStopOnClose" /> their lead is won or lost</label>
+              </div>
+              <div class="au-checks" style="margin-top: 8px">
+                <label class="au-check"><input type="checkbox" id="sqWorkingHours" /> Send only during working hours</label>
+              </div>
+              <p class="au-hint">
+                Working hours are set in Settings → Lead rules; a step due at night waits for
+                the morning. You can also take anyone out by hand.
+              </p>
+            </section>
+
+            <section class="au-section">
+              <div class="au-section-head">
+                <span class="au-tag au-tag--then">Steps</span> on days after the customer is added
+              </div>
+              <div id="sqSteps" class="au-steps"></div>
+              <div class="au-add-step">
+                <select id="sqNewStepType" aria-label="Step to add"></select>
+                <button type="button" class="btn btn-outline" id="sqAddStepBtn">
+                  <i class="fa-solid fa-plus"></i> Add step
+                </button>
+              </div>
+            </section>
           </form>
         </div>
         <div class="modal-foot">
@@ -442,9 +455,42 @@
           <button class="btn btn-outline" id="sqCancelBtn" type="button">
             Cancel
           </button>
-          <button class="btn btn-primary" type="submit" form="sequenceForm">
+          <button class="btn btn-primary" type="submit" form="sequenceForm" id="sqSaveBtn">
             Save Sequence
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PEOPLE IN A SEQUENCE -->
+    <div class="modal-overlay" id="peopleModalOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <div>
+            <h3 id="peopleModalTitle">In this sequence</h3>
+            <p class="modal-subtitle" id="peopleModalSub"></p>
+          </div>
+          <button class="icon-btn" id="peopleModalClose" type="button" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="au-people-filters">
+            <select class="filter" id="peopleStatusFilter" aria-label="Show">
+              <option value="">Everyone</option>
+              <option value="active">In it now</option>
+              <option value="completed">Completed</option>
+              <option value="stopped">Stopped</option>
+              <option value="failed">Failed</option>
+            </select>
+            <button class="btn btn-outline" id="peopleAddBtn" type="button">
+              <i class="fa-solid fa-user-plus"></i> Add a customer
+            </button>
+          </div>
+          <div id="peopleList" class="au-people"></div>
+          <div class="au-more">
+            <button class="btn btn-outline" id="peopleMoreBtn" type="button" hidden>Load more</button>
+          </div>
         </div>
       </div>
     </div>

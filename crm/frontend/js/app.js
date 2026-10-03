@@ -802,36 +802,12 @@ async function addCampaignNote(campaignId, text) {
   return toLegacyNote(await crmApi(`/campaigns/${campaignId}/notes`, jsonRequest("POST", { text })));
 }
 
-// --- sales automation: workflows and sequences --------------------------
-// kind: "workflows" or "sequences". Run and enroll counts are kept by the server. The Sales
-// Automation page builds and test-runs workflows itself (js/automation.js).
-const withOwnerName = (item) => ({ ...item, owner: memberName(item.ownerId) });
-
-function getWorkflows() {
-  return cached("workflows").map(withOwnerName);
-}
-function getSequences() {
-  return cached("sequences").map(withOwnerName);
-}
-async function saveAutomation(kind, id, form) {
-  const { owner, ...fields } = form;
-  const payload = "owner" in form ? { ...fields, ownerId: agentIdByName(owner) } : fields;
-  const item = await crmApi(id ? `/${kind}/${id}` : `/${kind}`, jsonRequest(id ? "PATCH" : "POST", payload));
-  return withOwnerName(cacheUpsert(kind, item));
-}
-async function removeAutomation(kind, id) {
-  await crmApi(`/${kind}/${id}`, { method: "DELETE" });
-  cacheDrop(kind, id);
-}
+// --- sales automation ---------------------------------------------------
+// Workflows and sequences are loaded with crmReady(["workflows", "sequences"]); the Sales
+// Automation page (js/automation.js) builds, runs and enrolls through the API itself.
 // One key per click: if the request is retried, the server answers once and runs once.
 function newIdempotencyKey() {
   return window.crypto?.randomUUID ? crypto.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-}
-// Enroll One: the server schedules the first call/task step. Returns { sequence, task, firstTaskDay, simulated }.
-async function enrollInSequence(id) {
-  const result = await crmApi(`/sequences/${id}/enroll`, { method: "POST", headers: { "Idempotency-Key": newIdempotencyKey() } });
-  cacheUpsert("sequences", result.sequence);
-  return result;
 }
 
 // ---------------------------------------------------------------
