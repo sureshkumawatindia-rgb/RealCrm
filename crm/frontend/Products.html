@@ -242,6 +242,17 @@
                 />
               </div>
             </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="pHsn">HSN / SAC code</label>
+                <input type="text" id="pHsn" inputmode="numeric" maxlength="8" placeholder="e.g. 0909" />
+              </div>
+              <div class="field">
+                <label for="pUnit">Unit</label>
+                <input type="text" id="pUnit" maxlength="20" list="unitOptions" placeholder="pcs" />
+                <datalist id="unitOptions"><option value="pcs"></option><option value="kg"></option><option value="g"></option><option value="ltr"></option><option value="m"></option><option value="box"></option><option value="set"></option><option value="ton"></option><option value="hr"></option><option value="nos"></option></datalist>
+              </div>
+            </div>
             <div class="field">
               <label>Description</label>
               <textarea

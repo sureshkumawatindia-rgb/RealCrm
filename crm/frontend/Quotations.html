@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quotations | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/quotations.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+            <a href="Quotations.html" class="nav-item active">
+              <i class="fa-solid fa-file-invoice"></i> Quotations
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button id="menu-toggle" class="icon-btn" style="display: none; font-size: 16px">
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2 id="pageTitle">Quotations</h2>
+          </div>
+        </header>
+
+        <div class="page">
+          <!-- LIST -->
+          <section id="qListView">
+            <div class="toolbar">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" id="qSearch" placeholder="Search number, customer, company…" autocomplete="off" />
+              </div>
+              <div class="filter-bar">
+                <select class="filter" id="qStatus" aria-label="Status">
+                  <option value="">All statuses</option>
+                  <option>Draft</option>
+                  <option>Sent</option>
+                  <option>Viewed</option>
+                  <option>Accepted</option>
+                  <option>Rejected</option>
+                  <option>Expired</option>
+                </select>
+                <select class="filter" id="qType" aria-label="Type">
+                  <option value="">All types</option>
+                  <option>Quotation</option>
+                  <option>Estimate</option>
+                  <option>Proforma Invoice</option>
+                </select>
+              </div>
+              <div style="display: flex; gap: 10px; margin-left: auto">
+                <button class="btn btn-primary" id="qNewBtn" type="button"><i class="fa-solid fa-plus"></i> New quotation</button>
+              </div>
+            </div>
+            <div class="panel"><div class="q-table-wrap" id="qTable"></div></div>
+            <div class="q-more"><button class="btn btn-outline" id="qMore" type="button" hidden>Show more</button></div>
+          </section>
+
+          <!-- EDITOR -->
+          <section id="qEditorView" hidden>
+            <div class="q-editor-head">
+              <button class="btn btn-outline" id="qBack" type="button"><i class="fa-solid fa-arrow-left"></i> All quotations</button>
+              <div class="q-title">
+                <div class="q-number" id="qNumber">New quotation</div>
+                <div class="q-sub" id="qSub"></div>
+              </div>
+            </div>
+
+            <div class="q-grid">
+              <div class="q-main">
+                <div class="panel q-card">
+                  <div class="q-card-head"><h3>Customer</h3><span class="q-customer-link" id="qCustomerLink"></span></div>
+                  <div class="q-picker" id="qPicker" hidden>
+                    <div class="search-box">
+                      <i class="fa-solid fa-magnifying-glass"></i>
+                      <input type="search" id="qPickerInput" placeholder="Find a lead or customer by name, phone or company" autocomplete="off" />
+                    </div>
+                    <div class="q-picker-results" id="qPickerResults"></div>
+                  </div>
+                  <div class="q-billto" id="qBillTo">
+                    <div class="field-row">
+                      <div class="field"><label for="bName">Name</label><input type="text" id="bName" maxlength="200" data-bill="name" /></div>
+                      <div class="field"><label for="bCompany">Company</label><input type="text" id="bCompany" maxlength="200" data-bill="company" /></div>
+                    </div>
+                    <div class="field-row">
+                      <div class="field"><label for="bGstin">GSTIN</label><input type="text" id="bGstin" maxlength="15" data-bill="gstin" placeholder="Optional, e.g. 08ABCDE1234F1Z5" /></div>
+                      <div class="field"><label for="bState">State</label><select id="bState" data-bill="stateCode"></select></div>
+                    </div>
+                    <div class="field-row">
+                      <div class="field"><label for="bAddress">Address</label><input type="text" id="bAddress" maxlength="500" data-bill="address" /></div>
+                      <div class="field"><label for="bCity">City</label><input type="text" id="bCity" maxlength="100" data-bill="city" /></div>
+                    </div>
+                    <div class="field-row">
+                      <div class="field"><label for="bPhone">Phone</label><input type="text" id="bPhone" maxlength="30" data-bill="phone" /></div>
+                      <div class="field"><label for="bEmail">Email</label><input type="email" id="bEmail" maxlength="254" data-bill="email" /></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel q-card">
+                  <div class="q-card-head"><h3>Items</h3></div>
+                  <div class="q-items" id="qItems"></div>
+                  <div class="q-items-foot">
+                    <button class="btn btn-outline" id="qAddItem" type="button"><i class="fa-solid fa-plus"></i> Add item</button>
+                  </div>
+                </div>
+
+                <div class="panel q-card">
+                  <div class="q-card-head"><h3>Terms and notes</h3></div>
+                  <div class="field"><label for="qTerms">Terms and conditions</label><textarea id="qTerms" rows="4" maxlength="5000"></textarea></div>
+                  <div class="field"><label for="qNotes">Note to the customer</label><textarea id="qNotes" rows="2" maxlength="2000" placeholder="Optional, e.g. delivery within 7 days"></textarea></div>
+                </div>
+
+                <div class="panel q-card" id="qHistoryCard" hidden>
+                  <div class="q-card-head"><h3>Earlier revisions</h3></div>
+                  <div id="qHistory"></div>
+                </div>
+              </div>
+
+              <aside class="q-side">
+                <div class="panel q-card">
+                  <div class="field" id="qTypeField"><label for="qDocType">Type</label>
+                    <select id="qDocType"><option>Quotation</option><option>Estimate</option><option>Proforma Invoice</option></select>
+                  </div>
+                  <div class="field"><label for="qValid">Valid until</label><input type="date" id="qValid" /></div>
+                  <div class="field"><label for="qPlace">Place of supply</label><select id="qPlace"></select></div>
+                  <label class="q-check"><input type="checkbox" id="qZero" /> Export / SEZ under LUT (no GST)</label>
+                </div>
+
+                <div class="panel q-card q-summary">
+                  <div id="qWarnings"></div>
+                  <div id="qTotals"></div>
+                </div>
+
+                <div class="q-actions" id="qActions"></div>
+              </aside>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="./js/quotations.js"></script>
+  </body>
+</html>

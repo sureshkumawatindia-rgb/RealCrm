@@ -60,7 +60,7 @@ async function showInviteDetails() {
 async function nextPage(member) {
   const managers = ["owner", "admin"];
   if (!managers.includes(member?.role) && !(member?.modules || []).includes("dashboard")) {
-    const first = Object.entries(PAGE_MODULES).find(([, module]) => (member?.modules || []).includes(module));
+    const first = Object.entries(PAGE_MODULES).find(([, module]) => [].concat(module).some((key) => (member?.modules || []).includes(key)));
     return first ? encodeURI(first[0]) : "Settings.html";
   }
   try {

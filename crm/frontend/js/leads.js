@@ -240,74 +240,15 @@ document.getElementById("fProduct").addEventListener("change", () => {
   // Keep the quantity already typed (or loaded for an existing lead).
   toggleQuantityField(document.getElementById("fQuantity").value);
   autoFillValue();
-  const product = getProducts().find((p) => p.id === document.getElementById("fProduct").value);
-  quotationItems = product ? [{ productId: product.id, quantity: document.getElementById("fQuantity").value || 1, unitPrice: product.price || "", discount: 0, tax: 0 }] : [];
-  document.getElementById("productPricingFields").hidden = !product;
-  document.getElementById("fUnitPrice").value = product?.price || "";
-  renderQuotationItems();
-  renderQuotationTotals();
 });
-document.getElementById("fQuantity").addEventListener("input", () => {
-  autoFillValue();
-  if (quotationItems[0]) quotationItems[0].quantity = document.getElementById("fQuantity").value;
-  renderQuotationTotals();
-});
+document.getElementById("fQuantity").addEventListener("input", autoFillValue);
 
 // ---------------------------------------------------------------
 // Lead modal
 // ---------------------------------------------------------------
-let quotationItems = [];
-// The quotation items as they were when the modal opened; a save only touches quotations
-// when the items really changed (an ordinary lead edit must not create a quotation).
-let quotationBaseline = "";
-function quotationSignature() {
-  return JSON.stringify(quotationItems.map((item) => [
-    item.productId,
-    Number(item.quantity) || 0,
-    Number(item.unitPrice) || 0,
-    Number(item.discount) || 0,
-    Number(item.tax) || 0,
-  ]));
-}
-function quotationDatePlus(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-function quotationTotals() {
-  let subtotal = 0;
-  let discount = 0;
-  let tax = 0;
-  quotationItems.forEach((item) => {
-    const base = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
-    const itemDiscount = Number(item.discount) || 0;
-    subtotal += base;
-    discount += itemDiscount;
-    tax += (base - itemDiscount) * (Number(item.tax) || 0) / 100;
-  });
-  return { subtotal, discount, tax, grandTotal: subtotal - discount + tax };
-}
-function renderQuotationItems() {
-  const container = document.getElementById("quotationItems");
-  container.innerHTML = quotationItems.slice(1).map((item, index) => {
-    const rowIndex = index + 1;
-    const product = getProducts().find((p) => p.id === item.productId);
-    const amount = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) - (Number(item.discount) || 0);
-    return `<div class="quotation-item" data-index="${rowIndex}"><div><label>Product</label><select data-field="productId"><option value="">Select product</option>${getProducts().map((p) => `<option value="${p.id}" ${p.id === item.productId ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}</select></div><div><label>Qty</label><input type="number" min="1" data-field="quantity" value="${escapeHtml(item.quantity || 1)}" /></div><div><label>Unit Price</label><input type="number" min="0" step="0.01" data-field="unitPrice" value="${escapeHtml(item.unitPrice || product?.price || "")}" /></div><div><label>Discount (₹)</label><input type="number" min="0" step="0.01" data-field="discount" value="${escapeHtml(item.discount || 0)}" /></div><div><label>GST %</label><input type="number" min="0" step="0.01" data-field="tax" value="${escapeHtml(item.tax || 0)}" /></div><div><label>Amount</label><input value="₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}" readonly /></div><button class="icon-btn danger remove-quotation-item" type="button" title="Remove item"><i class="fa-solid fa-trash"></i></button></div>`;
-  }).join("");
-  container.querySelectorAll("[data-field]").forEach((field) => field.addEventListener("input", () => {
-    const item = quotationItems[Number(field.closest(".quotation-item").dataset.index)];
-    item[field.dataset.field] = field.value;
-    if (field.dataset.field === "productId") { const product = getProducts().find((p) => p.id === field.value); if (product) item.unitPrice = product.price || ""; }
-    renderQuotationItems();
-    renderQuotationTotals();
-  }));
-  container.querySelectorAll(".remove-quotation-item").forEach((button) => button.addEventListener("click", () => { quotationItems.splice(Number(button.closest(".quotation-item").dataset.index), 1); renderQuotationItems(); renderQuotationTotals(); }));
-}
-function renderQuotationTotals() {
-  const totals = quotationTotals();
-  document.getElementById("fAmount").value = "₹" + totals.grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 2 });
-  document.getElementById("fValue").value = totals.grandTotal || "";
+// Quotations are made on the Quotations page (D29), from a saved lead.
+function openQuotationFor(leadId) {
+  window.location.href = `Quotations.html?new=1&leadId=${encodeURIComponent(leadId)}`;
 }
 function openModal(lead = null) {
   document.getElementById("modalTitle").textContent = lead
@@ -326,26 +267,17 @@ function openModal(lead = null) {
   const selectedProductId = lead?.product || (availableProducts.length === 1 ? availableProducts[0].id : "");
   renderProductOptions(selectedProductId);
   toggleQuantityField(lead ? lead.quantity || "" : "");
-  const product = getProducts().find((p) => p.id === (lead?.product || ""));
-  quotationItems = product ? [{ productId: product.id, quantity: lead.quantity || 1, unitPrice: product.price || "", discount: 0, tax: 0 }] : [];
-  document.getElementById("productPricingFields").hidden = !product;
-  document.getElementById("fUnitPrice").value = product?.price || "";
-  document.getElementById("fDiscount").value = 0;
-  document.getElementById("fTax").value = 0;
-  renderQuotationItems();
-  renderQuotationTotals();
   document.getElementById("fProduct").dispatchEvent(new Event("change"));
   // The change handler recomputes the value from price × quantity; an existing lead keeps its saved value.
   if (lead) document.getElementById("fValue").value = lead.value || "";
-  quotationBaseline = lead ? quotationSignature() : "";
+  document.getElementById("leadQuoteBtn").hidden = !lead;
+  document.getElementById("leadQuoteHint").hidden = !lead;
   modalOverlay.classList.add("open");
 }
 function closeModal() {
   modalOverlay.classList.remove("open");
   leadForm.reset();
   document.getElementById("fQuantityWrap").style.display = "none";
-  document.getElementById("productPricingFields").hidden = true;
-  quotationItems = [];
 }
 
 document.getElementById("addBtn").addEventListener("click", () => openModal());
@@ -354,9 +286,10 @@ document.getElementById("cancelBtn").addEventListener("click", closeModal);
 modalOverlay.addEventListener("click", (e) => {
   if (e.target === modalOverlay) closeModal();
 });
-document.getElementById("fUnitPrice").addEventListener("input", () => { if (quotationItems[0]) quotationItems[0].unitPrice = document.getElementById("fUnitPrice").value; renderQuotationTotals(); });
-document.getElementById("fDiscount").addEventListener("input", () => { if (quotationItems[0]) quotationItems[0].discount = document.getElementById("fDiscount").value; renderQuotationTotals(); });
-document.getElementById("fTax").addEventListener("input", () => { if (quotationItems[0]) quotationItems[0].tax = document.getElementById("fTax").value; renderQuotationTotals(); });
+document.getElementById("leadQuoteBtn").addEventListener("click", () => {
+  const id = document.getElementById("editId").value;
+  if (id) openQuotationFor(id);
+});
 
 leadForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -390,14 +323,10 @@ leadForm.addEventListener("submit", async (e) => {
     followUpAt: document.getElementById("fFollowUp").value || null,
     notes: document.getElementById("fNotes").value.trim(),
   };
-  // Only changed quotation items touch quotations (an ordinary lead edit must not).
-  const quotationChanged = quotationItems.length > 0 && quotationSignature() !== quotationBaseline;
   try {
-    const lead = id ? await updateLeadRecord(id, payload) : await createLead(payload);
-    const quotation = productId && quotationChanged ? await saveLeadQuotation(lead.id, quotationItems) : null;
+    await (id ? updateLeadRecord(id, payload) : createLead(payload));
     closeModal();
-    if (quotation) showToast(`${id ? "Lead updated" : "Lead created"} and quotation ${quotation.action} · ${quotation.quotationNumber}`, "success");
-    else showToast(id ? "Lead updated." : "Lead created successfully.", "success");
+    showToast(id ? "Lead updated." : "Lead created successfully.", "success");
   } catch (error) {
     showToast(apiErrorMessage(error, "Couldn't save the lead."), "error");
     return;
@@ -782,6 +711,7 @@ function renderTable() {
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-btn" data-id="${l.id}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn quote-btn" data-id="${l.id}" title="Create quotation"><i class="fa-solid fa-file-invoice"></i></button>
                 <button class="icon-btn notes-btn" data-id="${l.id}" title="Notes and history">
                   <i class="fa-solid fa-list-check"></i>${noteCount ? ` <span class="badge badge-info notes-count-badge">${noteCount}</span>` : ""}
                 </button>
@@ -803,6 +733,9 @@ function renderTable() {
     event.stopPropagation();
     startInlineLeadEdit(cell);
   }));
+  container.querySelectorAll(".quote-btn").forEach((btn) =>
+    btn.addEventListener("click", () => openQuotationFor(btn.dataset.id)),
+  );
   container.querySelectorAll(".notes-btn").forEach((btn) =>
     btn.addEventListener("click", () => openNotesModal(btn.dataset.id)),
   );
@@ -824,7 +757,7 @@ function renderTable() {
 document.getElementById("searchInput").addEventListener("input", renderTable);
 document.getElementById("filterStatus").addEventListener("change", renderTable);
 
-crmReady(["leads", "products", "members", "quotations"], () => {
+crmReady(["leads", "products", "members"], () => {
   renderProductOptions();
   renderProductsPanel();
   renderTable();

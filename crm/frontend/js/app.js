@@ -502,6 +502,8 @@ function productPayload(form) {
   if ("description" in form) payload.description = form.description || "";
   if ("price" in form) payload.pricePaise = toPaise(form.price) ?? 0;
   if ("gst" in form) payload.gstRatePct = Number(form.gst) || 0;
+  if ("hsnSac" in form) payload.hsnSac = String(form.hsnSac || "").trim();
+  if ("unit" in form) payload.unit = String(form.unit || "").trim() || "pcs";
   if ("quantity" in form) payload.stockQty = form.quantity === "" || form.quantity == null ? null : Math.max(0, Math.round(Number(form.quantity)));
   return payload;
 }
@@ -635,17 +637,6 @@ async function addLeadNote(id, text) {
   return crmApi(`/leads/${id}/activities`, jsonRequest("POST", { type: "Note", text }));
 }
 
-// --- quotations -------------------------------------------------
-function toLegacyQuotation(quotation) {
-  return {
-    ...quotation,
-    quotationNumber: quotation.number,
-    grandTotal: toRupees(quotation.totals?.grandTotalPaise),
-  };
-}
-function getQuotations() {
-  return cached("quotations").map(toLegacyQuotation);
-}
 // --- tasks and calendar events ------------------------------------
 // The pages pick people and related records by name; the server stores ids.
 function agentIdByName(name) {
@@ -848,25 +839,6 @@ async function enrollInSequence(id) {
   return result;
 }
 
-// Items use the form's rupee values; the server computes every total.
-async function saveLeadQuotation(leadId, items) {
-  const payload = {
-    items: items
-      .filter((item) => Number(item.quantity) > 0)
-      .map((item) => ({
-        productId: item.productId || null,
-        quantity: Number(item.quantity),
-        unitPricePaise: toPaise(item.unitPrice) ?? 0,
-        discountPaise: toPaise(item.discount) ?? 0,
-        taxRatePct: Number(item.tax) || 0,
-      })),
-  };
-  if (!payload.items.length) return null;
-  const quotation = await crmApi(`/leads/${leadId}/quotations`, jsonRequest("POST", payload));
-  cacheUpsert("quotations", quotation);
-  return toLegacyQuotation(quotation);
-}
-
 // ---------------------------------------------------------------
 // Toast
 // ---------------------------------------------------------------
@@ -966,7 +938,8 @@ function initNavGroups() {
 // Sidebar: agents and viewers only see the modules they were given
 // (the server enforces the same rule on every API call).
 // ---------------------------------------------------------------
-// Page file → module key, in sidebar order (login sends a member to the first allowed page).
+// Page file → module key (or keys: any one opens the page), in sidebar order (login sends a
+// member to the first allowed page).
 const PAGE_MODULES = {
   "dashboard.html": "dashboard",
   "Inbox.html": "inbox",
@@ -975,6 +948,7 @@ const PAGE_MODULES = {
   "leads.html": "leads",
   "accounts.html": "accounts",
   "Deals.html": "deals",
+  "Quotations.html": ["leads", "deals"],
   "Marketing.html": "marketing",
   "Sales Automation.html": "automation",
   "Tasks.html": "tasks",
@@ -1015,7 +989,7 @@ function hideUnavailableModules() {
   const allowed = new Set(member.modules || []);
   document.querySelectorAll(".sidebar .nav-item[href]").forEach((link) => {
     const module = moduleForPage(decodeURIComponent(link.getAttribute("href")).replace(/^\.\//, ""));
-    if (module && !allowed.has(module)) link.style.display = "none";
+    if (module && ![].concat(module).some((key) => allowed.has(key))) link.style.display = "none";
   });
   document.querySelectorAll(".sidebar .nav-submenu").forEach((submenu) => {
     const visible = [...submenu.querySelectorAll(".nav-item")].some((item) => item.style.display !== "none");
@@ -1054,13 +1028,21 @@ function injectGlobalNavItems() {
       label: 'Inbox <span class="nav-badge" id="navInboxBadge" hidden></span>',
       afterHref: "dashboard.html",
     },
+    {
+      href: "Quotations.html",
+      icon: "fa-file-invoice",
+      label: "Quotations",
+      afterHref: "Deals.html",
+    },
   ];
+  // Pages write the same link as "Deals.html" or "./Deals.html".
+  const findLink = (href) => [...navGroup.querySelectorAll(".nav-item[href]")].find((link) => link.getAttribute("href").replace(/^\.\//, "") === href);
 
   GLOBAL_ITEMS.forEach((item) => {
     // Never insert twice, in case a page already has it hard-coded.
-    if (navGroup.querySelector(`.nav-item[href="${item.href}"]`)) return;
+    if (findLink(item.href)) return;
 
-    const anchor = navGroup.querySelector(`.nav-item[href="${item.afterHref}"]`);
+    const anchor = findLink(item.afterHref);
     if (!anchor) return;
 
     const isActive = currentPage === item.href.toLowerCase();

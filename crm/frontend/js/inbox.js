@@ -871,16 +871,18 @@
             .join("")
         : `<p class="ctx-empty">${seesAll ? "No lead for this customer yet." : "No lead of this customer that you can see."}</p>`
       : "";
-    $("detailsQuotes").innerHTML = Array.isArray(quotes) && quotes.length
+    const canQuote = memberCan("leads", "create") || memberCan("deals", "create");
+    $("detailsQuotes").innerHTML = Array.isArray(quotes)
       ? quotes
           .map(
             (q) => `
-          <div class="ctx-item">
-            <div class="ctx-main"><div class="ctx-title">Quotation ${escapeHtml(q.number || q.legacyNumber || "")}</div><div class="ctx-meta">${escapeHtml(shortTime(q.quotationDate || q.createdAt))}</div></div>
+          <a class="ctx-item ctx-link" href="Quotations.html?id=${encodeURIComponent(q.id)}">
+            <div class="ctx-main"><div class="ctx-title">${escapeHtml(q.type || "Quotation")} ${escapeHtml(q.number || q.legacyNumber || "")}</div><div class="ctx-meta">${escapeHtml(shortTime(q.quotationDate || q.createdAt))}</div></div>
             <span class="ctx-amount">${rupees(q.totals?.grandTotalPaise)}</span> <span class="badge badge-neutral">${escapeHtml(q.status)}</span>
-          </div>`,
+          </a>`,
           )
-          .join("")
+          .join("") +
+        (canQuote ? `<a class="btn btn-outline ctx-new-quote" href="Quotations.html?new=1&conversationId=${encodeURIComponent(state.current?.id || "")}"><i class="fa-solid fa-file-invoice"></i> New quotation</a>` : "")
       : "";
 
     $("detailsTasksSection").hidden = !Array.isArray(tasks);

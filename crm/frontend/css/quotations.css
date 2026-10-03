@@ -1,0 +1,317 @@
+/* Quotations page (Phase 5): the list and the editor. */
+
+.q-table-wrap {
+  overflow-x: auto;
+}
+.q-table-wrap table {
+  min-width: 720px;
+}
+.q-table-wrap tbody tr {
+  cursor: pointer;
+}
+.q-table-wrap tbody tr:hover td {
+  background: var(--brand-light);
+}
+.q-num {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.q-muted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.q-amount {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.q-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+/* --- editor ------------------------------------------------------------------------------ */
+.q-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.q-number {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.q-sub {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.q-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+.q-side {
+  position: sticky;
+  top: 16px;
+}
+.q-card {
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  overflow: visible;
+}
+.q-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.q-card-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.q-customer-link a {
+  font-size: 12.5px;
+}
+.q-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.q-check input {
+  width: auto;
+  margin: 0;
+}
+
+/* customer picker */
+.q-picker .search-box {
+  width: 100%;
+}
+.q-picker-results {
+  margin-top: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+.q-pick {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.q-pick:hover,
+.q-pick:focus-visible {
+  background: var(--brand-light);
+  outline: none;
+}
+.q-pick .who {
+  flex: 1;
+  min-width: 0;
+}
+.q-pick .who strong {
+  display: block;
+  font-size: 13.5px;
+}
+
+/* items */
+.q-line {
+  display: grid;
+  grid-template-columns: minmax(180px, 2.2fr) 84px 70px 110px 150px 78px 110px 32px;
+  gap: 8px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.q-line.q-line-head {
+  padding-top: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.q-line input,
+.q-line select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 9px;
+  font-size: 13px;
+}
+.q-line .q-line-extra {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 6px;
+  margin-top: 6px;
+}
+.q-disc {
+  display: flex;
+  gap: 4px;
+}
+.q-disc input {
+  flex: 1;
+}
+.q-disc select {
+  width: 58px;
+  flex: none;
+  padding-left: 6px;
+  padding-right: 4px;
+}
+.q-line-amount {
+  text-align: right;
+  font-weight: 600;
+  padding-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.q-line-amount small {
+  display: block;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.q-line-label {
+  display: none;
+}
+.q-items-foot {
+  margin-top: 12px;
+}
+.q-items-empty {
+  padding: 12px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* summary */
+.q-sum-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.q-sum-row.muted {
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.q-sum-row.grand {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 10px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.q-words {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.q-warning {
+  background: var(--warning-bg);
+  color: #8a5300;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}
+.q-rates {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.q-rates summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.q-rates table {
+  font-size: 12px;
+  margin-top: 6px;
+}
+.q-rates th,
+.q-rates td {
+  padding: 4px 6px;
+  text-align: right;
+}
+.q-rates th:first-child,
+.q-rates td:first-child {
+  text-align: left;
+}
+.q-actions {
+  display: grid;
+  gap: 8px;
+}
+.q-actions .btn {
+  width: 100%;
+  justify-content: center;
+}
+.q-actions .q-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.q-rev {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px;
+}
+
+/* read-only (sent, accepted …) */
+.q-locked .q-line-remove,
+.q-locked #qAddItem {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .q-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .q-side {
+    position: static;
+  }
+}
+
+/* phones and narrow windows: each line becomes a small card */
+@media (max-width: 820px) {
+  .q-line.q-line-head {
+    display: none;
+  }
+  .q-line {
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .q-line > .q-line-item {
+    grid-column: 1 / -1;
+  }
+  .q-line-label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .q-line-amount {
+    text-align: left;
+  }
+}

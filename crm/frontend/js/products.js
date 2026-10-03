@@ -263,6 +263,8 @@ function openModal(id) {
     document.getElementById("pQuantity").value = product.quantity ?? "";
     document.getElementById("pGst").value = product.gstPercentage ?? product.gst ?? 0;
     document.getElementById("pDescription").value = product.description || "";
+    document.getElementById("pHsn").value = product.hsnSac || "";
+    document.getElementById("pUnit").value = product.unit || "";
     deleteBtn.style.display = "inline-flex";
   } else {
     document.getElementById("modalTitle").textContent = "New Product";
@@ -345,6 +347,8 @@ productForm.addEventListener("submit", async (e) => {
     quantity: document.getElementById("pQuantity").value,
     gst: document.getElementById("pGst").value || "0",
     description: document.getElementById("pDescription").value.trim(),
+    hsnSac: document.getElementById("pHsn").value.trim(),
+    unit: document.getElementById("pUnit").value.trim(),
   };
   if (!data.name) {
     showToast("Product name is required.", "error");

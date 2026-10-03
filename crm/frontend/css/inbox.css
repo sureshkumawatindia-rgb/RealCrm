@@ -1010,3 +1010,18 @@
     display: none;
   }
 }
+
+/* quotations in the contact panel (Phase 5) */
+a.ctx-link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+a.ctx-link:hover {
+  background: var(--brand-light);
+}
+.ctx-new-quote {
+  margin-top: 8px;
+  width: 100%;
+  justify-content: center;
+}
