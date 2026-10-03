@@ -6,8 +6,7 @@ const {
   LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, DOCUMENT_CATEGORIES,
-  CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES,
-  SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
+  CAMPAIGN_TYPES, CAMPAIGN_STATUSES,
 } = require('../constants/crm');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
@@ -125,22 +124,6 @@ const campaignFields = {
   ownerId: optionalId,
 };
 
-// Enrollment counts are never accepted from the browser (the server counts them). Workflows
-// have their own validators (validators/automation.js).
-const sequenceFields = {
-  name: Joi.string().trim().min(1).max(200),
-  targetType: Joi.string().valid(...SEQUENCE_TARGETS),
-  status: Joi.string().valid(...AUTOMATION_STATUSES),
-  steps: Joi.array().items(Joi.object({
-    day: Joi.number().integer().min(0).max(365).required(),
-    type: Joi.string().valid(...SEQUENCE_STEP_TYPES).required(),
-    note: text(300),
-  })).max(30),
-  ownerId: optionalId,
-};
-
-const automationList = Joi.object({ ...listBase, status: Joi.string().valid(...AUTOMATION_STATUSES), ownerId: objectId });
-
 const leadContact = {
   name: Joi.string().trim().min(1).max(200),
   email: contactFields.email,
@@ -251,10 +234,6 @@ module.exports = {
     startTo: calendarDate,
   }),
 
-
-  sequenceCreate: Joi.object({ ...sequenceFields, name: sequenceFields.name.required() }),
-  sequencePatch: Joi.object(sequenceFields).min(1),
-  sequenceList: automationList,
 
   documentCreate: Joi.object({ ...documentFields, name: documentFields.name.required() }),
   // May be empty when only a new file is sent.

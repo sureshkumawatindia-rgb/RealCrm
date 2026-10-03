@@ -2,9 +2,6 @@ const AutomationRun = require('../../models/AutomationRun');
 const Contact = require('../../models/Contact');
 const Conversation = require('../../models/Conversation');
 const Lead = require('../../models/Lead');
-const Order = require('../../models/Order');
-const Organization = require('../../models/Organization');
-const OrganizationMember = require('../../models/OrganizationMember');
 const Quotation = require('../../models/Quotation');
 const Task = require('../../models/Task');
 const Workflow = require('../../models/Workflow');
@@ -12,9 +9,10 @@ const bus = require('../../realtime/bus');
 const logger = require('../../config/logger');
 const { indiaDate } = require('../../utils/dates');
 const { businessHoursOf, isOpen } = require('../../utils/businessHours');
-const { OPEN_STAGES } = require('../../constants/crm');
 const { TRIGGERS, MAX_CHAIN } = require('../../constants/automation');
 const { ACTIONS } = require('./actions');
+const { loadContext, leadOfContact, systemReq } = require('./context');
+const sequences = require('./sequences');
 
 // The automation engine (Phase 6). Business events (services call automation/events.emit)
 // become "automation.event" jobs; each Active workflow whose trigger and conditions fit starts
@@ -75,26 +73,6 @@ function conditionsMatch(conditions = [], ctx) {
   });
 }
 
-// --- context: the records a run is about, loaded fresh -----------------------------------
-async function loadContext({ organizationId, subject = {}, event = {} }) {
-  const byId = (Model, id) => (id ? Model.findOne({ _id: id, organizationId }) : null);
-  const [lead, order, quotation, task, conversation, organization] = await Promise.all([
-    byId(Lead, subject.leadId), byId(Order, subject.orderId), byId(Quotation, subject.quotationId), byId(Task, subject.taskId),
-    byId(Conversation, subject.conversationId), Organization.findById(organizationId),
-  ]);
-  const contactId = subject.contactId || lead?.contactId || order?.contactId || quotation?.contactId || conversation?.contactId;
-  const contact = contactId ? await Contact.findOne({ _id: contactId, organizationId }) : null;
-  const owner = lead?.ownerId ? await OrganizationMember.findById(lead.ownerId).populate('userId', 'name') : null;
-  return { organization, lead, contact, order, quotation, task, conversation, event, ownerName: owner?.displayName || owner?.userId?.name || '' };
-}
-
-// The newest open lead of a customer (else their newest lead).
-async function leadOfContact(organizationId, contactId) {
-  if (!contactId) return null;
-  return (await Lead.findOne({ organizationId, contactId, stage: { $in: OPEN_STAGES } }).sort({ createdAt: -1 }))
-    || Lead.findOne({ organizationId, contactId }).sort({ createdAt: -1 });
-}
-
 async function subjectOf(event) {
   const ids = (keys) => Object.fromEntries(keys.filter((key) => event[key]).map((key) => [key, String(event[key])]));
   const subject = ids(['leadId', 'contactId', 'conversationId', 'orderId', 'quotationId', 'taskId']);
@@ -138,19 +116,6 @@ async function finish(run, status, error = '') {
   });
   await run.save();
   if (status === 'done' || status === 'failed') await Workflow.updateOne({ _id: run.workflowId }, { $inc: { [`stats.${status}`]: 1 } });
-}
-
-// The request-like object actions use to change records as "the automation".
-function systemReq(run, workflow) {
-  return {
-    tenant: { organizationId: run.organizationId },
-    member: { _id: undefined, role: 'owner', modules: [], permissions: [], status: 'active' },
-    user: { _id: undefined, name: `Automation "${workflow.name}"` },
-    automation: { runId: run._id, chain: [...run.chain.map(String), String(workflow._id)] },
-    id: `automation:${run._id}`,
-    ip: '',
-    get: () => '',
-  };
 }
 
 const waitMs = ({ amount = 1, unit = 'hours' }) => Number(amount) * ({ minutes: 60 * 1000, hours: HOUR, days: DAY }[unit] || HOUR);
@@ -201,6 +166,9 @@ async function runSteps(queue, { runId }, job) {
 
 // --- events ------------------------------------------------------------------------------
 async function handleEvent(queue, event) {
+  // First the sequences this event ends (a reply, a won or lost lead), so a workflow that
+  // enrolls on this same message starts the customer afresh.
+  await sequences.handleEvent(event);
   const workflows = await Workflow.find({ organizationId: event.organizationId, status: 'Active', 'trigger.type': event.type });
   if (!workflows.length) return;
   const chain = (event.chain || []).map(String);
@@ -310,4 +278,4 @@ function register(queue) {
 }
 const queue = () => queueRef;
 
-module.exports = { register, queue, JOBS, triggerMatches, conditionsMatch, handleEvent, runSteps, scan, startRun, runByHand, finish, TIME_TRIGGERS };
+module.exports = { register, queue, JOBS, triggerMatches, conditionsMatch, handleEvent, runSteps, scan, startRun, runByHand, finish, TIME_TRIGGERS, istTime };

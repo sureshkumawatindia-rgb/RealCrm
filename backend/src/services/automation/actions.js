@@ -20,6 +20,8 @@ const leadService = require('../leadService');
 // What each workflow step does (Phase 6). Every action gets the run's context (the lead, the
 // customer, the order … loaded fresh), returns { status: done | skipped, detail } for the run
 // log, and throws for a failure (a 4xx httpError is final; anything else is retried by the job).
+// `workflow` is the workflow, or a sequence that runs its steps through here (Phase 6B):
+// { _id, organizationId, name, kind: "workflow" | "sequence", actorName? }.
 // Texts may use {{contact.name}}, {{lead.title}}, {{owner.name}}, {{order.number}} … (fill()).
 const done = (detail) => ({ status: 'done', detail });
 const skipped = (detail) => ({ status: 'skipped', detail });
@@ -57,7 +59,7 @@ function resolveVariables(variables = {}, ctx) {
 
 async function activity(ctx, workflow, type, text) {
   if (!ctx.lead) return;
-  await LeadActivity.create({ organizationId: ctx.lead.organizationId, leadId: ctx.lead._id, contactId: ctx.lead.contactId, type, text, actorName: `Automation "${workflow.name}"` });
+  await LeadActivity.create({ organizationId: ctx.lead.organizationId, leadId: ctx.lead._id, contactId: ctx.lead.contactId, type, text, actorName: actorOf(workflow) });
 }
 
 // The customer's latest chat (any number).
@@ -68,6 +70,8 @@ async function latestChat(ctx) {
 }
 
 const memberName = (member) => member?.displayName || member?.userId?.name || 'a teammate';
+const actorOf = (workflow) => workflow.actorName || `Automation "${workflow.name}"`;
+const automationOf = (workflow) => ({ kind: workflow.kind || 'workflow', ruleId: workflow._id });
 
 const ACTIONS = {
   async 'whatsapp.text'({ ctx, params, workflow }) {
@@ -77,7 +81,7 @@ const ACTIONS = {
     if (!conversations.serviceWindow(conversation).open) return skipped('The customer has not written in the last 24 hours, so only a template may go.');
     const text = fill(params.text, ctx).trim();
     if (!text) return skipped('The message came out empty.');
-    const message = await conversations.sendTextAutomatically({ conversation, text, automation: { kind: 'workflow', ruleId: workflow._id } });
+    const message = await conversations.sendTextAutomatically({ conversation, text, automation: automationOf(workflow) });
     if (message.status === 'failed') throw httpError(422, 'WHATSAPP_REFUSED', `WhatsApp refused it: ${message.error?.message || 'unknown reason'}`);
     await activity(ctx, workflow, 'Automation', `WhatsApp message sent: "${text.slice(0, 120)}"`);
     return done(`Sent "${text.slice(0, 80)}"`);
@@ -92,8 +96,12 @@ const ACTIONS = {
     if (template.category === 'MARKETING' && ctx.contact.consent?.marketing === 'opted_out') return skipped('The customer opted out of marketing messages.');
     const account = await WhatsAppAccount.findOne({ _id: template.whatsappAccountId, organizationId: workflow.organizationId });
     if (!account) throw httpError(422, 'NUMBER_REMOVED', 'The template\'s WhatsApp number was removed.');
+    // A value this customer does not have (no company, a lead without a title …): not sent.
+    const variables = resolveVariables(params.variables, ctx);
+    const missing = Object.values(variables).flatMap((values) => Object.entries(values).filter(([, value]) => !String(value).trim()).map(([name]) => `{{${name}}}`));
+    if (missing.length) return skipped(`Not sent: this customer has no value for ${missing.join(', ')} in "${template.name}".`);
     const conversation = await conversations.ensureConversation({ organizationId: workflow.organizationId, contactId: ctx.contact._id, accountId: account._id, assigneeId: ctx.lead?.ownerId || null });
-    const message = await conversations.sendTemplateAutomatically({ conversation, template, variables: resolveVariables(params.variables, ctx), automation: { kind: 'workflow', ruleId: workflow._id } });
+    const message = await conversations.sendTemplateAutomatically({ conversation, template, variables, automation: automationOf(workflow) });
     if (message.status === 'failed') throw httpError(422, 'WHATSAPP_REFUSED', `WhatsApp refused it: ${message.error?.message || 'unknown reason'}`);
     await activity(ctx, workflow, 'Automation', `WhatsApp template "${template.name}" sent`);
     return done(`Sent template "${template.name}"`);
@@ -112,7 +120,7 @@ const ACTIONS = {
       const assigned = await Conversation.findOneAndUpdate({ _id: chat._id, assigneeId: null }, { $set: { assigneeId: member._id } }, { returnDocument: 'after' });
       if (assigned) bus.emit('conversation:updated', { organizationId: workflow.organizationId, conversation: assigned, previousAssigneeId: null });
     }
-    await activity(ctx, workflow, 'Assigned', `Assigned to ${memberName(member)} by automation "${workflow.name}"`);
+    await activity(ctx, workflow, 'Assigned', `Assigned to ${memberName(member)} by ${actorOf(workflow)}`);
     return done(`Given to ${memberName(member)}`);
   },
 
@@ -151,7 +159,7 @@ const ACTIONS = {
     const task = await Task.create({
       organizationId: workflow.organizationId,
       title: fill(params.title, ctx).slice(0, 300) || 'Follow up',
-      description: [fill(params.description || '', ctx), `Created by automation "${workflow.name}"`].filter(Boolean).join('\n\n'),
+      description: [fill(params.description || '', ctx), `Created by ${actorOf(workflow)}`].filter(Boolean).join('\n\n'),
       assigneeId,
       dueDate: indiaDate(Number(params.dueInDays) || 0),
       priority: params.priority || 'Medium',
@@ -179,7 +187,7 @@ const ACTIONS = {
       title: fill(params.message, ctx).slice(0, 200) || workflow.name,
       body: [ctx.contact?.name, ctx.lead && `${ctx.lead.title} · ${ctx.lead.stage}`].filter(Boolean).join(' — '),
       link,
-      source: `workflow:${workflow._id}`,
+      source: `${workflow.kind || 'workflow'}:${workflow._id}`,
     });
     if (!sent.length) return skipped('Nobody active to notify.');
     return done(`Notified ${sent.length} ${sent.length === 1 ? 'person' : 'people'}`);
@@ -201,6 +209,20 @@ const ACTIONS = {
     };
     const { status } = await callWebhook(params.url, payload, workflow.webhookSecret);
     return done(`${new URL(params.url).host} answered ${status}`);
+  },
+
+  // Starts a follow-up sequence for the customer (and their lead); see automation/sequences.js.
+  async 'sequence.enroll'({ ctx, params, workflow, run }) {
+    if (!ctx.contact) return skipped('There is no customer to add.');
+    // Loaded here: sequences.js runs its steps through this file.
+    const { enroll } = require('./sequences'); // eslint-disable-line global-require
+    const result = await enroll({
+      organizationId: workflow.organizationId, sequenceId: params.sequenceId, contact: ctx.contact, lead: ctx.lead,
+      by: { kind: 'workflow', workflowId: workflow._id, name: actorOf(workflow) }, chain: [...(run.chain || []), workflow._id],
+    });
+    if (!result.enrollment) return skipped(result.reason);
+    await activity(ctx, workflow, 'Automation', `Added to the sequence "${result.sequence.name}"`);
+    return done(`Added to "${result.sequence.name}"`);
   },
 };
 

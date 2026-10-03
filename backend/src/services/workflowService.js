@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const AutomationRun = require('../models/AutomationRun');
 const MessageTemplate = require('../models/MessageTemplate');
 const OrganizationMember = require('../models/OrganizationMember');
+const Sequence = require('../models/Sequence');
 const Workflow = require('../models/Workflow');
 const queue = require('../jobs/queue');
 const httpError = require('../utils/httpError');
@@ -10,7 +11,7 @@ const { toPage, paginationMeta } = require('../utils/pagination');
 const { assertPublicHttps } = require('../utils/safeWebhook');
 const { isManager } = require('../constants/permissions');
 const { LEAD_STAGES, LEAD_SOURCES, ORDER_STAGES } = require('../constants/crm');
-const { TRIGGERS, CONDITION_FIELDS, ACTIONS, RUN_STATUSES } = require('../constants/automation');
+const { TRIGGERS, CONDITION_FIELDS, ACTIONS, RUN_STATUSES, SEQUENCE_STEP_TYPES } = require('../constants/automation');
 const { createOwnedRecordService } = require('./ownedRecordService');
 const { visibilityFilter } = require('./access');
 const templateService = require('./templateService');
@@ -132,6 +133,9 @@ async function checkReferences(req, { conditions = [], steps = [] }) {
         throw invalid(`${field}.url`, error.message, 'WEBHOOK_URL');
       }
     }
+    if (step.type === 'sequence.enroll' && !(await Sequence.exists({ _id: params.sequenceId, organizationId: req.tenant.organizationId, deletedAt: null }))) {
+      throw invalid(`${field}.sequenceId`, 'Pick one of your sequences.', 'INVALID_SEQUENCE');
+    }
   }
 }
 
@@ -235,6 +239,7 @@ function meta() {
     triggers: Object.entries(TRIGGERS).map(([type, { label, kind }]) => ({ type, label, kind })),
     conditions: Object.entries(CONDITION_FIELDS).map(([field, { label, ops }]) => ({ field, label, ops })),
     actions: Object.entries(ACTIONS).map(([type, label]) => ({ type, label })),
+    sequenceSteps: SEQUENCE_STEP_TYPES,
     variableValues: VARIABLE_VALUES,
     placeholders: ['contact.name', 'contact.company', 'contact.city', 'contact.phone', 'lead.title', 'lead.stage', 'lead.source', 'owner.name', 'org.name',
       'order.number', 'order.stage', 'order.total', 'quotation.number', 'quotation.total', 'task.title', 'task.due', 'message.text'],
@@ -258,6 +263,7 @@ module.exports = {
   getRun: async (req, id) => serializeRun(await findRun(req, id)),
   cancelRun,
   meta,
+  checkReferences,
   serializeWorkflow,
   serializeRun,
 };

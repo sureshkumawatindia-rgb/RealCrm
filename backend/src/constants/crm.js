@@ -50,6 +50,7 @@ const WORKFLOW_TRIGGERS = Object.freeze([
   'Deal Stage Changed to Lost', 'Task Overdue', 'Customer Added',
 ]);
 const WORKFLOW_ACTIONS = Object.freeze(['Create Task', 'Send Email (simulated)', 'Notify Agent', 'Update Status', 'Add to Sequence']);
+// The Phase 2 sequence vocabulary, kept to convert old data (migration 004, the importer).
 const SEQUENCE_TARGETS = Object.freeze(['Leads', 'Deals', 'Customers']);
 const SEQUENCE_STEP_TYPES = Object.freeze(['Email', 'Call', 'Task', 'Wait']);
 

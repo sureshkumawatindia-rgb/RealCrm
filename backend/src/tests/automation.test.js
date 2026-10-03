@@ -1,9 +1,6 @@
 jest.mock('../integrations/google/idToken', () => require('./helpers/fakeGoogle'));
 
-const { indiaDate } = require('../utils/dates');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
-
-const memberId = async (token, email) => (await api().get('/api/v1/members').set(bearer(token))).body.data.find((m) => m.email === email).id;
 
 describe('Campaigns', () => {
   let owner;
@@ -46,58 +43,5 @@ describe('Campaigns', () => {
 
     const stranger = await login('campaigns-stranger@example.com');
     expect((await api().get('/api/v1/campaigns').set(bearer(stranger.token))).body.data).toEqual([]);
-  });
-});
-
-describe('Sequences', () => {
-  let owner;
-  let ownerMemberId;
-  beforeAll(async () => {
-    owner = await login('automation-owner@example.com', { name: 'Arjun' });
-    ownerMemberId = await memberId(owner.token, 'automation-owner@example.com');
-  });
-
-  it('Enroll schedules the first call or task step and counts the enrollment', async () => {
-    const sequence = (await api().post('/api/v1/sequences').set(bearer(owner.token)).send({
-      name: 'Quote follow-up', targetType: 'Deals',
-      steps: [{ day: 5, type: 'Task', note: 'Send revised quote' }, { day: 0, type: 'Email', note: 'Thanks' }, { day: 2, type: 'Call', note: '' }],
-    })).body.data;
-    expect(sequence).toMatchObject({ targetType: 'Deals', status: 'Active', enrolledCount: 0 });
-
-    const enrolled = await api().post(`/api/v1/sequences/${sequence.id}/enroll`).set(bearer(owner.token));
-    expect(enrolled.status).toBe(200);
-    expect(enrolled.body.data).toMatchObject({ firstTaskDay: 2, sequence: { enrolledCount: 1 } });
-    expect(enrolled.body.data.task).toMatchObject({ title: 'Quote follow-up — Day 2 touchpoint', dueDate: indiaDate(2), origin: 'automation' });
-    expect(enrolled.body.data.simulated.sort()).toEqual(['Email', 'Task']);
-
-    const emailsOnly = (await api().post('/api/v1/sequences').set(bearer(owner.token)).send({ name: 'Newsletter', steps: [{ day: 0, type: 'Email' }] })).body.data;
-    const noTask = await api().post(`/api/v1/sequences/${emailsOnly.id}/enroll`).set(bearer(owner.token));
-    expect(noTask.body.data).toMatchObject({ task: null, sequence: { enrolledCount: 1 } });
-
-    expect((await api().post('/api/v1/sequences').set(bearer(owner.token)).send({ name: 'x', steps: [{ day: 400, type: 'Call' }] })).status).toBe(400);
-    expect((await api().post('/api/v1/sequences').set(bearer(owner.token)).send({ name: 'x', steps: [{ day: 1, type: 'Fax' }] })).status).toBe(400);
-  });
-
-  it('agents enroll only into their own sequences; automation alone does not allow writing tasks directly', async () => {
-    const agent = await inviteAndJoin(owner.token, 'automation-agent@example.com', { role: 'agent', modules: ['automation'] });
-    const agentId = await memberId(owner.token, 'automation-agent@example.com');
-    const mine = (await api().post('/api/v1/sequences').set(bearer(agent.token)).send({ name: 'Agent cadence', steps: [{ day: 1, type: 'Task', note: 'Agent task' }], ownerId: ownerMemberId })).body.data;
-    expect(mine.ownerId).toBe(agentId);
-    const enrolled = await api().post(`/api/v1/sequences/${mine.id}/enroll`).set(bearer(agent.token));
-    expect(enrolled.body.data.task.assigneeId).toBe(agentId);
-
-    const ownersSequence = (await api().get('/api/v1/sequences?q=Quote').set(bearer(owner.token))).body.data[0];
-    expect((await api().post(`/api/v1/sequences/${ownersSequence.id}/enroll`).set(bearer(agent.token))).status).toBe(404);
-    expect((await api().delete(`/api/v1/sequences/${mine.id}`).set(bearer(agent.token))).status).toBe(403);
-    expect((await api().post('/api/v1/tasks').set(bearer(agent.token)).send({ title: 'Direct' })).status).toBe(403);
-
-    await api().patch(`/api/v1/sequences/${mine.id}`).set(bearer(agent.token)).send({ status: 'Paused' });
-    const paused = await api().post(`/api/v1/sequences/${mine.id}/enroll`).set(bearer(agent.token));
-    expect(paused.status).toBe(409);
-    expect(paused.body.code).toBe('NOT_ACTIVE');
-
-    const stranger = await login('automation-stranger@example.com');
-    expect((await api().get('/api/v1/sequences').set(bearer(stranger.token))).body.data).toEqual([]);
-    expect((await api().post(`/api/v1/sequences/${mine.id}/enroll`).set(bearer(stranger.token))).status).toBe(404);
   });
 });

@@ -36,4 +36,19 @@ function isOpen(hours, date = new Date()) {
   return hours.days.includes(day) && minute >= minutesOf(hours.start) && minute < minutesOf(hours.end);
 }
 
-module.exports = { DEFAULT_BUSINESS_HOURS, businessHoursOf, isOpen, validTimeZone, minutesOf };
+// The moment the organization is next open (the date itself when open now): sequence steps due
+// at night wait for the morning. Without working days it is the date itself.
+function nextOpening(hours, date = new Date()) {
+  if (!hours.days?.length || isOpen(hours, date)) return date;
+  const { day, minute } = localClock(date, hours.timezone || DEFAULT_BUSINESS_HOURS.timezone);
+  const start = minutesOf(hours.start);
+  for (let ahead = 0; ahead <= 7; ahead += 1) {
+    if (!hours.days.includes((day + ahead) % 7) || (ahead === 0 && minute >= start)) continue;
+    const opening = new Date(date.getTime() + (ahead * 1440 + start - minute) * 60 * 1000);
+    opening.setSeconds(0, 0);
+    return opening;
+  }
+  return date;
+}
+
+module.exports = { DEFAULT_BUSINESS_HOURS, businessHoursOf, isOpen, nextOpening, validTimeZone, minutesOf };

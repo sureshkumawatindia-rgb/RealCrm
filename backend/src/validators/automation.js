@@ -2,7 +2,7 @@ const Joi = require('joi');
 const { objectId } = require('./common');
 const { paginationQuery } = require('../utils/pagination');
 const { LEAD_STAGES, LEAD_SOURCES, ORDER_STAGES, AUTOMATION_STATUSES, TASK_PRIORITIES } = require('../constants/crm');
-const { TRIGGER_TYPES, CONDITION_FIELDS, ACTION_TYPES, RUN_STATUSES } = require('../constants/automation');
+const { TRIGGER_TYPES, CONDITION_FIELDS, ACTION_TYPES, RUN_STATUSES, SEQUENCE_STEP_TYPES, ENROLLMENT_STATUSES } = require('../constants/automation');
 
 // Workflows of the automation engine (Phase 6): the trigger, conditions and steps are checked
 // field by field for their type, so the engine only ever sees settings it understands.
@@ -52,12 +52,13 @@ const STEP_PARAMS = {
   }),
   wait: Joi.object({ amount: Joi.number().integer().min(1).max(999).required().label('Wait time'), unit: Joi.string().valid('minutes', 'hours', 'days').default('hours') })
     .custom((value, helpers) => (value.amount * { minutes: 1, hours: 60, days: 1440 }[value.unit] <= 90 * 1440 ? value : helpers.message('A wait can be at most 90 days'))),
+  'sequence.enroll': Joi.object({ sequenceId: objectId.required().label('Sequence') }),
   'webhook.call': Joi.object({ url: Joi.string().trim().max(500).uri({ scheme: ['https'] }).required().label('Webhook address').messages({ 'string.uriCustomScheme': 'Webhook addresses must start with https://' }) }),
 };
 
 const STEP_NAMES = {
   'whatsapp.text': 'WhatsApp message', 'whatsapp.template': 'WhatsApp template', assign: 'Give the lead', 'tag.add': 'Add tag', 'tag.remove': 'Remove tag',
-  'stage.change': 'Move stage', 'task.create': 'Create task', 'agent.notify': 'Notify', wait: 'Wait', 'webhook.call': 'Webhook',
+  'stage.change': 'Move stage', 'task.create': 'Create task', 'agent.notify': 'Notify', wait: 'Wait', 'webhook.call': 'Webhook', 'sequence.enroll': 'Add to sequence',
 };
 
 // Validates `params` with the schema of the item's type (and gives back the cleaned value).
@@ -96,11 +97,33 @@ const fields = {
   steps: Joi.array().items(step).min(1).max(20),
 };
 
+// Sequences (Phase 6B): the same step settings, each on a day after enrolling.
+const sequenceStep = Joi.object({
+  day: Joi.number().integer().min(0).max(365).required().label('Day'),
+  type: Joi.string().valid(...SEQUENCE_STEP_TYPES).required().messages({ 'any.only': 'A sequence step cannot wait, call a webhook or start a sequence (the days are the waits).' }),
+  params: Joi.object().unknown(true).default({}),
+}).custom(byType(STEP_PARAMS, 'Step'));
+const sequenceFields = {
+  name: Joi.string().trim().min(1).max(200),
+  status: Joi.string().valid(...AUTOMATION_STATUSES),
+  ownerId: objectId.allow(null),
+  steps: Joi.array().items(sequenceStep).min(1).max(30),
+  stopOnReply: Joi.boolean(),
+  stopOnClose: Joi.boolean(),
+  workingHoursOnly: Joi.boolean(),
+};
+const automationList = Joi.object({ ...paginationQuery, q: Joi.string().trim().max(100).allow(''), status: Joi.string().valid(...AUTOMATION_STATUSES), ownerId: objectId, sort: Joi.string().max(40) });
+
 module.exports = {
   workflowCreate: Joi.object({ ...fields, name: fields.name.required(), trigger: trigger.required(), steps: fields.steps.required() }),
   workflowPatch: Joi.object(fields).min(1),
-  workflowList: Joi.object({ ...paginationQuery, q: Joi.string().trim().max(100).allow(''), status: Joi.string().valid(...AUTOMATION_STATUSES), ownerId: objectId, sort: Joi.string().max(40) }),
+  workflowList: automationList,
   workflowRun: Joi.object({ leadId: objectId.required() }),
   runList: Joi.object({ ...paginationQuery, workflowId: objectId, leadId: objectId, status: Joi.string().valid(...RUN_STATUSES) }),
+  sequenceCreate: Joi.object({ ...sequenceFields, name: sequenceFields.name.required(), steps: sequenceFields.steps.required() }),
+  sequencePatch: Joi.object(sequenceFields).min(1),
+  sequenceList: automationList,
+  sequenceEnroll: Joi.object({ leadId: objectId, contactId: objectId }).xor('leadId', 'contactId'),
+  enrollmentList: Joi.object({ ...paginationQuery, sequenceId: objectId, contactId: objectId, leadId: objectId, status: Joi.string().valid(...ENROLLMENT_STATUSES) }),
   notificationList: Joi.object({ unread: Joi.boolean().default(false), limit: Joi.number().integer().min(1).max(50).default(20) }),
 };

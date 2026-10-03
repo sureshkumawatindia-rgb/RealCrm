@@ -23,7 +23,7 @@ function resourceRouter(service, label, { view, write, remove, list, create, pat
 }
 
 // Tasks: read by every page that shows them; created from Tasks and the Deals follow-up panel.
-// Sales Automation runs create their tasks on the server (automationService).
+// Automation tasks are created on the server by workflow and sequence steps (Phase 6).
 const taskRoutes = resourceRouter(taskService, 'Task', {
   view: taskService.MODULES,
   write: ['tasks', 'deals'],

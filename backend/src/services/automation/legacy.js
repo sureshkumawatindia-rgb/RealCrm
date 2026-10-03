@@ -47,4 +47,23 @@ function convertLegacyWorkflow({ trigger, actions = [] }) {
   return { trigger: { type, params }, steps, notes };
 }
 
-module.exports = { convertLegacyWorkflow, TRIGGER_MAP };
+// Phase 2 sequences ("day 0 email, day 2 call …") in the Phase 6B shape: calls and tasks become
+// task steps on the same day; emails cannot be sent (the CRM sends WhatsApp) and are listed in
+// the notes; waits are not needed (the days are the waits). "Applies to" is dropped: anyone can
+// be enrolled.
+function convertLegacySequence({ steps = [] }) {
+  const notes = [];
+  const out = [];
+  const ordered = [...steps].filter((s) => s && Number.isInteger(Number(s.day))).sort((a, b) => Number(a.day) - Number(b.day));
+  for (const step of ordered) {
+    const day = Math.min(Math.max(Number(step.day), 0), 365);
+    const note = String(step.note || '').trim();
+    if (step.type === 'Call') out.push({ day, type: 'task.create', params: { title: (note || 'Call {{contact.name}}').slice(0, 300), dueInDays: 0, assignTo: 'owner', priority: 'Medium' } });
+    else if (step.type === 'Task') out.push({ day, type: 'task.create', params: { title: (note || 'Follow up with {{contact.name}}').slice(0, 300), dueInDays: 0, assignTo: 'owner', priority: 'Medium' } });
+    else if (step.type === 'Email') notes.push(`Day ${day} email${note ? ` "${note}"` : ''} was left out: the CRM sends WhatsApp, so add a WhatsApp template step.`);
+    else if (step.type !== 'Wait' && step.type) notes.push(`"${step.type}" on day ${day} was left out.`);
+  }
+  return { steps: out, notes };
+}
+
+module.exports = { convertLegacyWorkflow, convertLegacySequence, TRIGGER_MAP };

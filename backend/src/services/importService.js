@@ -30,10 +30,10 @@ const {
   STAGE_PROBABILITY, TASK_STATUSES, TASK_PRIORITIES, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START,
   DOCUMENT_CATEGORIES, CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
-  SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
+  SEQUENCE_STEP_TYPES,
 } = require('../constants/crm');
 const { buildImported, nextNumber } = require('./quotationService');
-const { convertLegacyWorkflow } = require('./automation/legacy');
+const { convertLegacyWorkflow, convertLegacySequence } = require('./automation/legacy');
 
 // "Move my browser data to server": imports the localStorage keys of the old browser-only CRM.
 // - dryRun runs the same mapping without writing and reports what would happen.
@@ -806,10 +806,14 @@ class ImportRun {
           .filter((step) => SEQUENCE_STEP_TYPES.includes(step.type) && nonNegativeInt(step.day) !== undefined && nonNegativeInt(step.day) <= 365)
           .slice(0, 30);
         if (known.length < steps.length) this.unresolved(`Sequence "${title}": ${steps.length - known.length} unknown step(s) were left out`);
+        // In the Phase 6B shape, and paused like the sequences migration 004 moved (D32).
+        const converted = convertLegacySequence({ steps: known.map((step) => ({ day: nonNegativeInt(step.day), type: step.type, note: str(step.note, 300) })) });
+        if (converted.notes.length) this.unresolved(`Sequence "${title}": ${converted.notes.join(' ')}`);
         return {
-          targetType: SEQUENCE_TARGETS.includes(item.targetType) ? item.targetType : 'Leads',
-          steps: known.map((step) => ({ day: nonNegativeInt(step.day), type: step.type, note: str(step.note, 300) })),
-          enrolledCount: nonNegativeInt(item.enrolledCount) || 0,
+          steps: converted.steps,
+          notes: converted.notes,
+          ...(item.status === 'Active' && { status: 'Paused' }),
+          stats: { enrolled: nonNegativeInt(item.enrolledCount) || 0 },
         };
       },
     });

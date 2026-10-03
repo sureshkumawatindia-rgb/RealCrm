@@ -44,7 +44,7 @@ describe('Phase 2 acceptance: one organization, one set of data', () => {
     created.workflows = await post('/workflows', {
       name: 'Welcome', trigger: { type: 'lead.created' }, steps: [{ type: 'task.create', params: { title: 'Call {{contact.name}}' } }, { type: 'webhook.call', params: { url: 'https://93.184.216.34/hook' } }],
     });
-    created.sequences = await post('/sequences', { name: 'Follow-up', steps: [{ day: 0, type: 'Call' }] });
+    created.sequences = await post('/sequences', { name: 'Follow-up', steps: [{ day: 0, type: 'task.create', params: { title: 'Call {{contact.name}}' } }] });
   });
 
   const list = (user, resource) => api().get(`/api/v1/${resource}?limit=100`).set(bearer(user.token));
@@ -80,6 +80,8 @@ describe('Phase 2 acceptance: one organization, one set of data', () => {
       api().get(`/api/v1/documents/${created.documents.id}/download`),
       api().post(`/api/v1/workflows/${created.workflows.id}/run`).send({ leadId: created.leads.id }),
       api().get(`/api/v1/workflows/${created.workflows.id}/runs`),
+      api().post(`/api/v1/sequences/${created.sequences.id}/enroll`).send({ leadId: created.leads.id }),
+      api().get(`/api/v1/sequences/${created.sequences.id}/enrollments`),
       api().patch(`/api/v1/tasks/${created.tasks.id}`).send({ title: 'Hijacked' }),
       api().delete(`/api/v1/campaigns/${created.campaigns.id}`),
     ];

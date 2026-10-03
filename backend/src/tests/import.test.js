@@ -211,8 +211,10 @@ describe('POST /imports/localstorage', () => {
     expect(welcome.steps.map((s) => s.toObject())).toEqual([{ type: 'task.create', params: { title: 'Call within 1 hour', dueInDays: 1, assignTo: 'owner' } }]);
     expect(unresolved.join(' ')).toMatch(/Welcome.*1 unknown action/);
     const cadence = await Sequence.findOne({ legacyIds: 'sq_1' });
-    expect(cadence).toMatchObject({ status: 'Paused', enrolledCount: 3 });
-    expect(cadence.steps.map((st) => `${st.day}:${st.type}`)).toEqual(['0:Email', '2:Call']);
+    // Phase 6B shape: the call is a task on day 2, the email a note.
+    expect(cadence).toMatchObject({ status: 'Paused', stats: { enrolled: 3 }, schemaVersion: 2 });
+    expect(cadence.steps.map((st) => `${st.day}:${st.type}`)).toEqual(['2:task.create']);
+    expect(cadence.notes.join(' ')).toMatch(/Day 0 email "Hello" was left out/);
   });
 
   it('running the import again creates nothing new, and does not bring back deleted records', async () => {

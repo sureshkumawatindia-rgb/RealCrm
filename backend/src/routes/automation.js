@@ -1,19 +1,17 @@
 const express = require('express');
-const automationService = require('../services/automationService');
 const workflowService = require('../services/workflowService');
+const sequenceService = require('../services/sequenceService');
 const notificationService = require('../services/notificationService');
 const { authenticate } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/permissions');
 const idempotency = require('../middleware/idempotency');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
-const schemas = require('../validators/crm');
 const automationSchemas = require('../validators/automation');
-const { resourceRouter } = require('./workItems');
 
-// Sales Automation. Workflows run on the automation engine (Phase 6); a test run accepts an
-// Idempotency-Key, so a double click never starts it twice. Sequences stay as in Phase 2 until
-// Phase 6B. The bell (notifications) belongs to every member.
+// Sales Automation. Workflows run on the automation engine (Phase 6); sequences send follow-ups
+// per customer (Phase 6B). A test run and enrolling accept an Idempotency-Key, so a double click
+// never does it twice. The bell (notifications) belongs to every member.
 const can = (action) => requirePermission('automation', action);
 const byId = validate({ params: idParams });
 
@@ -64,12 +62,47 @@ runRoutes.post('/:id/cancel', can('edit'), byId, async (req, res) => {
   res.json({ success: true, data: await workflowService.cancelRun(req, req.valid.params.id), message: 'Run stopped' });
 });
 
-const sequenceRoutes = resourceRouter(automationService.sequences, 'Sequence', {
-  view: automationService.MODULES, write: ['automation'], remove: ['automation'],
-  list: schemas.sequenceList, create: schemas.sequenceCreate, patch: schemas.sequencePatch,
+const sequenceRoutes = express.Router();
+sequenceRoutes.use(authenticate);
+sequenceRoutes.get('/', can('view'), validate({ query: automationSchemas.sequenceList }), async (req, res) => {
+  const { items, pagination } = await sequenceService.list(req, req.valid.query);
+  res.json({ success: true, data: items, pagination });
 });
-sequenceRoutes.post('/:id/enroll', can('edit'), idempotency, byId, async (req, res) => {
-  res.json({ success: true, data: await automationService.enrollSequence(req, req.valid.params.id), message: 'Enrolled' });
+sequenceRoutes.post('/', can('create'), validate({ body: automationSchemas.sequenceCreate }), async (req, res) => {
+  res.status(201).json({ success: true, data: await sequenceService.create(req, req.body), message: 'Sequence created' });
+});
+sequenceRoutes.get('/:id', can('view'), byId, async (req, res) => {
+  res.json({ success: true, data: await sequenceService.get(req, req.valid.params.id) });
+});
+sequenceRoutes.patch('/:id', can('edit'), validate({ params: idParams, body: automationSchemas.sequencePatch }), async (req, res) => {
+  res.json({ success: true, data: await sequenceService.update(req, req.valid.params.id, req.body), message: 'Sequence updated' });
+});
+sequenceRoutes.delete('/:id', can('delete'), byId, async (req, res) => {
+  await sequenceService.remove(req, req.valid.params.id);
+  res.json({ success: true, data: { deleted: true }, message: 'Sequence deleted' });
+});
+sequenceRoutes.post('/:id/enroll', can('edit'), idempotency, validate({ params: idParams, body: automationSchemas.sequenceEnroll }), async (req, res) => {
+  const enrollment = await sequenceService.enroll(req, req.valid.params.id, req.body);
+  res.status(201).json({ success: true, data: enrollment, message: `${enrollment.label || 'The customer'} was added to the sequence` });
+});
+sequenceRoutes.get('/:id/enrollments', can('view'), validate({ params: idParams, query: automationSchemas.enrollmentList }), async (req, res) => {
+  await sequenceService.findVisible(req, req.valid.params.id);
+  const { items, pagination } = await sequenceService.listEnrollments(req, { ...req.valid.query, sequenceId: req.valid.params.id });
+  res.json({ success: true, data: items, pagination });
+});
+
+// Who is (or was) in a sequence.
+const enrollmentRoutes = express.Router();
+enrollmentRoutes.use(authenticate);
+enrollmentRoutes.get('/', can('view'), validate({ query: automationSchemas.enrollmentList }), async (req, res) => {
+  const { items, pagination } = await sequenceService.listEnrollments(req, req.valid.query);
+  res.json({ success: true, data: items, pagination });
+});
+enrollmentRoutes.get('/:id', can('view'), byId, async (req, res) => {
+  res.json({ success: true, data: await sequenceService.getEnrollment(req, req.valid.params.id) });
+});
+enrollmentRoutes.post('/:id/stop', can('edit'), byId, async (req, res) => {
+  res.json({ success: true, data: await sequenceService.stopEnrollment(req, req.valid.params.id), message: 'Stopped' });
 });
 
 // The bell (D31): each member's own notifications; no module permission needed.
@@ -85,4 +118,4 @@ notificationRoutes.post('/:id/read', byId, async (req, res) => {
   res.json({ success: true, data: await notificationService.markRead(req, req.valid.params.id) });
 });
 
-module.exports = { workflowRoutes, runRoutes, sequenceRoutes, notificationRoutes };
+module.exports = { workflowRoutes, runRoutes, sequenceRoutes, enrollmentRoutes, notificationRoutes };

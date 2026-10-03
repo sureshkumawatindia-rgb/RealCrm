@@ -33,11 +33,18 @@ const ACTIONS = Object.freeze({
   'agent.notify': 'Notify someone in the CRM',
   wait: 'Wait',
   'webhook.call': 'Call a webhook',
+  'sequence.enroll': 'Add the customer to a sequence',
 });
 const ACTION_TYPES = Object.freeze(Object.keys(ACTIONS));
+
+// Sequences (Phase 6B): follow-ups per customer on day 0, 2, 5 … that stop when the customer
+// replies. Their steps are workflow actions without waits (the day is the wait), webhooks or
+// sequences.
+const SEQUENCE_STEP_TYPES = Object.freeze(['whatsapp.text', 'whatsapp.template', 'task.create', 'agent.notify', 'tag.add', 'tag.remove', 'stage.change', 'assign']);
+const ENROLLMENT_STATUSES = Object.freeze(['active', 'completed', 'stopped', 'failed']);
 
 const RUN_STATUSES = Object.freeze(['running', 'waiting', 'done', 'failed', 'skipped', 'cancelled']);
 // Events that automations cause may start other automations, but not endlessly.
 const MAX_CHAIN = 4;
 
-module.exports = { TRIGGERS, TRIGGER_TYPES, CONDITION_FIELDS, ACTIONS, ACTION_TYPES, RUN_STATUSES, MAX_CHAIN };
+module.exports = { TRIGGERS, TRIGGER_TYPES, CONDITION_FIELDS, ACTIONS, ACTION_TYPES, RUN_STATUSES, MAX_CHAIN, SEQUENCE_STEP_TYPES, ENROLLMENT_STATUSES };
