@@ -41,9 +41,13 @@ Send a WhatsApp message from your own phone to the business number. In the CRM t
 - **Files**: photos (JPG/PNG up to 5 MB), videos and audio (16 MB) and documents (PDF, Word, Excel, PowerPoint, TXT up to 100 MB) can be sent from the Inbox inside the 24-hour window. Received files are copied into the CRM's private document folder (`DOCUMENT_DIR`) at once, because WhatsApp keeps them only 7 days.
 - **Click-to-chat**: Settings → WhatsApp shows a `wa.me` link (optionally with a message already typed) and a QR code to print; customers who use it land in the Inbox.
 
+### Sending quotations
+
+Quotations → *Send on WhatsApp* sends the quotation PDF into the customer's chat. While the customer has written in the last 24 hours it goes as a document with a message (the online link included). After that WhatsApp allows only an approved template: make one in WhatsApp Manager with a **Document** header (Meta allows only PDFs there) and a body such as "Namaste {{1}}, please find our quotation {{2}} for {{3}} attached." (category *Utility*), wait for approval, then *Sync from Meta*. The CRM attaches the PDF to the header and fills {{1}} {{2}} {{3}} with the customer's name, the number and the total (you can change them before sending). A template without a document header can also be used; then only its text goes.
+
 ## Without a Meta account
 
-In development, Settings → WhatsApp → **Add a test number instead**, then **Receive Test Message** pretends a customer wrote (a text, or a sample photo, document or voice note). A test number has four sample templates and approves new ones at once. Nothing is sent to WhatsApp. Test numbers and the simulator are switched off on a production server (`NODE_ENV=production`).
+In development, Settings → WhatsApp → **Add a test number instead**, then **Receive Test Message** pretends a customer wrote (a text, or a sample photo, document or voice note). A test number has five sample templates (one, `quotation_pdf`, with a document header for quotations) and approves new ones at once. Nothing is sent to WhatsApp. Test numbers and the simulator are switched off on a production server (`NODE_ENV=production`).
 
 ## Settings (backend/.env)
 
