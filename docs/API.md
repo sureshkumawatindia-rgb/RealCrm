@@ -239,28 +239,60 @@ Read: `marketing`, `dashboard` or `reports`. Create/edit: `marketing`. Delete: `
 | `GET/PATCH/DELETE` | `/campaigns/:id` | `""` clears a date. Delete is a soft delete. |
 | `GET/POST` | `/campaigns/:id/notes` | The campaign's activity notes, newest first; POST `{ text }` needs `marketing`. |
 
-### Workflows and sequences
+### Workflows (Phase 6: the automation engine)
 
-Module: `automation` (read, create, edit; delete needs `automation:delete` for agents). These are settings only: the automation engine (real triggers, emails, notifications) arrives in Phase 6. `runsCount` and `enrolledCount` are kept by the server and never accepted from the browser.
+Module: `automation` (read, create, edit; delete needs `automation:delete` for agents). A workflow is "when <trigger>, only if <conditions>, then <steps>". Active workflows run on their own in background jobs; each start is a run with a log line per step. `stats` are kept by the server.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/workflows?q=&status=&ownerId=` and `/sequences?q=&status=&ownerId=` | |
-| `POST` | `/workflows` | `{ name, trigger (Lead Created/Lead Status Changed to Won/Deal Created/Deal Stage Changed to Won/Deal Stage Changed to Lost/Task Overdue/Customer Added), status? (Active/Paused/Draft), actions?: [{ type (Create Task/Send Email (simulated)/Notify Agent/Update Status/Add to Sequence), detail? }] (up to 20), ownerId? }` |
-| `POST` | `/sequences` | `{ name, targetType? (Leads/Deals/Customers), status?, steps?: [{ day (0–365), type (Email/Call/Task/Wait), note? }] (up to 30), ownerId? }` |
-| `GET/PATCH/DELETE` | `/workflows/:id`, `/sequences/:id` | Soft delete. |
-| `POST` | `/workflows/:id/run` | Run Now. Creates one task per "Create Task" action (title = the action's detail, due in 2 days IST, assigned to the workflow's owner while they are an active member, `origin: automation`) and adds 1 to `runsCount`, in one transaction. Answers `{ workflow, tasks, simulated }`; `simulated` lists the configured actions that were not carried out. 409 `NOT_ACTIVE` unless the workflow is Active. Send an `Idempotency-Key` so a retried click runs once. |
-| `POST` | `/sequences/:id/enroll` | Enroll One. Creates a task for the earliest Call/Task step (due in that many days) and adds 1 to `enrolledCount`. Answers `{ sequence, task, firstTaskDay, simulated }`. Same `NOT_ACTIVE` and `Idempotency-Key` rules. |
+| `GET` | `/workflows/meta` | What the builder offers: `triggers [{ type, label, kind: event \| time }]`, `conditions [{ field, label, ops }]`, `actions [{ type, label }]`, `variableValues`, `placeholders`, `leadStages`, `orderStages`, `sources`, `runStatuses`. |
+| `GET` | `/workflows?q=&status=&ownerId=&sort=&page=&limit=` | Each `{ id, name, status, trigger { type, params }, conditions[], steps[], notes[], hasWebhook, ownerId, stats { runs, done, failed, lastRunAt } }`. `notes` lists what migration 003 or the importer could not carry over. |
+| `POST` | `/workflows` | `{ name, status? (Active by default, Paused, Draft), ownerId?, trigger, conditions? (up to 10), steps (1–20) }`, see below. 400 `VALIDATION_ERROR` names the place, e.g. `errors[0].field = "steps.1"` and "Step 2 (WhatsApp template): Template is required"; checks against your data give `INVALID_MEMBER`, `MEMBER_NO_LEADS`, `INVALID_TEMPLATE`, `TEMPLATE_NOT_SENDABLE` (not approved, authentication, document or media header), `VARIABLE_REQUIRED` and `WEBHOOK_URL`. |
+| `GET/PATCH/DELETE` | `/workflows/:id` | GET also returns `webhookSecret` to owners and admins. PATCH any field; turning on a workflow without steps is 400 `STEPS_REQUIRED`. Pausing or deleting a workflow stops its running and waiting runs (`cancelled`). Delete is a soft delete. |
+| `POST` | `/workflows/:id/run` | Test run: `{ leadId }` (a lead you can see) → 202 with the run, started now whatever the trigger (`trigger: "manual"`). The steps really happen. 409 `NOT_ACTIVE` unless Active. Send an `Idempotency-Key`. |
+| `GET` | `/workflows/:id/runs?status=&leadId=&page=&limit=` | That workflow's runs, newest first. |
+| `GET` | `/automation-runs?workflowId=&leadId=&status=&page=&limit=` | Every run (agents without `automation:view_all`: their own workflows' runs). Each `{ id, workflowId, workflowName, trigger, event (a short summary: source, from/to, text …), subject { leadId, contactId, conversationId, orderId, quotationId, taskId, label }, status (running/waiting/done/failed/skipped/cancelled), steps [{ index, type, label, status (done/skipped/failed/waiting), detail, at }], nextAt, error, createdAt, finishedAt }`. |
+| `GET` | `/automation-runs/:id` | One run. |
+| `POST` | `/automation-runs/:id/cancel` | Stops a running or waiting run; a waiting step becomes skipped. 409 `RUN_FINISHED` otherwise. |
 
-Since checkpoint E the `automation` module alone no longer allows `POST /tasks`; automation tasks are created by the two endpoints above.
+**Triggers** (`trigger.type` and `params`): `lead.created` { sources[] } (manual leads, lead sources, first WhatsApp messages); `message.received` { keywords[] } (any word, capitals ignored); `lead.stage_changed` { toStages[], fromStages[] } (by a person, a quotation being sent, an order being paid or another workflow); `order.stage_changed` { toStages[] }; `payment.received` (an order moves to Payment Collected); and three found by a scan every 10 minutes, each once per thing: `lead.no_reply` { hours 1–720, default 24 } (our message was the last one in the chat, up to 7 days back), `quotation.not_accepted` { days 1–90, default 3 } (still Sent or Viewed; once per revision), `task.overdue` (not done, due in the last 30 days; once per due date). Empty lists mean "any".
+
+**Conditions** (`{ field, op, value }`, all must hold): `source` in / notIn [sources]; `stage` in / notIn [stages]; `tag` has / hasNot "tag" (the customer's tags, capitals ignored); `owner` is / isNot memberId, none, any; `businessHours` open / closed (Settings → Lead rules).
+
+**Steps** (`{ type, params }`, in order): `whatsapp.text` { text } (only inside the 24-hour window, else skipped); `whatsapp.template` { templateId, variables { header, body, buttons } } (each variable a CRM value from `variableValues` or `text:<words>`; a marketing template skips opted-out customers; the chat is opened if needed and goes to the lead's owner); `assign` { memberId } (lead, unowned customer and unassigned chats); `tag.add` / `tag.remove` { tag }; `stage.change` { stage, lostReason when Lost } (through the same rules as a person: probability, customer on Won, timeline); `task.create` { title, description?, dueInDays 0–365 (default 1), assignTo "owner" or memberId, priority }; `agent.notify` { to "owner" (the lead's owner, else the task's assignee, else owners and admins) \| "managers" \| memberId, message } (the bell); `wait` { amount, unit minutes/hours/days } (at most 90 days); `webhook.call` { url } (public https only, checked again on every call; no redirects; 10 s timeout). Texts, task titles and notifications may use `{{contact.name}}`, `{{contact.company}}`, `{{contact.city}}`, `{{contact.phone}}`, `{{lead.title}}`, `{{lead.stage}}`, `{{lead.source}}`, `{{owner.name}}`, `{{org.name}}`, `{{order.number}}`, `{{order.stage}}`, `{{order.total}}`, `{{quotation.number}}`, `{{quotation.total}}`, `{{task.title}}`, `{{task.due}}`, `{{message.text}}`.
+
+**Webhook calls** are `POST` JSON `{ event, at, workflow { id, name }, run { id }, lead, contact, order, quotation, task, message }` (unknown parts are `null`) with `X-CRM-Event` and `X-CRM-Signature: sha256=<HMAC-SHA256 of the raw body with the workflow's webhookSecret>`.
+
+**How runs behave**: a run sees the records as they are when each step runs. Messages, tasks and stage changes it makes are by `Automation "<workflow name>"` (messages carry `automation: { kind: "workflow", ruleId }` and never take the chat). A refused step (4xx: e.g. a template that was removed) fails the run at once; other errors are retried up to 4 times. Events caused by an automation may start other workflows, but never the same workflow again and at most 4 in a row.
+
+### Sequences
+
+Module: `automation`. Settings as in Phase 2 until per-contact sequences arrive (Phase 6B). `enrolledCount` is kept by the server.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/sequences?q=&status=&ownerId=` | |
+| `POST` | `/sequences` | `{ name, targetType? (Leads/Deals/Customers), status?, steps?: [{ day (0–365), type (Email/Call/Task/Wait), note? }] (up to 30), ownerId? }` |
+| `GET/PATCH/DELETE` | `/sequences/:id` | Soft delete. |
+| `POST` | `/sequences/:id/enroll` | Enroll One. Creates a task for the earliest Call/Task step (due in that many days) and adds 1 to `enrolledCount`. Answers `{ sequence, task, firstTaskDay, simulated }`. 409 `NOT_ACTIVE` unless Active; send an `Idempotency-Key`. |
+
+The `automation` module alone does not allow `POST /tasks`; automation tasks come from workflow steps and Enroll One.
+
+### Notifications (the bell; every member)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/notifications?unread=&limit=` | The signed-in member's own: `{ items [{ id, title, body, link, source, readAt, createdAt }], unread }`, newest first (limit up to 50). Kept 90 days. |
+| `POST` | `/notifications/:id/read` | Marks one read (404 for someone else's). |
+| `POST` | `/notifications/read-all` | `{ updated }` |
 
 ### Moving browser data to the server
 
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`), calendar events, support tickets (old numbers kept when free, otherwise renumbered with `legacyNumber`), ticket replies, customer notes and documents (browser files go to private storage; links get `https://` when it was missing; bad links and programs are reported), campaigns (budget → paise, notes → campaign notes), workflows and sequences (unknown triggers, actions and steps reported; old run/enroll counts kept) and Account Champions (`crm_agents`, as pending invites; see MIGRATION.md); contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new (and records deleted on the server are not brought back). Returns a report per section (`found, created, alreadyImported, merged, rejected`, and `rejectedRows` with the reasons), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
+| `POST` | `/imports/localstorage` | owner, admin | `{ data: { crm_products: "<json>", ... }, dryRun }` (up to 25 MB). Imports products, customers, accounts, leads, deals (as leads), lead activities, quotations, tasks, deal follow-ups (as tasks with origin `deal_followup`), calendar events, support tickets (old numbers kept when free, otherwise renumbered with `legacyNumber`), ticket replies, customer notes and documents (browser files go to private storage; links get `https://` when it was missing; bad links and programs are reported), campaigns (budget → paise, notes → campaign notes), workflows (in the Phase 6 shape and paused, D32; what has no equivalent is reported and kept in the workflow's `notes`) and sequences (unknown triggers, actions and steps reported; old run/enroll counts kept) and Account Champions (`crm_agents`, as pending invites; see MIGRATION.md); contacts are matched by phone, then email (deals: name + company). Task and event assignees are matched to team members by name, else the name is kept; related records are matched by name among imported and existing ones. Old ids are kept, so running it again creates nothing new (and records deleted on the server are not brought back). Returns a report per section (`found, created, alreadyImported, merged, rejected`, and `rejectedRows` with the reasons), `unresolved` notes and `later` (keys that move in a later update). `dryRun: true` writes nothing. |
 | `GET` | `/imports/:id` | owner, admin | A previous run and its report. |
-| `GET` | `/exports/crm` | owner, admin | "Download CRM Data": one JSON file (`crm-export-YYYY-MM-DD.json`, streamed) with `organization`, `team` (name, email, role, title, access; no tokens) and every record of `contacts, products, leads, leadActivities, quotations, tasks, events, tickets, notes, documents, campaigns, workflows, sequences`. Deleted records, secrets and internal fields (`organizationId`, `storageKey`, `deletedAt`) are left out; uploaded files are not included. |
+| `GET` | `/exports/crm` | owner, admin | "Download CRM Data": one JSON file (`crm-export-YYYY-MM-DD.json`, streamed) with `organization`, `team` (name, email, role, title, access; no tokens) and every record of `contacts, products, leads, leadActivities, quotations, tasks, events, tickets, notes, documents, campaigns, workflows, sequences`. Deleted records, secrets and internal fields (`organizationId`, `storageKey`, `deletedAt`, workflows' `webhookSecret`) are left out; uploaded files are not included. |
 
 ## WhatsApp (Phase 3)
 
@@ -321,7 +353,7 @@ Templates belong to a number's WhatsApp Business Account: a Meta number needs it
 
 ### Live updates (Socket.IO)
 
-Same address as the API (path `/socket.io`; the browser client is served at `/socket.io/socket.io.min.js`). Connect with `auth: { token: <access token> }`; members without the inbox get `FORBIDDEN`, bad tokens `UNAUTHORIZED`. Events (server → browser), only for chats the member may see: `conversation:updated` (a conversation), `message:new` (`{ conversation, message }`), `message:status` (a message; also sent when a received file has been stored), `note:new` (`{ conversationId, note }`). When a member's role, pages or status change (or they are removed) their connections are dropped; the browser reconnects with its current token and gets the new access.
+Same address as the API (path `/socket.io`; the browser client is served at `/socket.io/socket.io.min.js`). Connect with `auth: { token: <access token> }`; members without the inbox get `FORBIDDEN`, bad tokens `UNAUTHORIZED`. Events (server → browser), only for chats the member may see: `conversation:updated` (a conversation), `message:new` (`{ conversation, message }`), `message:status` (a message; also sent when a received file has been stored), `note:new` (`{ conversationId, note }`), and `notification:new` (a notification, to its member only; D31: members without the inbox see new ones within a minute through `GET /notifications`). When a member's role, pages or status change (or they are removed) their connections are dropped; the browser reconnects with its current token and gets the new access.
 
 ### Development only (404 when `NODE_ENV=production`)
 
