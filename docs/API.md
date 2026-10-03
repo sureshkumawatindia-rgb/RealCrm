@@ -284,6 +284,23 @@ Module: `automation` (read, create, edit; delete needs `automation:delete` for a
 
 The `automation` module alone does not allow `POST /tasks`; automation tasks come from workflow and sequence steps.
 
+### WhatsApp FAQ bot (Phase 6C; owners and admins)
+
+The bot answers customers on WhatsApp while **no agent has the chat** and the customer has **not asked for a person** (D33). For each message, in order: a tapped bot button or list row; a hand-off keyword; the first active answer (by `priority`) with a keyword in the message (whole words or phrases, any script, capitals ignored); outside working hours the away message, otherwise the greeting — each of those two at most once per chat every `repeatAfterHours`. Bot messages carry `automation: { kind: "bot", ruleId? }`. Only inside the 24-hour window (the customer has just written).
+
+An **answer** is `{ text (≤ 1024, may use {{contact.name}}, {{org.name}}, {{owner.name}}, {{lead.title}} …), options (0–10): [{ title, description?, action: rule | handoff, ruleId (rule) }], listButton (≤ 20, default "Choose"), footer (≤ 60) }`. No options: a text message; 1–3: reply buttons (titles ≤ 20, unique); 4–10: a list (row titles ≤ 24, descriptions ≤ 72), as WhatsApp allows. Option ids are `bot:rule:<id>` and `bot:handoff`; options to an answer that was removed or switched off are left out when sending.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/bot/status` | Any member: `{ enabled }` (the Inbox shows the bot in each chat). |
+| `GET/PUT` | `/bot/settings` | `{ enabled (default false), greeting { enabled, answer }, away { enabled, answer }, handoff { keywords[] (default agent, human, person, talk to someone, call me, baat karni hai), text }, repeatAfterHours (1–168, default 24) }`. PUT takes any part. 400 `INVALID_RULE` for an option opening another organization's answer. |
+| `GET` | `/faq-rules` | The answers by priority: `{ id, name, active, priority, keywords[], answer, stats { answered, lastAnsweredAt } }`. |
+| `POST` | `/faq-rules` | `{ name, active?, priority?, keywords? (up to 30; none = only reachable from another answer's option), answer }`. |
+| `PATCH/DELETE` | `/faq-rules/:id` | |
+| `POST` | `/conversations/:id/bot` | Inbox (edit): `{ active }` — false: the bot stops in this chat ("Paused by <name>"); true: it answers again. |
+
+**Hand-off**: the bot replies with the hand-off text, sets the chat's `bot.handedOffAt` (`bot.handoffReason`), and rings the bell of the customer's owner (else the owners and admins) with a link to the chat. It stays quiet there until a teammate turns it on again or closes the chat. Chats also show `bot { handedOffAt, handoffReason }` in the conversation API. When the bot's greeting is on, auto-reply rules skip enquiries that came in on WhatsApp ("No auto-reply: the WhatsApp bot greets customers who write on WhatsApp.").
+
 ### Notifications (the bell; every member)
 
 | Method | Route | Purpose |
@@ -366,7 +383,7 @@ Same address as the API (path `/socket.io`; the browser client is served at `/so
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `POST` | `/dev/simulate/lead` | Owners/admins. `{ source? (default IndiaMART), sourceRef?, name, phone, email?, company?, city?, state?, product?, quantity?, message? }` → the same intake as a real lead; returns `{ outcome, leadId, contactId, contactCreated }` (400 `LEAD_REJECTED` without a valid mobile number or email). |
-| `POST` | `/dev/simulate/whatsapp-inbound` | Owners/admins. `{ from, name?, type? (text/image/document/audio), text, accountId? }` → processes a made-up incoming message exactly like a webhook (photos, documents and voice notes only on test numbers, with a sample file; `text` is then the caption); returns `{ conversationId, messageId, contactId }`. |
+| `POST` | `/dev/simulate/whatsapp-inbound` | Owners/admins. `{ from, name?, type? (text/image/document/audio/interactive), text, replyId? (interactive), accountId? }` → processes a made-up incoming message exactly like a webhook (photos, documents, voice notes and button taps only on test numbers; media get a sample file and `text` is the caption; `interactive` is a tapped reply button with id `replyId` and title `text`); returns `{ conversationId, messageId, contactId }`. |
 
 ## Lead sources (Phase 4)
 

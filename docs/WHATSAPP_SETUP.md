@@ -45,6 +45,10 @@ Send a WhatsApp message from your own phone to the business number. In the CRM t
 
 Quotations → *Send on WhatsApp* sends the quotation PDF into the customer's chat. While the customer has written in the last 24 hours it goes as a document with a message (the online link included). After that WhatsApp allows only an approved template: make one in WhatsApp Manager with a **Document** header (Meta allows only PDFs there) and a body such as "Namaste {{1}}, please find our quotation {{2}} for {{3}} attached." (category *Utility*), wait for approval, then *Sync from Meta*. The CRM attaches the PDF to the header and fills {{1}} {{2}} {{3}} with the customer's name, the number and the total (you can change them before sending). A template without a document header can also be used; then only its text goes.
 
+### The FAQ bot
+
+Sales Automation → **FAQ bot** (owners and admins) answers customers on WhatsApp with text, reply buttons (up to 3) or a list (up to 10 options) while nobody from the team has the chat. Nothing extra is needed in Meta: these are ordinary messages inside the 24-hour window (the customer has just written), so no template approval. When a customer asks for a person, the bot stops in that chat until a teammate turns it on again (the chip in the Inbox) or closes the chat.
+
 ## Without a Meta account
 
 In development, Settings → WhatsApp → **Add a test number instead**, then **Receive Test Message** pretends a customer wrote (a text, or a sample photo, document or voice note). A test number has five sample templates (one, `quotation_pdf`, with a document header for quotations) and approves new ones at once. Nothing is sent to WhatsApp. Test numbers and the simulator are switched off on a production server (`NODE_ENV=production`).
