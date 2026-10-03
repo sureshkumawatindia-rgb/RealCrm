@@ -34,6 +34,15 @@ router.get('/:id/pdf', can('view'), validate({ params: idParams }), async (req, 
   res.setHeader('Cache-Control', 'private, no-store');
   res.send(buffer);
 });
+// Sending in the WhatsApp chat needs the quotation (leads/deals) and the inbox.
+const canChat = requirePermission('inbox', 'create');
+router.get('/:id/send-options', can('view'), canChat, validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await quotationService.sendOptions(req, req.valid.params.id) });
+});
+router.post('/:id/send', can('edit'), canChat, idempotency, validate({ params: idParams, body: schemas.quotationSend }), async (req, res) => {
+  const result = await quotationService.sendOnWhatsApp(req, req.valid.params.id, req.body);
+  res.json({ success: true, data: result, message: 'Sent on WhatsApp' });
+});
 router.post('/:id/revise', can('edit'), validate({ params: idParams }), async (req, res) => {
   const quotation = await quotationService.revise(req, req.valid.params.id);
   res.json({ success: true, data: quotation, message: `Revision ${quotation.revision} opened` });

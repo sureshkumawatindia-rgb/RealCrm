@@ -52,6 +52,21 @@ module.exports = {
   }).min(1),
   // Items may be empty: the editor's first call only fetches the customer's details and defaults.
   pricingPreview: Joi.object({ ...customer, ...content, items: Joi.array().items(item).max(200).default([]), roundOff: Joi.boolean() }),
+  // The PDF as a document (24-hour window) or an approved template (any time).
+  quotationSend: Joi.object({
+    mode: Joi.string().valid('document', 'template').required(),
+    caption: Joi.when('mode', { is: 'document', then: Joi.string().trim().max(1024).allow(''), otherwise: Joi.forbidden() }),
+    templateId: Joi.when('mode', { is: 'template', then: objectId.required(), otherwise: Joi.forbidden() }),
+    variables: Joi.when('mode', {
+      is: 'template',
+      then: Joi.object({
+        header: Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, Joi.string().allow('').max(1024)),
+        body: Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, Joi.string().allow('').max(1024)),
+        buttons: Joi.object().pattern(/^\d{1,2}$/, Joi.string().allow('').max(1024)),
+      }).default({}),
+      otherwise: Joi.forbidden(),
+    }),
+  }),
   quotationList: Joi.object({
     ...paginationQuery,
     leadId: objectId,

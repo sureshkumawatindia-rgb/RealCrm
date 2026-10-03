@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 const Contact = require('../models/Contact');
+const Conversation = require('../models/Conversation');
+const MessageTemplate = require('../models/MessageTemplate');
+const OrganizationMember = require('../models/OrganizationMember');
+const WhatsAppAccount = require('../models/WhatsAppAccount');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const Organization = require('../models/Organization');
@@ -12,7 +16,7 @@ const signedLink = require('../utils/signedLink');
 const { renderQuotationPdf, fileNameOf } = require('./quotationPdf');
 const { audit } = require('../utils/audit');
 const { nextSequence } = require('../utils/counter');
-const { financialYear } = require('../utils/money');
+const { financialYear, formatRupees } = require('../utils/money');
 const { indiaDate } = require('../utils/dates');
 const { stateCodeFromGstin, normalizeGstin } = require('../utils/gstin');
 const { supplyFor, priceDocument } = require('../utils/gst');
@@ -24,6 +28,7 @@ const { visibilityFilter } = require('./access');
 const leadService = require('./leadService');
 const contactService = require('./contactService');
 const conversationService = require('./conversationService');
+const templateService = require('./templateService');
 
 // Quotations, estimates and proforma invoices (Phase 5). The browser sends quantities,
 // prices, discounts and rates; every amount is computed here (utils/gst). A draft is edited
@@ -486,7 +491,128 @@ async function openShared(token, { count = true } = {}) {
   return { quotation, organization: await Organization.findById(quotation.organizationId) };
 }
 
+// --- sending in the WhatsApp chat (Phase 5D) ---------------------------------------------
+const SENDABLE_STATUSES = ['Draft', 'Sent', 'Viewed', 'Accepted'];
+
+async function contactOf(quotation) {
+  return Contact.findOne({ _id: quotation.contactId, organizationId: quotation.organizationId });
+}
+
+// The customer's chat: their latest one, or none yet (it is opened on the default number).
+async function chatOf(quotation) {
+  return Conversation.findOne({ organizationId: quotation.organizationId, contactId: quotation.contactId }).sort({ lastMessageAt: -1, updatedAt: -1 });
+}
+
+async function memberLabel(id) {
+  const member = id ? await OrganizationMember.findById(id).populate('userId', 'name') : null;
+  return member?.displayName || member?.userId?.name || 'a teammate';
+}
+
+// What fills a template variable, guessed from its name (named) or its place (positional):
+// the customer's name, the document, the total, the link.
+function suggestions(quotation, contact) {
+  const token = signedLink.sign(LINK_PURPOSE, quotation._id);
+  const facts = {
+    name: quotation.billTo?.name || contact?.name || '',
+    number: quotation.number,
+    total: formatRupees(quotation.totals?.grandTotalPaise),
+    link: shareUrlOf(quotation),
+  };
+  const byName = (name) => {
+    const key = String(name).toLowerCase();
+    if (/name/.test(key)) return facts.name;
+    if (/amount|total|price|value/.test(key)) return facts.total;
+    if (/link|url/.test(key)) return facts.link;
+    if (/number|quot|ref|estimate|invoice|doc/.test(key)) return facts.number;
+    return '';
+  };
+  // Templates usually say "our quotation {{2}}": the number alone reads right there.
+  const ORDER = [facts.name, facts.number, facts.total, facts.link];
+  return (template) => {
+    const shape = templateService.shapeOf(template, { withDocument: true });
+    const named = template.parameterFormat === 'NAMED';
+    const fill = (names) => Object.fromEntries(names.map((name, i) => [name, (named ? byName(name) : ORDER[Number(name) - 1] ?? ORDER[i]) || '']));
+    return {
+      header: fill(shape.header?.variables || []),
+      body: fill(shape.body.variables),
+      buttons: Object.fromEntries(shape.buttons.filter((b) => b.variables.length).map((b) => [String(b.index), /\/q\/\{\{/.test(b.url) ? token : facts.link])),
+    };
+  };
+}
+
+// GET /quotations/:id/send-options — can it go now, as a document or only as a template?
+async function sendOptions(req, id) {
+  const quotation = await findVisible(req, id);
+  const contact = await contactOf(quotation);
+  const conversation = await chatOf(quotation);
+  const account = conversation
+    ? await WhatsAppAccount.findOne({ _id: conversation.whatsappAccountId, organizationId: quotation.organizationId })
+    : await WhatsAppAccount.findOne({ organizationId: quotation.organizationId }).sort({ isDefault: -1, createdAt: 1 });
+  let blocked = '';
+  if (!SENDABLE_STATUSES.includes(quotation.status)) blocked = `This ${quotation.type.toLowerCase()} was ${quotation.status.toLowerCase()}: revise it first.`;
+  else if (!contact?.phoneE164) blocked = `${contact?.name || 'The customer'} has no mobile number. Add it to the customer first.`;
+  else if (!account) blocked = 'Add a WhatsApp number in Settings → WhatsApp first.';
+  else if (conversation?.assigneeId && !conversationService.seesAll(req.member) && String(conversation.assigneeId) !== String(req.member._id)) {
+    blocked = `${await memberLabel(conversation.assigneeId)} is handling this customer's WhatsApp chat.`;
+  }
+  const suggest = suggestions(quotation, contact);
+  const templates = account
+    ? (await MessageTemplate.find({ organizationId: quotation.organizationId, whatsappAccountId: account._id, status: 'APPROVED' }).sort({ name: 1 }))
+      .filter((template) => templateService.shapeOf(template, { withDocument: true }).sendable)
+      .map((template) => ({ ...templateService.serializeTemplate(template), suggested: suggest(template) }))
+    : [];
+  const name = quotation.billTo?.name || contact?.name || '';
+  return {
+    blocked,
+    phone: contact?.phoneE164 || '',
+    account: account ? { id: account._id, name: account.name || account.verifiedName || '', phone: account.displayPhone || '' } : null,
+    conversation: conversation ? { id: conversation._id, windowOpen: conversationService.serviceWindow(conversation).open } : null,
+    caption: [`Namaste ${name}, please find our ${quotation.type.toLowerCase()} ${quotation.number} for ${formatRupees(quotation.totals?.grandTotalPaise)}.`, `View online: ${shareUrlOf(quotation)}`].join('\n').slice(0, 1024),
+    templates,
+  };
+}
+
+// POST /quotations/:id/send — the PDF into the customer's chat; a draft becomes Sent and an
+// early lead moves to Quote Sent. { mode: document | template, caption?, templateId?, variables? }
+async function sendOnWhatsApp(req, id, { mode, caption = '', templateId, variables }) {
+  let quotation = await findVisible(req, id);
+  if (!SENDABLE_STATUSES.includes(quotation.status)) {
+    throw httpError(409, 'REVISE_FIRST', `This ${quotation.type.toLowerCase()} was ${quotation.status.toLowerCase()}: revise it first.`);
+  }
+  const contact = await contactOf(quotation);
+  if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', `${contact?.name || 'The customer'} has no mobile number. Add it to the customer first.`);
+  let conversation = await chatOf(quotation);
+  if (mode === 'document' && !(conversation && conversationService.serviceWindow(conversation).open)) {
+    throw httpError(422, 'WINDOW_CLOSED', 'The customer has not written in the last 24 hours. WhatsApp only allows an approved template now.');
+  }
+  if (!conversation) {
+    const started = await conversationService.start(req, { contactId: contact._id });
+    conversation = await Conversation.findById(started.conversation.id);
+  } else if (conversation.assigneeId && !conversationService.seesAll(req.member) && String(conversation.assigneeId) !== String(req.member._id)) {
+    throw httpError(409, 'CHAT_ASSIGNED', `${await memberLabel(conversation.assigneeId)} is handling this customer's WhatsApp chat.`);
+  }
+  const { buffer, fileName } = await pdfFor(quotation);
+  const message = await conversationService.sendGeneratedDocument(req, conversation._id, {
+    buffer, fileName, caption: mode === 'document' ? caption : '', templateId: mode === 'template' ? templateId : undefined, variables,
+  });
+  if (message.status === 'failed') {
+    throw httpError(502, 'WHATSAPP_REFUSED', `WhatsApp did not accept it: ${message.error?.message || 'unknown reason'}. The attempt shows in the chat.`);
+  }
+  await mongoose.connection.transaction(async (session) => {
+    quotation = await Quotation.findById(quotation._id).session(session);
+    const events = quotation.status === 'Draft'
+      ? await changeStatus(req, quotation, 'Sent', { session, via: 'whatsapp' })
+      : [['Quotation', `${quotation.type} ${quotation.number} sent again on WhatsApp`]];
+    await quotation.save({ session });
+    const lead = await leadOf(quotation, session);
+    if (lead) for (const [type, text] of events) await leadService.addActivity(req, lead, type, text, { session });
+  });
+  await audit(req, { action: 'quotation.sent_whatsapp', entityType: 'Quotation', entityId: quotation._id, changes: { mode, templateId: templateId || null } });
+  return { quotation: serializeQuotation(quotation), message, conversationId: conversation._id };
+}
+
 module.exports = {
+  sendOptions, sendOnWhatsApp,
   pdf, pdfFor, openShared, recordView, shareUrlOf,
   preview, create, update, revise, list, remove, saveDraftForLead, buildImported, expireDue, register, nextNumber,
   serializeQuotation, sellerOf, changeStatus, findVisible, EXPIRE_JOB,

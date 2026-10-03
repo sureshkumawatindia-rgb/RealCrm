@@ -334,6 +334,46 @@ async function sendMedia(req, id, { caption = '', replyToMessageId }, file) {
   });
 }
 
+// A PDF the CRM made (a quotation): as a document with a caption inside the 24-hour window, or
+// in an approved template outside it — a DOCUMENT header carries the PDF (Meta allows only
+// PDFs there); a text-only template goes without it. A copy stays in the CRM's storage.
+async function sendGeneratedDocument(req, id, { buffer, fileName, caption = '', templateId, variables }) {
+  const context = await sendContext(req, id, { needsWindow: !templateId });
+  let template = null;
+  let shape = null;
+  if (templateId) {
+    template = await templateService.findSendable(req.tenant.organizationId, templateId);
+    if (String(template.whatsappAccountId) !== String(context.account._id)) {
+      throw httpError(400, 'VALIDATION_ERROR', 'This template belongs to another WhatsApp number.', [{ field: 'templateId', code: 'OTHER_NUMBER', message: 'Pick a template of this chat\'s number.' }]);
+    }
+    shape = templateService.shapeOf(template, { withDocument: true });
+    if (!shape.sendable) throw httpError(422, 'TEMPLATE_NOT_SENDABLE', shape.notSendableReason);
+  }
+  // Check the variables before anything is stored or uploaded.
+  const checked = template ? templateService.buildSend(template, variables, shape.documentHeader ? { document: { id: 'pending', filename: fileName } } : {}) : null;
+  const withFile = !template || shape.documentHeader;
+  const media = withFile
+    ? { mimeType: 'application/pdf', fileName, sizeBytes: buffer.length, storageKey: await documentStorage.put(context.conversation.organizationId, buffer), sha256: mediaService.sha256Hex(buffer) }
+    : undefined;
+  const upload = async (message) => {
+    const { mediaId } = await providerFor(context.account).uploadMedia(credentials(context.account), { buffer, mimeType: 'application/pdf', fileName });
+    message.media.providerMediaId = mediaId;
+    return mediaId;
+  };
+  if (!template) {
+    return deliver(asMember(req), context, { type: 'document', text: caption, media }, async (message) => {
+      const mediaId = await upload(message);
+      return { type: 'document', document: { id: mediaId, filename: fileName, ...(caption && { caption }) } };
+    });
+  }
+  const fields = { type: 'template', text: checked.text, template: { name: template.name, language: template.language, variables: checked.values }, ...(media && { media }) };
+  return deliver(asMember(req), context, fields, async (message) => {
+    if (!shape.documentHeader) return { type: 'template', template: checked.payload };
+    const mediaId = await upload(message);
+    return { type: 'template', template: templateService.buildSend(template, variables, { document: { id: mediaId, filename: fileName } }).payload };
+  });
+}
+
 // The chat of a contact on a number, opened if needed (auto-replies). A new chat goes to
 // assigneeId (the lead's owner); an existing unassigned one is given to them too.
 async function ensureConversation({ organizationId, contactId, accountId, assigneeId = null }) {
@@ -415,6 +455,6 @@ async function addNote(req, id, body) {
 
 module.exports = {
   list, summary, get, update, markRead, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
-  ensureConversation, sendTemplateAutomatically, announce, findVisible,
+  ensureConversation, sendTemplateAutomatically, sendGeneratedDocument, announce, findVisible,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };
