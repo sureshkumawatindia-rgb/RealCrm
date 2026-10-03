@@ -37,6 +37,16 @@ const messageSchema = new mongoose.Schema(
       providerMessageId: { type: String },
       emoji: { type: String },
     },
+    // Buttons or a list the CRM sent (Phase 6C bot); the customer's choice comes back as reply.
+    interactive: {
+      kind: { type: String, enum: ['button', 'list'] },
+      listButton: { type: String },
+      footer: { type: String },
+      options: {
+        type: [{ _id: false, id: String, title: String, description: String }],
+        default: undefined,
+      },
+    },
     template: {
       name: { type: String },
       language: { type: String },

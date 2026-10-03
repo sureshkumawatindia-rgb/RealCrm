@@ -13,6 +13,7 @@ const { TRIGGERS, MAX_CHAIN } = require('../../constants/automation');
 const { ACTIONS } = require('./actions');
 const { loadContext, leadOfContact, systemReq } = require('./context');
 const sequences = require('./sequences');
+const bot = require('./bot');
 
 // The automation engine (Phase 6). Business events (services call automation/events.emit)
 // become "automation.event" jobs; each Active workflow whose trigger and conditions fit starts
@@ -166,7 +167,9 @@ async function runSteps(queue, { runId }, job) {
 
 // --- events ------------------------------------------------------------------------------
 async function handleEvent(queue, event) {
-  // First the sequences this event ends (a reply, a won or lost lead), so a workflow that
+  // The FAQ bot answers a customer message first (quickest reply).
+  await bot.handleMessage(event);
+  // Then the sequences this event ends (a reply, a won or lost lead), so a workflow that
   // enrolls on this same message starts the customer afresh.
   await sequences.handleEvent(event);
   const workflows = await Workflow.find({ organizationId: event.organizationId, status: 'Active', 'trigger.type': event.type });

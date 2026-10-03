@@ -1,4 +1,5 @@
 const AutoReplyRule = require('../models/AutoReplyRule');
+const BotSettings = require('../models/BotSettings');
 const Contact = require('../models/Contact');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
@@ -38,6 +39,12 @@ async function count(rule, outcome) {
 async function schedule(queue, lead, { source, contactCreated, receivedAt, sourceRef }) {
   const rule = await ruleFor(lead, source);
   if (!rule) return null;
+  // The WhatsApp FAQ bot greets people who write on WhatsApp (Phase 6C): one welcome, not two.
+  if (source === 'WhatsApp' && (await BotSettings.exists({ organizationId: lead.organizationId, enabled: true, 'greeting.enabled': true }))) {
+    await count(rule, 'skipped');
+    await note(lead, 'No auto-reply: the WhatsApp bot greets customers who write on WhatsApp.');
+    return null;
+  }
   if (rule.onlyNewContacts && !contactCreated) {
     await count(rule, 'skipped');
     return null;

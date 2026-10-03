@@ -28,8 +28,10 @@ module.exports = {
     accountId: objectId,
     from: Joi.string().trim().max(30).required(),
     name: Joi.string().trim().max(100).allow(''),
-    type: Joi.string().valid('text', 'image', 'document', 'audio').default('text'),
-    text: Joi.when('type', { is: 'text', then: Joi.string().trim().min(1).max(4096).required(), otherwise: Joi.string().trim().max(1024).allow('') }),
+    type: Joi.string().valid('text', 'image', 'document', 'audio', 'interactive').default('text'),
+    text: Joi.when('type', { is: Joi.valid('text', 'interactive'), then: Joi.string().trim().min(1).max(4096).required(), otherwise: Joi.string().trim().max(1024).allow('') }),
+    // interactive: the id of the button or list row the customer tapped (text is its title).
+    replyId: Joi.when('type', { is: 'interactive', then: Joi.string().trim().min(1).max(200).required(), otherwise: Joi.forbidden() }),
   }),
   clickToChat: Joi.object({
     accountId: objectId,

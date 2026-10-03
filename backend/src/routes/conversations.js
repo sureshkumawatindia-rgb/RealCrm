@@ -9,7 +9,8 @@ const idempotency = require('../middleware/idempotency');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const { noteCreate } = require('../validators/crm');
-const schemas = { ...require('../validators/inbox'), noteCreate };
+const { botSwitch } = require('../validators/bot');
+const schemas = { ...require('../validators/inbox'), noteCreate, botSwitch };
 
 // The WhatsApp inbox (module "inbox"). Which chats a member sees: conversationService (D24).
 const router = express.Router();
@@ -51,6 +52,10 @@ router.get('/:id', can('view'), byId, async (req, res) => {
 });
 router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.conversationPatch }), async (req, res) => {
   res.json({ success: true, data: await conversationService.update(req, req.valid.params.id, req.body), message: 'Conversation updated' });
+});
+// The FAQ bot in this chat: off (it waits for a person) or back on.
+router.post('/:id/bot', can('edit'), validate({ params: idParams, body: schemas.botSwitch }), async (req, res) => {
+  res.json({ success: true, data: await conversationService.setBot(req, req.valid.params.id, req.body), message: req.body.active ? 'The bot answers this chat again' : 'The bot is off in this chat' });
 });
 router.post('/:id/read', can('view'), byId, async (req, res) => {
   res.json({ success: true, data: await conversationService.markRead(req, req.valid.params.id) });

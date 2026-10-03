@@ -56,6 +56,8 @@ function serializeConversation(conversation) {
     lastInboundAt: conversation.lastInboundAt || null,
     window: serviceWindow(conversation),
     tags: conversation.tags,
+    // The FAQ bot (Phase 6C): handedOffAt = it waits for a person in this chat.
+    bot: { handedOffAt: conversation.bot?.handedOffAt || null, handoffReason: conversation.bot?.handoffReason || '' },
     createdAt: conversation.createdAt,
   };
 }
@@ -74,6 +76,9 @@ function serializeMessage(message) {
     reply: message.reply?.title ? message.reply : null,
     reaction: message.reaction?.emoji ? message.reaction : null,
     template: message.template?.name ? message.template : null,
+    interactive: message.interactive?.kind
+      ? { kind: message.interactive.kind, listButton: message.interactive.listButton || '', footer: message.interactive.footer || '', options: message.interactive.options || [] }
+      : null,
     // Meta's message id (wamid): lets the page show which message a reply quotes.
     providerMessageId: message.providerMessageId || null,
     replyToProviderMessageId: message.replyToProviderMessageId || null,
@@ -187,6 +192,8 @@ async function update(req, id, body) {
     }
   }
   if ('status' in body) conversation.status = body.status;
+  // A closed chat starts afresh: the FAQ bot may answer the customer's next message again.
+  if (body.status === 'closed' && conversation.bot?.handedOffAt) conversation.set({ 'bot.handedOffAt': undefined, 'bot.handoffReason': undefined });
   if ('tags' in body) conversation.tags = [...new Set(body.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 20);
   await conversation.save();
   if (conversation.assigneeId && String(conversation.assigneeId) !== String(previousAssigneeId)) await claimCustomer(conversation, conversation.assigneeId);
@@ -419,6 +426,45 @@ async function sendTextAutomatically({ conversation, text, automation }) {
   }));
 }
 
+// Buttons (1–3) or a list (4–10 options) the CRM sends itself (the FAQ bot), only inside the
+// 24-hour window. interactive: { kind: button | list, body, footer?, listButton?, options [{ id, title, description? }] }.
+async function sendInteractiveAutomatically({ conversation, interactive, automation }) {
+  if (!serviceWindow(conversation).open) {
+    throw httpError(422, 'WINDOW_CLOSED', 'The customer has not written in the last 24 hours; only an approved template can go now.');
+  }
+  const [account, contact] = await Promise.all([
+    WhatsAppAccount.findOne({ _id: conversation.whatsappAccountId, organizationId: conversation.organizationId }),
+    Contact.findOne({ _id: conversation.contactId, organizationId: conversation.organizationId }),
+  ]);
+  if (!account) throw httpError(409, 'NUMBER_REMOVED', 'The WhatsApp number was removed from Settings.');
+  if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  const { kind, body, footer = '', listButton = 'Choose', options } = interactive;
+  const fields = { type: 'interactive', text: body, interactive: { kind, listButton: kind === 'list' ? listButton : undefined, footer: footer || undefined, options }, automation };
+  return deliver(AS_SYSTEM, { conversation, account, contact }, fields, async () => ({
+    type: 'interactive',
+    interactive: kind === 'button'
+      ? {
+        type: 'button', body: { text: body }, ...(footer && { footer: { text: footer } }),
+        action: { buttons: options.map((o) => ({ type: 'reply', reply: { id: o.id, title: o.title } })) },
+      }
+      : {
+        type: 'list', body: { text: body }, ...(footer && { footer: { text: footer } }),
+        action: { button: listButton, sections: [{ title: listButton, rows: options.map((o) => ({ id: o.id, title: o.title, ...(o.description && { description: o.description }) })) }] },
+      },
+  }));
+}
+
+// A teammate turns the FAQ bot off (it waits for a person) or back on in one chat.
+async function setBot(req, id, { active }) {
+  const conversation = await findVisible(req, id);
+  if (active) conversation.set({ 'bot.handedOffAt': undefined, 'bot.handoffReason': undefined });
+  else conversation.set({ 'bot.handedOffAt': new Date(), 'bot.handoffReason': `Paused by ${req.user.name}` });
+  await conversation.save();
+  await audit(req, { action: active ? 'conversation.bot_on' : 'conversation.bot_off', entityType: 'Conversation', entityId: conversation._id });
+  announce('conversation:updated', conversation, { previousAssigneeId: conversation.assigneeId || null });
+  return loadSerialized(conversation._id);
+}
+
 // The file of a message in a chat the member can see.
 async function openMedia(req, id, messageId) {
   const conversation = await findVisible(req, id);
@@ -471,6 +517,6 @@ async function addNote(req, id, body) {
 
 module.exports = {
   list, summary, get, update, markRead, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
-  ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendGeneratedDocument, announce, findVisible,
+  ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, announce, findVisible, setBot,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };

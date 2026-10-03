@@ -16,6 +16,15 @@ const conversationSchema = new mongoose.Schema(
     lastMessageDirection: { type: String, enum: ['in', 'out', ''], default: '' },
     unreadCount: { type: Number, min: 0, default: 0 },
     tags: { type: [String], default: [] },
+    // The FAQ bot in this chat (Phase 6C): handedOffAt = the customer asked for a person (or a
+    // teammate paused the bot); the bot stays quiet until the chat is closed or it is turned on.
+    bot: {
+      handedOffAt: { type: Date },
+      handoffReason: { type: String },
+      greetedAt: { type: Date },
+      awayAt: { type: Date },
+      lastAnsweredAt: { type: Date },
+    },
   },
   { timestamps: true },
 );

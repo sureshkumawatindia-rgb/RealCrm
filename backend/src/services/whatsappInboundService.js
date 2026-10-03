@@ -220,7 +220,7 @@ async function handleMessage(account, { message, contact: profile }) {
 
   bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created });
   automationEvents.emit('message.received', {
-    organizationId, contactId: contact._id, conversationId: conversation._id, messageId: stored._id, text: stored.text || '', messageType: stored.type, key: `message.received:${stored._id}`,
+    organizationId, contactId: contact._id, conversationId: conversation._id, messageId: stored._id, text: stored.text || '', messageType: stored.type, replyId: stored.reply?.id || '', key: `message.received:${stored._id}`,
   });
   // A new WhatsApp lead goes through the assignment and auto-reply rules like any other source
   // (after its chat exists, so the chat is assigned together with the lead).

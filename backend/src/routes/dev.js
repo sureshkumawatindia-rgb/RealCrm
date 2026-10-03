@@ -32,20 +32,23 @@ function simulatedMedia(type, caption) {
 
 // Pretends a customer sent a WhatsApp message: the same processing as a real webhook, without Meta.
 router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbound }), async (req, res) => {
-  const { accountId, from, name, type, text } = req.body;
+  const { accountId, from, name, type, text, replyId } = req.body;
   const account = accountId
     ? await accountService.findInOrg(req, accountId)
     : await accountService.defaultAccount(req.tenant.organizationId);
   if (!account) throw httpError(400, 'NO_WHATSAPP_NUMBER', 'Add a WhatsApp number in Settings → WhatsApp first.');
   if (type !== 'text' && account.provider !== 'mock') {
-    throw httpError(400, 'VALIDATION_ERROR', 'Photos, documents and voice notes can only be simulated on a test number.');
+    throw httpError(400, 'VALIDATION_ERROR', 'Photos, documents, voice notes and button taps can only be simulated on a test number.');
   }
   const phone = normalizePhone(from);
   if (!phone) throw httpError(400, 'VALIDATION_ERROR', 'That is not a valid phone number.', [{ field: 'from', code: 'INVALID_PHONE', message: 'Use a number like 98290 12345 or +91 98290 12345.' }]);
 
   const waId = phone.slice(1);
   const messageId = `wamid.SIM${crypto.randomBytes(12).toString('hex')}`;
-  const content = type === 'text' ? { text: { body: text } } : simulatedMedia(type, text);
+  // A tapped bot button or list row looks like WhatsApp's interactive reply.
+  const content = type === 'text' ? { text: { body: text } }
+    : type === 'interactive' ? { interactive: { type: 'button_reply', button_reply: { id: replyId, title: text } } }
+      : simulatedMedia(type, text);
   const payload = {
     object: 'whatsapp_business_account',
     entry: [{

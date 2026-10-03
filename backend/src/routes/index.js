@@ -24,6 +24,7 @@ const ticketRoutes = require('./tickets');
 const documentRoutes = require('./documents');
 const campaignRoutes = require('./campaigns');
 const { workflowRoutes, runRoutes, sequenceRoutes, enrollmentRoutes, notificationRoutes } = require('./automation');
+const { faqRuleRoutes, botRoutes } = require('./bot');
 
 const router = express.Router();
 
@@ -59,5 +60,7 @@ router.use('/automation-runs', runRoutes);
 router.use('/sequences', sequenceRoutes);
 router.use('/sequence-enrollments', enrollmentRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/faq-rules', faqRuleRoutes);
+router.use('/bot', botRoutes);
 
 module.exports = router;
