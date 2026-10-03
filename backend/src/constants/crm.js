@@ -39,9 +39,9 @@ const TICKET_NUMBER_START = 1001;
 // sent to the customer). Notes on a lead are lead activities.
 const NOTE_PARENT_TYPES = Object.freeze(['ticket', 'contact', 'campaign', 'conversation']);
 
-// Marketing campaigns and automation settings (same values the pages show). Workflows and
-// sequences are settings only: "Run Now" / "Enroll" create tasks; the other actions are
-// simulated until the automation engine (Phase 6).
+// Marketing campaigns and automation settings (same values the pages show). WORKFLOW_TRIGGERS and
+// WORKFLOW_ACTIONS are the Phase 2 workflow vocabulary, kept to convert old data (migration 003,
+// the importer); the engine's own vocabulary is in constants/automation.js.
 const CAMPAIGN_TYPES = Object.freeze(['Email', 'Social', 'SMS', 'Ads', 'Event']);
 const CAMPAIGN_STATUSES = Object.freeze(['Draft', 'Scheduled', 'Active', 'Paused', 'Completed']);
 const AUTOMATION_STATUSES = Object.freeze(['Active', 'Paused', 'Draft']);

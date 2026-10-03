@@ -6,7 +6,7 @@ const {
   LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, DOCUMENT_CATEGORIES,
-  CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
+  CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES,
   SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
 } = require('../constants/crm');
 
@@ -125,18 +125,8 @@ const campaignFields = {
   ownerId: optionalId,
 };
 
-// Runs and enrollment counts are never accepted from the browser (the server counts them).
-const workflowFields = {
-  name: Joi.string().trim().min(1).max(200),
-  status: Joi.string().valid(...AUTOMATION_STATUSES),
-  trigger: Joi.string().valid(...WORKFLOW_TRIGGERS),
-  actions: Joi.array().items(Joi.object({
-    type: Joi.string().valid(...WORKFLOW_ACTIONS).required(),
-    detail: text(300),
-  })).max(20),
-  ownerId: optionalId,
-};
-
+// Enrollment counts are never accepted from the browser (the server counts them). Workflows
+// have their own validators (validators/automation.js).
 const sequenceFields = {
   name: Joi.string().trim().min(1).max(200),
   targetType: Joi.string().valid(...SEQUENCE_TARGETS),
@@ -261,9 +251,6 @@ module.exports = {
     startTo: calendarDate,
   }),
 
-  workflowCreate: Joi.object({ ...workflowFields, name: workflowFields.name.required(), trigger: workflowFields.trigger.required() }),
-  workflowPatch: Joi.object(workflowFields).min(1),
-  workflowList: automationList,
 
   sequenceCreate: Joi.object({ ...sequenceFields, name: sequenceFields.name.required() }),
   sequencePatch: Joi.object(sequenceFields).min(1),

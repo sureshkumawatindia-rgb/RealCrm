@@ -41,7 +41,9 @@ describe('Phase 2 acceptance: one organization, one set of data', () => {
     created.contactNote = await post(`/contacts/${created.contacts.id}/notes`, { text: 'Pays by UPI' });
     created.documents = await post('/documents', { name: 'Catalogue', linkUrl: 'https://example.com/catalogue.pdf' });
     created.campaigns = await post('/campaigns', { name: 'Diwali SMS', type: 'SMS' });
-    created.workflows = await post('/workflows', { name: 'Welcome', trigger: 'Lead Created' });
+    created.workflows = await post('/workflows', {
+      name: 'Welcome', trigger: { type: 'lead.created' }, steps: [{ type: 'task.create', params: { title: 'Call {{contact.name}}' } }, { type: 'webhook.call', params: { url: 'https://93.184.216.34/hook' } }],
+    });
     created.sequences = await post('/sequences', { name: 'Follow-up', steps: [{ day: 0, type: 'Call' }] });
   });
 
@@ -76,7 +78,8 @@ describe('Phase 2 acceptance: one organization, one set of data', () => {
       api().get(`/api/v1/contacts/${created.contacts.id}/notes`),
       api().get(`/api/v1/leads/${created.leads.id}/activities`),
       api().get(`/api/v1/documents/${created.documents.id}/download`),
-      api().post(`/api/v1/workflows/${created.workflows.id}/run`),
+      api().post(`/api/v1/workflows/${created.workflows.id}/run`).send({ leadId: created.leads.id }),
+      api().get(`/api/v1/workflows/${created.workflows.id}/runs`),
       api().patch(`/api/v1/tasks/${created.tasks.id}`).send({ title: 'Hijacked' }),
       api().delete(`/api/v1/campaigns/${created.campaigns.id}`),
     ];
@@ -106,7 +109,7 @@ describe('Phase 2 acceptance: one organization, one set of data', () => {
       expect(file.campaigns.map((c) => c.name)).toEqual(['Diwali SMS']);
 
       const text = JSON.stringify(file);
-      for (const secret of ['organizationId', 'storageKey', 'tokenHash', 'deletedAt', 'refresh']) expect(text).not.toContain(secret);
+      for (const secret of ['organizationId', 'storageKey', 'tokenHash', 'deletedAt', 'refresh', 'webhookSecret']) expect(text).not.toContain(secret);
     });
 
     it('is only for owners and admins, and holds only the caller\'s organization', async () => {

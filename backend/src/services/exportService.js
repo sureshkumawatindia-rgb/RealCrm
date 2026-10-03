@@ -26,7 +26,7 @@ const SECTIONS = [
   ['quotations', Quotation], ['orders', Order], ['tasks', Task], ['events', CalendarEvent], ['tickets', Ticket], ['notes', Note],
   ['documents', Document], ['campaigns', Campaign], ['workflows', Workflow], ['sequences', Sequence],
 ];
-const HIDDEN_FIELDS = ['organizationId', '__v', 'deletedAt', 'storageKey'];
+const HIDDEN_FIELDS = ['organizationId', '__v', 'deletedAt', 'storageKey', 'webhookSecret'];
 
 function clean(doc) {
   const copy = { ...doc };

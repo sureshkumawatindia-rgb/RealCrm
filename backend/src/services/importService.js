@@ -33,6 +33,7 @@ const {
   SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
 } = require('../constants/crm');
 const { buildImported, nextNumber } = require('./quotationService');
+const { convertLegacyWorkflow } = require('./automation/legacy');
 
 // "Move my browser data to server": imports the localStorage keys of the old browser-only CRM.
 // - dryRun runs the same mapping without writing and reports what would happen.
@@ -781,10 +782,15 @@ class ImportRun {
         const actions = objectsOnly(Array.isArray(item.actions) ? item.actions : []);
         const known = actions.filter((action) => WORKFLOW_ACTIONS.includes(action.type)).slice(0, 20);
         if (known.length < actions.length) this.unresolved(`Workflow "${title}": ${actions.length - known.length} unknown action(s) were left out`);
+        // In the Phase 6 shape, and paused like the workflows migration 003 moved (D32).
+        const { trigger, steps, notes } = convertLegacyWorkflow({ trigger: item.trigger, actions: known.map((action) => ({ type: action.type, detail: str(action.detail, 300) })) });
+        if (notes.length) this.unresolved(`Workflow "${title}": ${notes.join(' ')}`);
         return {
-          trigger: item.trigger,
-          actions: known.map((action) => ({ type: action.type, detail: str(action.detail, 300) })),
-          runsCount: nonNegativeInt(item.runsCount) || 0,
+          trigger,
+          steps,
+          notes,
+          ...(item.status === 'Active' && { status: 'Paused' }),
+          stats: { runs: nonNegativeInt(item.runsCount) || 0 },
         };
       },
     });

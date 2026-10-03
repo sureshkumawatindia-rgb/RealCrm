@@ -1,6 +1,5 @@
 jest.mock('../integrations/google/idToken', () => require('./helpers/fakeGoogle'));
 
-const Task = require('../models/Task');
 const { indiaDate } = require('../utils/dates');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 
@@ -50,55 +49,12 @@ describe('Campaigns', () => {
   });
 });
 
-describe('Workflows and sequences', () => {
+describe('Sequences', () => {
   let owner;
   let ownerMemberId;
   beforeAll(async () => {
     owner = await login('automation-owner@example.com', { name: 'Arjun' });
     ownerMemberId = await memberId(owner.token, 'automation-owner@example.com');
-  });
-
-  const newWorkflow = (token, body) => api().post('/api/v1/workflows').set(bearer(token)).send({ name: 'Welcome new lead', trigger: 'Lead Created', ...body });
-  const run = (token, id, key) => {
-    const req = api().post(`/api/v1/workflows/${id}/run`).set(bearer(token));
-    return key ? req.set('Idempotency-Key', key) : req;
-  };
-
-  it('saves workflows with allowed triggers and actions only; the run count is the server\'s', async () => {
-    const res = await newWorkflow(owner.token, { actions: [{ type: 'Create Task', detail: 'Call within 1 hour' }, { type: 'Send Email (simulated)', detail: 'Welcome mail' }], runsCount: 99 });
-    expect(res.status).toBe(201);
-    expect(res.body.data).toMatchObject({ status: 'Active', trigger: 'Lead Created', runsCount: 0, ownerId: ownerMemberId });
-    expect(res.body.data.actions).toHaveLength(2);
-
-    expect((await newWorkflow(owner.token, { trigger: 'Moon rises' })).status).toBe(400);
-    expect((await newWorkflow(owner.token, { actions: [{ type: 'Launch rocket' }] })).status).toBe(400);
-    expect((await api().post('/api/v1/workflows').set(bearer(owner.token)).send({ name: 'No trigger' })).status).toBe(400);
-  });
-
-  it('Run Now creates the tasks on the server once per click, and says what was only simulated', async () => {
-    const workflow = (await newWorkflow(owner.token, { name: 'Two calls', actions: [
-      { type: 'Create Task', detail: 'First call' }, { type: 'Create Task', detail: '' }, { type: 'Notify Agent', detail: 'x' },
-    ] })).body.data;
-
-    const first = await run(owner.token, workflow.id, 'run-two-calls-1');
-    expect(first.status).toBe(200);
-    expect(first.body.data.workflow.runsCount).toBe(1);
-    expect(first.body.data.simulated).toEqual(['Notify Agent']);
-    expect(first.body.data.tasks.map((t) => t.title)).toEqual(['First call', 'Two calls — follow up']);
-    expect(first.body.data.tasks[0]).toMatchObject({ origin: 'automation', status: 'To Do', assigneeId: ownerMemberId, dueDate: indiaDate(2) });
-
-    // The same click retried: same answer, nothing new.
-    const replay = await run(owner.token, workflow.id, 'run-two-calls-1');
-    expect(replay.headers['idempotent-replayed']).toBe('true');
-    expect(await Task.countDocuments({ description: 'Auto-created by workflow "Two calls"' })).toBe(2);
-
-    const second = await run(owner.token, workflow.id, 'run-two-calls-2');
-    expect(second.body.data.workflow.runsCount).toBe(2);
-
-    await api().patch(`/api/v1/workflows/${workflow.id}`).set(bearer(owner.token)).send({ status: 'Paused' });
-    const paused = await run(owner.token, workflow.id);
-    expect(paused.status).toBe(409);
-    expect(paused.body.code).toBe('NOT_ACTIVE');
   });
 
   it('Enroll schedules the first call or task step and counts the enrollment', async () => {
@@ -122,21 +78,26 @@ describe('Workflows and sequences', () => {
     expect((await api().post('/api/v1/sequences').set(bearer(owner.token)).send({ name: 'x', steps: [{ day: 1, type: 'Fax' }] })).status).toBe(400);
   });
 
-  it('agents run only their own automations; automation alone no longer allows writing tasks directly', async () => {
+  it('agents enroll only into their own sequences; automation alone does not allow writing tasks directly', async () => {
     const agent = await inviteAndJoin(owner.token, 'automation-agent@example.com', { role: 'agent', modules: ['automation'] });
     const agentId = await memberId(owner.token, 'automation-agent@example.com');
-    const mine = (await newWorkflow(agent.token, { name: 'Agent flow', actions: [{ type: 'Create Task', detail: 'Agent task' }], ownerId: ownerMemberId })).body.data;
+    const mine = (await api().post('/api/v1/sequences').set(bearer(agent.token)).send({ name: 'Agent cadence', steps: [{ day: 1, type: 'Task', note: 'Agent task' }], ownerId: ownerMemberId })).body.data;
     expect(mine.ownerId).toBe(agentId);
-    const ran = await run(agent.token, mine.id);
-    expect(ran.body.data.tasks[0].assigneeId).toBe(agentId);
+    const enrolled = await api().post(`/api/v1/sequences/${mine.id}/enroll`).set(bearer(agent.token));
+    expect(enrolled.body.data.task.assigneeId).toBe(agentId);
 
-    const ownersFlow = (await api().get('/api/v1/workflows?q=Welcome').set(bearer(owner.token))).body.data[0];
-    expect((await run(agent.token, ownersFlow.id)).status).toBe(404);
-    expect((await api().delete(`/api/v1/workflows/${mine.id}`).set(bearer(agent.token))).status).toBe(403);
+    const ownersSequence = (await api().get('/api/v1/sequences?q=Quote').set(bearer(owner.token))).body.data[0];
+    expect((await api().post(`/api/v1/sequences/${ownersSequence.id}/enroll`).set(bearer(agent.token))).status).toBe(404);
+    expect((await api().delete(`/api/v1/sequences/${mine.id}`).set(bearer(agent.token))).status).toBe(403);
     expect((await api().post('/api/v1/tasks').set(bearer(agent.token)).send({ title: 'Direct' })).status).toBe(403);
 
+    await api().patch(`/api/v1/sequences/${mine.id}`).set(bearer(agent.token)).send({ status: 'Paused' });
+    const paused = await api().post(`/api/v1/sequences/${mine.id}/enroll`).set(bearer(agent.token));
+    expect(paused.status).toBe(409);
+    expect(paused.body.code).toBe('NOT_ACTIVE');
+
     const stranger = await login('automation-stranger@example.com');
-    expect((await api().get('/api/v1/workflows').set(bearer(stranger.token))).body.data).toEqual([]);
-    expect((await run(stranger.token, mine.id)).status).toBe(404);
+    expect((await api().get('/api/v1/sequences').set(bearer(stranger.token))).body.data).toEqual([]);
+    expect((await api().post(`/api/v1/sequences/${mine.id}/enroll`).set(bearer(stranger.token))).status).toBe(404);
   });
 });

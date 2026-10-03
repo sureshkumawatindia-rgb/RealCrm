@@ -23,7 +23,7 @@ const { taskRoutes, eventRoutes } = require('./workItems');
 const ticketRoutes = require('./tickets');
 const documentRoutes = require('./documents');
 const campaignRoutes = require('./campaigns');
-const { workflowRoutes, sequenceRoutes } = require('./automation');
+const { workflowRoutes, runRoutes, sequenceRoutes, notificationRoutes } = require('./automation');
 
 const router = express.Router();
 
@@ -55,6 +55,8 @@ router.use('/tickets', ticketRoutes);
 router.use('/documents', documentRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/workflows', workflowRoutes);
+router.use('/automation-runs', runRoutes);
 router.use('/sequences', sequenceRoutes);
+router.use('/notifications', notificationRoutes);
 
 module.exports = router;

@@ -6,6 +6,7 @@ const logger = require('../config/logger');
 const MIGRATIONS = [
   require('./001-organization-field-names'),
   require('./002-quotations-v2'),
+  require('./003-workflows-v2'),
 ];
 
 async function runMigrations() {

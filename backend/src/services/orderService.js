@@ -20,6 +20,7 @@ const { billingOf } = require('./organizationService');
 const leadService = require('./leadService');
 const conversationService = require('./conversationService');
 const templateService = require('./templateService');
+const automationEvents = require('./automation/events');
 
 // Orders (Phase 5): made from an accepted quotation, then moved through ORDER_FLOW (any step,
 // forwards or back, except out of Cancelled; a paid order is not cancelled). Dispatch details
@@ -188,9 +189,10 @@ async function returnStock(order, session) {
 async function changeStage(req, id, { stage, note = '', cancelReason = '', dispatch }) {
   let order;
   let paid = false;
+  let from;
   await mongoose.connection.transaction(async (session) => {
     order = await findVisible(req, id, session);
-    const from = order.stage;
+    from = order.stage;
     if (from === 'Cancelled') throw httpError(409, 'ORDER_CANCELLED', 'A cancelled order stays cancelled.');
     if (stage === from) throw httpError(409, 'SAME_STAGE', `The order is already at ${stage}.`);
     if (stage === 'Cancelled' && from === 'Payment Collected') throw httpError(409, 'ORDER_PAID', 'A paid order cannot be cancelled.');
@@ -230,6 +232,9 @@ async function changeStage(req, id, { stage, note = '', cancelReason = '', dispa
     }
   }
   await audit(req, { action: 'order.stage_changed', entityType: 'Order', entityId: order._id, changes: { stage } });
+  const facts = { organizationId: order.organizationId, orderId: order._id, leadId: order.leadId, contactId: order.contactId, quotationId: order.quotationId, orderNumber: order.number };
+  automationEvents.emit('order.stage_changed', { ...facts, from, to: stage }, req);
+  if (stage === 'Payment Collected') automationEvents.emit('payment.received', { ...facts, amountPaise: order.totals?.grandTotalPaise, key: `payment.received:${order._id}` }, req);
   return serializeOrder(order);
 }
 

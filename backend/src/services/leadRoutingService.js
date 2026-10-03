@@ -4,6 +4,7 @@ const bus = require('../realtime/bus');
 const logger = require('../config/logger');
 const assignment = require('./assignmentService');
 const autoReply = require('./autoReplyService');
+const automationEvents = require('./automation/events');
 
 // What happens after an enquiry is taken (lead intake emits "lead:intake"): a job assigns the
 // lead by the assignment rules (only if nobody owns it yet), then schedules the auto-reply, so
@@ -11,7 +12,7 @@ const autoReply = require('./autoReplyService');
 // at the source of this enquiry (a repeat enquiry may join a lead that came from elsewhere).
 const ROUTE = 'lead.route';
 
-async function route(queue, { leadId, source, contactCreated, receivedAt, sourceRef }) {
+async function route(queue, { leadId, source, contactCreated, receivedAt, sourceRef, created }) {
   const lead = await Lead.findById(leadId);
   if (!lead) return;
   if (!lead.ownerId) {
@@ -21,6 +22,7 @@ async function route(queue, { leadId, source, contactCreated, receivedAt, source
   }
   const current = await Lead.findById(leadId);
   await autoReply.schedule(queue, current, { source, contactCreated, receivedAt, sourceRef });
+  if (created) automationEvents.emit('lead.created', { organizationId: current.organizationId, leadId, contactId: current.contactId, source, key: `lead.created:${leadId}` });
 }
 
 let listener = null;
@@ -33,6 +35,7 @@ function attach(queue) {
     if (event.outcome !== 'created' && event.outcome !== 'attached') return;
     queue.enqueue(ROUTE, {
       leadId: String(event.leadId), source: event.source, contactCreated: Boolean(event.contactCreated), receivedAt: event.receivedAt || new Date(), sourceRef: event.sourceRef || '',
+      created: event.outcome === 'created',
     }, { uniqueKey: `route:${event.leadId}:${event.sourceRef || ''}`, organizationId: event.organizationId })
       .catch((error) => logger.error(`Routing lead ${event.leadId} failed to start: ${error.message}`));
   };

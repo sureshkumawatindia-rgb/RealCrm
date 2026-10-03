@@ -318,6 +318,7 @@ async function update(req, id, body) {
     if (lead) for (const [type, text] of events) await leadService.addActivity(req, lead, type, text, { session });
   });
   await audit(req, { action: status ? 'quotation.status_changed' : 'quotation.updated', entityType: 'Quotation', entityId: quotation._id, changes: status ? { status } : Object.keys(content) });
+  if (quotation.$locals.stageChange) await leadService.emitStageChange(req, quotation.$locals.stageChange.leadId, quotation.$locals.stageChange);
   return serializeQuotation(quotation);
 }
 
@@ -348,6 +349,7 @@ async function changeStatus(req, quotation, status, { rejectedReason, session, v
       lead.lastActivityAt = new Date();
       await lead.save({ session });
       events.push(['Stage changed', `${from} → Quote Sent`]);
+      quotation.$locals.stageChange = { leadId: lead._id, from, to: 'Quote Sent' };
     }
   } else if (status === 'Accepted') {
     quotation.acceptedAt = new Date();
@@ -608,6 +610,7 @@ async function sendOnWhatsApp(req, id, { mode, caption = '', templateId, variabl
     if (lead) for (const [type, text] of events) await leadService.addActivity(req, lead, type, text, { session });
   });
   await audit(req, { action: 'quotation.sent_whatsapp', entityType: 'Quotation', entityId: quotation._id, changes: { mode, templateId: templateId || null } });
+  if (quotation.$locals.stageChange) await leadService.emitStageChange(req, quotation.$locals.stageChange.leadId, quotation.$locals.stageChange);
   return { quotation: serializeQuotation(quotation), message, conversationId: conversation._id };
 }
 

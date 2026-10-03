@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const Workflow = require('../models/Workflow');
 const Sequence = require('../models/Sequence');
 const Task = require('../models/Task');
 const OrganizationMember = require('../models/OrganizationMember');
@@ -9,26 +8,10 @@ const { indiaDate } = require('../utils/dates');
 const { createOwnedRecordService } = require('./ownedRecordService');
 const { serializeTask } = require('./taskService');
 
-// Workflows and sequences are automation settings (Sales Automation page). Pressing Run Now or
-// Enroll creates the tasks here on the server; email, notifications and status changes are not
-// sent yet (the automation engine arrives in Phase 6), and the answer says so.
+// Sequences (Sales Automation page). Pressing Enroll creates the first task here on the server;
+// the other steps are not carried out yet (per-contact sequences arrive in Phase 6B), and the
+// answer says so. Workflows run on the automation engine (workflowService, automation/engine).
 const MODULES = ['automation'];
-
-function serializeWorkflow(workflow) {
-  return {
-    id: workflow._id,
-    name: workflow.name,
-    status: workflow.status,
-    trigger: workflow.trigger,
-    actions: workflow.actions.map(({ type, detail }) => ({ type, detail })),
-    ownerId: workflow.ownerId || null,
-    runsCount: workflow.runsCount,
-    lastRunAt: workflow.lastRunAt || null,
-    createdByMemberId: workflow.createdByMemberId || null,
-    createdAt: workflow.createdAt,
-    updatedAt: workflow.updatedAt,
-  };
-}
 
 function serializeSequence(sequence) {
   return {
@@ -46,34 +29,19 @@ function serializeSequence(sequence) {
   };
 }
 
-const common = {
+const sequences = createOwnedRecordService({
+  Model: Sequence,
   modules: MODULES,
-  searchFields: ['name'],
+  entityType: 'Sequence',
+  label: 'Sequence',
+  fields: ['name', 'targetType', 'status', 'steps'],
+  searchFields: ['name', 'targetType'],
   sorts: ['createdAt', 'updatedAt', 'name', 'status'],
   defaultSort: { createdAt: -1 },
   filters: (query) => ({
     ...(query.status && { status: query.status }),
     ...(query.ownerId && { ownerId: query.ownerId }),
   }),
-};
-
-const workflows = createOwnedRecordService({
-  ...common,
-  Model: Workflow,
-  entityType: 'Workflow',
-  label: 'Workflow',
-  fields: ['name', 'status', 'trigger', 'actions'],
-  searchFields: ['name', 'trigger'],
-  serialize: serializeWorkflow,
-});
-
-const sequences = createOwnedRecordService({
-  ...common,
-  Model: Sequence,
-  entityType: 'Sequence',
-  label: 'Sequence',
-  fields: ['name', 'targetType', 'status', 'steps'],
-  searchFields: ['name', 'targetType'],
   serialize: serializeSequence,
 });
 
@@ -115,28 +83,6 @@ async function createTasksAndCount(req, Model, record, taskInputs, counterUpdate
   return { tasks, updated };
 }
 
-async function runWorkflow(req, id) {
-  const workflow = await workflows.findVisible(req, id);
-  assertActive(workflow, 'workflow');
-  const assigneeId = await activeOwner(workflow);
-  const taskInputs = workflow.actions
-    .filter((action) => action.type === 'Create Task')
-    .map((action) => ({
-      title: (action.detail || `${workflow.name} — follow up`).slice(0, 300),
-      description: `Auto-created by workflow "${workflow.name}"`,
-      assigneeId,
-      dueDate: indiaDate(2),
-    }));
-  const { tasks, updated } = await createTasksAndCount(req, Workflow, workflow, taskInputs, { $inc: { runsCount: 1 }, $set: { lastRunAt: new Date() } });
-  await audit(req, { action: 'workflow.run', entityType: 'Workflow', entityId: workflow._id, changes: { tasksCreated: tasks.length } });
-  return {
-    workflow: serializeWorkflow(updated),
-    tasks: tasks.map(serializeTask),
-    // Configured actions that were not carried out (no email, notification or status change yet).
-    simulated: [...new Set(workflow.actions.filter((action) => action.type !== 'Create Task').map((action) => action.type))],
-  };
-}
-
 // "Enroll one": schedules the first Task or Call step as a task and counts the enrollment.
 async function enrollSequence(req, id) {
   const sequence = await sequences.findVisible(req, id);
@@ -162,10 +108,7 @@ async function enrollSequence(req, id) {
 
 module.exports = {
   MODULES,
-  workflows,
   sequences,
-  runWorkflow,
   enrollSequence,
-  serializeWorkflow,
   serializeSequence,
 };

@@ -403,6 +403,22 @@ async function sendTemplateAutomatically({ conversation, template, variables, au
   }, async () => ({ type: 'template', template: payload }));
 }
 
+// A text the CRM sends itself (automations), only inside the 24-hour window.
+async function sendTextAutomatically({ conversation, text, automation }) {
+  if (!serviceWindow(conversation).open) {
+    throw httpError(422, 'WINDOW_CLOSED', 'The customer has not written in the last 24 hours; only an approved template can go now.');
+  }
+  const [account, contact] = await Promise.all([
+    WhatsAppAccount.findOne({ _id: conversation.whatsappAccountId, organizationId: conversation.organizationId }),
+    Contact.findOne({ _id: conversation.contactId, organizationId: conversation.organizationId }),
+  ]);
+  if (!account) throw httpError(409, 'NUMBER_REMOVED', 'The WhatsApp number was removed from Settings.');
+  if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  return deliver(AS_SYSTEM, { conversation, account, contact }, { type: 'text', text, automation }, async () => ({
+    type: 'text', text: { body: text, preview_url: /https?:\/\//i.test(text) },
+  }));
+}
+
 // The file of a message in a chat the member can see.
 async function openMedia(req, id, messageId) {
   const conversation = await findVisible(req, id);
@@ -455,6 +471,6 @@ async function addNote(req, id, body) {
 
 module.exports = {
   list, summary, get, update, markRead, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
-  ensureConversation, sendTemplateAutomatically, sendGeneratedDocument, announce, findVisible,
+  ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendGeneratedDocument, announce, findVisible,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };

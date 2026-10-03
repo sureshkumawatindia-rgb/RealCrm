@@ -15,7 +15,8 @@ const { serializeConversation, serializeMessage, seesAll } = require('../service
 //   member:<id>          — the member: their assigned chats; dropped when their access changes
 //   org:<id>:inbox-all   — owners, admins and inbox:view_all: every chat
 //   org:<id>:inbox       — other inbox members: chats nobody has taken yet
-// Server → browser events: conversation:updated, message:new, message:status, note:new.
+// Server → browser events: conversation:updated, message:new, message:status, note:new,
+// notification:new.
 const rooms = {
   member: (id) => `member:${id}`,
   all: (organizationId) => `org:${organizationId}:inbox-all`,
@@ -79,6 +80,10 @@ function attachRealtime(httpServer) {
     },
     'note:new': async ({ conversation, note }) => {
       io.to(targetsFor(conversation)).emit('note:new', { conversationId: conversation._id, note });
+    },
+    // The bell (Phase 6): only to the member it is for.
+    'notification:new': async ({ memberId, notification }) => {
+      io.to(rooms.member(memberId)).emit('notification:new', notification);
     },
     // Role, pages or status changed, or the member was removed: drop their sockets. The browser
     // reconnects and gets the rooms that match the new access (or is refused).

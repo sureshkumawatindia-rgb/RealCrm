@@ -206,8 +206,9 @@ describe('POST /imports/localstorage', () => {
     expect(diwaliOffer.endDate).toBeUndefined();
     expect((await Note.findOne({ parentType: 'campaign', parentId: diwaliOffer._id })).text).toBe('Approved by owner');
     const welcome = await Workflow.findOne({ legacyIds: 'wf_1' });
-    expect(welcome).toMatchObject({ trigger: 'Lead Created', status: 'Active', runsCount: 4 });
-    expect(welcome.actions.map((a) => a.type)).toEqual(['Create Task']);
+    // Phase 6 shape, paused (D32).
+    expect(welcome).toMatchObject({ trigger: { type: 'lead.created' }, status: 'Paused', stats: { runs: 4 }, schemaVersion: 2 });
+    expect(welcome.steps.map((s) => s.toObject())).toEqual([{ type: 'task.create', params: { title: 'Call within 1 hour', dueInDays: 1, assignTo: 'owner' } }]);
     expect(unresolved.join(' ')).toMatch(/Welcome.*1 unknown action/);
     const cadence = await Sequence.findOne({ legacyIds: 'sq_1' });
     expect(cadence).toMatchObject({ status: 'Paused', enrolledCount: 3 });

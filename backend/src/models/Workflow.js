@@ -1,36 +1,55 @@
 const mongoose = require('mongoose');
 const softDelete = require('./plugins/softDelete');
-const { AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS } = require('../constants/crm');
+const { AUTOMATION_STATUSES } = require('../constants/crm');
+const { TRIGGER_TYPES, ACTION_TYPES } = require('../constants/automation');
 
-// An automation rule: "when <trigger>, do <actions>". Only settings for now; runsCount is
-// changed by the server when someone presses Run Now, never taken from the browser.
-const actionSchema = new mongoose.Schema(
+// An automation (Phase 6): "when <trigger>, if <conditions>, do <steps>". Each time it starts
+// for a lead (or order, task …) is an AutomationRun with its own log. Steps run in order; a
+// "wait" step pauses the run. Phase 2 workflows were moved here by migration 003 (paused, D32).
+const { Mixed, ObjectId } = mongoose.Schema.Types;
+
+const triggerSchema = new mongoose.Schema(
   {
-    type: { type: String, enum: WORKFLOW_ACTIONS, required: true },
-    detail: { type: String, trim: true, default: '' },
+    type: { type: String, enum: TRIGGER_TYPES, required: true },
+    // lead.created { sources[] } · message.received { keywords[] } · lead.stage_changed
+    // { toStages[], fromStages[] } · lead.no_reply { hours } · quotation.not_accepted { days }
+    // · order.stage_changed { toStages[] }
+    params: { type: Mixed, default: () => ({}) },
   },
   { _id: false },
 );
+const conditionSchema = new mongoose.Schema({ field: String, op: String, value: Mixed }, { _id: false });
+const stepSchema = new mongoose.Schema({ type: { type: String, enum: ACTION_TYPES, required: true }, params: { type: Mixed, default: () => ({}) } }, { _id: false });
 
 const workflowSchema = new mongoose.Schema(
   {
-    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
+    organizationId: { type: ObjectId, ref: 'Organization', required: true },
     name: { type: String, required: true, trim: true },
     status: { type: String, enum: AUTOMATION_STATUSES, default: 'Active' },
-    trigger: { type: String, enum: WORKFLOW_TRIGGERS, required: true },
-    actions: { type: [actionSchema], default: [] },
-    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
-    runsCount: { type: Number, min: 0, default: 0 },
-    lastRunAt: { type: Date },
+    trigger: { type: triggerSchema, required: true },
+    conditions: { type: [conditionSchema], default: [] },
+    steps: { type: [stepSchema], default: [] },
+    // Signs webhook calls (X-CRM-Signature: sha256=…), made when the first webhook step is added.
+    webhookSecret: { type: String },
+    notes: { type: [String], default: [] }, // e.g. what migration 003 could not carry over
+    ownerId: { type: ObjectId, ref: 'OrganizationMember' },
+    stats: {
+      runs: { type: Number, default: 0 },
+      done: { type: Number, default: 0 },
+      failed: { type: Number, default: 0 },
+      lastRunAt: { type: Date },
+    },
+    schemaVersion: { type: Number, default: 2 },
     legacyIds: { type: [String], default: undefined },
-    createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    createdByMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
+    createdById: { type: ObjectId, ref: 'User' },
+    createdByMemberId: { type: ObjectId, ref: 'OrganizationMember' },
   },
   { timestamps: true },
 );
 
 workflowSchema.plugin(softDelete);
 workflowSchema.index({ organizationId: 1, deletedAt: 1, status: 1 });
+workflowSchema.index({ organizationId: 1, status: 1, 'trigger.type': 1 });
 workflowSchema.index({ organizationId: 1, ownerId: 1 });
 workflowSchema.index({ organizationId: 1, legacyIds: 1 });
 

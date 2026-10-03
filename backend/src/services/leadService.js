@@ -10,6 +10,7 @@ const { searchFilter, sortSpec } = require('../utils/listQuery');
 const { STAGE_PROBABILITY } = require('../constants/crm');
 const { visibilityFilter, resolveOwnerId, ownerPatch } = require('./access');
 const contactService = require('./contactService');
+const automationEvents = require('./automation/events');
 
 // Leads are shown on the Leads page and, as a Kanban, on the Deals page (D13).
 const MODULES = ['leads', 'deals'];
@@ -135,6 +136,7 @@ async function list(req, query) {
 }
 
 async function create(req, body) {
+  let created;
   const leadId = await mongoose.connection.transaction(async (session) => {
     let contact;
     if (body.contactId) {
@@ -157,9 +159,11 @@ async function create(req, body) {
     if (lead.stage === 'Won') await markContactCustomer(req, lead, session);
     await lead.save({ session });
     await addActivity(req, lead, 'Lead created', 'Lead created', { session });
+    created = lead;
     return lead._id;
   });
   await audit(req, { action: 'lead.created', entityType: 'Lead', entityId: leadId });
+  automationEvents.emit('lead.created', { organizationId: created.organizationId, leadId, contactId: created.contactId, source: created.source || 'Manual', key: `lead.created:${leadId}` }, req);
   return loadSerialized(req, leadId);
 }
 
@@ -193,12 +197,21 @@ async function update(req, id, body) {
     }
   });
   await audit(req, { action: stageChange ? 'lead.stage_changed' : 'lead.updated', entityType: 'Lead', entityId: id, changes: stageChange || Object.keys(body) });
+  if (stageChange) await emitStageChange(req, id, stageChange);
   return loadSerialized(req, id);
+}
+
+// "A lead changes stage" for the automation engine (after the change is saved).
+async function emitStageChange(req, leadId, { from, to }) {
+  const lead = await Lead.findById(leadId).select('organizationId contactId source');
+  if (lead) automationEvents.emit('lead.stage_changed', { organizationId: lead.organizationId, leadId, contactId: lead.contactId, source: lead.source, from, to }, req);
 }
 
 // POST /leads/:id/convert — idempotent: repeating it returns the same lead and contact.
 async function convert(req, id) {
+  let moved = null;
   await mongoose.connection.transaction(async (session) => {
+    moved = null;
     const lead = await findVisible(req, id, session);
     const wasConverted = Boolean(lead.convertedAt);
     const from = lead.stage;
@@ -208,8 +221,10 @@ async function convert(req, id) {
       lead.version += 1;
       await lead.save({ session });
       await addActivity(req, lead, 'Converted', 'Converted to customer', { session });
+      if (from !== lead.stage) moved = { from, to: lead.stage };
     }
   });
+  if (moved) await emitStageChange(req, id, moved);
   await audit(req, { action: 'lead.converted', entityType: 'Lead', entityId: id });
   return loadSerialized(req, id);
 }
@@ -239,5 +254,5 @@ module.exports = {
   list, create, update, convert, remove, listActivities, addNote,
   get: loadSerialized,
   changeStage: (req, id, { stage, lostReason, version }) => update(req, id, { stage, lostReason, version }),
-  findVisible, addActivity, applyStage, serializeLead, MODULES,
+  findVisible, addActivity, applyStage, serializeLead, emitStageChange, MODULES,
 };
