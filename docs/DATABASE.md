@@ -63,9 +63,9 @@ The file bytes are not in MongoDB: `src/storage` keeps them on local disk (`DOCU
 |---|---|---|
 | `campaigns` | `name`, `type`, `status`, `startDate`/`endDate` (`YYYY-MM-DD`), `budgetPaise`, `leadsGenerated` (entered by the team until lead sources count it), `audience`, `description`, `ownerId`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status, startDate)`; `(organizationId, ownerId, status)`; `(organizationId, legacyIds)` |
 | `workflows` | Phase 2 shape (`trigger` text, `actions[]`, `runsCount`); replaced in Phase 6 by migration 003, see section 1i | |
-| `sequences` | `name`, `targetType`, `status`, `steps[]` `{ day 0–365, type, note }`, `ownerId`, `enrolledCount` (server only), `lastEnrolledAt`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status)`; `(organizationId, ownerId)`; `(organizationId, legacyIds)` |
+| `sequences` | Phase 2 shape (`targetType`, `steps[]` { day, Email/Call/Task/Wait, note }, `enrolledCount`); replaced in Phase 6B by migration 004, see section 1i | |
 
-`notes.parentType` now also allows `campaign`. `automationruns` arrived in Phase 6 (section 1i); per-contact `sequenceenrollments` arrive in Phase 6B.
+`notes.parentType` now also allows `campaign`. `automationruns` and per-contact `sequenceenrollments` arrived in Phase 6 (section 1i).
 
 ## 1g. Implemented (Phase 3, WhatsApp)
 
@@ -108,15 +108,18 @@ Counters used: `quotation:<financial year>`, `estimate:<financial year>`, `profo
 |---|---|---|
 | `workflows` | `schemaVersion` 2: `name`, `status` (Active/Paused/Draft), `trigger` { type, params }, `conditions[]` { field, op, value }, `steps[]` { type, params } (checked per type by `validators/automation.js`), `webhookSecret` (made with the first webhook step; never exported), `notes[]`, `ownerId`, `stats` { runs, done, failed, lastRunAt } (server only), `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status)`; `(organizationId, status, trigger.type)`; `(organizationId, ownerId)`; `(organizationId, legacyIds)` |
 | `automationruns` | `workflowId`, `workflowName`, `trigger` (or `manual`), `event` (summary), `subject` { leadId, contactId, conversationId, orderId, quotationId, taskId, label }, `chain[]` (workflows that led here; loop guard), `status` (running/waiting/done/failed/skipped/cancelled), `stepIndex`, `steps[]` { index, type, status done/failed/skipped/waiting, detail, at }, `nextAt`, `dedupeKey`, `error`, `finishedAt` | `(organizationId, createdAt -1)`; `(organizationId, workflowId, createdAt -1)`; `(organizationId, subject.leadId, createdAt -1)`; unique `(workflowId, dedupeKey)` when a key is set (one run per event or per scanned thing) |
+| `sequences` | `schemaVersion` 2: `name`, `status`, `steps[]` { day 0–365, type (a workflow action without wait/webhook/sequence), params }, `stopOnReply`, `stopOnClose`, `workingHoursOnly` (all default true), `notes[]`, `ownerId`, `stats` { enrolled (history), active, completed, stopped, failed (recounted), lastEnrolledAt }, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status)`; `(organizationId, ownerId)`; `(organizationId, legacyIds)` |
+| `sequenceenrollments` | `sequenceId`, `sequenceName`, `contactId`, `leadId`, `label`, `status` (active/completed/stopped/failed), `enrolledAt`, `enrolledBy` { kind member/workflow, memberId, workflowId, name }, `chain[]` (loop guard), `stepIndex` (next step), `nextAt`, `steps[]` { index, day, type, status done/failed/skipped, detail, at }, `stopReason`, `error`, `finishedAt` | `(organizationId, sequenceId, createdAt -1)`; `(organizationId, contactId, status)`; `(organizationId, leadId, createdAt -1)`; unique `(sequenceId, contactId)` while `status: active` (one active enrollment per customer and sequence) |
 | `notifications` | `memberId`, `title`, `body`, `link` (a CRM page), `source` (e.g. `workflow:<id>`), `readAt` | `(organizationId, memberId, createdAt -1)`; `(organizationId, memberId, readAt)`; TTL 90 days on `createdAt` |
 
-Jobs (in `jobs`): `automation.event` (one per business event), `automation.step` (one per run and step index, `uniqueKey run:<id>:<index>`; a wait step's job has a later `runAt`), `automation.scan` (every 10 minutes).
+Jobs (in `jobs`): `automation.event` (one per business event), `automation.step` (one per run and step index, `uniqueKey run:<id>:<index>`; a wait step's job has a later `runAt`), `automation.scan` (every 10 minutes), `sequence.step` (one per enrollment and step, `uniqueKey seq:<id>:<index>`, `runAt` = the step's day, moved to the next opening when only working hours are allowed).
 
 ## 2. Data migrations
 
 | Migration | What it does |
 |---|---|
 | `001-organization-field-names` | `gst → gstin` (uppercased), `pincode → postalCode`, `founded → foundedYear` (only real years; other text stays in `founded`), derives `stateCode` from the GSTIN. |
+| `004-sequences-v2` | Phase 2 sequences get the Phase 6B shape (`automation/legacy.js`): Call and Task steps → `task.create` on the same day (title from the note, due that day, the lead's owner), Email steps → `notes` (the CRM sends WhatsApp), Wait steps dropped (the days are the waits), `targetType` dropped; Active ones become Paused (D32); `enrolledCount` → `stats.enrolled`. Only documents without `schemaVersion: 2`. |
 | `003-workflows-v2` | Phase 2 workflows get the Phase 6 shape (`automation/legacy.js`): "Lead/Deal Created" → `lead.created`, "…Won" and "Customer Added" → `lead.stage_changed` to Won, "…Lost" → to Lost, "Task Overdue" → `task.overdue`; Create Task → `task.create` (due in 1 day, the lead's owner), Notify Agent → `agent.notify`, Update Status → `stage.change` when it names a stage (not Lost); emails, "Add to Sequence" and the rest go to `notes`. Active ones become Paused (D32); `runsCount` → `stats.runs`; the old fields are removed. Only documents without `schemaVersion: 2` (deleted ones too). |
 | `002-quotations-v2` | Phase 2 quotations get the Phase 5 shape: each line's tax split into CGST + SGST or IGST (organization vs customer state), taxable values, the rate summary, customer and seller details, type Quotation, revision 0; no round-off, so no amount changes. Only documents without `schemaVersion: 2`. |
 
