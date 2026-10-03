@@ -125,6 +125,14 @@ const SAMPLE_TEMPLATES = [
     ],
   },
   {
+    id: 'mock-tpl-quotation', name: 'quotation_pdf', language: 'en', status: 'APPROVED', category: 'UTILITY',
+    components: [
+      { type: 'HEADER', format: 'DOCUMENT', example: { header_handle: ['4::mock-sample-quotation-pdf'] } },
+      { type: 'BODY', text: 'Namaste {{1}}, please find our quotation {{2}} for {{3}} attached. Reply here if you have any question.', example: { body_text: [['Ravi', 'QT/2026-27/0001', '₹12,713.00']] } },
+      { type: 'FOOTER', text: 'Thank you' },
+    ],
+  },
+  {
     id: 'mock-tpl-diwali', name: 'diwali_offer', language: 'en', status: 'REJECTED', category: 'MARKETING', rejected_reason: 'INVALID_FORMAT',
     components: [{ type: 'BODY', text: 'Flat 20% off this Diwali!' }],
   },

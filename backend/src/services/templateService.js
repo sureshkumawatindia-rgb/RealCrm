@@ -21,8 +21,9 @@ const placeholdersOf = (text) => [...new Set([...String(text || '').matchAll(PLA
 const upper = (value) => String(value || '').toUpperCase();
 const fieldError = (field, message, code = 'INVALID_TEMPLATE') => httpError(400, 'VALIDATION_ERROR', message, [{ field, code, message }]);
 
-// What a template is made of, in a form the page and the sender can use.
-function shapeOf(template) {
+// What a template is made of, in a form the page and the sender can use. withDocument: the
+// caller has a PDF for a DOCUMENT header (a quotation); the inbox has none.
+function shapeOf(template, { withDocument = false } = {}) {
   const components = Array.isArray(template.components) ? template.components : [];
   const find = (type) => components.find((c) => upper(c?.type) === type) || null;
   const header = find('HEADER');
@@ -40,13 +41,15 @@ function shapeOf(template) {
     buttons,
   };
 
+  const documentHeader = headerFormat === 'DOCUMENT';
   let notSendableReason = '';
   if (template.status !== 'APPROVED') notSendableReason = `Meta has not approved this template (status: ${template.status || 'unknown'}).`;
   else if (upper(template.category) === 'AUTHENTICATION') notSendableReason = 'Authentication (one-time code) templates are not sent from the inbox.';
-  else if (header && headerFormat !== 'TEXT') notSendableReason = 'Templates with a photo, video, document or location header cannot be sent from the CRM yet.';
+  else if (documentHeader && !withDocument) notSendableReason = 'This template carries a PDF: send it from a quotation (Quotations → Send on WhatsApp).';
+  else if (header && headerFormat !== 'TEXT' && !documentHeader) notSendableReason = 'Templates with a photo, video or location header cannot be sent from the CRM yet.';
   else if (buttons.some((b) => !SENDABLE_BUTTONS.includes(b.type) || b.variables.length > 1)) notSendableReason = 'This template has a button type the CRM cannot fill in yet.';
   else if (!body) notSendableReason = 'This template has no message text.';
-  return { ...shape, sendable: !notSendableReason, notSendableReason };
+  return { ...shape, documentHeader, sendable: !notSendableReason, notSendableReason };
 }
 
 function serializeTemplate(template) {
@@ -65,6 +68,7 @@ function serializeTemplate(template) {
     body: shape.body,
     footer: shape.footer,
     buttons: shape.buttons,
+    documentHeader: shape.documentHeader,
     sendable: shape.sendable,
     notSendableReason: shape.notSendableReason,
     lastSyncedAt: template.lastSyncedAt || null,
@@ -243,16 +247,19 @@ function checkValue(value, label) {
 const fill = (text, values) => String(text || '').replace(PLACEHOLDER, (match, name) => values[name] ?? match);
 
 // variables: { header: { name: value }, body: { name: value }, buttons: { index: value } }.
+// document: { id (uploaded media), filename } for a DOCUMENT header (PDF only, says Meta).
 // Returns the Cloud API template object and the text shown in the chat.
-function buildSend(template, variables = {}) {
-  const shape = shapeOf(template);
+function buildSend(template, variables = {}, { document } = {}) {
+  const shape = shapeOf(template, { withDocument: Boolean(document) });
   if (!shape.sendable) throw httpError(422, 'TEMPLATE_NOT_SENDABLE', shape.notSendableReason);
   const named = template.parameterFormat === 'NAMED';
   const param = (name, text) => (named ? { type: 'text', parameter_name: name, text } : { type: 'text', text });
   const components = [];
 
   const headerValues = {};
-  if (shape.header?.variables.length) {
+  if (shape.documentHeader) {
+    components.push({ type: 'header', parameters: [{ type: 'document', document: { id: document.id, filename: document.filename } }] });
+  } else if (shape.header?.variables.length) {
     const name = shape.header.variables[0];
     headerValues[name] = checkValue(variables.header?.[name], `the header {{${name}}}`);
     components.push({ type: 'header', parameters: [param(name, headerValues[name])] });

@@ -43,14 +43,16 @@ describe('Templates on a test number', () => {
     const synced = await api().post('/api/v1/templates/sync').set(bearer(owner.token)).send({});
     expect(synced.status).toBe(200);
     const byName = Object.fromEntries(synced.body.data.map((t) => [t.name, t]));
-    expect(Object.keys(byName).sort()).toEqual(['diwali_offer', 'hello_world', 'order_update', 'quote_follow_up']);
+    expect(Object.keys(byName).sort()).toEqual(['diwali_offer', 'hello_world', 'order_update', 'quotation_pdf', 'quote_follow_up']);
+    // A PDF header is filled by a quotation, not from the inbox picker.
+    expect(byName.quotation_pdf).toMatchObject({ documentHeader: true, sendable: false, header: { format: 'DOCUMENT' } });
     expect(byName.order_update).toMatchObject({ status: 'APPROVED', sendable: true, parameterFormat: 'POSITIONAL', body: { variables: ['1', '2'] } });
     expect(byName.quote_follow_up).toMatchObject({ parameterFormat: 'NAMED', header: { format: 'TEXT', variables: ['product'] }, body: { variables: ['customer_name'] } });
     expect(byName.diwali_offer).toMatchObject({ status: 'REJECTED', rejectedReason: 'INVALID_FORMAT', sendable: false });
 
     const approved = await api().get('/api/v1/templates?status=approved').set(bearer(agent.token));
     expect(approved.status).toBe(200);
-    expect(approved.body.data.map((t) => t.name).sort()).toEqual(['hello_world', 'order_update', 'quote_follow_up']);
+    expect(approved.body.data.map((t) => t.name).sort()).toEqual(['hello_world', 'order_update', 'quotation_pdf', 'quote_follow_up']);
     expect((await api().post('/api/v1/templates').set(bearer(agent.token)).send({ name: 'x', language: 'en', category: 'UTILITY', bodyText: 'Hi there' })).status).toBe(403);
   });
 
