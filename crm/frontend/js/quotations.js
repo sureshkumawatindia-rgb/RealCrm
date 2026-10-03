@@ -341,10 +341,24 @@
       if (["Sent", "Viewed", "Rejected", "Expired"].includes(q.status)) buttons.push(button("revise", "Revise (new revision)", "btn-primary", "fa-pen"));
       if (q.status === "Accepted" && !q.orderId) buttons.push(button("unaccept", "Undo “accepted”", "btn-outline", "fa-rotate-left"));
     }
+    if (q) {
+      buttons.push(button("pdf", "Download PDF", "btn-outline", "fa-file-pdf"));
+      if (q.status !== "Draft") {
+        buttons.push(button("copylink", "Copy customer link", "btn-outline", "fa-link"));
+        buttons.push(button("openlink", "Open customer view", "btn-outline", "fa-arrow-up-right-from-square"));
+        if (isLocalLink(q.shareUrl)) buttons.push('<p class="q-hint">This link opens only on this computer until the CRM runs on a public (https) address.</p>');
+      } else {
+        buttons.push('<p class="q-hint">The customer link works once the quotation is marked as sent.</p>');
+      }
+    }
     if (q && can("delete") && !q.orderId) buttons.push(button("delete", "Delete", "btn-danger-outline", "fa-trash"));
     if (q && q.status !== "Draft" && can("edit")) buttons.push('<p class="q-hint">Sent quotations are not changed; “Revise” makes a new revision and keeps this one.</p>');
     $("qActions").innerHTML = buttons.join("");
   }
+
+  // Customers can only open a link to a public address.
+  const isLocalLink = (url) => !/^https:\/\//.test(url || "") || /\/\/(127\.0\.0\.1|localhost)[:/]/.test(url || "");
+  const pdfName = (q) => `${String(q.number).replace(/[^A-Za-z0-9-]+/g, "-")}${q.revision ? `-R${q.revision}` : ""}.pdf`;
 
   function lockIfNeeded() {
     const locked = !editable();
@@ -645,6 +659,26 @@
       } else if (action === "revise") {
         saved = await crmApi(`/quotations/${ed.q.id}/revise`, { method: "POST" });
         showToast(`Revision ${saved.revision} opened. Make the changes, then save and send it.`, "success");
+      } else if (action === "pdf") {
+        if (ed.dirty && ed.q.status === "Draft") {
+          saved = await save();
+          if (!saved) return;
+          applySaved(saved);
+          saved = null;
+        }
+        await crmDownload(`/quotations/${ed.q.id}/pdf`, pdfName(ed.q));
+        return;
+      } else if (action === "copylink") {
+        try {
+          await navigator.clipboard.writeText(ed.q.shareUrl);
+          showToast("Link copied. When the customer opens it, the quotation shows as “Viewed”.", "success");
+        } catch {
+          window.prompt("Copy the customer link:", ed.q.shareUrl);
+        }
+        return;
+      } else if (action === "openlink") {
+        window.open(`${ed.q.shareUrl}?preview=1`, "_blank", "noopener");
+        return;
       } else if (action === "delete") {
         if (!confirm(`Delete ${ed.q.type.toLowerCase()} ${ed.q.number}?`)) return;
         await crmApi(`/quotations/${ed.q.id}`, { method: "DELETE" });
