@@ -6,6 +6,7 @@ const Product = require('../models/Product');
 const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const Quotation = require('../models/Quotation');
+const Order = require('../models/Order');
 const Task = require('../models/Task');
 const CalendarEvent = require('../models/CalendarEvent');
 const Ticket = require('../models/Ticket');
@@ -22,7 +23,7 @@ const { indiaDate } = require('../utils/dates');
 // fields are left out; uploaded files are listed but not included (download them from Documents).
 const SECTIONS = [
   ['contacts', Contact], ['products', Product], ['leads', Lead], ['leadActivities', LeadActivity],
-  ['quotations', Quotation], ['tasks', Task], ['events', CalendarEvent], ['tickets', Ticket], ['notes', Note],
+  ['quotations', Quotation], ['orders', Order], ['tasks', Task], ['events', CalendarEvent], ['tickets', Ticket], ['notes', Note],
   ['documents', Document], ['campaigns', Campaign], ['workflows', Workflow], ['sequences', Sequence],
 ];
 const HIDDEN_FIELDS = ['organizationId', '__v', 'deletedAt', 'storageKey'];

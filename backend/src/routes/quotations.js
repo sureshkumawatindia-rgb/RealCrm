@@ -6,6 +6,7 @@ const idempotency = require('../middleware/idempotency');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/quotations');
+const orderSchemas = require('../validators/orders');
 const { GST_STATES } = require('../constants/gst');
 
 // Quotations, estimates and proforma invoices (Phase 5): the same permissions as leads.
@@ -16,6 +17,10 @@ router.use(authenticate);
 router.get('/', can('view'), validate({ query: schemas.quotationList }), async (req, res) => {
   const { items, pagination } = await quotationService.list(req, req.valid.query);
   res.json({ success: true, data: items, pagination });
+});
+// "Quote Sent, no reply for N days" (before /:id).
+router.get('/awaiting-reply', can('view'), validate({ query: orderSchemas.awaitingReply }), async (req, res) => {
+  res.json({ success: true, data: await quotationService.awaitingReply(req, req.valid.query) });
 });
 router.post('/', can('create'), idempotency, validate({ body: schemas.quotationCreate }), async (req, res) => {
   const quotation = await quotationService.create(req, req.body);

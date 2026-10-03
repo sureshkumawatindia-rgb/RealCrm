@@ -1,0 +1,44 @@
+const express = require('express');
+const orderService = require('../services/orderService');
+const { authenticate } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/permissions');
+const idempotency = require('../middleware/idempotency');
+const validate = require('../middleware/validate');
+const { idParams } = require('../validators/common');
+const schemas = require('../validators/orders');
+
+// Orders (Phase 5): the same permissions as leads and quotations; WhatsApp updates need the inbox.
+const router = express.Router();
+const can = (action) => requirePermission(['leads', 'deals'], action);
+const canChat = requirePermission('inbox', 'create');
+
+router.use(authenticate);
+router.get('/', can('view'), validate({ query: schemas.orderList }), async (req, res) => {
+  const { items, pagination } = await orderService.list(req, req.valid.query);
+  res.json({ success: true, data: items, pagination });
+});
+router.get('/summary', can('view'), async (req, res) => {
+  res.json({ success: true, data: await orderService.summary(req) });
+});
+router.post('/', can('create'), idempotency, validate({ body: schemas.orderCreate }), async (req, res) => {
+  const order = await orderService.create(req, req.body);
+  res.status(201).json({ success: true, data: order, message: `Order ${order.number} created` });
+});
+router.get('/:id', can('view'), validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await orderService.get(req, req.valid.params.id) });
+});
+router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.orderPatch }), async (req, res) => {
+  res.json({ success: true, data: await orderService.update(req, req.valid.params.id, req.body) });
+});
+router.post('/:id/stage', can('edit'), validate({ params: idParams, body: schemas.orderStage }), async (req, res) => {
+  const order = await orderService.changeStage(req, req.valid.params.id, req.body);
+  res.json({ success: true, data: order, message: `Order moved to ${order.stage}` });
+});
+router.get('/:id/notify-options', can('view'), canChat, validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await orderService.notifyOptions(req, req.valid.params.id) });
+});
+router.post('/:id/notify', can('edit'), canChat, idempotency, validate({ params: idParams, body: schemas.orderNotify }), async (req, res) => {
+  res.json({ success: true, data: await orderService.notify(req, req.valid.params.id, req.body), message: 'Update sent on WhatsApp' });
+});
+
+module.exports = router;

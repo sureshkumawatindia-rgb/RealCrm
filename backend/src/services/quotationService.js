@@ -611,8 +611,47 @@ async function sendOnWhatsApp(req, id, { mode, caption = '', templateId, variabl
   return { quotation: serializeQuotation(quotation), message, conversationId: conversation._id };
 }
 
+// GET /quotations/awaiting-reply?days=N — leads at Quote Sent whose latest sent quotation is at
+// least N days old and the customer has not written on WhatsApp since. Oldest wait first.
+async function awaitingReply(req, { days = 3 } = {}) {
+  const now = Date.now();
+  const cutoff = new Date(now - days * 24 * 60 * 60 * 1000);
+  const quotations = await Quotation.find({ ...scope(req), status: { $in: ['Sent', 'Viewed'] }, sentAt: { $lte: cutoff }, leadId: { $ne: null } })
+    .select('-revisions').sort({ sentAt: -1 }).limit(1000);
+  const latest = new Map();
+  for (const quotation of quotations) if (!latest.has(String(quotation.leadId))) latest.set(String(quotation.leadId), quotation);
+  if (!latest.size) return [];
+  const leads = await Lead.find({ _id: { $in: [...latest.keys()] }, organizationId: req.tenant.organizationId, stage: 'Quote Sent', ...visibilityFilter(req, MODULES) })
+    .populate({ path: 'contactId', select: 'name email phone company lifecycle' });
+  const contactIds = leads.map((lead) => lead.contactId?._id || lead.contactId);
+  const chats = await Conversation.find({ organizationId: req.tenant.organizationId, contactId: { $in: contactIds } }).select('contactId lastInboundAt lastMessageAt');
+  const chatOfContact = new Map();
+  for (const chat of chats) {
+    const key = String(chat.contactId);
+    const known = chatOfContact.get(key);
+    if (!known || (chat.lastInboundAt || 0) > (known.lastInboundAt || 0)) chatOfContact.set(key, chat);
+  }
+  return leads
+    .map((lead) => {
+      const quotation = latest.get(String(lead._id));
+      const chat = chatOfContact.get(String(lead.contactId?._id || lead.contactId));
+      if (chat?.lastInboundAt && chat.lastInboundAt > quotation.sentAt) return null; // they replied
+      return {
+        lead: leadService.serializeLead(lead),
+        quotation: {
+          id: quotation._id, type: quotation.type, number: quotation.number, status: quotation.status, sentAt: quotation.sentAt,
+          viewCount: quotation.viewCount || 0, lastViewedAt: quotation.lastViewedAt || null, grandTotalPaise: quotation.totals?.grandTotalPaise || 0,
+        },
+        conversationId: chat?._id || null,
+        waitingDays: Math.floor((now - quotation.sentAt.getTime()) / (24 * 60 * 60 * 1000)),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.waitingDays - a.waitingDays);
+}
+
 module.exports = {
-  sendOptions, sendOnWhatsApp,
+  awaitingReply, sendOptions, sendOnWhatsApp,
   pdf, pdfFor, openShared, recordView, shareUrlOf,
   preview, create, update, revise, list, remove, saveDraftForLead, buildImported, expireDue, register, nextNumber,
   serializeQuotation, sellerOf, changeStatus, findVisible, EXPIRE_JOB,

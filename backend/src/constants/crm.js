@@ -16,6 +16,9 @@ const CONTACT_STATUSES = Object.freeze(['Active', 'Inactive']);
 const QUOTATION_STATUSES = Object.freeze(['Draft', 'Sent', 'Viewed', 'Accepted', 'Rejected', 'Expired']);
 // Phase 5: document types, each numbered on its own per financial year (e.g. QT/2026-27/0001).
 const QUOTATION_TYPES = Object.freeze(['Quotation', 'Estimate', 'Proforma Invoice']);
+// Orders (Phase 5): the pipeline in order, plus Cancelled.
+const ORDER_FLOW = Object.freeze(['Received', 'Processing', 'Dispatched', 'Delivered', 'Payment Collected']);
+const ORDER_STAGES = Object.freeze([...ORDER_FLOW, 'Cancelled']);
 
 // Tasks and calendar events (same values the pages already show).
 const TASK_STATUSES = Object.freeze(['To Do', 'In Progress', 'Done']);
@@ -59,7 +62,7 @@ const BLOCKED_FILE_EXTENSIONS = Object.freeze([
 ]);
 
 module.exports = {
-  LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES, QUOTATION_TYPES,
+  LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES, QUOTATION_TYPES, ORDER_FLOW, ORDER_STAGES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START, NOTE_PARENT_TYPES,
   DOCUMENT_CATEGORIES, BLOCKED_FILE_EXTENSIONS,
