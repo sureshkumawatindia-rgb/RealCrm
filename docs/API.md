@@ -124,6 +124,16 @@ Stages: `New → Contacted → Quote Sent → Negotiation → Won / Lost`. The s
 | `DELETE` | `/quotations/:id` | Soft delete (not when an order was made from it). |
 | `POST` | `/pricing/preview` | The editor's live totals: the body of POST (customer and items optional), nothing saved → `{ items, totals, supply (with warnings), billTo, defaults { terms, validUntil } }`. With only a customer it returns their details and the document defaults from Settings → Billing (which agents cannot read directly). |
 | `GET` | `/pricing/states` | The GST state codes `[{ code, name }]` for the editor's lists. |
+| `GET` | `/quotations/:id/pdf` | The PDF (attachment, e.g. `QT-2026-27-0001-R1.pdf`): logo, seller and customer details, place of supply, items with HSN/SAC, discount, taxable value and GST rate, totals with CGST + SGST/UTGST or IGST and the round-off, the amount in words, a GST summary by rate, bank details, a UPI QR code (the full amount on a proforma invoice, no amount on a quotation or estimate), terms, notes, a signature line, page numbers and the online link; "DRAFT" across drafts. |
+
+Every quotation has a `shareUrl`: `<PUBLIC_URL>/q/<id>.<signature>` (an HMAC made with a key derived from `JWT_SECRET`; nothing stored, cannot be guessed or changed).
+
+#### The customer's link (public, no sign-in)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/q/<id>.<signature>` | An HTML page for any phone: the quotation, totals in words, bank details, UPI QR and "Pay with UPI" link, terms, "Download PDF". Opening it counts a view (`viewCount`, `lastViewedAt`, first `viewedAt`); the first view of a Sent quotation makes it Viewed and adds "opened by the customer" to the lead. `?preview=1` (the CRM's "Open customer view") does not count. A draft shows "being updated"; a deleted quotation or a wrong signature is 404. Strict headers: no scripts (CSP `default-src 'none'`), no framing, `noindex`, `no-store`; 60 requests a minute per address. |
+| `GET` | `/q/<id>.<signature>/pdf` | The same PDF, shown inline (not for drafts). |
 
 Items: `{ productId? , name?, description?, hsnSac?, unit?, quantity, unitPricePaise?, discountType (amount \| percent), discountValue (paise or %), gstRatePct? }` — missing values come from the product. The server computes everything in paise: quantity × price, minus the discount = taxable value; GST per line on the taxable value, rounded to the paisa; same state as the organization → CGST + SGST (UTGST in Chandigarh, Ladakh, Lakshadweep, Andaman and Nicobar, Dadra and Nagar Haveli and Daman and Diu), else IGST; `zeroRated` (export/SEZ under LUT) → no GST; the grand total is rounded to the rupee (`roundOffPaise`) when Settings → Billing says so (D28). The place of supply: `placeOfSupplyCode` if chosen, else the customer's GSTIN, else their state; unknown → the organization's state, with `supply.stateAssumed` and a warning (D30). `totals.byRate[]` summarizes each rate. Numbers: `<prefix>/<financial year>/<0001>`, each type counted on its own (default prefixes QT, EST, PI). Sending (status Sent) moves a New or Contacted lead to Quote Sent. Sent and Viewed quotations past `validUntil` become Expired (hourly job).
 
