@@ -949,6 +949,7 @@ const PAGE_MODULES = {
   "accounts.html": "accounts",
   "Deals.html": "deals",
   "Quotations.html": ["leads", "deals"],
+  "Orders.html": ["leads", "deals"],
   "Marketing.html": "marketing",
   "Sales Automation.html": "automation",
   "Tasks.html": "tasks",
@@ -1033,6 +1034,12 @@ function injectGlobalNavItems() {
       icon: "fa-file-invoice",
       label: "Quotations",
       afterHref: "Deals.html",
+    },
+    {
+      href: "Orders.html",
+      icon: "fa-truck-fast",
+      label: "Orders",
+      afterHref: "Quotations.html",
     },
   ];
   // Pages write the same link as "Deals.html" or "./Deals.html".

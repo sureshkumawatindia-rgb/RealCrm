@@ -246,6 +246,41 @@ document.getElementById("fQuantity").addEventListener("input", autoFillValue);
 // ---------------------------------------------------------------
 // Lead modal
 // ---------------------------------------------------------------
+// "Quote sent, no reply for N days": leads at Quote Sent whose latest quotation has waited
+// that long and the customer has not written on WhatsApp since (GET /quotations/awaiting-reply).
+async function loadAwaiting() {
+  const list = document.getElementById("awaitingList");
+  list.innerHTML = '<p class="text-muted" style="padding: 12px 18px; margin: 0">Loading…</p>';
+  try {
+    const rows = await crmApi(`/quotations/awaiting-reply?days=${document.getElementById("awaitingDays").value}`);
+    const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+    list.innerHTML = rows.length
+      ? rows
+          .map((r) => `
+        <div class="awaiting-row">
+          <div class="who"><strong>${escapeHtml(r.lead.contact?.name || r.lead.title)}</strong>
+            <div class="meta">${escapeHtml(r.quotation.type)} ${escapeHtml(r.quotation.number)} · ${rupees(r.quotation.grandTotalPaise)} · ${r.quotation.viewCount ? `opened ${r.quotation.viewCount}×` : "not opened yet"}${r.lead.ownerId ? ` · ${escapeHtml(memberName(r.lead.ownerId))}` : ""}</div>
+          </div>
+          <span class="wait">${r.waitingDays} days</span>
+          <a class="btn btn-outline" href="Quotations.html?id=${encodeURIComponent(r.quotation.id)}"><i class="fa-solid fa-file-invoice"></i> Quotation</a>
+          ${r.conversationId ? `<a class="btn btn-outline" href="Inbox.html?c=${encodeURIComponent(r.conversationId)}"><i class="fa-brands fa-whatsapp"></i> Chat</a>` : ""}
+        </div>`)
+          .join("")
+      : '<p class="text-muted" style="padding: 12px 18px; margin: 0">Nobody is waiting that long. 🎉</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="text-muted" style="padding: 12px 18px; margin: 0">${escapeHtml(apiErrorMessage(error, "Couldn't load the list."))}</p>`;
+  }
+}
+document.getElementById("awaitingBtn").addEventListener("click", () => {
+  const panel = document.getElementById("awaitingPanel");
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) loadAwaiting();
+});
+document.getElementById("awaitingClose").addEventListener("click", () => {
+  document.getElementById("awaitingPanel").hidden = true;
+});
+document.getElementById("awaitingDays").addEventListener("change", loadAwaiting);
+
 // Quotations are made on the Quotations page (D29), from a saved lead.
 function openQuotationFor(leadId) {
   window.location.href = `Quotations.html?new=1&leadId=${encodeURIComponent(leadId)}`;

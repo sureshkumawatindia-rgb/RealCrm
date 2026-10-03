@@ -1,0 +1,121 @@
+/* Orders page (Phase 5): stage tabs, the stage stepper and the history. Shares quotations.css. */
+
+.o-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.o-tab {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-pill, 999px);
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+}
+.o-tab .count {
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+.o-tab.active {
+  background: var(--brand);
+  border-color: var(--brand-dark);
+  font-weight: 600;
+}
+
+.o-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.o-step {
+  position: relative;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  padding-top: 26px;
+}
+.o-step::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: var(--border-strong, #ccc);
+}
+.o-step::after {
+  content: "";
+  position: absolute;
+  top: 13px;
+  left: calc(50% + 10px);
+  right: calc(-50% + 10px);
+  height: 2px;
+  background: var(--border);
+}
+.o-step:last-child::after {
+  display: none;
+}
+.o-step.done {
+  color: var(--text);
+}
+.o-step.done::before {
+  background: var(--success);
+}
+.o-step.current {
+  color: var(--text);
+  font-weight: 700;
+}
+.o-step.current::before {
+  background: var(--brand-dark);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+.o-step small {
+  display: block;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.o-cancelled {
+  text-align: center;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.o-history {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px;
+}
+.o-history:last-child {
+  border-bottom: 0;
+}
+.o-history .when {
+  color: var(--text-muted);
+  font-size: 12px;
+  min-width: 120px;
+}
+
+@media (max-width: 700px) {
+  .o-steps {
+    grid-template-columns: 1fr;
+  }
+  .o-step {
+    text-align: left;
+    padding: 4px 0 4px 26px;
+  }
+  .o-step::before {
+    top: 7px;
+    left: 0;
+    margin-left: 0;
+  }
+  .o-step::after {
+    display: none;
+  }
+}

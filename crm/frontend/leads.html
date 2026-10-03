@@ -106,6 +106,15 @@
       .field-with-action .btn {
         white-space: nowrap;
       }
+      .awaiting { margin-bottom: 18px; }
+      .awaiting[hidden] { display: none; }
+      .awaiting-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--border-soft); }
+      .awaiting-head h3 { margin: 0; font-size: 15px; }
+      .awaiting-row { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid var(--border-soft); flex-wrap: wrap; }
+      .awaiting-row:last-child { border-bottom: 0; }
+      .awaiting-row .who { flex: 1; min-width: 180px; }
+      .awaiting-row .meta { color: var(--text-muted); font-size: 12.5px; }
+      .awaiting-row .wait { font-weight: 700; white-space: nowrap; }
       .lead-quote-hint { font-size: 12.5px; color: var(--text-muted); margin: 0 0 12px; }
     </style>
     <script>
@@ -253,6 +262,9 @@
                 <option value="Won">Won</option>
                 <option value="Lost">Lost</option>
               </select>
+              <button class="btn btn-outline" id="awaitingBtn" type="button" title="Leads whose quotation got no reply">
+                <i class="fa-solid fa-hourglass-half"></i> Quote sent, no reply
+              </button>
               <button class="btn btn-primary" id="addBtn">
                 <i class="fa-solid fa-plus"></i> New Lead
               </button>
@@ -261,6 +273,24 @@
                 <i class="fa-solid fa-box-open"></i> Add Product
               </button>
             </div>
+          </div>
+
+          <div class="panel awaiting" id="awaitingPanel" hidden>
+            <div class="awaiting-head">
+              <h3><i class="fa-solid fa-hourglass-half"></i> Quote sent, no reply</h3>
+              <label class="text-muted" style="display: flex; align-items: center; gap: 8px; font-size: 13px">
+                for at least
+                <select class="filter" id="awaitingDays">
+                  <option value="2">2 days</option>
+                  <option value="3" selected>3 days</option>
+                  <option value="5">5 days</option>
+                  <option value="7">7 days</option>
+                  <option value="14">14 days</option>
+                </select>
+                <button class="icon-btn" id="awaitingClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+              </label>
+            </div>
+            <div id="awaitingList"></div>
           </div>
 
           <div class="panel"><div id="leadsTable"></div></div>

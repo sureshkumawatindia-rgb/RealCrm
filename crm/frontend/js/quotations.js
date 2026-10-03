@@ -339,11 +339,16 @@
         buttons.push(button("rejected", "Customer rejected", "btn-outline", "fa-circle-xmark"));
       }
       if (["Sent", "Viewed", "Rejected", "Expired"].includes(q.status)) buttons.push(button("revise", "Revise (new revision)", "btn-primary", "fa-pen"));
-      if (q.status === "Accepted" && !q.orderId) buttons.push(button("unaccept", "Undo “accepted”", "btn-outline", "fa-rotate-left"));
+      if (q.status === "Accepted" && !q.orderId) {
+        buttons.unshift(button("order", "Create order", "btn-primary", "fa-truck-fast"));
+        buttons.push(button("unaccept", "Undo “accepted”", "btn-outline", "fa-rotate-left"));
+      }
     }
     if (q && canChat() && can("edit") && ["Draft", "Sent", "Viewed", "Accepted"].includes(q.status)) {
-      buttons.unshift(button("whatsapp", q.status === "Draft" ? "Send on WhatsApp" : "Send again on WhatsApp", q.status === "Draft" ? "btn-primary" : "btn-outline", "fa-paper-plane"));
+      // First for a draft; after the main actions once it was sent (e.g. "Create order" first).
+      buttons[q.status === "Draft" ? "unshift" : "push"](button("whatsapp", q.status === "Draft" ? "Send on WhatsApp" : "Send again on WhatsApp", q.status === "Draft" ? "btn-primary" : "btn-outline", "fa-paper-plane"));
     }
+    if (q?.orderId) buttons.unshift(`<a class="btn btn-primary" href="Orders.html?id=${encodeURIComponent(q.orderId)}"><i class="fa-solid fa-truck-fast"></i> Open the order</a>`);
     if (q) {
       buttons.push(button("pdf", "Download PDF", "btn-outline", "fa-file-pdf"));
       if (q.status !== "Draft") {
@@ -662,6 +667,13 @@
       } else if (action === "revise") {
         saved = await crmApi(`/quotations/${ed.q.id}/revise`, { method: "POST" });
         showToast(`Revision ${saved.revision} opened. Make the changes, then save and send it.`, "success");
+      } else if (action === "order") {
+        const request = jsonRequest("POST", { quotationId: ed.q.id });
+        request.headers["Idempotency-Key"] = newIdempotencyKey();
+        const created = await crmApi("/orders", request);
+        showToast(`Order ${created.number} created.`, "success");
+        window.location.href = `Orders.html?id=${encodeURIComponent(created.id)}`;
+        return;
       } else if (action === "whatsapp") {
         if (ed.dirty && ed.q.status === "Draft") {
           saved = await save();

@@ -839,17 +839,18 @@
     // Taking a chat can make you the owner of the customer's lead (D25): reload when that changes.
     state.contextAssignee = String(c.assigneeId || "");
     const id = encodeURIComponent(c.contact.id);
-    const [leads, quotes, tasks] = await Promise.all([
+    const [leads, quotes, orders, tasks] = await Promise.all([
       crmApi(`/leads?contactId=${id}&limit=5`).catch(() => null),
       crmApi(`/quotations?contactId=${id}&limit=3`).catch(() => null),
+      crmApi(`/orders?contactId=${id}&limit=3`).catch(() => null),
       crmApi(`/tasks?relatedType=Customer&relatedId=${id}&limit=50`).catch(() => null),
     ]);
     if (!state.current || String(state.current.id) !== String(c.id)) return;
-    state.context = { leads, quotes, tasks };
+    state.context = { leads, quotes, orders, tasks };
     renderContext();
   }
   function renderContext() {
-    const { leads, quotes, tasks } = state.context || {};
+    const { leads, quotes, orders, tasks } = state.context || {};
     $("detailsSales").hidden = !Array.isArray(leads) && !Array.isArray(quotes);
     const canMove = memberCan("leads", "edit") || memberCan("deals", "edit");
     $("detailsLeads").innerHTML = Array.isArray(leads)
@@ -871,6 +872,17 @@
             })
             .join("")
         : `<p class="ctx-empty">${seesAll ? "No lead for this customer yet." : "No lead of this customer that you can see."}</p>`
+      : "";
+    $("detailsOrders").innerHTML = Array.isArray(orders)
+      ? orders
+          .map(
+            (o) => `
+          <a class="ctx-item ctx-link" href="Orders.html?id=${encodeURIComponent(o.id)}">
+            <div class="ctx-main"><div class="ctx-title">Order ${escapeHtml(o.number)}</div><div class="ctx-meta">${escapeHtml([o.dispatch?.transporter, o.dispatch?.lrNumber].filter(Boolean).join(" · ") || shortTime(o.orderDate || o.createdAt))}</div></div>
+            <span class="ctx-amount">${rupees(o.totals?.grandTotalPaise)}</span> <span class="badge badge-neutral">${escapeHtml(o.stage)}</span>
+          </a>`,
+          )
+          .join("")
       : "";
     const canQuote = memberCan("leads", "create") || memberCan("deals", "create");
     $("detailsQuotes").innerHTML = Array.isArray(quotes)

@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orders | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/quotations.css" />
+    <link rel="stylesheet" href="./css/orders.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="./Deals.html" class="nav-item">
+              <i class="fa-solid fa-handshake"></i> Deals
+            </a>
+            <a href="Quotations.html" class="nav-item">
+              <i class="fa-solid fa-file-invoice"></i> Quotations
+            </a>
+            <a href="Orders.html" class="nav-item active">
+              <i class="fa-solid fa-truck-fast"></i> Orders
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <button id="menu-toggle" class="icon-btn" style="display: none; font-size: 16px">
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2 id="pageTitle">Orders</h2>
+          </div>
+        </header>
+
+        <div class="page">
+          <!-- LIST -->
+          <section id="oListView">
+            <div class="o-tabs" id="oTabs" role="tablist" aria-label="Stage"></div>
+            <div class="toolbar">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" id="oSearch" placeholder="Search order, quotation, customer or LR number…" autocomplete="off" />
+              </div>
+              <p class="q-muted" style="margin: 0">Orders are made from accepted quotations (Quotations → “Create order”).</p>
+            </div>
+            <div class="panel"><div class="q-table-wrap" id="oTable"></div></div>
+            <div class="q-more"><button class="btn btn-outline" id="oMore" type="button" hidden>Show more</button></div>
+          </section>
+
+          <!-- DETAIL -->
+          <section id="oDetailView" hidden>
+            <div class="q-editor-head">
+              <button class="btn btn-outline" id="oBack" type="button"><i class="fa-solid fa-arrow-left"></i> All orders</button>
+              <div class="q-title">
+                <div class="q-number" id="oNumber"></div>
+                <div class="q-sub" id="oSub"></div>
+              </div>
+            </div>
+            <div class="panel q-card"><div class="o-steps" id="oSteps"></div></div>
+
+            <div class="q-grid">
+              <div class="q-main">
+                <div class="panel q-card">
+                  <div class="q-card-head"><h3>Dispatch</h3></div>
+                  <form id="oDispatchForm" autocomplete="off">
+                    <div class="field-row">
+                      <div class="field"><label for="oTransporter">Transporter / courier</label><input type="text" id="oTransporter" maxlength="120" placeholder="e.g. VRL Logistics" /></div>
+                      <div class="field"><label for="oLr">LR / docket / AWB number</label><input type="text" id="oLr" maxlength="60" /></div>
+                    </div>
+                    <div class="field-row">
+                      <div class="field"><label for="oVehicle">Vehicle number</label><input type="text" id="oVehicle" maxlength="20" placeholder="e.g. RJ14 GB 1234" /></div>
+                      <div class="field"><label for="oExpected">Expected delivery</label><input type="date" id="oExpected" /></div>
+                    </div>
+                    <div class="data-actions" style="justify-content: space-between; align-items: center">
+                      <span class="q-muted" id="oDispatchedAt"></span>
+                      <button class="btn btn-outline" type="submit">Save dispatch details</button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="panel q-card">
+                  <div class="q-card-head"><h3>Items</h3><span class="q-customer-link" id="oQuoteLink"></span></div>
+                  <div class="q-table-wrap" id="oItems"></div>
+                </div>
+
+                <div class="panel q-card">
+                  <div class="q-card-head"><h3>Notes</h3></div>
+                  <div class="field"><textarea id="oNotes" rows="3" maxlength="2000" placeholder="Internal notes about this order"></textarea></div>
+                  <div class="data-actions" style="justify-content: flex-end"><button class="btn btn-outline" id="oSaveNotes" type="button">Save notes</button></div>
+                </div>
+
+                <div class="panel q-card">
+                  <div class="q-card-head"><h3>History</h3></div>
+                  <div id="oHistory"></div>
+                </div>
+              </div>
+
+              <aside class="q-side">
+                <div class="panel q-card">
+                  <div class="q-card-head"><h3>Customer</h3></div>
+                  <div id="oCustomer"></div>
+                </div>
+                <div class="panel q-card q-summary"><div id="oTotals"></div></div>
+                <div class="q-actions" id="oActions"></div>
+              </aside>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHANGE STAGE -->
+    <div class="modal-overlay" id="stageOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="stageTitle">Move order</h3>
+          <button class="icon-btn" id="stageClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label for="stageSelect">New stage</label><select id="stageSelect"></select></div>
+          <div id="stageDispatch" hidden>
+            <div class="field-row">
+              <div class="field"><label for="stTransporter">Transporter / courier</label><input type="text" id="stTransporter" maxlength="120" /></div>
+              <div class="field"><label for="stLr">LR / docket / AWB number</label><input type="text" id="stLr" maxlength="60" /></div>
+            </div>
+          </div>
+          <div class="field" id="stageReasonField" hidden><label for="stageReason">Why is it cancelled?</label><input type="text" id="stageReason" maxlength="500" /></div>
+          <div class="field" id="stageNoteField"><label for="stageNote">Note (optional)</label><input type="text" id="stageNote" maxlength="500" /></div>
+          <label class="q-check" id="stageNotifyRow"><input type="checkbox" id="stageNotify" checked /> Then send the customer a WhatsApp update</label>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="stageCancel" type="button">Cancel</button>
+          <button class="btn btn-primary" id="stageGo" type="button">Move</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WHATSAPP UPDATE -->
+    <div class="modal-overlay" id="sendOverlay">
+      <div class="modal q-send">
+        <div class="modal-head">
+          <h3><i class="fa-brands fa-whatsapp"></i> Update the customer</h3>
+          <button class="icon-btn" id="sendClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="sendBody"></div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="sendCancel" type="button">Not now</button>
+          <button class="btn btn-primary" id="sendGo" type="button"><i class="fa-brands fa-whatsapp"></i> Send</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="./js/orders.js"></script>
+  </body>
+</html>
