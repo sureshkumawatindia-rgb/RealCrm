@@ -300,3 +300,374 @@
     width: 100%;
   }
 }
+
+/* ============================================================
+   WORKFLOW BUILDER (Phase 6): when / only if / then
+   ============================================================ */
+.au-builder {
+  max-width: 760px;
+}
+.au-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 14px;
+  background: var(--surface);
+}
+.au-section .field:last-child {
+  margin-bottom: 0;
+}
+.au-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.au-section-head .link-mini {
+  margin-left: auto;
+}
+.au-tag {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+}
+.au-tag--when {
+  background: var(--brand);
+  color: var(--text);
+}
+.au-tag--if {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.au-tag--then {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.au-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+  line-height: 1.45;
+}
+.au-hint code {
+  font-size: 11.5px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 0 4px;
+}
+.au-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.au-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+}
+.au-check:has(input:checked) {
+  background: var(--brand-light);
+  border-color: var(--brand-dark);
+  font-weight: 600;
+}
+.au-check input {
+  margin: 0;
+}
+.au-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.au-inline input[type="number"] {
+  width: 90px;
+}
+.au-inline input,
+.au-inline select,
+.au-step textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+.au-step textarea {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+}
+.au-inline .grow {
+  flex: 1;
+  min-width: 160px;
+}
+.au-cond {
+  flex-wrap: wrap;
+}
+.au-cond .au-checks {
+  flex-basis: 100%;
+}
+
+/* Steps */
+.au-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.au-step {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+.au-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+.au-step-head .step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  color: var(--brand-darker);
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.au-step-head i.step-icon {
+  color: var(--brand-darker);
+}
+.au-step-head .au-step-tools {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+.au-step-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.au-step-body label.mini {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.au-placeholders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.au-placeholders button {
+  font: inherit;
+  font-size: 11px;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.au-placeholders button:hover {
+  border-color: var(--brand-dark);
+  color: var(--text);
+}
+.au-add-step {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.au-add-step select {
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--surface);
+}
+.au-notes {
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  background: var(--warning-bg);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  margin-bottom: 14px;
+}
+.au-notes ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.au-secret {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+.au-secret code {
+  word-break: break-all;
+  font-size: 12px;
+}
+
+/* Card extras */
+.auto-card__warn {
+  font-size: 11.5px;
+  color: var(--warning);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.auto-card__foot .btn {
+  padding: 7px 12px;
+  font-size: 12.5px;
+}
+.chain-chip.cond {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+/* Run log */
+.au-runs {
+  padding: 0;
+  overflow: hidden;
+}
+.au-runs-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.au-table-wrap {
+  overflow-x: auto;
+}
+.au-table-wrap tbody tr {
+  cursor: pointer;
+}
+.au-table-wrap td.muted {
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.au-more {
+  text-align: center;
+  padding: 10px;
+}
+.au-runlog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.au-runlog li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  font-size: 13px;
+}
+.au-runlog .detail {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+.au-runlog .when {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.au-run-error {
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}
+.au-lead-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.au-lead-results button {
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  cursor: pointer;
+}
+.au-lead-results button:hover {
+  background: var(--brand-light);
+  border-color: var(--brand-dark);
+}
+.au-lead-results .sub {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.au-step-body > input,
+.au-step-body > select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+}
+.au-step-body > input:focus,
+.au-step-body > select:focus,
+.au-step textarea:focus,
+.au-inline input:focus,
+.au-inline select:focus {
+  outline: none;
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+/* .btn sets display, which would beat the hidden attribute. */
+.au-more [hidden],
+.modal-foot [hidden] {
+  display: none !important;
+}
+/* Long option texts must not push a select out of its card on a phone. */
+.au-inline select,
+.au-inline input,
+.au-step-body select {
+  max-width: 100%;
+  min-width: 0;
+}

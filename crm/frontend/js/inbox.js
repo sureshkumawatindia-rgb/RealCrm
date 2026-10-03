@@ -227,7 +227,8 @@
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
-    const who = m.direction !== "out" ? "" : m.automation ? "Auto-reply · " : m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "";
+    const robot = m.automation ? (m.automation.kind === "workflow" ? "Automation · " : "Auto-reply · ") : "";
+    const who = m.direction !== "out" ? "" : robot || (m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "");
     const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
     const replyButton = m.providerMessageId && m.direction === "in"
       ? `<button class="reply-btn" type="button" data-reply="${escapeHtml(m.id)}" title="Reply to this message"><i class="fa-solid fa-reply"></i></button>`
@@ -1313,6 +1314,7 @@
     });
     socket.on("message:new", onMessageNew);
     socket.on("conversation:updated", onConversationUpdated);
+    socket.on("notification:new", (notification) => crmBell.push(notification));
     socket.on("message:status", onMessageStatus);
     socket.on("note:new", onNoteNew);
   }

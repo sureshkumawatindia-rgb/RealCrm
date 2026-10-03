@@ -1475,3 +1475,125 @@ body.crm-loading::before {
   font-weight: 600;
   border-bottom: 1px solid rgba(220, 38, 38, 0.25);
 }
+
+/* ============================================================
+   THE BELL (Phase 6): notifications in the top bar (app.js crmBell)
+   ============================================================ */
+.crm-bell {
+  position: relative;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+.topbar > .crm-bell {
+  margin-left: auto;
+}
+.crm-bell__btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+.crm-bell__count {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.crm-bell__count[hidden],
+.crm-bell__panel[hidden],
+.crm-bell__readall[hidden] {
+  display: none;
+}
+.crm-bell__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(360px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--pop-6);
+  z-index: 50;
+}
+.crm-bell__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13.5px;
+}
+.crm-bell__readall {
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-darker);
+  cursor: pointer;
+  padding: 0;
+}
+.crm-bell__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+  font: inherit;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.crm-bell__item:last-child {
+  border-bottom: none;
+}
+.crm-bell__item:hover {
+  background: var(--brand-light);
+}
+.crm-bell__item.unread {
+  box-shadow: inset 3px 0 0 var(--brand-dark);
+}
+.crm-bell__item .title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.crm-bell__item.unread .title::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--info);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.crm-bell__item .body {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.crm-bell__item .time {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.crm-bell__empty {
+  margin: 0;
+  padding: 18px 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+}

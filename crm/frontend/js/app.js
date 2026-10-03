@@ -803,7 +803,8 @@ async function addCampaignNote(campaignId, text) {
 }
 
 // --- sales automation: workflows and sequences --------------------------
-// kind: "workflows" or "sequences". Run and enroll counts are kept by the server.
+// kind: "workflows" or "sequences". Run and enroll counts are kept by the server. The Sales
+// Automation page builds and test-runs workflows itself (js/automation.js).
 const withOwnerName = (item) => ({ ...item, owner: memberName(item.ownerId) });
 
 function getWorkflows() {
@@ -826,18 +827,143 @@ async function removeAutomation(kind, id) {
 function newIdempotencyKey() {
   return window.crypto?.randomUUID ? crypto.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
-// Run Now: the server creates the workflow's tasks. Returns { workflow, tasks, simulated }.
-async function runWorkflowNow(id) {
-  const result = await crmApi(`/workflows/${id}/run`, { method: "POST", headers: { "Idempotency-Key": newIdempotencyKey() } });
-  cacheUpsert("workflows", result.workflow);
-  return result;
-}
 // Enroll One: the server schedules the first call/task step. Returns { sequence, task, firstTaskDay, simulated }.
 async function enrollInSequence(id) {
   const result = await crmApi(`/sequences/${id}/enroll`, { method: "POST", headers: { "Idempotency-Key": newIdempotencyKey() } });
   cacheUpsert("sequences", result.sequence);
   return result;
 }
+
+// ---------------------------------------------------------------
+// The bell (Phase 6, D31): this member's notifications, e.g. from an automation's "notify"
+// step. Checked every minute and when the tab is shown again; the Inbox page also passes on
+// the ones its live connection receives (crmBell.push).
+// ---------------------------------------------------------------
+const crmBell = (() => {
+  let items = [];
+  let unread = 0;
+  const byId = (id) => document.getElementById(id);
+  const ago = (iso) => {
+    const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes} min ago`;
+    if (minutes < 24 * 60) return `${Math.round(minutes / 60)} h ago`;
+    return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  };
+
+  function render() {
+    const count = byId("crmBellCount");
+    if (!count) return;
+    count.textContent = unread > 99 ? "99+" : String(unread);
+    count.hidden = !unread;
+    byId("crmBellBtn").setAttribute("aria-label", unread ? `Notifications: ${unread} unread` : "Notifications");
+    byId("crmBellReadAll").hidden = !unread;
+    byId("crmBellList").innerHTML = items.length
+      ? items
+          .map((n) => `<button type="button" class="crm-bell__item${n.readAt ? "" : " unread"}" data-id="${escapeHtml(n.id)}">
+              <span class="title">${escapeHtml(n.title)}</span>
+              ${n.body ? `<span class="body">${escapeHtml(n.body)}</span>` : ""}
+              <span class="time">${escapeHtml(ago(n.createdAt))}</span></button>`)
+          .join("")
+      : '<p class="crm-bell__empty">Nothing new. Automations that notify you show up here.</p>';
+  }
+
+  async function refresh() {
+    try {
+      const data = await crmApi("/notifications?limit=15");
+      items = data.items;
+      unread = data.unread;
+      render();
+    } catch {
+      /* the bell is a convenience */
+    }
+  }
+
+  function push(notification) {
+    if (!notification || items.some((n) => String(n.id) === String(notification.id))) return;
+    items = [notification, ...items].slice(0, 15);
+    if (!notification.readAt) unread += 1;
+    render();
+  }
+
+  const setOpen = (open) => {
+    byId("crmBellPanel").hidden = !open;
+    byId("crmBellBtn").setAttribute("aria-expanded", String(open));
+  };
+
+  async function openItem(id) {
+    const notification = items.find((n) => String(n.id) === String(id));
+    if (!notification) return;
+    if (!notification.readAt) {
+      notification.readAt = new Date().toISOString();
+      unread = Math.max(unread - 1, 0);
+      render();
+      try {
+        await crmApi(`/notifications/${id}/read`, { method: "POST" });
+      } catch {
+        /* shown as read here; the next check corrects it */
+      }
+    }
+    if (notification.link) window.location.href = notification.link;
+  }
+
+  function mount() {
+    const topbar = document.querySelector(".topbar");
+    if (!topbar || !isAuthenticated() || byId("crmBell")) return;
+    const bell = document.createElement("div");
+    bell.className = "crm-bell";
+    bell.id = "crmBell";
+    bell.innerHTML = `
+      <button class="icon-btn crm-bell__btn" id="crmBellBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+        <i class="fa-regular fa-bell"></i><span class="crm-bell__count" id="crmBellCount" hidden></span>
+      </button>
+      <div class="crm-bell__panel" id="crmBellPanel" hidden>
+        <div class="crm-bell__head"><strong>Notifications</strong><button type="button" class="crm-bell__readall" id="crmBellReadAll" hidden>Mark all read</button></div>
+        <div class="crm-bell__list" id="crmBellList"></div>
+      </div>`;
+    // Next to the page's own buttons on the right, if it has any.
+    const right = topbar.children.length > 1 ? topbar.lastElementChild : topbar;
+    right.appendChild(bell);
+
+    byId("crmBellBtn").addEventListener("click", (event) => {
+      event.stopPropagation();
+      const open = byId("crmBellPanel").hidden;
+      setOpen(open);
+      if (open) refresh();
+    });
+    byId("crmBellList").addEventListener("click", (event) => {
+      const item = event.target.closest("[data-id]");
+      if (item) openItem(item.dataset.id);
+    });
+    byId("crmBellReadAll").addEventListener("click", async (event) => {
+      event.stopPropagation();
+      try {
+        await crmApi("/notifications/read-all", { method: "POST" });
+        items = items.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }));
+        unread = 0;
+        render();
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't mark them read."), "error");
+      }
+    });
+    document.addEventListener("click", (event) => {
+      if (!byId("crmBellPanel").hidden && !bell.contains(event.target)) setOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !byId("crmBellPanel").hidden) setOpen(false);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refresh();
+    });
+    render();
+    refresh();
+    setInterval(() => {
+      if (!document.hidden) refresh();
+    }, 60 * 1000);
+  }
+
+  return { mount, push, refresh };
+})();
 
 // ---------------------------------------------------------------
 // Toast
@@ -1066,6 +1192,7 @@ function injectGlobalNavItems() {
 document.addEventListener("DOMContentLoaded", () => {
   injectGlobalNavItems();
   hideUnavailableModules();
+  crmBell.mount();
   // The Inbox page keeps its own count up to date live.
   if (moduleForPage(currentPageName()) !== "inbox") refreshInboxNavBadge();
 

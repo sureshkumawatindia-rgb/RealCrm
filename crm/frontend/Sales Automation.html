@@ -154,11 +154,14 @@
               <button class="automation-tab active" id="tabWorkflowsBtn">
                 <i class="fa-solid fa-diagram-project"></i> Workflows
               </button>
+              <button class="automation-tab" id="tabRunsBtn">
+                <i class="fa-solid fa-clock-rotate-left"></i> Run log
+              </button>
               <button class="automation-tab" id="tabSequencesBtn">
                 <i class="fa-solid fa-layer-group"></i> Sequences
               </button>
             </div>
-            <div class="search-box">
+            <div class="search-box" id="searchBox">
               <i class="fa-solid fa-magnifying-glass"></i>
               <input type="text" id="searchInput" placeholder="Search..." />
             </div>
@@ -175,6 +178,48 @@
             <div class="automation-grid" id="workflowsGrid"></div>
           </div>
 
+          <!-- RUN LOG -->
+          <div id="runsPanel" style="display: none">
+            <div class="panel au-runs">
+              <div class="au-runs-filters">
+                <select class="filter" id="runWorkflowFilter">
+                  <option value="">All workflows</option>
+                </select>
+                <select class="filter" id="runStatusFilter">
+                  <option value="">Any status</option>
+                  <option value="running">Running</option>
+                  <option value="waiting">Waiting</option>
+                  <option value="done">Done</option>
+                  <option value="failed">Failed</option>
+                  <option value="cancelled">Stopped</option>
+                </select>
+                <button class="btn btn-outline" id="runRefreshBtn" type="button">
+                  <i class="fa-solid fa-rotate"></i> Refresh
+                </button>
+              </div>
+              <div class="au-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Workflow</th>
+                      <th>Customer</th>
+                      <th>Started by</th>
+                      <th>Status</th>
+                      <th>Steps</th>
+                    </tr>
+                  </thead>
+                  <tbody id="runsBody"></tbody>
+                </table>
+              </div>
+              <div class="au-more">
+                <button class="btn btn-outline" id="runMoreBtn" type="button" hidden>
+                  Load more
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- SEQUENCES -->
           <div id="sequencesPanel" style="display: none">
             <div class="automation-grid" id="sequencesGrid"></div>
@@ -183,61 +228,78 @@
       </div>
     </div>
 
-    <!-- WORKFLOW MODAL -->
+    <!-- WORKFLOW MODAL: when <trigger>, only if <conditions>, then <steps> -->
     <div class="modal-overlay" id="workflowModalOverlay">
-      <div class="modal modal--wide">
+      <div class="modal modal--wide au-builder">
         <div class="modal-head">
           <h3 id="workflowModalTitle">New Workflow</h3>
-          <button class="icon-btn" id="workflowModalClose">
+          <button class="icon-btn" id="workflowModalClose" type="button" aria-label="Close">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
         <div class="modal-body">
-          <form id="workflowForm">
+          <form id="workflowForm" novalidate>
             <input type="hidden" id="wfEditId" />
+            <div id="wfNotes" class="au-notes" hidden></div>
             <div class="field">
-              <label>Workflow Name</label>
+              <label for="wfName">Workflow name</label>
               <input
                 type="text"
                 id="wfName"
-                placeholder="e.g. Auto follow-up on new leads"
+                maxlength="200"
+                placeholder="e.g. Welcome new IndiaMART leads"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Status</label>
+                <label for="wfStatus">Status</label>
                 <select id="wfStatus">
-                  <option>Active</option>
-                  <option>Paused</option>
-                  <option>Draft</option>
+                  <option value="Active">Active — runs on its own</option>
+                  <option value="Paused">Paused</option>
+                  <option value="Draft">Draft</option>
                 </select>
               </div>
-              <div class="field">
-                <label>Owner</label>
-                <select id="wfOwner" required></select>
+              <div class="field" id="wfOwnerField">
+                <label for="wfOwner">Owner</label>
+                <select id="wfOwner"></select>
               </div>
             </div>
-            <div class="field">
-              <label>Trigger — run this workflow when...</label>
-              <select id="wfTrigger">
-                <option>Lead Created</option>
-                <option>Lead Status Changed to Won</option>
-                <option>Deal Created</option>
-                <option>Deal Stage Changed to Won</option>
-                <option>Deal Stage Changed to Lost</option>
-                <option>Task Overdue</option>
-                <option>Customer Added</option>
-              </select>
-            </div>
 
-            <div class="step-heading-row">
-              <p class="step-heading" style="margin: 4px 0 0">Then do this</p>
-              <button type="button" class="link-mini" id="wfAddActionBtn">
-                <i class="fa-solid fa-plus"></i> Add action
-              </button>
-            </div>
-            <div id="wfActionsList" class="dynamic-list"></div>
+            <section class="au-section">
+              <div class="au-section-head">
+                <span class="au-tag au-tag--when">When</span> this happens
+              </div>
+              <div class="field">
+                <select id="wfTrigger" aria-label="Trigger"></select>
+              </div>
+              <div id="wfTriggerParams"></div>
+            </section>
+
+            <section class="au-section">
+              <div class="au-section-head">
+                <span class="au-tag au-tag--if">Only if</span> (optional)
+                <button type="button" class="link-mini" id="wfAddConditionBtn">
+                  <i class="fa-solid fa-plus"></i> Add condition
+                </button>
+              </div>
+              <div id="wfConditions" class="dynamic-list"></div>
+            </section>
+
+            <section class="au-section">
+              <div class="au-section-head">
+                <span class="au-tag au-tag--then">Then</span> do these steps, in order
+              </div>
+              <div id="wfSteps" class="au-steps"></div>
+              <div class="au-add-step">
+                <select id="wfNewStepType" aria-label="Step to add"></select>
+                <button type="button" class="btn btn-outline" id="wfAddStepBtn">
+                  <i class="fa-solid fa-plus"></i> Add step
+                </button>
+              </div>
+            </section>
+
+            <div id="wfSecretBox" class="au-secret" hidden></div>
           </form>
         </div>
         <div class="modal-foot">
@@ -252,9 +314,65 @@
           <button class="btn btn-outline" id="wfCancelBtn" type="button">
             Cancel
           </button>
-          <button class="btn btn-primary" type="submit" form="workflowForm">
+          <button class="btn btn-primary" type="submit" form="workflowForm" id="wfSaveBtn">
             Save Workflow
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RUN DETAIL MODAL -->
+    <div class="modal-overlay" id="runModalOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <div>
+            <h3 id="runModalTitle">Run</h3>
+            <p class="modal-subtitle" id="runModalSub"></p>
+          </div>
+          <button class="icon-btn" id="runModalClose" type="button" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body" id="runModalBody"></div>
+        <div class="modal-foot">
+          <a class="btn btn-outline" id="runOpenLink" href="#" hidden style="margin-right: auto">
+            <i class="fa-solid fa-address-card"></i> Open customer
+          </a>
+          <button class="btn btn-danger-outline" id="runCancelBtn" type="button" hidden>
+            <i class="fa-solid fa-stop"></i> Stop this run
+          </button>
+          <button class="btn btn-outline" id="runCloseBtn" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEST RUN MODAL -->
+    <div class="modal-overlay" id="testModalOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <div>
+            <h3>Test run</h3>
+            <p class="modal-subtitle" id="testModalSub"></p>
+          </div>
+          <button class="icon-btn" id="testModalClose" type="button" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="au-hint">
+            The workflow runs now for the lead you pick, whatever its trigger. Its steps
+            really happen: messages are sent and tasks are created.
+          </p>
+          <div class="field">
+            <label for="testLeadSearch">Lead</label>
+            <input
+              type="search"
+              id="testLeadSearch"
+              placeholder="Search by name, phone or company"
+              autocomplete="off"
+            />
+          </div>
+          <div id="testLeadResults" class="au-lead-results"></div>
         </div>
       </div>
     </div>
