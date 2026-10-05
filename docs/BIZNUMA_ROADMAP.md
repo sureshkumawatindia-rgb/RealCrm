@@ -4,7 +4,7 @@ Turning YELLOW CRM into a WhatsApp-first CRM for Indian SMBs (IndiaMART sellers,
 
 - Brief: [BIZNUMA_CRM_MASTER_PROMPT.md](BIZNUMA_CRM_MASTER_PROMPT.md)
 - Canonical backend spec: [../BACKEND-AUDIT-SPEC.md](../BACKEND-AUDIT-SPEC.md) (this roadmap extends it; where they differ, the decision log in section 9 wins and the spec gets updated in the phase that implements it)
-- Status: **Phase 7 in progress** on branch `feature/phase-7-broadcasts` (built on the Phase 6 branch; nothing merged to main or pushed yet): checkpoints 7A (consent and STOP/START, segments, CSV import) and 7B (broadcast engine) done on 2026-10-05; next 7C (Marketing page), 7D (acceptance). **Phase 6 done** on 2026-10-03 (checkpoints 6A–6D); the bot still needs a check with a real WhatsApp number. **Phase 5 done** on 2026-10-03 (checkpoints 5A–5F); the WhatsApp parts (a document-header template, the customer link on a public address) still need the real Meta and hosting checks. Phase 4 done on 2026-09-29 except checks with real IndiaMART, Facebook and Google Ads accounts.
+- Status: **Phase 7 in progress** on branch `feature/phase-7-broadcasts` (built on the Phase 6 branch; nothing merged to main or pushed yet): checkpoints 7A (consent and STOP/START, segments, CSV import), 7B (broadcast engine) and 7C (Marketing page) done on 2026-10-05; next 7D (acceptance). **Phase 6 done** on 2026-10-03 (checkpoints 6A–6D); the bot still needs a check with a real WhatsApp number. **Phase 5 done** on 2026-10-03 (checkpoints 5A–5F); the WhatsApp parts (a document-header template, the customer link on a public address) still need the real Meta and hosting checks. Phase 4 done on 2026-09-29 except checks with real IndiaMART, Facebook and Google Ads accounts.
 
 ---
 
@@ -85,7 +85,7 @@ Checkpoints: **5A GST engine + billing settings + quotations API (done)** → **
 ### Phase 7 — Broadcasts and segmentation
 - [x] 7A: tags on the customer form, saved segments (tags, places, source, products, lead stage, owner; preview with reach) — API now, builder UI in 7C; CSV import with column mapping, phone normalization, dedupe and a dry run; consent per customer with STOP/START on WhatsApp (D35). Excel import waits for your OK to add a library (CSV UTF-8 from Excel works today)
 - [x] 7B: broadcast engine — template + per-customer variables + segment, now or scheduled, batches within Meta's daily limit (D38), per-recipient sent/delivered/read/replied/failed/skipped, monthly quota by plan (D34), cost estimate by category (D37), pause/resume/cancel; API now, the Marketing page in 7C
-- [ ] Marketing page: WhatsApp channel (the inline-script split was fixed in Phase 1)
+- [x] 7C: Marketing page — tabs Campaigns | WhatsApp broadcasts | Segments: segment builder with a live count, broadcast composer (template, values per customer, segment, reach, cost, limits, now or scheduled), results with a sent → delivered → read → replied funnel and every customer's status with a link to the chat; pause/resume/cancel (the inline-script split was fixed in Phase 1)
 
 ### Phase 8 — Payments and catalog
 - [ ] Razorpay Payment Links, then Cashfree; per-org keys; from quote/order/chat; signed webhooks → paid → receipt
@@ -563,6 +563,8 @@ Rough engineering days (AI-assisted), plus the number of working sessions. Exter
 ---
 
 ## 14. Changelog
+
+- **2026-10-05 — Phase 7, checkpoint C (Marketing page).** Marketing now has three tabs for owners and admins: Campaigns (as before), WhatsApp broadcasts and Segments. Segments: name it, choose tags, states, cities, product categories, customers or leads, source, lead stage and whether only people who agreed should be in it; the count and some names update as you choose. Broadcasts: name, approved template, what fills each {{1}}, the segment; "Save draft" shows how many will get it, the estimated Meta cost, today's room in Meta's limit and the broadcasts left this month; then "Send" now or at a chosen time. The results show recipients → sent → delivered → read → replied (with percentages), failed and skipped, and every customer with their status, reason and a link to the chat; they refresh while sending, and the bell note when it finishes opens them.
 
 - **2026-10-05 — Phase 7, checkpoint B (broadcast engine).** WhatsApp broadcasts: an approved template, filled in for each customer (their name, company …, or fixed words), sent to a segment now or at a set time. Starting fixes the list — customers with a mobile number who have not opted out — and sends 20 a second, never to more different people a day than Meta's limit for the number (the rest waits). Each customer's message lands in their chat; WhatsApp's reports mark them delivered, read or failed, and a reply within 7 days counts as replied; someone who opts out meanwhile, or lacks a value for the template, is skipped with the reason. Pause, resume and cancel; a bell note when it finishes. Before sending: how many it reaches, the estimated Meta cost (₹ by template category, + GST; D37) and the plan's broadcasts left this month (trial = Growth, 500; D34). The number's Meta limit is read when it is checked.
 
