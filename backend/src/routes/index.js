@@ -27,6 +27,7 @@ const { workflowRoutes, runRoutes, sequenceRoutes, enrollmentRoutes, notificatio
 const { faqRuleRoutes, botRoutes } = require('./bot');
 const segmentRoutes = require('./segments');
 const broadcastRoutes = require('./broadcasts');
+const { settingsRoutes: paymentRoutes, linkRoutes: paymentLinkRoutes } = require('./payments');
 
 const router = express.Router();
 
@@ -66,5 +67,7 @@ router.use('/faq-rules', faqRuleRoutes);
 router.use('/bot', botRoutes);
 router.use('/segments', segmentRoutes);
 router.use('/broadcasts', broadcastRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/payment-links', paymentLinkRoutes);
 
 module.exports = router;

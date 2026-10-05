@@ -7,7 +7,8 @@ const { itemSchema, partySchema, supplySchema, totalsSchema, sellerSchema } = re
 // from the quotation, then it moves Received → Processing → Dispatched → Delivered → Payment
 // Collected (or Cancelled, with a reason). Each move is kept in `history`. With "reduce stock
 // on dispatch" (Settings → Billing) the products' stock goes down once, and comes back if the
-// order is cancelled or moved back before dispatch.
+// order is cancelled or moved back before dispatch. Payments (Phase 8) are kept in `payments`:
+// paid in full, a Delivered order moves on to Payment Collected by itself.
 const { ObjectId } = mongoose.Schema.Types;
 
 const historySchema = new mongoose.Schema(
@@ -22,6 +23,19 @@ const historySchema = new mongoose.Schema(
   },
   { _id: false },
 );
+
+const paymentSchema = new mongoose.Schema({
+  source: { type: String, enum: ['link', 'manual'], required: true },
+  amountPaise: { type: Number, required: true },
+  method: { type: String, default: '' },
+  reference: { type: String, default: '' }, // UTR / cheque number / note
+  paidAt: { type: Date, default: Date.now },
+  paymentLinkId: { type: ObjectId, ref: 'PaymentLink' },
+  provider: { type: String, default: '' },
+  providerPaymentId: { type: String },
+  recordedById: { type: ObjectId, ref: 'User' },
+  recordedByName: { type: String, default: '' },
+});
 
 const orderSchema = new mongoose.Schema(
   {
@@ -48,7 +62,11 @@ const orderSchema = new mongoose.Schema(
       expectedDeliveryDate: { type: Date },
     },
     deliveredAt: { type: Date },
-    paidAt: { type: Date },
+    paidAt: { type: Date }, // paid in full (by payments, or moved to Payment Collected by hand)
+    // What the customer has paid (Phase 8): through payment links (one entry per gateway payment)
+    // or recorded by hand (cash, bank transfer …). amountPaidPaise is their sum.
+    payments: { type: [paymentSchema], default: [] },
+    amountPaidPaise: { type: Number, default: 0 },
     cancelledAt: { type: Date },
     cancelReason: { type: String, default: '' },
     notes: { type: String, default: '' },

@@ -27,6 +27,7 @@ const automationEvents = require('./automation/events');
 // (transporter, LR number) are kept; "Payment Collected" wins the lead. With "reduce stock on
 // dispatch" the stock goes down once when the order reaches Dispatched or later and comes back
 // if it is cancelled or moved back. A stage change can also send the customer a WhatsApp update.
+// Payments (Phase 8) come from payment links or are entered by hand; see recordPayment.
 const MODULES = leadService.MODULES;
 const SHIPPED = ORDER_FLOW.slice(ORDER_FLOW.indexOf('Dispatched')); // Dispatched and after
 
@@ -37,6 +38,24 @@ function nextStages(stage) {
   if (stage === 'Cancelled') return [];
   return [...ORDER_FLOW.filter((s) => s !== stage), ...(stage === 'Payment Collected' ? [] : ['Cancelled'])];
 }
+
+// --- what is paid (Phase 8) -------------------------------------------------------------
+// Paid in full by payments, or moved to Payment Collected by hand (collected outside the CRM).
+function paymentStatusOf(order) {
+  const total = order.totals?.grandTotalPaise || 0;
+  const paid = order.amountPaidPaise || 0;
+  if (order.stage === 'Payment Collected' || (total > 0 && paid >= total)) return 'paid';
+  return paid > 0 ? 'partly_paid' : 'unpaid';
+}
+function duePaise(order) {
+  if (order.stage === 'Cancelled' || paymentStatusOf(order) === 'paid') return 0;
+  return Math.max((order.totals?.grandTotalPaise || 0) - (order.amountPaidPaise || 0), 0);
+}
+const serializePayment = (payment) => ({
+  id: payment._id, source: payment.source, amountPaise: payment.amountPaise, method: payment.method || '', reference: payment.reference || '',
+  paidAt: payment.paidAt, paymentLinkId: payment.paymentLinkId || null, provider: payment.provider || '', providerPaymentId: payment.providerPaymentId || '',
+  recordedByName: payment.recordedByName || '',
+});
 
 function serializeOrder(order) {
   return {
@@ -58,6 +77,10 @@ function serializeOrder(order) {
     dispatch: plain(order.dispatch) || {},
     deliveredAt: order.deliveredAt || null,
     paidAt: order.paidAt || null,
+    paymentStatus: paymentStatusOf(order),
+    amountPaidPaise: order.amountPaidPaise || 0,
+    duePaise: duePaise(order),
+    payments: (order.payments || []).map(serializePayment),
     cancelledAt: order.cancelledAt || null,
     cancelReason: order.cancelReason || '',
     notes: order.notes || '',
@@ -204,6 +227,8 @@ async function changeStage(req, id, { stage, note = '', cancelReason = '', dispa
     if (stage === 'Payment Collected') {
       order.paidAt = order.paidAt || now;
       paid = true;
+    } else if (from === 'Payment Collected' && (order.amountPaidPaise || 0) < (order.totals?.grandTotalPaise || 0)) {
+      order.paidAt = undefined; // "collected" undone, and the payments do not cover it
     }
     if (stage === 'Cancelled') {
       order.cancelledAt = now;
@@ -235,6 +260,95 @@ async function changeStage(req, id, { stage, note = '', cancelReason = '', dispa
   const facts = { organizationId: order.organizationId, orderId: order._id, leadId: order.leadId, contactId: order.contactId, quotationId: order.quotationId, orderNumber: order.number };
   automationEvents.emit('order.stage_changed', { ...facts, from, to: stage }, req);
   if (stage === 'Payment Collected') automationEvents.emit('payment.received', { ...facts, amountPaise: order.totals?.grandTotalPaise, key: `payment.received:${order._id}` }, req);
+  return serializeOrder(order);
+}
+
+// --- payments ------------------------------------------------------------------------------
+const METHOD_LABELS = { cash: 'cash', bank_transfer: 'bank transfer', upi: 'UPI', cheque: 'cheque', card: 'card', other: 'other', netbanking: 'net banking', wallet: 'wallet', emi: 'EMI' };
+
+// Adds a payment to an order: from a payment link (once per gateway payment id) or by hand.
+// The first payment wins the lead (D40); paid in full, a Delivered order moves on to Payment
+// Collected. entry: { source, amountPaise, method, reference, paidAt, paymentLinkId, provider,
+// providerPaymentId }. Returns { order, duplicate, completed }.
+async function recordPayment(req, orderId, entry) {
+  let order;
+  let duplicate = false;
+  let completed = false;
+  let moved = null;
+  let added;
+  await mongoose.connection.transaction(async (session) => {
+    duplicate = false;
+    completed = false;
+    moved = null;
+    order = await Order.findOne({ _id: orderId, organizationId: req.tenant.organizationId }).session(session);
+    if (!order) throw httpError(404, 'NOT_FOUND', 'Order not found');
+    if (entry.providerPaymentId && order.payments.some((p) => p.providerPaymentId === entry.providerPaymentId)) {
+      duplicate = true;
+      return;
+    }
+    const wasPaid = paymentStatusOf(order) === 'paid';
+    order.payments.push({ ...entry, recordedById: req.user._id, recordedByName: req.user.name || '' });
+    added = order.payments[order.payments.length - 1];
+    order.amountPaidPaise = order.payments.reduce((sum, p) => sum + (p.amountPaise || 0), 0);
+    const now = new Date();
+    if (!wasPaid && paymentStatusOf(order) === 'paid') {
+      completed = true;
+      order.paidAt = order.paidAt || now;
+      if (order.stage === 'Delivered') {
+        moved = { from: order.stage, to: 'Payment Collected' };
+        order.stage = 'Payment Collected';
+        order.history.push({ stage: moved.to, from: moved.from, at: now, ...by(req), note: 'Paid in full' });
+      }
+    }
+    await order.save({ session });
+    const lead = await leadOf(order, session);
+    if (lead) {
+      const how = entry.source === 'link' ? `by payment link${entry.method ? ` (${METHOD_LABELS[entry.method] || entry.method})` : ''}` : `by ${METHOD_LABELS[entry.method] || 'hand'}${entry.reference ? `, ref ${entry.reference}` : ''}`;
+      const left = duePaise(order);
+      await leadService.addActivity(req, lead, 'Payment', `${formatRupees(entry.amountPaise)} received for order ${order.number} ${how}${left ? ` — ${formatRupees(left)} still due` : ' — paid in full'}`, { session });
+    }
+  });
+  if (duplicate) return { order: serializeOrder(order), duplicate, completed };
+  // A payment wins the deal (the lead converts, the contact becomes a customer).
+  if (order.leadId) {
+    try {
+      await leadService.convert(req, order.leadId);
+    } catch (error) {
+      if (error.statusCode !== 404) throw error;
+    }
+  }
+  await audit(req, { action: 'order.payment_recorded', entityType: 'Order', entityId: order._id, changes: { amountPaise: entry.amountPaise, source: entry.source, method: entry.method } });
+  const facts = { organizationId: order.organizationId, orderId: order._id, leadId: order.leadId, contactId: order.contactId, quotationId: order.quotationId, orderNumber: order.number };
+  automationEvents.emit('payment.received', { ...facts, amountPaise: entry.amountPaise, key: `payment.received:${order._id}:${entry.providerPaymentId || added._id}` }, req);
+  if (moved) automationEvents.emit('order.stage_changed', { ...facts, ...moved }, req);
+  return { order: serializeOrder(order), duplicate, completed, paymentId: added._id };
+}
+
+// POST /orders/:id/payments — money received outside the CRM's links (cash, bank transfer …).
+async function addManualPayment(req, id, { amountPaise, method, reference = '', paidAt }) {
+  const order = await findVisible(req, id);
+  if (order.stage === 'Cancelled') throw httpError(409, 'ORDER_CANCELLED', 'This order was cancelled.');
+  const { order: result } = await recordPayment(req, order._id, { source: 'manual', amountPaise, method, reference: String(reference || '').trim(), paidAt: paidAt || new Date() });
+  return result;
+}
+
+// DELETE /orders/:id/payments/:paymentId — undoes a payment entered by hand by mistake.
+// Gateway payments stay (they are the gateway's record).
+async function removeManualPayment(req, id, paymentId) {
+  let order;
+  await mongoose.connection.transaction(async (session) => {
+    order = await findVisible(req, id, session);
+    const payment = order.payments.id(paymentId);
+    if (!payment) throw httpError(404, 'NOT_FOUND', 'Payment not found');
+    if (payment.source !== 'manual') throw httpError(409, 'GATEWAY_PAYMENT', 'Payments made through a payment link cannot be removed here.');
+    payment.deleteOne();
+    order.amountPaidPaise = order.payments.reduce((sum, p) => sum + (p.amountPaise || 0), 0);
+    if (paymentStatusOf(order) !== 'paid') order.paidAt = undefined;
+    await order.save({ session });
+    const lead = await leadOf(order, session);
+    if (lead) await leadService.addActivity(req, lead, 'Payment', `${formatRupees(payment.amountPaise)} entered for order ${order.number} was removed`, { session });
+  });
+  await audit(req, { action: 'order.payment_removed', entityType: 'Order', entityId: order._id, changes: { paymentId } });
   return serializeOrder(order);
 }
 
@@ -330,4 +444,7 @@ async function notify(req, id, { mode, text, templateId, variables }) {
   return { order: serializeOrder(order), message, conversationId: conversation._id };
 }
 
-module.exports = { create, list, summary, update, changeStage, notifyOptions, notify, serializeOrder, findVisible, nextStages, get: async (req, id) => serializeOrder(await findVisible(req, id)) };
+module.exports = {
+  create, list, summary, update, changeStage, notifyOptions, notify, serializeOrder, findVisible, nextStages, get: async (req, id) => serializeOrder(await findVisible(req, id)),
+  recordPayment, addManualPayment, removeManualPayment, paymentStatusOf, duePaise, chatFor,
+};

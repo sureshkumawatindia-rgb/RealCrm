@@ -6,6 +6,7 @@ const idempotency = require('../middleware/idempotency');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/orders');
+const paymentSchemas = require('../validators/payments');
 
 // Orders (Phase 5): the same permissions as leads and quotations; WhatsApp updates need the inbox.
 const router = express.Router();
@@ -33,6 +34,13 @@ router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.ord
 router.post('/:id/stage', can('edit'), validate({ params: idParams, body: schemas.orderStage }), async (req, res) => {
   const order = await orderService.changeStage(req, req.valid.params.id, req.body);
   res.json({ success: true, data: order, message: `Order moved to ${order.stage}` });
+});
+// Payments received outside the CRM's payment links (cash, bank transfer, cheque …).
+router.post('/:id/payments', can('edit'), idempotency, validate({ params: idParams, body: paymentSchemas.manualPayment }), async (req, res) => {
+  res.status(201).json({ success: true, data: await orderService.addManualPayment(req, req.valid.params.id, req.body), message: 'Payment recorded' });
+});
+router.delete('/:id/payments/:paymentId', can('edit'), validate({ params: paymentSchemas.paymentParams }), async (req, res) => {
+  res.json({ success: true, data: await orderService.removeManualPayment(req, req.valid.params.id, req.valid.params.paymentId), message: 'Payment removed' });
 });
 router.get('/:id/notify-options', can('view'), canChat, validate({ params: idParams }), async (req, res) => {
   res.json({ success: true, data: await orderService.notifyOptions(req, req.valid.params.id) });

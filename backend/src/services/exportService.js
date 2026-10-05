@@ -15,6 +15,7 @@ const Document = require('../models/Document');
 const Campaign = require('../models/Campaign');
 const Workflow = require('../models/Workflow');
 const Sequence = require('../models/Sequence');
+const PaymentLink = require('../models/PaymentLink');
 const { audit } = require('../utils/audit');
 const { indiaDate } = require('../utils/dates');
 
@@ -24,7 +25,7 @@ const { indiaDate } = require('../utils/dates');
 const SECTIONS = [
   ['contacts', Contact], ['products', Product], ['leads', Lead], ['leadActivities', LeadActivity],
   ['quotations', Quotation], ['orders', Order], ['tasks', Task], ['events', CalendarEvent], ['tickets', Ticket], ['notes', Note],
-  ['documents', Document], ['campaigns', Campaign], ['workflows', Workflow], ['sequences', Sequence],
+  ['documents', Document], ['campaigns', Campaign], ['workflows', Workflow], ['sequences', Sequence], ['paymentLinks', PaymentLink],
 ];
 const HIDDEN_FIELDS = ['organizationId', '__v', 'deletedAt', 'storageKey', 'webhookSecret'];
 

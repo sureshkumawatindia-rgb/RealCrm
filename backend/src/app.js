@@ -47,12 +47,12 @@ app.use('/uploads', (req, res, next) => {
 }, express.static(path.resolve(env.uploadDir)));
 
 // Paths only: query strings can carry OAuth codes and invite tokens; webhook keys are masked.
-morgan.token('path', (req) => req.originalUrl.split('?')[0].replace(/^(\/api\/v1\/webhooks\/(?:leads\/)?[a-z-]+\/)[^/]+/, '$1…'));
+morgan.token('path', (req) => req.originalUrl.split('?')[0].replace(/^(\/api\/v1\/webhooks\/(?:leads\/|payments\/)?[a-z-]+\/)[^/]+/, '$1…'));
 app.use(morgan(':remote-addr :method :path :status :res[content-length] - :response-time ms', {
   stream: { write: message => logger.info(message.trim()) }
 }));
 
-// Public webhooks (WhatsApp; later lead sources and payments) have their own rate limit.
+// Public webhooks (WhatsApp, lead sources, payment gateways) have their own rate limit.
 app.use('/api/v1/webhooks', webhookRoutes);
 // Website enquiry forms: called from the organization's own sites, with their own rate limit.
 app.use('/api/v1/public', publicRoutes);

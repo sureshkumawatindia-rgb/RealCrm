@@ -43,6 +43,14 @@ const organizationSchema = new mongoose.Schema(
       roundOff: { type: Boolean, default: true }, // D28
       reduceStockOnDispatch: { type: Boolean, default: false },
     },
+    // Payment links (Phase 8, Settings → Payments): how long a link lives, and the approved
+    // WhatsApp templates for a link or a receipt when the customer's 24-hour window is closed.
+    payments: {
+      expiryDays: { type: Number, min: 1, max: 180, default: 7 },
+      sendReceipt: { type: Boolean, default: true },
+      linkTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'MessageTemplate' },
+      receiptTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'MessageTemplate' },
+    },
   },
   // strict:false keeps fields written by older versions until a migration moves them.
   { timestamps: true, strict: false },
