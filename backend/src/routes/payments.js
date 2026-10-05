@@ -41,6 +41,7 @@ settingsRoutes.put('/settings', validate({ body: schemas.settings }), async (req
 
 const linkRoutes = express.Router();
 const can = (action) => requirePermission(['leads', 'deals'], action);
+const canChat = requirePermission('inbox', 'create');
 linkRoutes.use(authenticate);
 linkRoutes.get('/', can('view'), validate({ query: schemas.linkList }), async (req, res) => {
   const { items, pagination } = await links.list(req, req.valid.query);
@@ -49,8 +50,18 @@ linkRoutes.get('/', can('view'), validate({ query: schemas.linkList }), async (r
 linkRoutes.post('/', can('edit'), idempotency, validate({ body: schemas.linkCreate }), async (req, res) => {
   res.status(201).json({ success: true, data: await links.create(req, req.body), message: 'Payment link created' });
 });
+// What the "Payment link" dialog shows for an order, a quotation or a customer (before /:id).
+linkRoutes.get('/options', can('view'), validate({ query: schemas.linkOptions }), async (req, res) => {
+  res.json({ success: true, data: await links.options(req, req.valid.query) });
+});
 linkRoutes.get('/:id', can('view'), byId, async (req, res) => {
   res.json({ success: true, data: await links.get(req, req.valid.params.id) });
+});
+linkRoutes.get('/:id/send-options', can('view'), canChat, byId, async (req, res) => {
+  res.json({ success: true, data: await links.sendOptions(req, req.valid.params.id) });
+});
+linkRoutes.post('/:id/send', can('edit'), canChat, idempotency, validate({ params: idParams, body: schemas.linkSend }), async (req, res) => {
+  res.json({ success: true, data: await links.send(req, req.valid.params.id, req.body), message: 'Payment link sent on WhatsApp' });
 });
 linkRoutes.post('/:id/refresh', can('view'), byId, async (req, res) => {
   res.json({ success: true, data: await links.refresh(req, req.valid.params.id) });

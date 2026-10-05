@@ -244,7 +244,7 @@ function meta() {
     sequenceSteps: SEQUENCE_STEP_TYPES,
     variableValues: VARIABLE_VALUES,
     placeholders: ['contact.name', 'contact.company', 'contact.city', 'contact.phone', 'lead.title', 'lead.stage', 'lead.source', 'owner.name', 'org.name',
-      'order.number', 'order.stage', 'order.total', 'quotation.number', 'quotation.total', 'task.title', 'task.due', 'message.text'],
+      'order.number', 'order.stage', 'order.total', 'order.paid', 'order.due', 'quotation.number', 'quotation.total', 'task.title', 'task.due', 'message.text'],
     leadStages: LEAD_STAGES,
     orderStages: ORDER_STAGES,
     sources: LEAD_SOURCES,

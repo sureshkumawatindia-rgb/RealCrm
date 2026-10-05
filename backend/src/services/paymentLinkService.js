@@ -8,6 +8,7 @@ const Organization = require('../models/Organization');
 const PaymentConnection = require('../models/PaymentConnection');
 const PaymentLink = require('../models/PaymentLink');
 const Quotation = require('../models/Quotation');
+const WhatsAppAccount = require('../models/WhatsAppAccount');
 const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
@@ -92,7 +93,9 @@ async function subjectOf(req, body) {
     if (due <= 0) throw httpError(409, 'NOTHING_DUE', `Order ${order.number} is already paid.`);
     return {
       purpose: 'order', order, maxPaise: due, contactId: order.contactId, leadId: order.leadId, ownerId: order.ownerId,
-      documentNumber: order.number, customerName: order.billTo?.name || '', description: `Order ${order.number}`, filter: { orderId: order._id },
+      documentNumber: order.number, customerName: order.billTo?.name || '', description: `Order ${order.number}`,
+      // A link still open for its quotation counts too: the customer must not pay twice.
+      filter: order.quotationId ? { $or: [{ orderId: order._id }, { quotationId: order.quotationId }] } : { orderId: order._id },
     };
   }
   if (body.quotationId) {
@@ -208,6 +211,171 @@ async function list(req, query) {
 
 const get = async (req, id) => serializeLink(await findVisible(req, id));
 
+// GET /payment-links/options?orderId=|quotationId=|contactId= — what the "Payment link" dialog
+// needs: the gateways, the suggested amount, the open link (if any) and the earlier links.
+async function options(req, query) {
+  const organization = await Organization.findById(req.tenant.organizationId);
+  const connections = await PaymentConnection.find({ organizationId: organization._id }).sort({ isDefault: -1, createdAt: 1 });
+  let blocked = '';
+  let subject = null;
+  try {
+    subject = await subjectOf(req, query);
+  } catch (error) {
+    if (error.statusCode === 404) throw error;
+    blocked = error.message; // paid already, cancelled, rejected …
+  }
+  if (!planOf(organization).paymentLinks) blocked = `Payment links come with the Pro plan and above (you are on ${planOf(organization).name}).`;
+  else if (!connections.length) blocked = ['owner', 'admin'].includes(req.member.role) ? 'Connect Razorpay or Cashfree in Settings → Payments first.' : 'Ask an owner or admin to connect Razorpay or Cashfree in Settings → Payments.';
+  // The subject's links: an order's (also those made for its quotation), a quotation's, a customer's.
+  let filter = { contactId: query.contactId };
+  if (query.orderId) {
+    const order = await Order.findById(query.orderId).select('quotationId');
+    filter = { $or: [{ orderId: query.orderId }, ...(order?.quotationId ? [{ quotationId: order.quotationId }] : [])] };
+  } else if (query.quotationId) {
+    const quotation = await Quotation.findById(query.quotationId).select('orderId');
+    filter = { $or: [{ quotationId: query.quotationId }, ...(quotation?.orderId ? [{ orderId: quotation.orderId }] : [])] };
+  }
+  const links = await PaymentLink.find({ ...scope(req), ...filter }).sort({ createdAt: -1 }).limit(10);
+  // An order or quotation has at most one open link; a customer may have several for amounts.
+  const open = (query.orderId || query.quotationId) ? links.find((link) => OPEN_LINK_STATUSES.includes(link.status)) : null;
+  return {
+    blocked,
+    gateways: connections.map((c) => ({ id: c._id, provider: c.provider, name: c.name || PAYMENT_PROVIDERS[c.provider], mode: c.mode, isDefault: c.isDefault, status: c.status })),
+    expiryDays: gateways.settingsOf(organization).expiryDays,
+    purpose: subject?.purpose || null,
+    documentNumber: subject?.documentNumber || '',
+    customerName: subject?.customerName || '',
+    amountPaise: subject && Number.isFinite(subject.maxPaise) ? subject.maxPaise : null,
+    maxPaise: subject && Number.isFinite(subject.maxPaise) ? subject.maxPaise : null,
+    openLink: open ? serializeLink(open) : null,
+    links: links.map(serializeLink),
+  };
+}
+
+// --- sending a link on WhatsApp ------------------------------------------------------------
+const indiaDay = (date) => new Date(date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' });
+
+function linkFacts(link, organization) {
+  const left = Math.max(link.amountPaise - (link.amountPaidPaise || 0), 0);
+  return {
+    name: link.customerName || 'Customer', amount: formatRupees(left), number: link.documentNumber || '', link: link.shortUrl,
+    due: formatRupees(left), paymentId: '', validTill: link.expiresAt ? indiaDay(link.expiresAt) : '', org: organization?.name || '',
+  };
+}
+
+function linkText(link, organization) {
+  const f = linkFacts(link, organization);
+  const what = link.purpose === 'order' ? ` for order ${f.number}` : link.purpose === 'quotation' ? ` for ${link.description || f.number}` : link.description ? ` for ${link.description}` : '';
+  return [
+    `Namaste ${f.name}, please pay ${f.amount}${what} using this secure link:`,
+    link.shortUrl,
+    ...(f.validTill ? [`The link is valid till ${f.validTill}.`] : []),
+    ...(f.org ? [`– ${f.org}`] : []),
+  ].join('\n');
+}
+
+// The customer's latest chat and the number to write from (their chat's, else the default one).
+async function chatAndNumber(link) {
+  const conversation = await Conversation.findOne({ organizationId: link.organizationId, contactId: link.contactId }).sort({ lastMessageAt: -1, updatedAt: -1 });
+  const accountId = conversation?.whatsappAccountId;
+  return { conversation, accountId };
+}
+
+// GET /payment-links/:id/send-options
+async function sendOptions(req, id) {
+  const link = await findVisible(req, id);
+  const organization = await Organization.findById(link.organizationId);
+  const contact = link.contactId ? await Contact.findOne({ _id: link.contactId, organizationId: link.organizationId }) : null;
+  const { conversation } = await chatAndNumber(link);
+  const accounts = await WhatsAppAccount.find({ organizationId: link.organizationId }).sort({ isDefault: -1, createdAt: 1 });
+  const account = conversation ? accounts.find((a) => String(a._id) === String(conversation.whatsappAccountId)) : accounts[0];
+  let blocked = '';
+  if (!OPEN_LINK_STATUSES.includes(link.status)) blocked = `This link is ${link.status.replace('_', ' ')}.`;
+  else if (!contact?.phoneE164) blocked = `${contact?.name || 'The customer'} has no mobile number.`;
+  else if (!account) blocked = 'Add a WhatsApp number in Settings → WhatsApp first.';
+  else if (conversation?.assigneeId && !conversationService.seesAll(req.member) && String(conversation.assigneeId) !== String(req.member._id)) blocked = 'A teammate is handling this customer\'s WhatsApp chat.';
+  const facts = linkFacts(link, organization);
+  const settings = gateways.settingsOf(organization);
+  const templates = account
+    ? (await MessageTemplate.find({ organizationId: link.organizationId, whatsappAccountId: account._id, status: 'APPROVED' }).sort({ name: 1 }))
+      .filter((template) => templateService.shapeOf(template).sendable)
+      .map((template) => ({ ...templateService.serializeTemplate(template), suggested: fillTemplate(template, facts, [facts.name, facts.amount, facts.number || facts.link, facts.link]) }))
+    : [];
+  return {
+    blocked,
+    windowOpen: Boolean(conversation && conversationService.serviceWindow(conversation).open),
+    text: linkText(link, organization),
+    templates,
+    preferredTemplateId: templates.some((t) => String(t.id) === String(settings.linkTemplateId)) ? settings.linkTemplateId : null,
+    link: serializeLink(link),
+  };
+}
+
+async function markSent(req, link, message) {
+  await PaymentLink.updateOne({ _id: link._id }, { $set: { sentMessageId: message.id, sentAt: new Date() } });
+  if (link.leadId) {
+    const lead = await leadService.findVisible(req, link.leadId).catch(() => null);
+    if (lead) await leadService.addActivity(req, lead, 'Payment', `Payment link for ${formatRupees(link.amountPaise - (link.amountPaidPaise || 0))}${link.documentNumber ? ` (${link.documentNumber})` : ''} sent on WhatsApp`);
+  }
+}
+
+// POST /payment-links/:id/send { mode: text | template, text?, templateId?, variables? }
+async function send(req, id, { mode, text, templateId, variables }) {
+  const link = await findVisible(req, id);
+  if (!OPEN_LINK_STATUSES.includes(link.status)) throw httpError(409, 'LINK_CLOSED', `This link is ${link.status.replace('_', ' ')}.`);
+  const contact = link.contactId ? await Contact.findOne({ _id: link.contactId, organizationId: link.organizationId }) : null;
+  if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', `${contact?.name || 'The customer'} has no mobile number.`);
+  let { conversation } = await chatAndNumber(link);
+  if (conversation?.assigneeId && !conversationService.seesAll(req.member) && String(conversation.assigneeId) !== String(req.member._id)) {
+    throw httpError(409, 'CHAT_ASSIGNED', 'A teammate is handling this customer\'s WhatsApp chat.');
+  }
+  if (mode === 'text' && !(conversation && conversationService.serviceWindow(conversation).open)) {
+    throw httpError(422, 'WINDOW_CLOSED', 'The customer has not written in the last 24 hours. WhatsApp only allows an approved template now.');
+  }
+  if (!conversation) conversation = await Conversation.findById((await conversationService.start(req, { contactId: contact._id })).conversation.id);
+  const message = mode === 'text'
+    ? await conversationService.sendText(req, conversation._id, { text })
+    : await conversationService.sendTemplate(req, conversation._id, { templateId, variables });
+  if (message.status === 'failed') throw httpError(502, 'WHATSAPP_REFUSED', `WhatsApp did not accept it: ${message.error?.message || 'unknown reason'}.`);
+  await markSent(req, link, message);
+  await audit(req, { action: 'payment_link.sent', entityType: 'PaymentLink', entityId: link._id, changes: { mode } });
+  return { link: serializeLink(await PaymentLink.findById(link._id)), message, conversationId: conversation._id };
+}
+
+// The CRM sends a link itself (a workflow's "send the payment link" step): a text inside the
+// 24-hour window, else the link template from Settings → Payments. Returns the message.
+async function sendAutomatically(req, link, { automation }) {
+  const organization = await Organization.findById(link.organizationId);
+  const contact = link.contactId ? await Contact.findOne({ _id: link.contactId, organizationId: link.organizationId }) : null;
+  if (!contact?.phoneE164) throw httpError(422, 'NO_PHONE', 'The customer has no mobile number.');
+  const { conversation } = await chatAndNumber(link);
+  let message;
+  if (conversation && conversationService.serviceWindow(conversation).open) {
+    message = await conversationService.sendTextAutomatically({ conversation, text: linkText(link, organization), automation });
+  } else {
+    const { linkTemplateId } = gateways.settingsOf(organization);
+    const template = linkTemplateId ? await MessageTemplate.findOne({ _id: linkTemplateId, organizationId: link.organizationId, status: 'APPROVED' }) : null;
+    if (!template) throw httpError(422, 'NO_LINK_TEMPLATE', 'The customer has not written in 24 hours and no approved payment-link template is chosen in Settings → Payments.');
+    const facts = linkFacts(link, organization);
+    const chat = await chatOf(link, template.whatsappAccountId);
+    message = await conversationService.sendTemplateAutomatically({ conversation: chat, template, variables: fillTemplate(template, facts, [facts.name, facts.amount, facts.number || facts.link, facts.link]), automation });
+  }
+  if (message.status === 'failed') throw httpError(422, 'WHATSAPP_REFUSED', `WhatsApp refused it: ${message.error?.message || 'unknown reason'}`);
+  await markSent(req, link, message);
+  return message;
+}
+
+// The open link of an order, or a new one for what is due (workflows; req acts as the system).
+async function openLinkForOrder(req, orderId) {
+  const open = await PaymentLink.findOne({ organizationId: req.tenant.organizationId, orderId, status: { $in: OPEN_LINK_STATUSES } });
+  if (open) return open;
+  const order = await Order.findOne({ _id: orderId, organizationId: req.tenant.organizationId }).select('quotationId');
+  const quotationLink = order?.quotationId ? await PaymentLink.findOne({ organizationId: req.tenant.organizationId, quotationId: order.quotationId, status: { $in: OPEN_LINK_STATUSES } }) : null;
+  if (quotationLink) return quotationLink;
+  const created = await create(req, { orderId });
+  return PaymentLink.findById(created.id);
+}
+
 // --- following a link ---------------------------------------------------------------------
 // A request-like actor for what the gateway does (payments are not made by a member).
 function gatewayReq(link) {
@@ -253,6 +421,12 @@ async function orderFor(req, link) {
   return orderId;
 }
 
+// A URL button "https://rzp.io/i/{{1}}" gets the end of the link after its fixed start.
+function buttonSuffix(buttonUrl, link) {
+  const start = String(buttonUrl || '').split('{{')[0];
+  return start && String(link || '').startsWith(start) ? String(link).slice(start.length) : '';
+}
+
 // What a template's variables get in a receipt or a link message: the customer's name, the
 // amount, the document, the payment id (by name, else in that order).
 function fillTemplate(template, facts, order) {
@@ -272,7 +446,7 @@ function fillTemplate(template, facts, order) {
   return {
     header: fill(shape.header?.variables || []),
     body: fill(shape.body.variables),
-    buttons: Object.fromEntries(shape.buttons.filter((b) => b.variables.length).map((b) => [String(b.index), facts.buttonValue || facts.link || '-'])),
+    buttons: Object.fromEntries(shape.buttons.filter((b) => b.variables.length).map((b) => [String(b.index), buttonSuffix(b.url, facts.link) || facts.paymentId || '-'])),
   };
 }
 
@@ -548,6 +722,7 @@ function register(queue) {
 }
 
 module.exports = {
-  JOBS, create, list, get, cancel, refresh, receiveWebhook, processWebhook, applyState, syncOpenLinks, syncOne, register,
-  testLink, payTestLink, serializeLink, findVisible, fillTemplate, chatOf,
+  JOBS, create, list, get, options, cancel, refresh, sendOptions, send, sendAutomatically, openLinkForOrder,
+  receiveWebhook, processWebhook, applyState, syncOpenLinks, syncOne, register,
+  testLink, payTestLink, serializeLink, findVisible, fillTemplate, buttonSuffix, chatOf,
 };

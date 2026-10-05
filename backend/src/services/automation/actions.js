@@ -3,6 +3,7 @@ const Conversation = require('../../models/Conversation');
 const Lead = require('../../models/Lead');
 const LeadActivity = require('../../models/LeadActivity');
 const MessageTemplate = require('../../models/MessageTemplate');
+const Order = require('../../models/Order');
 const OrganizationMember = require('../../models/OrganizationMember');
 const Task = require('../../models/Task');
 const WhatsAppAccount = require('../../models/WhatsAppAccount');
@@ -33,7 +34,11 @@ function valuesOf(ctx) {
     lead: { title: ctx.lead?.title, stage: ctx.lead?.stage, source: ctx.lead?.source, product: ctx.lead?.title },
     owner: { name: ctx.ownerName },
     org: { name: ctx.organization?.name },
-    order: { number: ctx.order?.number, stage: ctx.order?.stage, total: ctx.order ? formatRupees(ctx.order.totals?.grandTotalPaise) : '' },
+    order: {
+      number: ctx.order?.number, stage: ctx.order?.stage, total: ctx.order ? formatRupees(ctx.order.totals?.grandTotalPaise) : '',
+      paid: ctx.order ? formatRupees(ctx.order.amountPaidPaise || 0) : '',
+      due: ctx.order ? formatRupees(['Cancelled', 'Payment Collected'].includes(ctx.order.stage) ? 0 : Math.max((ctx.order.totals?.grandTotalPaise || 0) - (ctx.order.amountPaidPaise || 0), 0)) : '',
+    },
     quotation: { number: ctx.quotation?.number, total: ctx.quotation ? formatRupees(ctx.quotation.totals?.grandTotalPaise) : '' },
     task: { title: ctx.task?.title, due: ctx.task?.dueDate },
     message: { text: ctx.event?.text },
@@ -45,7 +50,7 @@ function fill(text, ctx) {
 }
 
 // What fills a template variable: a CRM value, or fixed words ("text:…").
-const VARIABLE_VALUES = ['contact.name', 'contact.company', 'contact.city', 'lead.product', 'owner.name', 'org.name', 'order.number', 'quotation.number'];
+const VARIABLE_VALUES = ['contact.name', 'contact.company', 'contact.city', 'lead.product', 'owner.name', 'org.name', 'order.number', 'order.due', 'quotation.number'];
 function resolveVariables(variables = {}, ctx) {
   const values = valuesOf(ctx);
   const valueOf = (spec) => {
@@ -223,6 +228,20 @@ const ACTIONS = {
     if (!result.enrollment) return skipped(result.reason);
     await activity(ctx, workflow, 'Automation', `Added to the sequence "${result.sequence.name}"`);
     return done(`Added to "${result.sequence.name}"`);
+  },
+
+  // A payment reminder (Phase 8): the order's open payment link (a new one for what is due if
+  // none is open) as a text inside the 24-hour window, else the link template of Settings → Payments.
+  async 'payment.link'({ ctx, workflow, req }) {
+    const order = ctx.order || (ctx.quotation?.orderId ? await Order.findOne({ _id: ctx.quotation.orderId, organizationId: workflow.organizationId }) : null);
+    if (!order) return skipped('There is no order here (use this step with order or payment triggers).');
+    if (order.stage === 'Cancelled') return skipped(`Order ${order.number} was cancelled.`);
+    if (order.stage === 'Payment Collected' || (order.amountPaidPaise || 0) >= (order.totals?.grandTotalPaise || 0)) return skipped(`Order ${order.number} is paid.`);
+    // Loaded here: the payment services use the order and conversation services.
+    const payments = require('../paymentLinkService'); // eslint-disable-line global-require
+    const link = await payments.openLinkForOrder(req, order._id);
+    await payments.sendAutomatically(req, link, { automation: automationOf(workflow) });
+    return done(`Payment link for ${formatRupees(link.amountPaise - (link.amountPaidPaise || 0))} sent (order ${order.number})`);
   },
 };
 

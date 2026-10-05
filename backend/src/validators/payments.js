@@ -58,4 +58,21 @@ module.exports = {
     paidAt: Joi.date().max('now').allow(null, '').empty(''),
   }),
   paymentParams: Joi.object({ id: objectId.required(), paymentId: objectId.required() }),
+  dues: Joi.object({ q: Joi.string().trim().max(100).allow(''), minDays: Joi.number().integer().min(0).max(3650).default(0) }),
+  linkOptions: Joi.object({ orderId: objectId, quotationId: objectId, contactId: objectId }).xor('orderId', 'quotationId', 'contactId'),
+  // A link on WhatsApp: a text while the 24-hour window is open, else an approved template.
+  linkSend: Joi.object({
+    mode: Joi.string().valid('text', 'template').required(),
+    text: Joi.when('mode', { is: 'text', then: Joi.string().trim().min(1).max(4096).required(), otherwise: Joi.forbidden() }),
+    templateId: Joi.when('mode', { is: 'template', then: objectId.required(), otherwise: Joi.forbidden() }),
+    variables: Joi.when('mode', {
+      is: 'template',
+      then: Joi.object({
+        header: Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, Joi.string().allow('').max(1024)),
+        body: Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, Joi.string().allow('').max(1024)),
+        buttons: Joi.object().pattern(/^\d{1,2}$/, Joi.string().allow('').max(1024)),
+      }).default({}),
+      otherwise: Joi.forbidden(),
+    }),
+  }),
 };

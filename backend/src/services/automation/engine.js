@@ -2,6 +2,7 @@ const AutomationRun = require('../../models/AutomationRun');
 const Contact = require('../../models/Contact');
 const Conversation = require('../../models/Conversation');
 const Lead = require('../../models/Lead');
+const Order = require('../../models/Order');
 const Quotation = require('../../models/Quotation');
 const Task = require('../../models/Task');
 const Workflow = require('../../models/Workflow');
@@ -19,7 +20,7 @@ const consent = require('./consent');
 // The automation engine (Phase 6). Business events (services call automation/events.emit)
 // become "automation.event" jobs; each Active workflow whose trigger and conditions fit starts
 // an AutomationRun, whose steps run in "automation.step" jobs — a wait step schedules the next
-// job for later. Time-based triggers (no reply, quote not accepted, task overdue) are found by
+// job for later. Time-based triggers (no reply, quote not accepted, order not paid, task overdue) are found by
 // "automation.scan" every 10 minutes; a dedupe key makes each one start only once per thing.
 const JOBS = { EVENT: 'automation.event', STEP: 'automation.step', SCAN: 'automation.scan' };
 const SCAN_EVERY_MS = 10 * 60 * 1000;
@@ -221,6 +222,20 @@ async function candidatesFor(workflow) {
       key: `quote:${q._id}:${q.revision || 0}`,
       subject: { quotationId: String(q._id), ...(q.leadId && { leadId: String(q.leadId) }), ...(q.contactId && { contactId: String(q.contactId) }) },
       event: { days, quotationNumber: q.number },
+    }));
+  }
+  if (workflow.trigger.type === 'payment.overdue') {
+    // Orders still not (fully) paid N days after the order date — once per order and amount
+    // paid, so a part payment lets the reminder come again for the rest.
+    const days = Math.min(Math.max(Number(p.days) || 7, 1), 180);
+    const orders = await Order.find({
+      organizationId, stage: { $nin: ['Cancelled', 'Payment Collected'] }, orderDate: { $lte: new Date(now - days * DAY), $gte: new Date(now - days * DAY - 90 * DAY) },
+      $expr: { $lt: [{ $ifNull: ['$amountPaidPaise', 0] }, { $ifNull: ['$totals.grandTotalPaise', 0] }] },
+    }).select('_id leadId contactId number amountPaidPaise totals').limit(200);
+    return orders.map((o) => ({
+      key: `due:${o._id}:${o.amountPaidPaise || 0}`,
+      subject: { orderId: String(o._id), ...(o.leadId && { leadId: String(o.leadId) }), ...(o.contactId && { contactId: String(o.contactId) }) },
+      event: { days, orderNumber: o.number, amountPaise: (o.totals?.grandTotalPaise || 0) - (o.amountPaidPaise || 0) },
     }));
   }
   if (workflow.trigger.type === 'task.overdue') {

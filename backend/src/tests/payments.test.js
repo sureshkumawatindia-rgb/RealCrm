@@ -14,6 +14,7 @@ const PaymentLink = require('../models/PaymentLink');
 const Quotation = require('../models/Quotation');
 const queue = require('../jobs/queue');
 const paymentLinks = require('../services/paymentLinkService');
+const engine = require('../services/automation/engine');
 const razorpay = require('../integrations/payments/razorpay');
 const cashfree = require('../integrations/payments/cashfree');
 const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
@@ -351,6 +352,70 @@ describe('Payment links', () => {
     expect((await post(owner, `/payment-links/${rzp.id}/cancel`, {})).body.data).toMatchObject({ status: 'cancelled' });
     expect(gateway.razorpay.get(rzp.providerLinkId).status).toBe('cancelled');
     expect((await post(owner, '/payment-links', { orderId: other.id })).status).toBe(201); // a new one once the old is closed
+  });
+
+  it('sends a link in the chat, lists what is due, and reminds by workflow (8B)', async () => {
+    const chat = await chatWith('98290 70006', 'Surat Mart');
+    const order = await orderFor(chat.conversationId);
+    let options = (await get(owner, `/payment-links/options?orderId=${order.id}`)).body.data;
+    expect(options).toMatchObject({ blocked: '', purpose: 'order', amountPaise: 1180000, documentNumber: order.number, customerName: 'Surat Mart', openLink: null, expiryDays: 7 });
+    expect(options.gateways.map((g) => g.provider)).toEqual(['razorpay', 'cashfree', 'mock']);
+    const link = (await post(owner, '/payment-links', { orderId: order.id })).body.data;
+    options = (await get(owner, `/payment-links/options?orderId=${order.id}`)).body.data;
+    expect(options.openLink).toMatchObject({ id: link.id });
+    expect(options.links.map((l) => l.id)).toEqual([link.id]);
+    expect((await get(owner, `/payment-links/options?orderId=${orderA.id}`)).body.data.blocked).toMatch(/already paid/);
+
+    // Inside the 24-hour window: a ready message with the link.
+    let sendOptions = (await get(owner, `/payment-links/${link.id}/send-options`)).body.data;
+    expect(sendOptions).toMatchObject({ blocked: '', windowOpen: true, preferredTemplateId: null });
+    expect(sendOptions.text).toContain(`please pay ₹11,800.00 for order ${order.number}`);
+    expect(sendOptions.text).toContain(link.shortUrl);
+    expect(sendOptions.text).toMatch(/valid till \d{1,2} \w{3} 2026/);
+    const sent = await api().post(`/api/v1/payment-links/${link.id}/send`).set(as(owner)).set('Idempotency-Key', 'pay-send-0001').send({ mode: 'text', text: sendOptions.text });
+    expect(sent.status).toBe(200);
+    expect(sent.body.data.link.sentAt).toBeTruthy();
+    expect((await Message.findById(sent.body.data.message.id)).text).toContain(link.shortUrl);
+
+    // A day later only a template may go; its URL button gets the end of the link.
+    await Conversation.updateOne({ _id: chat.conversationId }, { lastInboundAt: new Date(Date.now() - 2 * 86400000) });
+    sendOptions = (await get(owner, `/payment-links/${link.id}/send-options`)).body.data;
+    expect(sendOptions.windowOpen).toBe(false);
+    expect((await post(owner, `/payment-links/${link.id}/send`, { mode: 'text', text: 'Pay please' })).body.code).toBe('WINDOW_CLOSED');
+    const template = sendOptions.templates.find((t) => t.name === 'order_update');
+    expect(template.suggested.body).toEqual({ 1: 'Surat Mart', 2: '₹11,800.00' });
+    expect(paymentLinks.buttonSuffix('https://rzp.io/i/{{1}}', 'https://rzp.io/i/T9')).toBe('T9');
+    expect(paymentLinks.buttonSuffix('https://pay.example.com/{{1}}', 'https://rzp.io/i/T9')).toBe('');
+    const byTemplate = await post(owner, `/payment-links/${link.id}/send`, { mode: 'template', templateId: template.id, variables: { body: template.suggested.body } });
+    expect(byTemplate.status).toBe(200);
+    expect(byTemplate.body.data.message).toMatchObject({ type: 'template', template: { name: 'order_update', variables: ['Surat Mart', '₹11,800.00'] } });
+
+    // What is due: oldest first, with totals by age and the open link.
+    await Order.updateOne({ _id: order.id }, { $set: { orderDate: new Date(Date.now() - 40 * 86400000) } });
+    const dues = (await get(owner, '/orders/dues')).body.data;
+    expect(dues.items[0]).toMatchObject({ id: order.id, duePaise: 1180000, paymentStatus: 'unpaid', daysOutstanding: 40, bucket: '31-60', customer: { name: 'Surat Mart' }, openLink: { id: link.id } });
+    expect(dues.items.every((item) => item.duePaise > 0)).toBe(true);
+    expect(dues.items.map((item) => item.id)).not.toContain(orderA.id); // paid
+    expect(dues.summary.count).toBe(dues.items.length);
+    expect(dues.summary.duePaise).toBe(dues.items.reduce((sum, item) => sum + item.duePaise, 0));
+    expect(dues.summary.buckets['31-60']).toMatchObject({ count: 1, duePaise: 1180000 });
+    expect((await get(owner, '/orders/dues?minDays=30')).body.data.items.map((item) => item.id)).toEqual([order.id]);
+    expect((await get(agent, '/orders/dues')).body.data.items).toEqual([]);
+
+    // A reminder workflow: unpaid 30 days after the order → the payment link goes again.
+    engine.register(queue);
+    await Conversation.updateOne({ _id: chat.conversationId }, { lastInboundAt: new Date() });
+    const workflow = (await post(owner, '/workflows', { name: 'Payment reminder', status: 'Active', trigger: { type: 'payment.overdue', params: { days: 30 } }, steps: [{ type: 'payment.link' }] })).body.data;
+    expect(workflow).toMatchObject({ trigger: { type: 'payment.overdue', params: { days: 30 } }, steps: [{ type: 'payment.link' }] });
+    expect(await engine.scan(queue)).toBe(1);
+    await settle();
+    const run = (await get(owner, `/automation-runs?workflowId=${workflow.id}`)).body.data[0];
+    expect(run).toMatchObject({ status: 'done', subject: { orderId: order.id }, steps: [{ type: 'payment.link', status: 'done' }] });
+    expect(run.steps[0].detail).toContain('₹11,800.00');
+    const reminder = await Message.findOne({ conversationId: chat.conversationId, 'automation.kind': 'workflow' }).sort({ createdAt: -1 });
+    expect(reminder.text).toContain(link.shortUrl); // the open link, not a new one
+    expect(await PaymentLink.countDocuments({ orderId: order.id })).toBe(1);
+    expect(await engine.scan(queue)).toBe(0); // once per order and amount paid
   });
 
   it('keeps links to the right people, and needs a plan with payment links', async () => {

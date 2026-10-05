@@ -18,6 +18,7 @@ const TRIGGER_PARAMS = {
   'quotation.not_accepted': Joi.object({ days: Joi.number().integer().min(1).max(90).default(3) }),
   'order.stage_changed': Joi.object({ toStages: Joi.array().items(Joi.string().valid(...ORDER_STAGES)).max(ORDER_STAGES.length).unique() }),
   'payment.received': Joi.object({}),
+  'payment.overdue': Joi.object({ days: Joi.number().integer().min(1).max(180).default(7) }),
   'task.overdue': Joi.object({}),
 };
 
@@ -53,12 +54,14 @@ const STEP_PARAMS = {
   wait: Joi.object({ amount: Joi.number().integer().min(1).max(999).required().label('Wait time'), unit: Joi.string().valid('minutes', 'hours', 'days').default('hours') })
     .custom((value, helpers) => (value.amount * { minutes: 1, hours: 60, days: 1440 }[value.unit] <= 90 * 1440 ? value : helpers.message('A wait can be at most 90 days'))),
   'sequence.enroll': Joi.object({ sequenceId: objectId.required().label('Sequence') }),
+  'payment.link': Joi.object({}),
   'webhook.call': Joi.object({ url: Joi.string().trim().max(500).uri({ scheme: ['https'] }).required().label('Webhook address').messages({ 'string.uriCustomScheme': 'Webhook addresses must start with https://' }) }),
 };
 
 const STEP_NAMES = {
   'whatsapp.text': 'WhatsApp message', 'whatsapp.template': 'WhatsApp template', assign: 'Give the lead', 'tag.add': 'Add tag', 'tag.remove': 'Remove tag',
   'stage.change': 'Move stage', 'task.create': 'Create task', 'agent.notify': 'Notify', wait: 'Wait', 'webhook.call': 'Webhook', 'sequence.enroll': 'Add to sequence',
+  'payment.link': 'Payment link',
 };
 
 // Validates `params` with the schema of the item's type (and gives back the cleaned value).

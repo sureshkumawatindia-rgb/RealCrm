@@ -21,6 +21,10 @@ router.get('/', can('view'), validate({ query: schemas.orderList }), async (req,
 router.get('/summary', can('view'), async (req, res) => {
   res.json({ success: true, data: await orderService.summary(req) });
 });
+// Money still to come (Phase 8): unpaid and part-paid orders, oldest first, with totals by age.
+router.get('/dues', can('view'), validate({ query: paymentSchemas.dues }), async (req, res) => {
+  res.json({ success: true, data: await orderService.dues(req, req.valid.query) });
+});
 router.post('/', can('create'), idempotency, validate({ body: schemas.orderCreate }), async (req, res) => {
   const order = await orderService.create(req, req.body);
   res.status(201).json({ success: true, data: order, message: `Order ${order.number} created` });

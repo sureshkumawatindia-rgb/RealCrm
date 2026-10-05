@@ -5,6 +5,7 @@ const Lead = require('../models/Lead');
 const MessageTemplate = require('../models/MessageTemplate');
 const Order = require('../models/Order');
 const Organization = require('../models/Organization');
+const PaymentLink = require('../models/PaymentLink');
 const Product = require('../models/Product');
 const Quotation = require('../models/Quotation');
 const WhatsAppAccount = require('../models/WhatsAppAccount');
@@ -352,6 +353,50 @@ async function removeManualPayment(req, id, paymentId) {
   return serializeOrder(order);
 }
 
+// GET /orders/dues — orders with money still to come (not cancelled, not marked collected), the
+// oldest first, with their open payment link and how long they have been waiting.
+const DUES_LIMIT = 500;
+const DAY_MS = 24 * 60 * 60 * 1000;
+async function dues(req, { q, minDays = 0 } = {}) {
+  const now = Date.now();
+  const filter = {
+    ...scope(req),
+    stage: { $nin: ['Cancelled', 'Payment Collected'] },
+    $expr: { $lt: [{ $ifNull: ['$amountPaidPaise', 0] }, { $ifNull: ['$totals.grandTotalPaise', 0] }] },
+    ...(minDays > 0 && { orderDate: { $lte: new Date(now - minDays * DAY_MS) } }),
+  };
+  if (q) {
+    const pattern = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    filter.$or = [{ number: pattern }, { 'billTo.name': pattern }, { 'billTo.company': pattern }];
+  }
+  const orders = await Order.find(filter).select('-items -history -seller -supply -stockMoves').sort({ orderDate: 1, _id: 1 }).limit(DUES_LIMIT);
+  const links = await PaymentLink.find({ organizationId: req.tenant.organizationId, orderId: { $in: orders.map((o) => o._id) }, status: { $in: ['created', 'partially_paid'] } })
+    .select('orderId shortUrl sentAt status amountPaise amountPaidPaise createdAt').sort({ createdAt: -1 });
+  const linkOf = new Map();
+  for (const link of links) if (!linkOf.has(String(link.orderId))) linkOf.set(String(link.orderId), link);
+  const BUCKETS = [['0-7', 7], ['8-30', 30], ['31-60', 60], ['60+', Infinity]];
+  const summary = { count: 0, duePaise: 0, buckets: Object.fromEntries(BUCKETS.map(([name]) => [name, { count: 0, duePaise: 0 }])) };
+  const items = orders.map((order) => {
+    const due = duePaise(order);
+    const days = Math.max(Math.floor((now - new Date(order.orderDate || order.createdAt).getTime()) / DAY_MS), 0);
+    const [bucket] = BUCKETS.find(([, upTo]) => days <= upTo);
+    summary.count += 1;
+    summary.duePaise += due;
+    summary.buckets[bucket].count += 1;
+    summary.buckets[bucket].duePaise += due;
+    const link = linkOf.get(String(order._id));
+    return {
+      id: order._id, number: order.number, stage: order.stage, orderDate: order.orderDate, deliveredAt: order.deliveredAt || null,
+      customer: { name: order.billTo?.name || '', company: order.billTo?.company || '', phone: order.billTo?.phone || '' },
+      contactId: order.contactId || null, ownerId: order.ownerId || null, leadId: order.leadId || null,
+      totalPaise: order.totals?.grandTotalPaise || 0, amountPaidPaise: order.amountPaidPaise || 0, duePaise: due, paymentStatus: paymentStatusOf(order),
+      daysOutstanding: days, bucket,
+      openLink: link ? { id: link._id, shortUrl: link.shortUrl, status: link.status, sentAt: link.sentAt || null, createdAt: link.createdAt } : null,
+    };
+  });
+  return { items, summary, truncated: orders.length === DUES_LIMIT };
+}
+
 // --- WhatsApp updates to the customer ---------------------------------------------------
 const UPDATE_TEXT = {
   Received: (f) => `Namaste ${f.name}, we have received your order ${f.number}. Thank you!`,
@@ -446,5 +491,5 @@ async function notify(req, id, { mode, text, templateId, variables }) {
 
 module.exports = {
   create, list, summary, update, changeStage, notifyOptions, notify, serializeOrder, findVisible, nextStages, get: async (req, id) => serializeOrder(await findVisible(req, id)),
-  recordPayment, addManualPayment, removeManualPayment, paymentStatusOf, duePaise, chatFor,
+  recordPayment, addManualPayment, removeManualPayment, paymentStatusOf, duePaise, chatFor, dues,
 };
