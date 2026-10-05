@@ -32,6 +32,8 @@ const contactFields = {
   productIds: Joi.array().items(objectId).max(20).unique(),
   notes: text(5000),
   ownerId: objectId.allow(null),
+  // WhatsApp offers (Phase 7, D35): broadcasts never go to "opted_out".
+  marketingConsent: Joi.string().valid('unknown', 'opted_in', 'opted_out'),
 };
 
 const noteEntry = Joi.object({
@@ -140,6 +142,7 @@ module.exports = {
     status: Joi.string().valid(...CONTACT_STATUSES),
     ownerId: objectId,
     tag: Joi.string().trim().max(50),
+    consent: Joi.string().valid('unknown', 'opted_in', 'opted_out'),
   }),
 
   productCreate: Joi.object({

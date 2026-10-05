@@ -32,7 +32,7 @@ function serializeContact(contact) {
     status: contact.status,
     productIds: contact.productIds,
     notes: contact.notes,
-    consent: { marketing: contact.consent?.marketing || 'unknown' },
+    consent: { marketing: contact.consent?.marketing || 'unknown', changedAt: contact.consent?.changedAt || null, method: contact.consent?.method || '' },
     becameCustomerAt: contact.becameCustomerAt || null,
     createdAt: contact.createdAt,
     updatedAt: contact.updatedAt,
@@ -58,6 +58,11 @@ function normalizeFields(data) {
   return out;
 }
 
+// marketingConsent from the form or an import: who changed it and when is kept with it.
+function consentOf(marketing, method) {
+  return { marketing, changedAt: new Date(), method };
+}
+
 async function assertPhoneFree(req, phoneE164, exceptId, session) {
   if (!phoneE164) return;
   const existing = await Contact.findOne({ organizationId: req.tenant.organizationId, phoneE164, _id: { $ne: exceptId } }).session(session || null);
@@ -74,6 +79,7 @@ async function list(req, query) {
     ...(query.status && { status: query.status }),
     ...(query.ownerId && { ownerId: query.ownerId }),
     ...(query.tag && { tags: query.tag }),
+    ...(query.consent && (query.consent === 'unknown' ? { 'consent.marketing': { $nin: ['opted_in', 'opted_out'] } } : { 'consent.marketing': query.consent })),
   };
   const { items, pagination } = await repo(req).paginate(filter, query, { sort: sortSpec(query.sort, SORTS) });
   return { items: items.map(serializeContact), pagination };
@@ -88,8 +94,10 @@ async function findVisible(req, id, session) {
 async function create(req, body, { session } = {}) {
   const data = normalizeFields(body);
   await assertPhoneFree(req, data.phoneE164, undefined, session);
+  const { marketingConsent, ...fields } = data;
   const contact = await repo(req).create({
-    ...data,
+    ...fields,
+    ...(marketingConsent && { consent: consentOf(marketingConsent, 'manual') }),
     ownerId: await resolveOwnerId(req, body.ownerId),
     becameCustomerAt: data.lifecycle === 'customer' ? new Date() : undefined,
     createdById: req.user._id,
@@ -120,6 +128,7 @@ async function update(req, id, patch, { session, skipVisibility = false } = {}) 
   if ('phoneE164' in data) await assertPhoneFree(req, data.phoneE164, contact._id, session);
   if (data.lifecycle === 'customer' && contact.lifecycle !== 'customer') contact.becameCustomerAt = new Date();
   Object.assign(contact, data, await ownerPatch(req, patch));
+  if (patch.marketingConsent && patch.marketingConsent !== (contact.consent?.marketing || 'unknown')) contact.consent = consentOf(patch.marketingConsent, 'manual');
   if ('phoneE164' in data && !data.phoneE164) contact.phoneE164 = undefined;
   await contact.save({ session });
   await audit(req, { action: 'contact.updated', entityType: 'Contact', entityId: contact._id, changes: Object.keys(data) });
@@ -140,6 +149,7 @@ module.exports = {
   update: async (req, id, patch) => serializeContact(await update(req, id, patch)),
   remove,
   findOrCreate,
+  consentOf,
   updateContact: update,
   findVisible,
   serializeContact,
