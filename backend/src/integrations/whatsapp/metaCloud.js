@@ -65,10 +65,14 @@ module.exports = {
   // Checks the phone number id and the token, and returns what Meta knows about the number.
   async getPhoneNumber({ phoneNumberId, accessToken }) {
     const data = await graph(`${enc(phoneNumberId)}?fields=display_phone_number,verified_name,quality_rating`, { accessToken });
+    // Meta's daily limit (the business portfolio's; TIER_250 … TIER_UNLIMITED). Asked separately
+    // so an older API version without the field never breaks the connection check.
+    const limit = await graph(`${enc(phoneNumberId)}?fields=whatsapp_business_manager_messaging_limit`, { accessToken }).catch(() => ({}));
     return {
       displayPhone: data.display_phone_number || '',
       verifiedName: data.verified_name || '',
       qualityRating: data.quality_rating || '',
+      messagingLimit: String(limit.whatsapp_business_manager_messaging_limit || ''),
     };
   },
 

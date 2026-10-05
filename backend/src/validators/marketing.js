@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { objectId } = require('./common');
+const { paginationQuery } = require('../utils/pagination');
 const { LEAD_SOURCES, LEAD_STAGES, CONTACT_LIFECYCLES } = require('../constants/crm');
 
 // Segments and contact imports (Phase 7).
@@ -36,7 +37,26 @@ const contactImport = Joi.object({
   dryRun: Joi.boolean().default(false),
 });
 
+// Broadcasts: a template (its variables as in workflow steps) and a segment.
+const variableSpec = Joi.string().trim().max(205);
+const variables = Joi.object({
+  header: Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, variableSpec),
+  body: Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, variableSpec),
+  buttons: Joi.object().pattern(/^\d{1,2}$/, variableSpec),
+});
+const broadcastFields = {
+  name: Joi.string().trim().min(1).max(150),
+  templateId: objectId,
+  variables: variables.default({}),
+  segmentId: objectId,
+};
+
 module.exports = {
+  broadcastCreate: Joi.object({ ...broadcastFields, name: broadcastFields.name.required(), templateId: objectId.required(), segmentId: objectId.required() }),
+  broadcastPatch: Joi.object({ ...broadcastFields, variables }).min(1),
+  broadcastSend: Joi.object({ scheduledAt: Joi.date().iso().allow(null) }),
+  broadcastList: Joi.object({ ...paginationQuery, status: Joi.string().valid('draft', 'scheduled', 'sending', 'paused', 'completed', 'cancelled', 'failed') }),
+  recipientList: Joi.object({ ...paginationQuery, status: Joi.string().valid('pending', 'sent', 'delivered', 'read', 'replied', 'failed', 'skipped') }),
   segmentCreate: Joi.object({ ...segmentFields, name: segmentFields.name.required(), filters: filters.default({}) }),
   segmentPatch: Joi.object(segmentFields).min(1),
   segmentPreview: Joi.object({ filters: filters.default({}) }),

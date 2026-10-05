@@ -92,11 +92,13 @@ async function activeMember(req, id, field) {
   return member;
 }
 
-async function checkTemplateStep(req, params, field) {
+// field: where the params sit in the request ("steps.2.params"), or "" at the top (broadcasts).
+async function checkTemplateStep(req, params, field = '') {
+  const at = (name) => (field ? `${field}.${name}` : name);
   const template = await MessageTemplate.findOne({ _id: params.templateId, organizationId: req.tenant.organizationId });
-  if (!template) throw invalid(`${field}.templateId`, 'Pick one of your WhatsApp templates.', 'INVALID_TEMPLATE');
+  if (!template) throw invalid(at('templateId'), 'Pick one of your WhatsApp templates.', 'INVALID_TEMPLATE');
   const shape = templateService.shapeOf(template);
-  if (!shape.sendable) throw invalid(`${field}.templateId`, `"${template.name}" cannot be sent: ${shape.notSendableReason}`, 'TEMPLATE_NOT_SENDABLE');
+  if (!shape.sendable) throw invalid(at('templateId'), `"${template.name}" cannot be sent: ${shape.notSendableReason}`, 'TEMPLATE_NOT_SENDABLE');
   const needed = [
     ...(shape.header?.variables || []).map((name) => ['header', name]),
     ...shape.body.variables.map((name) => ['body', name]),
@@ -105,7 +107,7 @@ async function checkTemplateStep(req, params, field) {
   for (const [part, name] of needed) {
     const spec = params.variables?.[part]?.[name];
     if (!spec || !(VARIABLE_VALUES.includes(spec) || /^text:.{1,200}$/s.test(spec))) {
-      throw invalid(`${field}.variables.${part}.${name}`, `Choose what fills {{${name}}} in "${template.name}".`, 'VARIABLE_REQUIRED');
+      throw invalid(at(`variables.${part}.${name}`), `Choose what fills {{${name}}} in "${template.name}".`, 'VARIABLE_REQUIRED');
     }
   }
 }
@@ -264,6 +266,7 @@ module.exports = {
   cancelRun,
   meta,
   checkReferences,
+  checkTemplateStep,
   serializeWorkflow,
   serializeRun,
 };

@@ -18,6 +18,8 @@ const whatsappAccountSchema = new mongoose.Schema(
     displayPhone: { type: String, trim: true, default: '' },
     verifiedName: { type: String, trim: true, default: '' },
     qualityRating: { type: String, trim: true, default: '' },
+    // Meta's daily limit of people reached with templates (Phase 7): TIER_250 … TIER_UNLIMITED.
+    messagingLimit: { type: String, trim: true, default: '' },
     accessTokenEnc: { type: String },
     accessTokenLast4: { type: String, default: '' },
     appSecretEnc: { type: String },

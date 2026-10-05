@@ -26,6 +26,7 @@ const campaignRoutes = require('./campaigns');
 const { workflowRoutes, runRoutes, sequenceRoutes, enrollmentRoutes, notificationRoutes } = require('./automation');
 const { faqRuleRoutes, botRoutes } = require('./bot');
 const segmentRoutes = require('./segments');
+const broadcastRoutes = require('./broadcasts');
 
 const router = express.Router();
 
@@ -64,5 +65,6 @@ router.use('/notifications', notificationRoutes);
 router.use('/faq-rules', faqRuleRoutes);
 router.use('/bot', botRoutes);
 router.use('/segments', segmentRoutes);
+router.use('/broadcasts', broadcastRoutes);
 
 module.exports = router;

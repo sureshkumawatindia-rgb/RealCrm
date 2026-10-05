@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { PLAN_KEYS, TRIAL_PLAN } = require('../constants/plans');
 
 const organizationSchema = new mongoose.Schema(
   {
@@ -19,6 +20,8 @@ const organizationSchema = new mongoose.Schema(
     country: { type: String, trim: true },
     postalCode: { type: String, trim: true },
     description: { type: String, trim: true },
+    // The SaaS plan (constants/plans.js). Until billing (Phase 10) everyone has the trial (D34).
+    plan: { type: String, enum: PLAN_KEYS, default: TRIAL_PLAN },
     // Quotations and orders (Phase 5): what the PDF shows and how documents are numbered.
     billing: {
       bank: {

@@ -141,7 +141,7 @@ const createdTemplates = new Map(); // phone number id → templates created on 
 
 module.exports = {
   async getPhoneNumber() {
-    return { displayPhone: '+91 90000 00000', verifiedName: 'Test Business (mock)', qualityRating: 'GREEN' };
+    return { displayPhone: '+91 90000 00000', verifiedName: 'Test Business (mock)', qualityRating: 'GREEN', messagingLimit: 'TIER_250' };
   },
 
   async sendMessage() {

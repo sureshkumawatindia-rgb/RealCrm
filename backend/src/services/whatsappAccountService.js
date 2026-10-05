@@ -20,6 +20,7 @@ function serializeAccount(account) {
     displayPhone: account.displayPhone,
     verifiedName: account.verifiedName,
     qualityRating: account.qualityRating,
+    messagingLimit: account.messagingLimit || '',
     status: account.status,
     statusMessage: account.statusMessage,
     isDefault: account.isDefault,

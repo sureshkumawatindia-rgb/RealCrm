@@ -171,6 +171,9 @@ async function handleEvent(queue, event) {
   // STOP / START change the customer's consent (Phase 7); otherwise the FAQ bot answers a
   // customer message first (quickest reply).
   if (!(await consent.handleMessage(event))) await bot.handleMessage(event);
+  // A reply counts for the broadcasts the customer got in the last 7 days (Phase 7).
+  // Loaded here: broadcastService uses the automation actions.
+  await require('../broadcastService').handleReply(event); // eslint-disable-line global-require
   // Then the sequences this event ends (a reply, a won or lost lead), so a workflow that
   // enrolls on this same message starts the customer afresh.
   await sequences.handleEvent(event);
