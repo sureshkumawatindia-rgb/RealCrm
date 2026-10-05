@@ -130,6 +130,15 @@ Jobs (in `jobs`): `automation.event` (one per business event; for a WhatsApp mes
 
 Contacts imported from CSV are ordinary `contacts` (source from the file or `Import`, `consent.method: import` when the importer said they agreed).
 
+## 1k. Implemented (Phase 8, payments)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `paymentconnections` | `provider` (razorpay/cashfree/mock), `name`, `mode` (test/live), `keyId` (not secret), `keySecretEnc`, `keySecretLast4`, `webhookSecretEnc` (secretBox), `webhookKey` (the webhook address), `status` (connected/error), `statusMessage`, `isDefault`, `lastCheckedAt`, `lastWebhookAt`, `createdById`, `deletedAt` | unique `webhookKey`; `(organizationId, deletedAt, isDefault -1)` |
+| `paymentlinks` | `connectionId`, `provider`, `mode`, `referenceId` (ours, `ycrm_<24 hex>`), `providerLinkId`, `shortUrl`, `purpose` (order/quotation/amount), `orderId`, `quotationId`, `contactId`, `leadId`, `ownerId` (copied, for agents' scope), `documentNumber`, `description`, `customerName`, `amountPaise`, `amountPaidPaise`, `acceptPartial`, `minPartialPaise`, `status` (created/partially_paid/paid/expired/cancelled), `expiresAt`, `paidAt`, `cancelledAt`, `payments[]` { providerPaymentId, amountPaise, method, paidAt }, `sentMessageId`, `sentAt`, `receipts[]` { providerPaymentId, status, reason, messageId, at }, `lastSyncedAt`, `lastSyncError`, `createdById`, `createdByMemberId` | unique `(provider, providerLinkId)`; unique `referenceId`; `(organizationId, createdAt -1)`; `(organizationId, orderId)`; `(organizationId, quotationId)`; `(organizationId, contactId)`; `(status, lastSyncedAt)` |
+
+`orders.payments[]` { source link/manual, amountPaise, method, reference, paidAt, paymentLinkId, provider, providerPaymentId, recordedById, recordedByName } and `orders.amountPaidPaise` (their sum); `paidAt` is set when paid in full. Payment status and the amount due are computed (`orderService.paymentStatusOf` / `duePaise`), not stored, so older orders need no migration. `organizations.payments` { expiryDays, sendReceipt, linkTemplateId, receiptTemplateId }. `inboundevents` also holds gateway events (`provider` razorpay/cashfree/mock, `kind: payment_link`, the parsed event as `payload`). Jobs: `payment.webhook` (one per stored event), `payment.links.sync` (every 10 minutes, 50 open links checked longest ago).
+
 ## 2. Data migrations
 
 | Migration | What it does |
@@ -141,4 +150,4 @@ Contacts imported from CSV are ordinary `contacts` (source from the file or `Imp
 
 ## 3. Planned (Phase 2 onwards)
 
-WhatsApp, lead sources, orders, payments, broadcasts and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.
+Catalog sync fields (Phase 8C) and SaaS collections. Every index is prefixed with `organizationId`; money is stored as integer paise.

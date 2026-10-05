@@ -163,12 +163,14 @@ Same permissions as leads and quotations; agents see the orders of their own lea
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/orders?stage=&contactId=&leadId=&q=` | `q` searches the order and quotation numbers, the customer and the LR number. |
+| `GET` | `/orders?stage=&contactId=&leadId=&q=` | `q` searches the order and quotation numbers, the customer and the LR number. Every order has `paymentStatus` (unpaid / partly_paid / paid — paid also when moved to Payment Collected by hand), `amountPaidPaise`, `duePaise` (0 when cancelled or paid) and `payments[]` (Phase 8). |
 | `GET` | `/orders/summary` | `{ counts { <stage>: n }, total }`. |
 | `POST` | `/orders` | `{ quotationId }` — from an accepted quotation, once (409 `NOT_ACCEPTED`, `ORDER_EXISTS`); copies its lines, totals and parties; number `<order prefix>/<financial year>/<0001>` (default SO). Accepts `Idempotency-Key`. The quotation can then not be un-accepted or deleted. |
 | `GET/PATCH` | `/orders/:id` | PATCH `{ dispatch { transporter, lrNumber, vehicleNumber, expectedDeliveryDate }, notes }`. |
 | `POST` | `/orders/:id/stage` | `{ stage, note?, cancelReason?, dispatch? }`. Stages: Received → Processing → Dispatched → Delivered → Payment Collected (any step, forwards or back), or Cancelled (reason required, 422 `CANCEL_REASON_REQUIRED`; not once paid, 409 `ORDER_PAID`; final, 409 `ORDER_CANCELLED`). Dispatched stamps `dispatch.dispatchedAt`, Delivered `deliveredAt`, Payment Collected `paidAt` and wins the lead (the contact becomes a customer). With "reduce stock on dispatch" the products' stock goes down once (never below 0) when the order reaches Dispatched or later, and comes back if it is cancelled or moved back. Each move goes to `history` and the lead's timeline. |
 | `GET` | `/orders/:id/notify-options` | Needs `inbox` too. `{ blocked, windowOpen, text (a ready message for the stage), templates [with suggested values: name, order number, stage, transporter + LR] }`. |
+| `POST` | `/orders/:id/payments` | Phase 8: money received outside the payment links. `{ amountPaise, method: cash / bank_transfer / upi / cheque / card / other, reference?, paidAt? }`. Same effects as a link payment: the first payment wins the lead (D40); paid in full, a Delivered order moves to Payment Collected. 409 `ORDER_CANCELLED`. |
+| `DELETE` | `/orders/:id/payments/:paymentId` | Removes a payment entered by hand (409 `GATEWAY_PAYMENT` for a payment-link payment). |
 | `POST` | `/orders/:id/notify` | Needs `inbox` too. `{ mode: "text", text }` (24-hour window open, else 422 `WINDOW_CLOSED`) or `{ mode: "template", templateId, variables }`; marks the latest history entry `notified`. |
 
 ## Tasks and calendar (Phase 2)
@@ -475,6 +477,39 @@ Auto-reply: the first active rule for the source; sent by the CRM (`message.auto
 ### How enquiries become leads
 
 Every source goes through the same intake: the same enquiry (organization + source + the source's own id) is taken once; the contact is found by mobile number (+91 by default), else email, and its blank details are filled in; if the contact has an open lead the enquiry is added to it as an "Enquiry" activity and its follow-up moves to now (D26); otherwise a New lead is created with `source`, `sourceRef`, title (the product asked for), `productId` when a product of that name exists, and quantity. Each enquiry is kept in the intake log with its raw payload (up to 20 KB).
+
+## Payments (Phase 8)
+
+### Gateways and settings (Settings → Payments, owners and admins)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/payments/connections` | The organization's gateways: `{ id, provider (razorpay / cashfree / mock), providerName, name, mode (test / live), keyId, keySecret { configured, last4 }, webhookSecretConfigured, webhookUrl, status, statusMessage, isDefault, lastCheckedAt, lastWebhookAt }`. Secrets are never returned. |
+| `POST` | `/payments/connections` | Razorpay `{ provider, keyId, keySecret, webhookSecret }` (test or live from the key id); Cashfree `{ provider, keyId (app id), keySecret, mode }`; the test gateway `{ provider: "mock" }` (not in production). The keys are checked with the gateway first: 400 `PAYMENT_KEYS_REFUSED` saves nothing; an unreachable gateway saves the connection with `status: "error"`. One per gateway (409 `GATEWAY_EXISTS`); the first is the default. |
+| `PATCH` | `/payments/connections/:id` | `{ name, keyId, keySecret, webhookSecret, mode, isDefault: true }`; new keys are checked again. |
+| `POST` | `/payments/connections/:id/test` | Checks the keys again. |
+| `DELETE` | `/payments/connections/:id` | Links made through it stay, but their webhooks (404) and status checks stop. |
+| `GET/PUT` | `/payments/settings` | `{ expiryDays (1–180, default 7), sendReceipt (default true), linkTemplateId, receiptTemplateId }` — the approved templates used when the customer's 24-hour window is closed (400 `TEMPLATE_NOT_APPROVED`). |
+
+### Payment links (same permissions as orders)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/payment-links` | One of `{ orderId }` (default amount: what is still due; 409 `NOTHING_DUE`, `ORDER_CANCELLED`), `{ quotationId }` (its total; once it has an order, the order is used; 409 `REVISE_FIRST` when rejected or expired) or `{ contactId, amountPaise }` (an advance or any amount); plus `amountPaise?` (≥ ₹1, not more than due — 400 `MORE_THAN_DUE`), `description?`, `acceptPartial?`, `minPartialPaise?`, `expiresInDays?`, `connectionId?` (else the default gateway; 409 `NO_PAYMENT_GATEWAY`). One open link per order or quotation (409 `OPEN_LINK_EXISTS`, the open link's id in `errors[0].message`). Needs a plan with payment links (403 `PLAN_LIMIT`). The gateway does not send SMS or email; the CRM sends the link on WhatsApp (8B). Accepts `Idempotency-Key`. |
+| `GET` | `/payment-links?status=&orderId=&quotationId=&contactId=` | `{ id, provider, mode, referenceId (ycrm_…), providerLinkId, shortUrl, purpose (order / quotation / amount), orderId, quotationId, contactId, leadId, documentNumber, description, customerName, amountPaise, amountPaidPaise, acceptPartial, minPartialPaise, status (created / partially_paid / paid / expired / cancelled), expiresAt, paidAt, payments[] { providerPaymentId, amountPaise, method, paidAt }, receipts[] { providerPaymentId, status sent / skipped / failed, reason, messageId }, lastSyncedAt, lastSyncError }`. Agents see the links of their own customers. |
+| `GET` | `/payment-links/:id` | One link. |
+| `POST` | `/payment-links/:id/refresh` | Asks the gateway now (the same as the 10-minute check). |
+| `POST` | `/payment-links/:id/cancel` | Cancels it at the gateway (409 `LINK_CLOSED`, `PARTLY_PAID`). |
+
+What a payment does (from a webhook or a status check, once per gateway payment id): it is added to the link; a quotation's link accepts the quotation and makes its order; the payment goes on the order (`payments[]`, source `link`); the lead is won (D40); paid in full, a Delivered order moves to Payment Collected; the customer gets a receipt (D41: a text inside the 24-hour window, else the receipt template, else none and the bell says why; `message.automation.kind: "receipt"`); the link's maker and the order's owner get a bell note; `payment.received` starts workflows.
+
+### Webhooks (public, called by the gateways)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/webhooks/payments/razorpay/<key>` | Razorpay: `X-Razorpay-Signature` = hex HMAC-SHA256 of the raw body with the webhook secret (401 otherwise); `payment_link.paid`, `.partially_paid`, `.expired`, `.cancelled` are stored once per `X-Razorpay-Event-Id` and handled by the `payment.webhook` job; other events get 200 and are ignored. |
+| `POST` | `/webhooks/payments/cashfree/<key>` | Cashfree: `x-webhook-signature` = base64 HMAC-SHA256 of `x-webhook-timestamp` + raw body with the secret key; `PAYMENT_LINK_EVENT`. |
+| `GET/POST` | `/webhooks/payments-test/<mock link id>` | Development only (404 in production): the test gateway's payment page; the form pays the link (or part of it) as a gateway would report it. |
 
 ## Idempotency
 

@@ -4,7 +4,7 @@ Turning YELLOW CRM into a WhatsApp-first CRM for Indian SMBs (IndiaMART sellers,
 
 - Brief: [BIZNUMA_CRM_MASTER_PROMPT.md](BIZNUMA_CRM_MASTER_PROMPT.md)
 - Canonical backend spec: [../BACKEND-AUDIT-SPEC.md](../BACKEND-AUDIT-SPEC.md) (this roadmap extends it; where they differ, the decision log in section 9 wins and the spec gets updated in the phase that implements it)
-- Status: **Phase 7 done** on 2026-10-05 on branch `feature/phase-7-broadcasts` (built on the Phase 6 branch; nothing merged to main or pushed yet), checkpoints 7A–7D: consent and STOP/START, segments, CSV import, the broadcast engine, the Marketing page, acceptance. Still to check with a real Meta number: a marketing template broadcast and the daily limit read from Meta; Excel import waits for your OK to add a library. Next: Phase 8 (payments and catalog) after "go". **Phase 6 done** on 2026-10-03 (checkpoints 6A–6D); the bot still needs a check with a real WhatsApp number. **Phase 5 done** on 2026-10-03 (checkpoints 5A–5F); the WhatsApp parts (a document-header template, the customer link on a public address) still need the real Meta and hosting checks. Phase 4 done on 2026-09-29 except checks with real IndiaMART, Facebook and Google Ads accounts.
+- Status: **Phase 8 in progress** on branch `feature/phase-8-payments-catalog` (built on the Phase 7 branch; nothing merged to main or pushed yet): checkpoint 8A (payment gateways and links, API) done on 2026-10-05; next 8B (links in the chat, dues, the pages), 8C (WhatsApp catalog), 8D (acceptance). **Phase 7 done** on 2026-10-05 on branch `feature/phase-7-broadcasts` (built on the Phase 6 branch; nothing merged to main or pushed yet), checkpoints 7A–7D: consent and STOP/START, segments, CSV import, the broadcast engine, the Marketing page, acceptance. Still to check with a real Meta number: a marketing template broadcast and the daily limit read from Meta; Excel import waits for your OK to add a library. Next: Phase 8 (payments and catalog) after "go". **Phase 6 done** on 2026-10-03 (checkpoints 6A–6D); the bot still needs a check with a real WhatsApp number. **Phase 5 done** on 2026-10-03 (checkpoints 5A–5F); the WhatsApp parts (a document-header template, the customer link on a public address) still need the real Meta and hosting checks. Phase 4 done on 2026-09-29 except checks with real IndiaMART, Facebook and Google Ads accounts.
 
 ---
 
@@ -89,7 +89,8 @@ Checkpoints: **5A GST engine + billing settings + quotations API (done)** → **
 - [x] 7C: Marketing page — tabs Campaigns | WhatsApp broadcasts | Segments: segment builder with a live count, broadcast composer (template, values per customer, segment, reach, cost, limits, now or scheduled), results with a sent → delivered → read → replied funnel and every customer's status with a link to the chat; pause/resume/cancel (the inline-script split was fixed in Phase 1)
 
 ### Phase 8 — Payments and catalog
-- [ ] Razorpay Payment Links, then Cashfree; per-org keys; from quote/order/chat; signed webhooks → paid → receipt
+- [x] 8A: Razorpay and Cashfree payment links with each organization's own keys (plus a test gateway for development), for an order, a quotation or an amount; signed webhooks and a 10-minute status check (D42) → paid → order paid, quotation accepted and its order made, lead won (D40), receipt on WhatsApp (D41), bell; payments entered by hand; API now, the pages in 8B
+- [ ] 8B: send the link in the chat (from quote/order/chat), Settings → Payments, payments on the Orders and Quotations pages
 - [ ] Outstanding dues + reminder automation
 - [ ] Meta Commerce catalog sync, product / product-list messages, catalog orders → Orders
 
@@ -362,7 +363,7 @@ All under `/api/v1`, authenticated and tenant-scoped unless marked **public**. L
 
 **Phase 7**: `/tags`, `/segments`, `POST /contacts/import` (upload → mapping → preview → commit), `GET/POST /broadcasts`, `POST /broadcasts/:id/schedule|cancel`, `GET /broadcasts/:id/recipients`
 
-**Phase 8**: `GET/PUT /payment-connections/:provider`, `POST /payment-links`, `GET /payment-links`, `POST /webhooks/payments/razorpay`, `POST /webhooks/payments/cashfree`, `GET /dues`, `POST /catalog/sync`
+**Phase 8** (as built in 8A: `/payments/connections`, `/payments/settings`, `/payment-links`, `/orders/:id/payments`, `POST /webhooks/payments/<gateway>/<key>`; see API.md): `GET /dues`, `POST /catalog/sync`
 
 **Phase 9**: `GET /reports/agents`, `/reports/sources`, `/reports/quotations`, `/reports/broadcasts`, `/reports/payments`, `GET /reports/export?type=`
 
@@ -401,7 +402,8 @@ Client → server: `conversation:join`, `conversation:leave`, `typing` (agent-to
 | `automation.run` | trigger events | writes AutomationRun |
 | `broadcast.prepare` / `broadcast.sendBatch` | schedule | quota check, consent filter, throttled |
 | `quotation.pdf` | quote created/revised | |
-| `payment.webhook.process` | payment webhook stored | mark paid, receipt, move lead to Won |
+| `payment.webhook` | payment webhook stored | mark paid, receipt, move lead to Won |
+| `payment.links.sync` | every 10 minutes | ask the gateway about open links (D42) |
 | `dues.reminder` | daily | |
 | `catalog.sync` | manual + daily | |
 | `outbound.webhook.deliver` | domain events | signed, retries with backoff |
@@ -483,6 +485,11 @@ Re-check each page again right before writing that integration (rule from the br
 | D37 | Broadcast cost estimate | Meta's per-message rates for India by template category, kept as data with their date (₹0.8631 marketing, ₹0.115 utility/authentication, + 18% GST, as published for October 2026); an estimate only. Meta's own rate card is an interactive page, so please check the rates against your first Meta invoice. | Decided 2026-10-05 (recommended default) |
 | D38 | Sending pace | Batches of 20 a second (well under Meta's throughput) and never more different people a day than the number's Meta tier (the rest waits for room). | Decided 2026-10-05 (recommended default) |
 | D36 | Who manages segments and broadcasts | Owners and admins, like assignment and auto-reply rules (they write to many customers at once). | Decided 2026-10-05 (recommended default) |
+| D39 | Payment webhook address | One address per gateway connection (`/api/v1/webhooks/payments/<gateway>/<random key>`), like D22: each company uses its own Razorpay/Cashfree account and the signature is checked with that connection's secret before the body is read. | Decided 2026-10-05 (recommended default) |
+| D40 | What a payment does | The first payment received wins the lead (an advance confirms the deal); the order is "paid" when the payments cover its total; a link for a quotation accepts it and makes the order; paid in full, a Delivered order moves on to Payment Collected (earlier stages stay, with "Paid"). Payments by cash or bank transfer are entered on the order. | Decided 2026-10-05 (recommended default) |
+| D41 | Payment receipt | A WhatsApp text inside the customer's 24-hour window, else the approved receipt template chosen in Settings → Payments, else none (the bell says why). Can be turned off. | Decided 2026-10-05 (recommended default) |
+| D42 | Without a public address | Besides webhooks, open links are checked with the gateway every 10 minutes and with "Check now", so payments arrive even when the CRM runs on this computer. | Decided 2026-10-05 (recommended default) |
+| D43 | Catalog prices | Products go to the Meta catalog with the price including GST (what the customer pays); orders from the catalog are priced from the products as usual. | Decided 2026-10-05 (recommended default; used in 8C) |
 | D19 | Atlas tier | Free tier is fine for development; production messaging volume needs a paid tier (storage and ops limits). | Before launch |
 
 The remaining items in `docs/DECISIONS_REQUIRED.md` are answered by D1–D17 (Account → D3, pricing/tax → D1/D2, inventory → D7, org fields → D14, email uniqueness → phone is the unique key per D3, pipeline → D4/D13, quotation lifecycle → D6, ticket SLA → basic CRUD for now, document storage → local now / S3-R2 later, permissions → D17, duplicates → phone + source ref, simulated features → real in Phase 6, AI → Phase 10 add-on). Phase 1 updates that file.
@@ -564,6 +571,8 @@ Rough engineering days (AI-assisted), plus the number of working sessions. Exter
 ---
 
 ## 14. Changelog
+
+- **2026-10-05 — Phase 8, checkpoint A (payment links, API).** Settings can hold the organization's own Razorpay and Cashfree keys (checked with the gateway, kept encrypted, never shown again), each with its own webhook address; a test gateway works without keys in development. A payment link can be made for an order (what is still due), a quotation (its total) or any amount for a customer, with part payments and an expiry; only one open link per order or quotation. Payments arrive by the gateway's signed webhook and by a check of open links every 10 minutes, and each is counted once: it goes on the order, accepts the quotation and makes its order, wins the lead, moves a delivered order to Payment Collected when paid in full, sends the customer a receipt on WhatsApp and rings the bell. Cash and bank transfers can be entered on the order. No new library; no migration (payment status is worked out from the payments).
 
 - **2026-10-05 — Phase 7, checkpoint D (acceptance) — Phase 7 done.** One end-to-end test (the brief's test 4) runs it all through the real code with Meta faked: a CSV import of customers who agreed to offers, an opt-out by a WhatsApp STOP, the "Tier A – Rajasthan" segment, a marketing broadcast with each customer's name, a number WhatsApp refuses, delivery and read reports and a reply by signed webhooks, the stats and the monthly quota the admin sees, Meta's daily limit read from Meta — and nothing for an agent or another company. Run three times in a row to check it is steady. 388 tests, all passing.
 
