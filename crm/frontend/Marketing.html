@@ -145,6 +145,14 @@
         </header>
 
         <div class="page">
+          <!-- CAMPAIGNS | WHATSAPP BROADCASTS | SEGMENTS (the last two: owners and admins) -->
+          <div class="mk-tabs" id="mkTabs" hidden>
+            <button class="mk-tab active" type="button" data-mk="campaigns"><i class="fa-solid fa-bullhorn"></i> Campaigns</button>
+            <button class="mk-tab" type="button" data-mk="broadcasts"><i class="fa-brands fa-whatsapp"></i> WhatsApp broadcasts</button>
+            <button class="mk-tab" type="button" data-mk="segments"><i class="fa-solid fa-users-viewfinder"></i> Segments</button>
+          </div>
+
+          <div id="campaignsPanel">
           <!-- KPI CARDS -->
           <div class="stat-grid" id="kpiGrid"></div>
 
@@ -236,6 +244,149 @@
               ></div>
             </aside>
           </div>
+          </div>
+
+          <!-- WHATSAPP BROADCASTS (js/marketing-broadcasts.js) -->
+          <div id="broadcastsPanel" hidden>
+            <div class="mk-bar">
+              <span class="mk-quota" id="bcQuota"></span>
+              <button class="btn btn-primary" id="bcNewBtn" type="button"><i class="fa-solid fa-plus"></i> New broadcast</button>
+            </div>
+            <div class="panel mk-table-wrap"><div id="bcList"></div></div>
+          </div>
+
+          <!-- SEGMENTS -->
+          <div id="segmentsPanel" hidden>
+            <div class="mk-bar">
+              <span class="mk-hint">A segment is a saved audience; it updates itself as customers change. Customers who said no to WhatsApp offers are never in one.</span>
+              <button class="btn btn-primary" id="sgNewBtn" type="button"><i class="fa-solid fa-plus"></i> New segment</button>
+            </div>
+            <div id="sgList" class="mk-cards"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BROADCAST: compose -->
+    <div class="modal-overlay" id="bcEditOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <h3 id="bcEditTitle">New broadcast</h3>
+          <button class="icon-btn" id="bcEditClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label for="bcName">Name</label>
+            <input type="text" id="bcName" maxlength="150" placeholder="e.g. Diwali offer – Tier A Rajasthan" />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="bcTemplate">Approved WhatsApp template</label>
+              <select id="bcTemplate"></select>
+            </div>
+            <div class="field">
+              <label for="bcSegment">Send to (segment)</label>
+              <select id="bcSegment"></select>
+            </div>
+          </div>
+          <p class="mk-hint" id="bcTemplateText"></p>
+          <div id="bcVariables"></div>
+          <div id="bcEstimate" class="mk-estimate" hidden></div>
+          <div class="field" id="bcScheduleField" hidden>
+            <label for="bcScheduleAt">Send at (leave empty to send now)</label>
+            <input type="datetime-local" id="bcScheduleAt" />
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-danger-outline" id="bcDeleteBtn" type="button" style="display: none; margin-right: auto"><i class="fa-solid fa-trash"></i> Delete</button>
+          <button class="btn btn-outline" id="bcSaveBtn" type="button">Save draft</button>
+          <button class="btn btn-primary" id="bcSendBtn" type="button" disabled><i class="fa-brands fa-whatsapp"></i> Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BROADCAST: results -->
+    <div class="modal-overlay" id="bcViewOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <div>
+            <h3 id="bcViewTitle">Broadcast</h3>
+            <p class="modal-subtitle" id="bcViewSub"></p>
+          </div>
+          <button class="icon-btn" id="bcViewClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <div id="bcViewNote" class="mk-note" hidden></div>
+          <div id="bcFunnel" class="mk-funnel"></div>
+          <div class="mk-bar">
+            <select class="filter" id="bcPeopleFilter" aria-label="Show">
+              <option value="">Everyone</option>
+              <option value="pending">Waiting</option>
+              <option value="sent">Sent</option>
+              <option value="delivered">Delivered</option>
+              <option value="read">Read</option>
+              <option value="replied">Replied</option>
+              <option value="failed">Failed</option>
+              <option value="skipped">Skipped</option>
+            </select>
+          </div>
+          <div class="mk-table-wrap"><div id="bcPeople"></div></div>
+          <div class="mk-more"><button class="btn btn-outline" id="bcPeopleMore" type="button" hidden>Load more</button></div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="bcPauseBtn" type="button" hidden><i class="fa-solid fa-pause"></i> Pause</button>
+          <button class="btn btn-outline" id="bcResumeBtn" type="button" hidden><i class="fa-solid fa-play"></i> Resume</button>
+          <button class="btn btn-danger-outline" id="bcCancelBtn" type="button" hidden><i class="fa-solid fa-stop"></i> Cancel</button>
+          <button class="btn btn-outline" id="bcViewDone" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEGMENT: build -->
+    <div class="modal-overlay" id="sgOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <h3 id="sgTitle">New segment</h3>
+          <button class="icon-btn" id="sgClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="field-row">
+            <div class="field"><label for="sgName">Name</label><input type="text" id="sgName" maxlength="100" placeholder="e.g. Tier A – Rajasthan" /></div>
+            <div class="field"><label for="sgDescription">Note (optional)</label><input type="text" id="sgDescription" maxlength="500" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="sgTagsAll">Has all these tags</label><input type="text" id="sgTagsAll" list="sgTagOptions" placeholder="Tier A" /></div>
+            <div class="field"><label for="sgTagsAny">Has any of these tags</label><input type="text" id="sgTagsAny" list="sgTagOptions" placeholder="Wholesale, Retail" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="sgTagsNone">Has none of these tags</label><input type="text" id="sgTagsNone" list="sgTagOptions" /></div>
+            <div class="field"><label for="sgCategories">Product categories</label><input type="text" id="sgCategories" list="sgCategoryOptions" placeholder="Spices" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="sgStates">States</label><input type="text" id="sgStates" list="sgStateOptions" placeholder="Rajasthan, Gujarat" /></div>
+            <div class="field"><label for="sgCities">Cities</label><input type="text" id="sgCities" list="sgCityOptions" /></div>
+          </div>
+          <p class="mk-hint">Commas between several; capitals do not matter. Empty = no filter.</p>
+          <div class="field"><label>Customers or leads</label><div class="mk-checks" id="sgLifecycles"></div></div>
+          <div class="field"><label>Source</label><div class="mk-checks" id="sgSources"></div></div>
+          <div class="field"><label>Has a lead at stage</label><div class="mk-checks" id="sgStages"></div></div>
+          <div class="field">
+            <label>WhatsApp offers</label>
+            <div class="mk-checks">
+              <label class="mk-check"><input type="radio" name="sgConsent" value="not_opted_out" checked /> Everyone who has not said no</label>
+              <label class="mk-check"><input type="radio" name="sgConsent" value="opted_in" /> Only those who agreed</label>
+            </div>
+          </div>
+          <div id="sgPreview" class="mk-estimate"></div>
+          <datalist id="sgTagOptions"></datalist>
+          <datalist id="sgStateOptions"></datalist>
+          <datalist id="sgCityOptions"></datalist>
+          <datalist id="sgCategoryOptions"></datalist>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-danger-outline" id="sgDeleteBtn" type="button" style="display: none; margin-right: auto"><i class="fa-solid fa-trash"></i> Delete</button>
+          <button class="btn btn-outline" id="sgCancelBtn" type="button">Cancel</button>
+          <button class="btn btn-primary" id="sgSaveBtn" type="button">Save segment</button>
         </div>
       </div>
     </div>
@@ -381,5 +532,6 @@
 
     <script src="./js/app.js"></script>
     <script src="./js/marketing.js"></script>
+    <script src="./js/marketing-broadcasts.js"></script>
   </body>
 </html>
