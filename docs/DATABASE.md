@@ -122,7 +122,11 @@ Jobs (in `jobs`): `automation.event` (one per business event; for a WhatsApp mes
 
 | Collection | Key fields | Indexes |
 |---|---|---|
+| `broadcasts` | `name`, `status` (draft/scheduled/sending/paused/completed/cancelled/failed), `templateId`, `templateName`, `templateLanguage`, `category`, `whatsappAccountId`, `variables`, `segmentId`, `segmentName`, `scheduledAt`, `startedAt` (counts against the plan's month), `finishedAt`, `waitUntil` (Meta's daily limit), `batches`, `estimate`, `error`, `createdById`, `createdByName` | `(organizationId, createdAt -1)`; `(organizationId, startedAt)` |
+| `broadcastrecipients` | `broadcastId`, `contactId`, `name`, `phoneE164`, `status` (pending/sent/delivered/read/replied/failed/skipped), `reason`, `messageId`, `conversationId`, `sentAt`, `deliveredAt`, `readAt`, `repliedAt`, `failedAt` | unique `(broadcastId, contactId)`; `(broadcastId, status)`; `(messageId)` sparse; `(organizationId, contactId, sentAt -1)` |
 | `segments` | `name`, `description`, `filters` { tagsAll[], tagsAny[], tagsNone[], states[], cities[], sources[], lifecycles[], ownerIds[], productIds[], productCategories[], leadStages[], consent (not_opted_out/opted_in) }, `createdById` | `(organizationId, name)` |
+
+`organizations.plan` (starter/pro/growth/scale; default growth = the trial, D34; limits in `constants/plans.js`). `whatsappaccounts.messagingLimit` (Meta's TIER_250 … TIER_UNLIMITED). Jobs: `broadcast.start` (fixes the recipients), `broadcast.send` (one batch; `uniqueKey broadcast:send:<id>:<n>`).
 
 Contacts imported from CSV are ordinary `contacts` (source from the file or `Import`, `consent.method: import` when the importer said they agreed).
 

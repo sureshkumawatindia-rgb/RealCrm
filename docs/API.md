@@ -300,6 +300,23 @@ A segment is a saved audience, worked out each time it is used. All filled-in fi
 | `POST` | `/segments` | `{ name, description?, filters: { tagsAll[], tagsAny[], tagsNone[], states[], cities[], sources[], lifecycles[], ownerIds[], productIds[] (interested in, or a lead for), productCategories[], leadStages[] (has a lead in), consent (not_opted_out default, or opted_in = only those who agreed) } }`. Owners and products must be the organization's (`INVALID_MEMBER`, `INVALID_PRODUCT`). |
 | `GET/PATCH/DELETE` | `/segments/:id`; `GET /segments/:id/preview` | |
 
+### WhatsApp broadcasts (Phase 7; owners and admins)
+
+A broadcast sends one approved template (variables filled per customer, as in workflow steps: a CRM value or `text:…`) to a segment. Starting it fixes the recipients: the segment's customers with a mobile number who have not opted out (D35). Messages go in batches of 20 a second while Meta's daily limit allows (D38): Meta counts the different people who got a template in the last 24 hours; when the number's tier (`TIER_250` … `TIER_UNLIMITED`, read from Meta when the number is checked; unknown = 250) is used up, the rest waits (`waitUntil`). The plan allows a number of broadcasts a month (India time, D34).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/broadcasts?status=&page=&limit=` | Newest first, each with `stats { total, pending, sent, delivered, read, replied, failed, skipped }` (delivered includes read and replied; read includes replied). |
+| `GET` | `/broadcasts/quota` | `{ plan, limit, used, left }` this month. |
+| `POST` | `/broadcasts` | `{ name, templateId, variables, segmentId }` → a draft. The template must be sendable (`TEMPLATE_NOT_SENDABLE`, not a document-header one) and every variable given (`VARIABLE_REQUIRED`); `INVALID_SEGMENT`. |
+| `GET/PATCH/DELETE` | `/broadcasts/:id` | PATCH while draft or scheduled (409 `BROADCAST_STARTED`); DELETE drafts and cancelled ones only. |
+| `GET` | `/broadcasts/:id/estimate` | `{ recipients, cost { perMessagePaise, paise, gstPaise, totalPaise, currency, asOf }, quota, dailyLimit { limit, tier, usedToday, leftToday } }`. The cost uses Meta's per-message rates for India by template category (constants/whatsappPricing.js, D37) — an estimate; Meta's invoice is what counts. |
+| `POST` | `/broadcasts/:id/send` | `{ scheduledAt? }` (a future time, else now). 409 `QUOTA_REACHED`, 409 `EMPTY_AUDIENCE`. Send an `Idempotency-Key`. |
+| `POST` | `/broadcasts/:id/pause`, `/resume`, `/cancel` | Cancel skips the recipients still pending. |
+| `GET` | `/broadcasts/:id/recipients?status=&page=&limit=` | `{ name, phone, status (pending/sent/delivered/read/replied/failed/skipped), reason, conversationId, sentAt, deliveredAt, readAt, repliedAt, failedAt }`. |
+
+Each message goes into the customer's chat (opened if needed, for the customer's owner) with `automation: { kind: "broadcast", ruleId }`. A recipient is skipped when they opted out after the start, have no mobile number any more, or lack a value for a variable ("No value for {{product}}."). WhatsApp's status webhooks move them to delivered / read / failed; a message from them within 7 days marks them replied. When it finishes, whoever started it gets a bell notification.
+
 ### WhatsApp FAQ bot (Phase 6C; owners and admins)
 
 The bot answers customers on WhatsApp while **no agent has the chat** and the customer has **not asked for a person** (D33). For each message, in order: a tapped bot button or list row; a hand-off keyword; the first active answer (by `priority`) with a keyword in the message (whole words or phrases, any script, capitals ignored); outside working hours the away message, otherwise the greeting — each of those two at most once per chat every `repeatAfterHours`. Bot messages carry `automation: { kind: "bot", ruleId? }`. Only inside the 24-hour window (the customer has just written).
