@@ -234,7 +234,7 @@
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
-    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · " }[m.automation.kind] || "Automation · ") : "";
+    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · ", consent: "Opt-out reply · " }[m.automation.kind] || "Automation · ") : "";
     const who = m.direction !== "out" ? "" : robot || (m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "");
     const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
     const replyButton = m.providerMessageId && m.direction === "in"

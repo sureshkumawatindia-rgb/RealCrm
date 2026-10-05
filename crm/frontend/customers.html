@@ -162,6 +162,9 @@
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
               </select>
+              <button class="btn btn-outline" id="importBtn" type="button">
+                <i class="fa-solid fa-file-csv"></i> Import CSV
+              </button>
               <button class="btn btn-primary" id="addBtn">
                 <i class="fa-solid fa-plus"></i> New Customer
               </button>
@@ -214,12 +217,34 @@
                 </button>
               </div>
             </div>
+            <div class="field-row">
+              <div class="field">
+                <label>City</label><input type="text" id="fCity" maxlength="100" />
+              </div>
+              <div class="field">
+                <label>State</label><input type="text" id="fState" maxlength="100" />
+              </div>
+            </div>
             <div class="field">
-              <label>Status</label>
-              <select id="fStatus">
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
+              <label>Tags (commas between)</label>
+              <input type="text" id="fTags" maxlength="600" placeholder="e.g. Tier A, Wholesale" />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Status</label>
+                <select id="fStatus">
+                  <option>Active</option>
+                  <option>Inactive</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>WhatsApp offers</label>
+                <select id="fConsent">
+                  <option value="unknown">Not asked yet</option>
+                  <option value="opted_in">Agreed to get them</option>
+                  <option value="opted_out">Said no (opted out)</option>
+                </select>
+              </div>
             </div>
           </form>
         </div>
@@ -298,9 +323,54 @@
       </div>
     </div>
 
+    <!-- Import customers from a CSV file (js/customers-import.js) -->
+    <div class="modal-overlay" id="importOverlay">
+      <div class="modal modal--wide">
+        <div class="modal-head">
+          <h3>Import customers</h3>
+          <button class="icon-btn" id="importClose" type="button" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label for="importFile">CSV file (up to 10,000 customers)</label>
+            <input type="file" id="importFile" accept=".csv,text/csv" />
+            <p class="import-hint">From Excel: File → Save as → "CSV UTF-8". Mobile numbers without +91 are taken as Indian.</p>
+          </div>
+          <div id="importMapping" hidden>
+            <p class="import-hint" id="importCount"></p>
+            <div class="import-table-wrap"><table id="importPreview"></table></div>
+            <div class="field-row">
+              <div class="field">
+                <label for="importLifecycle">These are</label>
+                <select id="importLifecycle">
+                  <option value="customer">Customers (they buy from you)</option>
+                  <option value="lead">Leads (not bought yet)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="importTags">Tag everyone with</label>
+                <input type="text" id="importTags" maxlength="300" placeholder="e.g. Expo 2026" />
+              </div>
+            </div>
+            <label class="import-check"><input type="checkbox" id="importConsent" /> They agreed to get offers on WhatsApp</label>
+            <label class="import-check"><input type="checkbox" id="importUpdate" checked /> Fill in missing details of customers already in the CRM</label>
+            <div id="importReport" class="import-report" hidden></div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="importCancel" type="button">Close</button>
+          <button class="btn btn-outline" id="importCheck" type="button" disabled>Check first</button>
+          <button class="btn btn-primary" id="importRun" type="button" disabled>Import</button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast-stack" id="toast-stack"></div>
 
     <script src="./js/app.js"></script>
     <script src="js/customers.js"></script>
+    <script src="js/customers-import.js"></script>
   </body>
 </html>

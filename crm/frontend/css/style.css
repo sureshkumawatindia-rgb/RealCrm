@@ -1597,3 +1597,75 @@ body.crm-loading::before {
   color: var(--text-muted);
   text-align: center;
 }
+
+/* ============================================================
+   CUSTOMER IMPORT (Phase 7): Customers → Import CSV
+   ============================================================ */
+.import-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 6px 0 10px;
+}
+.import-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+}
+.import-table-wrap table {
+  font-size: 12px;
+}
+.import-table-wrap thead th {
+  padding: 8px 10px;
+  vertical-align: top;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.import-table-wrap tbody td {
+  padding: 6px 10px;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.import-col {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.import-table-wrap select {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.import-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.import-report {
+  border: 1px solid var(--border-soft);
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  margin-top: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.import-report ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+/* The customers list scrolls sideways on narrow screens; tags stay on one line each. */
+#customersTable {
+  overflow-x: auto;
+}
+#customersTable .badge {
+  white-space: nowrap;
+  margin: 1px 0;
+}

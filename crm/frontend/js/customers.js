@@ -130,6 +130,10 @@ function openModal(customer = null) {
   document.getElementById("fStatus").value = customer
     ? customer.status
     : "Active";
+  document.getElementById("fCity").value = customer ? customer.city || "" : "";
+  document.getElementById("fState").value = customer ? customer.state || "" : "";
+  document.getElementById("fTags").value = customer ? (customer.tags || []).join(", ") : "";
+  document.getElementById("fConsent").value = customer ? customer.consent?.marketing || "unknown" : "unknown";
   modalOverlay.classList.add("open");
 }
 function closeModal() {
@@ -154,6 +158,12 @@ customerForm.addEventListener("submit", async (e) => {
     company: document.getElementById("fCompany").value.trim(),
     product: document.getElementById("fProduct").value,
     status: document.getElementById("fStatus").value,
+    city: document.getElementById("fCity").value.trim(),
+    state: document.getElementById("fState").value.trim(),
+    // Same tag twice (any capitals) is kept once.
+    tags: document.getElementById("fTags").value.split(",").map((t) => t.trim()).filter(Boolean)
+      .filter((t, i, all) => all.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i),
+    marketingConsent: document.getElementById("fConsent").value,
   };
   if (!data.name || !data.email) {
     showToast("Name and email are required.", "error");
@@ -179,7 +189,8 @@ function renderTable() {
     const matchesSearch =
       c.name.toLowerCase().includes(searchTerm) ||
       c.email.toLowerCase().includes(searchTerm) ||
-      (c.company || "").toLowerCase().includes(searchTerm);
+      (c.company || "").toLowerCase().includes(searchTerm) ||
+      (c.tags || []).some((t) => t.toLowerCase().includes(searchTerm));
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -191,7 +202,7 @@ function renderTable() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th>Product</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th>Product</th><th>Tags</th><th>Status</th><th></th></tr></thead>
       <tbody>
         ${filtered
           .map(
@@ -202,6 +213,7 @@ function renderTable() {
             <td>${escapeHtml(c.phone) || "—"}</td>
             <td>${escapeHtml(c.company) || "—"}</td>
             <td>${escapeHtml(getProductName(c.product))}</td>
+            <td>${(c.tags || []).map((t) => `<span class="badge badge-neutral">${escapeHtml(t)}</span>`).join(" ") || "—"}${c.consent?.marketing === "opted_out" ? ' <span class="badge badge-danger" title="Said no to WhatsApp offers">No offers</span>' : ""}</td>
             <td>${statusBadge(c.status)}</td>
             <td>
               <div class="row-actions">
