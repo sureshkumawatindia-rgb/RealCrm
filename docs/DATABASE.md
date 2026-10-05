@@ -24,7 +24,7 @@ Only hashes of refresh tokens and invite tokens are stored. Gmail tokens are enc
 
 | Collection | Key fields | Indexes |
 |---|---|---|
-| `contacts` | `name`, `email`, `phone`, `phoneE164`, `company`, `gstin`, `stateCode`, `state`, `city`, `address`, `tags[]`, `source`, `ownerId`, `lifecycle` (lead/customer), `status`, `productIds[]`, `notes`, `consent.marketing`, `becameCustomerAt`, `legacyIds[]`, `deletedAt` | unique `(organizationId, phoneE164)` when set; `(organizationId, deletedAt, lifecycle, createdAt -1)`; `(organizationId, ownerId, lifecycle)`; `(organizationId, email)`; `(organizationId, tags)`; `(organizationId, legacyIds)` |
+| `contacts` | `name`, `email`, `phone`, `phoneE164`, `company`, `gstin`, `stateCode`, `state`, `city`, `address`, `tags[]`, `source`, `ownerId`, `lifecycle` (lead/customer), `status`, `productIds[]`, `notes`, `consent` { marketing (unknown/opted_in/opted_out), changedAt, method (manual/import/whatsapp_reply) }, `becameCustomerAt`, `legacyIds[]`, `deletedAt` | unique `(organizationId, phoneE164)` when set; `(organizationId, deletedAt, lifecycle, createdAt -1)`; `(organizationId, ownerId, lifecycle)`; `(organizationId, email)`; `(organizationId, tags)`; `(organizationId, legacyIds)` |
 | `products` | `name`, `sku`, `category`, `description`, `unit`, `hsnSac`, `pricePaise`, `gstRatePct`, `moq`, `stockQty`, `images[]`, `active`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, active, category)`; `(organizationId, name)`; `(organizationId, legacyIds)` |
 | `leads` | `contactId`, `title`, `stage`, `probability`, `lostReason`, `source`, `sourceRef`, `productId`, `quantity`, `expectedValuePaise`, `expectedCloseDate`, `followUpAt`, `ownerId`, `notes`, `noteEntries[]`, `stageChangedAt`, `convertedAt`, `lastActivityAt`, `version`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, stage, createdAt -1)`; `(organizationId, ownerId, stage)`; `(organizationId, followUpAt)`; `(organizationId, contactId)`; unique `(organizationId, source, sourceRef)` when set; `(organizationId, legacyIds)` |
 | `leadactivities` | `leadId`, `contactId`, `type`, `text`, `actorUserId`, `actorName`, `meta`, `legacyIds[]`, `createdAt` | `(organizationId, leadId, createdAt -1)`; `(organizationId, legacyIds)` |
@@ -117,6 +117,14 @@ Counters used: `quotation:<financial year>`, `estimate:<financial year>`, `profo
 `conversations.bot` { handedOffAt, handoffReason, greetedAt, awayAt, lastAnsweredAt } (the FAQ bot in that chat) and `messages.interactive` { kind button/list, listButton, footer, options[] { id, title, description } } (what the bot sent) arrived in Phase 6C.
 
 Jobs (in `jobs`): `automation.event` (one per business event; for a WhatsApp message the FAQ bot answers first), `automation.step` (one per run and step index, `uniqueKey run:<id>:<index>`; a wait step's job has a later `runAt`), `automation.scan` (every 10 minutes), `sequence.step` (one per enrollment and step, `uniqueKey seq:<id>:<index>`, `runAt` = the step's day, moved to the next opening when only working hours are allowed).
+
+## 1j. Implemented (Phase 7, broadcasts and segmentation)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `segments` | `name`, `description`, `filters` { tagsAll[], tagsAny[], tagsNone[], states[], cities[], sources[], lifecycles[], ownerIds[], productIds[], productCategories[], leadStages[], consent (not_opted_out/opted_in) }, `createdById` | `(organizationId, name)` |
+
+Contacts imported from CSV are ordinary `contacts` (source from the file or `Import`, `consent.method: import` when the importer said they agreed).
 
 ## 2. Data migrations
 

@@ -86,9 +86,13 @@ Module permissions: contacts need `customers`; leads and quotations need `leads`
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/contacts?q=&lifecycle=lead\|customer&status=&ownerId=&tag=&sort=&page=&limit=` | Search name/email/phone/company/city. |
-| `POST` | `/contacts` | `{ name, email?, phone?, company?, gstin?, state?, city?, address?, tags?, source?, lifecycle?, status?, productIds?, notes?, ownerId? }`. The phone is stored as entered and as E.164 (`+91` added to 10-digit numbers); an invalid phone is 400 `INVALID_PHONE`, a number that another contact has is 409 `DUPLICATE_CONTACT`. |
+| `GET` | `/contacts?q=&lifecycle=lead\|customer&status=&ownerId=&tag=&consent=unknown\|opted_in\|opted_out&sort=&page=&limit=` | Search name/email/phone/company/city. Each contact has `consent { marketing (unknown/opted_in/opted_out), changedAt, method (manual, import, whatsapp_reply) }`. |
+| `POST` | `/contacts` | `{ name, email?, phone?, company?, gstin?, state?, city?, address?, tags?, source?, lifecycle?, status?, productIds?, notes?, ownerId?, marketingConsent? (unknown/opted_in/opted_out; PATCH too) }`. The phone is stored as entered and as E.164 (`+91` added to 10-digit numbers); an invalid phone is 400 `INVALID_PHONE`, a number that another contact has is 409 `DUPLICATE_CONTACT`. |
 | `GET/PATCH/DELETE` | `/contacts/:id` | Delete is a soft delete and frees the phone number. |
+| `POST` | `/contacts/import/preview` | Multipart `file` (CSV, up to 5 MB and 10,000 rows; comma or semicolon; a UTF-8 BOM is fine) → `{ headers, rows (first 5), totalRows, mapping (a field per column guessed from the header: "Mobile No" → phone, "Party Name" → name, "GST No" → gstin …, or ""), fields }`. Excel files: 400 `UNSUPPORTED_FILE` ("save as CSV UTF-8"). |
+| `POST` | `/contacts/import` | Multipart `file` and fields `mapping` (JSON list, one of `fields` or "" per column; a phone or email column is required: 400 `PHONE_REQUIRED`), `tags` ("a, b" for everyone), `lifecycle` (customer/lead), `consent` (opted_in = "they agreed to WhatsApp offers"; never overrides an opt-out), `updateExisting` (default true), `dryRun`. Phones become E.164 (+91 for 10 digits); rows of the file with the same phone (else email) merge; a contact already in the CRM gets its blank fields filled and the tags (agents only their own contacts). → `{ totalRows, created, updated, unchanged, mergedInFile, rejected, rejectedRows [{ row, text }], warnings [{ row, text }], dryRun }` (row numbers as in the spreadsheet). New contacts: source from the file or Import, owner = the importer. |
+
+**Opt-out on WhatsApp (D35)**: a customer message that is only STOP, UNSUBSCRIBE, STOP ALL, OPT OUT or the "Stop promotions" button opts them out of marketing (`consent.method: whatsapp_reply`, a "Consent" note on their lead, a confirmation inside the 24-hour window); START, SUBSCRIBE or OPT IN opts them back in. The FAQ bot does not answer those messages. Marketing templates (workflows, sequences, auto-replies) and broadcasts skip opted-out customers.
 
 ### Products
 
@@ -283,6 +287,18 @@ Module: `automation` (read, create, edit; delete needs `automation:delete` for a
 **Timing**: day N is due N days after the customer was added (day 0 at once); with `workingHoursOnly` a step due outside working hours (Settings → Lead rules) waits for the next opening. **Stopping**: with `stopOnReply` any WhatsApp message from the customer after they were added stops it ("The customer replied on WhatsApp."; a workflow that adds them on that very message starts a fresh round); with `stopOnClose` their lead being won or lost stops it. Each step checks both again before it runs. A refused step (4xx, e.g. a template Meta paused) is logged as failed and the sequence carries on with the next step; other errors are retried, and if they persist the customer's sequence fails. Messages carry `automation: { kind: "sequence", ruleId }`; tasks, notes and stage changes are by `Sequence "<name>"`. Someone who completed or stopped can be added again.
 
 The `automation` module alone does not allow `POST /tasks`; automation tasks come from workflow and sequence steps.
+
+### Segments (Phase 7; owners and admins)
+
+A segment is a saved audience, worked out each time it is used. All filled-in filters must match; text filters ignore capitals. Opted-out customers are never in a segment (D35).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/segments` | Saved segments with `count` (customers now). |
+| `GET` | `/segments/options` | Tags, states, cities and product categories in use (for the builder). |
+| `POST` | `/segments/preview` | `{ filters }` → `{ total, withWhatsApp (have a mobile number), optedOut (left out for having opted out), sample (10) }`. |
+| `POST` | `/segments` | `{ name, description?, filters: { tagsAll[], tagsAny[], tagsNone[], states[], cities[], sources[], lifecycles[], ownerIds[], productIds[] (interested in, or a lead for), productCategories[], leadStages[] (has a lead in), consent (not_opted_out default, or opted_in = only those who agreed) } }`. Owners and products must be the organization's (`INVALID_MEMBER`, `INVALID_PRODUCT`). |
+| `GET/PATCH/DELETE` | `/segments/:id`; `GET /segments/:id/preview` | |
 
 ### WhatsApp FAQ bot (Phase 6C; owners and admins)
 
