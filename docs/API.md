@@ -561,6 +561,32 @@ The plans are data (`constants/plans.js`); `planService` checks them before some
 
 Webhooks (public): `POST /webhooks/billing/razorpay` (the platform's Razorpay account; `X-Razorpay-Signature` = hex HMAC-SHA256 of the raw body with `RAZORPAY_BILLING_WEBHOOK_SECRET`, repeats ignored by `X-Razorpay-Event-Id`; 401 bad signature, 404 when Razorpay billing is not configured). Development only: `GET/POST /webhooks/billing-test/:subscriptionId` — the test gateway's checkout page (`action` = pay / charge / fail).
 
+## Integrations (Phase 10C)
+
+Owners and admins; the API keys and webhooks need a plan with the API (Growth and up, 403 `PLAN_LIMIT`), the Conversions API needs Pro and up. Guide and the public API reference: [INTEGRATIONS.md](INTEGRATIONS.md).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api-keys` | `{ items [{ id, name, preview (ycrm_<prefix>_…), scopes, createdAt, createdBy, lastUsedAt, revokedAt }], scopes [{ scope, label }] }`. |
+| `POST` | `/api-keys` | `{ name, scopes[] }` → 201 with `key` (shown this once; only its SHA-256 is kept). At most 20 active keys (409 `TOO_MANY_KEYS`). |
+| `DELETE` | `/api-keys/:id` | Revoke. |
+| `GET` | `/outbound-webhooks` | `{ items [{ id, url, events, description, active, disabledReason, failuresInARow, lastDeliveryAt, lastStatus, lastResponseCode }], events [{ event, label }] }`. |
+| `POST` | `/outbound-webhooks` | `{ url (public https), events[], description? }` → 201 with `secret` (whsec_…, shown once). 400 `WEBHOOK_URL` for a private / local / non-https address. At most 20. |
+| `PATCH` | `/outbound-webhooks/:id` | `{ url?, events?, description?, active? }` (switching on clears the failure count; switching off cancels pending deliveries). |
+| `DELETE` | `/outbound-webhooks/:id` | Remove. |
+| `POST` | `/outbound-webhooks/:id/test` | A `ping` now → the delivery with its result. |
+| `POST` | `/outbound-webhooks/:id/rotate-secret` | A new secret (shown once). |
+| `GET` | `/outbound-webhooks/:id/deliveries?status=&page=&limit=` | The delivery log (30 days): event, status pending/delivered/failed/cancelled, attempts, nextAttemptAt, responseCode, responseBody (500 characters), error, durationMs, payload. |
+| `POST` | `/outbound-webhooks/deliveries/:id/retry` | Send a failed or cancelled one again now. |
+| `GET` | `/meta-conversions` | `{ available, connected, datasetId, datasetName, accessToken { last4 }, testEventCode, enabled, allSources, stages, status, stats { sent, skipped, failed, lastSentAt, lastError }, stagesAvailable }`. |
+| `PUT` | `/meta-conversions` | `{ datasetId, accessToken (first time / to change), testEventCode?, enabled?, allSources?, stages? }` — a new dataset or token is checked with Meta (`GET /<dataset>?fields=id,name`, 400 `META_ERROR`). |
+| `DELETE` | `/meta-conversions` | Remove. |
+| `POST` | `/meta-conversions/test` | A sample event with the test event code (400 without one). |
+
+**Public API** (`/api/public/v1`, API key, scopes, per-key rate limit): `GET /me`, `GET/POST /contacts`, `GET/PATCH /contacts/:id`, `GET/POST /leads`, `GET /leads/:id`, `POST /leads/:id/stage`, `GET /quotations`, `GET /quotations/:id`, `GET /orders`, `GET /orders/:id`, `GET /products`, `POST /messages` — see [INTEGRATIONS.md](INTEGRATIONS.md). Errors: 401 `API_KEY_INVALID`, 403 `SCOPE_MISSING` / `PLAN_LIMIT` / `SUBSCRIPTION_INACTIVE`, 429 `RATE_LIMITED`.
+
+**Outbound webhook calls**: `POST` JSON `{ id: evt_…, type, createdAt, data }` with `X-CRM-Event`, `X-CRM-Event-Id`, `X-CRM-Delivery`, `X-CRM-Signature: sha256=<HMAC-SHA256 of the raw body with the webhook's secret>`; 2xx within 10 s, else retried after 1 min, 5 min, 30 min, 2 h, 6 h, 12 h, 24 h; switched off after 25 failed deliveries in a row.
+
 ## Idempotency
 
 `POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.

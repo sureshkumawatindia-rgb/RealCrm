@@ -154,6 +154,17 @@ No new collections: reports are counted from the records when asked (D47). New i
 
 `organizations.subscription` { status trialing/active/past_due/halted/cancelled/expired/comped, since, trialEndsAt, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, provider, providerSubscriptionId, providerCustomerId, pendingPlan, gatewayStatus (Razorpay's word), checkoutUrl, remindedFor (7/3/1/ended) } — no defaults: an organization without a status is comped (D48), a new one gets `trialing` + `trialEndsAt` (30 days) at sign-up. `organizations.plan` is the plan in force. Usage is counted from the records, not stored (`planService`); new index `quotations (organizationId, createdAt -1)` for the quotations of the month. The invoice counter is a `counters` row of the platform (`organizationId` 000…0, `billing-invoice:<FY>`). `inboundevents` also hold billing events (`provider` razorpay-billing/mock-billing, `kind: billing`). Jobs: `billing.webhook` (one per event), `billing.sync` and `billing.trial` (every 6 hours).
 
+## 1n. Phase 10C (integrations)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `apikeys` | `name`, `prefix` (10 hex, finds the key), `hash` (SHA-256 of the whole key; the key is never stored), `scopes[]`, `createdById`, `createdByMemberId` (the key acts as this owner/admin), `lastUsedAt` (written at most once a minute), `lastUsedIp`, `revokedAt`, `revokedById` | unique `prefix`; `(organizationId, revokedAt, createdAt -1)` |
+| `webhooksubscriptions` | `url`, `events[]`, `description`, `secretEnc` (secretBox), `active`, `disabledReason`, `failuresInARow`, `lastDeliveryAt`, `lastStatus`, `lastResponseCode`, `createdById` | `(organizationId, active, events)` |
+| `webhookdeliveries` | `subscriptionId`, `eventId` (evt_…, from the event key), `event`, `payload`, `status` pending/delivered/failed/cancelled, `attempts`, `nextAttemptAt`, `responseCode`, `responseBody` (500 characters), `error`, `durationMs`, `deliveredAt` | unique `(subscriptionId, eventId)`; `(organizationId, subscriptionId, createdAt -1)`; TTL 30 days on `createdAt` |
+| `conversionsapiconnections` | `datasetId`, `datasetName`, `accessTokenEnc` (secretBox), `accessTokenLast4`, `testEventCode`, `enabled`, `allSources`, `stages[]`, `status`, `statusMessage`, `checkedAt`, `stats` { sent, failed, skipped, lastSentAt, lastError, lastErrorAt } | unique `organizationId` |
+
+`API` is a new lead and contact source (`LEAD_SOURCES`). New business events on the automation bus: `contact.created`, `quotation.status_changed` { from, to }, `order.created` (workflows ignore them; webhooks use them). Jobs: `webhook.fanout` (one per event with subscribers, `uniqueKey webhook.fanout:<event key>`), `webhook.deliver` (one per attempt), `capi.send` (one per lead event, `uniqueKey capi:<event key>`).
+
 ## 2. Data migrations
 
 | Migration | What it does |
