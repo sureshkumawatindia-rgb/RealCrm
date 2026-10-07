@@ -545,6 +545,22 @@ What a payment does (from a webhook or a status check, once per gateway payment 
 | `GET` | `/reports/dashboard` | Module `dashboard`: `{ today, scope, leads { today, month, wonMonth }, chats { waitingForReply, unassigned, longestWaitMinutes }, pipeline { open, valuePaise }, quotations { waitingThreeDays }, payments { collectedMonthPaise, dueOrders, duePaise }, tasks { dueToday, overdue } }`. |
 | `GET` | `/reports/insights` | Module `insights`: `{ pipeline { open, valuePaise, weightedPaise, byStage }, atRisk { count, valuePaise, items } (no activity for 14 days, or a quotation waiting 7), negotiation, unassignedLeads, priority (value × stage probability, with a next step), slowChats (waiting 2 hours or more), dues { over30Paise }, last90Days { won, lost, winRatePct, responseMedianSeconds, collectedPaise } }`. |
 
+## Plan and billing (Phase 10)
+
+The plans are data (`constants/plans.js`); `planService` checks them before something counted is added. **403 `PLAN_LIMIT`**: the plan does not allow more (users = active members + pending invites, WhatsApp numbers, contacts added by hand or imported — never those from WhatsApp messages or lead sources, message templates, quotations made this month, broadcasts started this month keep their 409 `QUOTA_REACHED`) or lacks a feature (payment links, the WhatsApp catalog, workflows, the API). **403 `SUBSCRIPTION_INACTIVE`**: the trial ended without a plan, or the plan is halted or ended (D49); reading, replying, receiving messages and leads and recording payments still work. Both carry `errors[0] { field, message, limit?, used? }`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/billing/plans` | Every member: `{ plans [{ key, name, pricePaise, gstPaise, totalPaise, limits { users, whatsappNumbers, contacts, broadcastsPerMonth, quotesPerMonth, templates } (null = no limit), features { paymentLinks, conversionsApi, catalog, advancedAutomation, api } }], limits [{ metric, label, monthly }], features [{ feature, label }], gstPct, trialDays }`. |
+| `GET` | `/billing/subscription` | Every member (the banner): `{ plan, subscription { status trialing/active/past_due/halted/cancelled/expired/comped, locked, trialEndsAt, daysLeft, wasTrial, currentPeriodEnd, cancelAtPeriodEnd, pendingPlan, provider, checkoutUrl (a started, unpaid checkout), firstChargeAt (chosen during the trial) }, usage [{ metric, label, used, limit, left, monthly }] (owners and admins), billing { enabled, provider, test, contactEmail } }`. A trial past its end and a cancelled plan past its paid month read `expired`. |
+| `POST` | `/billing/checkout` | Owners and admins. `{ plan }` → `{ checkoutUrl, startsAt }` (pay on Razorpay's page; during the trial the first charge is at its end) or, with a paid plan, `{ changed, when: now (upgrade) / cycle_end (downgrade), plan }`. 409 `BILLING_OFF` (with whom to write to), `SAME_PLAN`, `PLAN_CHANGE_REFUSED` (UPI / e-mandate subscriptions). |
+| `POST` | `/billing/subscription/cancel` | Owners and admins: at the end of the paid month (at once if nothing was charged yet). 409 `NOT_SUBSCRIBED`. Returns the subscription. |
+| `POST` | `/billing/subscription/refresh` | Owners and admins: "Check now" — reads the subscription and its paid invoices from Razorpay (payments whose webhook did not arrive get their invoice). |
+| `GET` | `/billing/invoices` | Owners and admins: the GST invoices `[{ id, number, issuedAt, planName, periodStart, periodEnd, taxablePaise, gstPaise, totalPaise }]`. |
+| `GET` | `/billing/invoices/:id/pdf` | Owners and admins: the tax invoice PDF. |
+
+Webhooks (public): `POST /webhooks/billing/razorpay` (the platform's Razorpay account; `X-Razorpay-Signature` = hex HMAC-SHA256 of the raw body with `RAZORPAY_BILLING_WEBHOOK_SECRET`, repeats ignored by `X-Razorpay-Event-Id`; 401 bad signature, 404 when Razorpay billing is not configured). Development only: `GET/POST /webhooks/billing-test/:subscriptionId` — the test gateway's checkout page (`action` = pay / charge / fail).
+
 ## Idempotency
 
 `POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.

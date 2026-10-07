@@ -145,10 +145,20 @@ Contacts imported from CSV are ordinary `contacts` (source from the file or `Imp
 
 No new collections: reports are counted from the records when asked (D47). New index `messages (organizationId, createdAt -1)` for the messages of a date range (response times). Range boundaries are 00:00 India time (`utils/reportRange.js`).
 
+## 1m. Phase 10 (plans and billing)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `billingplans` | `provider` (razorpay/mock), `keyId` (test and live keys have their own), `planKey`, `amountPaise` (charged a month, GST included), `providerPlanId` — made the first time a plan is chosen | unique `(provider, keyId, planKey, amountPaise)`; `(provider, providerPlanId)` |
+| `billinginvoices` | `organizationId`, `number` (`YC/2026-27/0001`, gap-free per financial year: saved first as `pending:…`, then numbered), `issuedAt`, `planKey`, `planName`, `periodStart`, `periodEnd`, `sac`, `seller` and `buyer` { name, gstin, address, stateCode, state, email } (copied when issued), `placeOfSupplyCode`, `taxablePaise`, `cgstPaise`, `sgstPaise`, `igstPaise`, `totalPaise` (paid), `provider`, `providerPaymentId`, `providerInvoiceId`, `providerSubscriptionId` | unique `number`; unique `(provider, providerPaymentId)`; `(organizationId, issuedAt -1)` |
+
+`organizations.subscription` { status trialing/active/past_due/halted/cancelled/expired/comped, since, trialEndsAt, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, provider, providerSubscriptionId, providerCustomerId, pendingPlan, gatewayStatus (Razorpay's word), checkoutUrl, remindedFor (7/3/1/ended) } — no defaults: an organization without a status is comped (D48), a new one gets `trialing` + `trialEndsAt` (30 days) at sign-up. `organizations.plan` is the plan in force. Usage is counted from the records, not stored (`planService`); new index `quotations (organizationId, createdAt -1)` for the quotations of the month. The invoice counter is a `counters` row of the platform (`organizationId` 000…0, `billing-invoice:<FY>`). `inboundevents` also hold billing events (`provider` razorpay-billing/mock-billing, `kind: billing`). Jobs: `billing.webhook` (one per event), `billing.sync` and `billing.trial` (every 6 hours).
+
 ## 2. Data migrations
 
 | Migration | What it does |
 |---|---|
+| `005-subscriptions` | Organizations without `subscription.status` become `comped` (`since` = now): they keep their plan, no trial, no end (D48). New organizations start a trial at sign-up instead. |
 | `001-organization-field-names` | `gst → gstin` (uppercased), `pincode → postalCode`, `founded → foundedYear` (only real years; other text stays in `founded`), derives `stateCode` from the GSTIN. |
 | `004-sequences-v2` | Phase 2 sequences get the Phase 6B shape (`automation/legacy.js`): Call and Task steps → `task.create` on the same day (title from the note, due that day, the lead's owner), Email steps → `notes` (the CRM sends WhatsApp), Wait steps dropped (the days are the waits), `targetType` dropped; Active ones become Paused (D32); `enrolledCount` → `stats.enrolled`. Only documents without `schemaVersion: 2`. |
 | `003-workflows-v2` | Phase 2 workflows get the Phase 6 shape (`automation/legacy.js`): "Lead/Deal Created" → `lead.created`, "…Won" and "Customer Added" → `lead.stage_changed` to Won, "…Lost" → to Lost, "Task Overdue" → `task.overdue`; Create Task → `task.create` (due in 1 day, the lead's owner), Notify Agent → `agent.notify`, Update Status → `stage.change` when it names a stage (not Lost); emails, "Add to Sequence" and the rest go to `notes`. Active ones become Paused (D32); `runsCount` → `stats.runs`; the old fields are removed. Only documents without `schemaVersion: 2` (deleted ones too). |
