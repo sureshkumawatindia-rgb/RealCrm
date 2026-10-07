@@ -635,6 +635,9 @@
             <button class="settings-tab" data-panel="leadrules" id="leadRulesTab" style="display: none">
               <i class="fa-solid fa-route"></i> Lead rules
             </button>
+            <button class="settings-tab" data-panel="plan" id="planTab" style="display: none">
+              <i class="fa-solid fa-gem"></i> Plan & usage
+            </button>
             <button class="settings-tab" data-panel="data">
               <i class="fa-solid fa-database"></i> Data & Privacy
             </button>
@@ -1515,6 +1518,31 @@
             </div>
           </div>
 
+          <!-- PLAN & USAGE (Phase 10, owners and admins) -->
+          <div class="settings-panel" data-settings-panel="plan">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Plan & usage</h3>
+              </div>
+              <div style="padding: 20px">
+                <div class="settings-section">
+                  <div class="settings-section-label">Your plan</div>
+                  <div id="planCurrent"><p class="settings-hint">Loading…</p></div>
+                </div>
+                <div class="settings-section">
+                  <div class="settings-section-label">Usage</div>
+                  <div class="plan-meters" id="planMeters"></div>
+                  <p class="settings-hint" style="margin-top: 10px">Broadcasts and quotations count from the 1st of each month. A pending invite holds a seat. Customers who write on WhatsApp and leads from your lead sources are always added, even at the limit.</p>
+                </div>
+                <div class="settings-section">
+                  <div class="settings-section-label">Plans</div>
+                  <div class="plan-grid" id="planGrid"></div>
+                  <p class="settings-hint" style="margin-top: 10px" id="planGridHint">Prices are per month, plus 18% GST.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- DATA & PRIVACY -->
           <div class="settings-panel" data-settings-panel="data">
             <div class="panel">
@@ -1613,5 +1641,6 @@
     <script src="./js/settings-routing.js"></script>
     <script src="./js/settings-billing.js"></script>
     <script src="./js/settings-payments.js"></script>
+    <script src="./js/settings-plan.js"></script>
   </body>
 </html>

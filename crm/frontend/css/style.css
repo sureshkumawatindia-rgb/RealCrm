@@ -1683,3 +1683,184 @@ body.crm-loading::before {
   white-space: nowrap;
   margin: 1px 0;
 }
+
+/* ============================================================
+   Plan & usage (Phase 10): the trial banner under the top bar, the upgrade prompt, and
+   Settings → Plan & usage
+   ============================================================ */
+.plan-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 28px;
+  font-size: 13px;
+  background: var(--brand-light);
+  border-bottom: 1px solid rgba(255, 199, 0, 0.35);
+  color: var(--text);
+}
+.plan-banner.locked {
+  background: var(--danger-bg);
+  border-bottom-color: rgba(255, 69, 58, 0.3);
+}
+.plan-banner-text {
+  flex: 1 1 280px;
+}
+.plan-banner a.btn {
+  padding: 6px 14px;
+  font-size: 12.5px;
+}
+.plan-banner-close {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 2px 6px;
+}
+.upgrade-nudge {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 210;
+  width: min(460px, calc(100vw - 32px));
+  background: var(--surface);
+  border: 1px solid rgba(255, 199, 0, 0.55);
+  border-radius: var(--radius-md);
+  box-shadow: var(--pop-4, var(--pop-3));
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  animation: toast-in 0.35s var(--ease-spring);
+}
+.upgrade-nudge i.fa-gem {
+  color: var(--brand-darker);
+  font-size: 18px;
+  margin-top: 2px;
+}
+.upgrade-nudge-body {
+  flex: 1;
+  font-size: 13px;
+}
+.upgrade-nudge-body strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.upgrade-nudge-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.plan-current {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+.plan-current h4 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+.plan-current p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.plan-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.plan-meter {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.plan-meter-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.plan-meter-top strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.plan-bar {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--border-soft);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.plan-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+}
+.plan-bar.near span {
+  background: var(--warning);
+}
+.plan-bar.full span {
+  background: var(--danger);
+}
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.plan-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.plan-card.current {
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 2px var(--brand-ring);
+}
+.plan-card h4 {
+  margin: 0;
+  font-size: 15px;
+}
+.plan-price {
+  font-size: 20px;
+  font-weight: 700;
+}
+.plan-price small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.plan-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12.5px;
+  flex: 1;
+}
+.plan-card li {
+  padding: 3px 0;
+}
+.plan-card li.no {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+.plan-card .btn {
+  justify-content: center;
+}
+@media (max-width: 600px) {
+  .plan-banner {
+    padding: 10px 16px;
+  }
+}

@@ -43,7 +43,7 @@
 .inbox {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr) 300px;
-  height: calc(100vh - 62px);
+  height: calc(100vh - 62px - var(--plan-banner-h, 0px)); /* the plan banner (app.js) */
   min-height: 420px;
   background: var(--surface);
 }
@@ -986,7 +986,7 @@
 @media (max-width: 860px) {
   .inbox {
     grid-template-columns: minmax(0, 1fr);
-    height: calc(100vh - 62px);
+    height: calc(100vh - 62px - var(--plan-banner-h, 0px)); /* the plan banner (app.js) */
   }
   .inbox[data-pane="list"] .inbox-thread,
   .inbox[data-pane="thread"] .inbox-list {

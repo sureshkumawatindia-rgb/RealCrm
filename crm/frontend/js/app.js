@@ -77,6 +77,7 @@ async function crmRequest(path, options = {}, { retried = false, blob = false } 
     error.status = response.status;
     error.code = body.code;
     error.errors = body.errors;
+    if (UPGRADE_CODES.has(body.code)) crmPlan.nudge(error.message);
     throw error;
   }
   return body;
@@ -949,6 +950,7 @@ const crmBell = (() => {
 // Toast
 // ---------------------------------------------------------------
 function showToast(message, type = "info") {
+  if (crmPlan.isShowing(message)) return; // the upgrade prompt already says it
   let stack = document.getElementById("toast-stack");
   if (!stack) {
     stack = document.createElement("div");
@@ -962,6 +964,110 @@ function showToast(message, type = "info") {
   stack.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
+
+// ---------------------------------------------------------------
+// Plan & usage (Phase 10): a banner under the top bar while the trial ends soon or the plan is
+// not active, and a prompt with "See plans" when the plan stops something (the server checks
+// every limit; this only explains it).
+// ---------------------------------------------------------------
+const UPGRADE_CODES = new Set(["PLAN_LIMIT", "SUBSCRIPTION_INACTIVE", "QUOTA_REACHED"]);
+const crmPlan = (() => {
+  const PLANS_LINK = "Settings.html?tab=plan";
+  let nudgeEl = null;
+  let nudgeMessage = "";
+  let pending = null; // this page's answer (never kept in the browser: it is business data)
+
+  function forget() {
+    pending = null;
+  }
+  // The organization's plan and subscription (GET /billing/subscription), asked once a page.
+  function state({ fresh = false } = {}) {
+    if (fresh || !pending) {
+      const asked = crmApi("/billing/subscription");
+      pending = asked;
+      asked.catch(() => {
+        if (pending === asked) pending = null;
+      });
+    }
+    return pending;
+  }
+
+  const day = (iso) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const onPlanPage = () => /settings\.html$/i.test(currentPageName()) && new URLSearchParams(window.location.search).get("tab") === "plan";
+
+  function bannerOf({ plan, subscription: s }) {
+    if (s.locked) {
+      const why = s.wasTrial && s.trialEndsAt
+        ? `Your free trial ended on ${day(s.trialEndsAt)}.`
+        : s.status === "halted" ? "The payment for your plan did not go through." : "Your plan has ended.";
+      return { locked: true, text: `${why} Your data is safe and chats keep working; choose a plan to add contacts, quotations, broadcasts and teammates again.` };
+    }
+    if (s.status === "past_due") return { text: "The last payment for your plan did not go through. It will be tried again; check your card or UPI mandate to keep your plan." };
+    if (s.status === "trialing" && s.daysLeft !== null && s.daysLeft <= 7) {
+      return { dismissible: true, text: `Your free ${plan.name} trial ends on ${day(s.trialEndsAt)} (${s.daysLeft} day${s.daysLeft === 1 ? "" : "s"} left). Choose a plan to keep everything running.` };
+    }
+    if (s.status === "cancelled" && s.currentPeriodEnd) return { dismissible: true, text: `Your ${plan.name} plan is cancelled and ends on ${day(s.currentPeriodEnd)}.` };
+    return null;
+  }
+
+  async function mountBanner() {
+    const topbar = document.querySelector(".main > .topbar");
+    if (!topbar || !isAuthenticated() || PUBLIC_PAGES.has(currentPageName())) return;
+    let banner;
+    try {
+      banner = bannerOf(await state());
+    } catch {
+      return; // the banner is a convenience
+    }
+    document.getElementById("planBanner")?.remove();
+    const today = new Date().toDateString();
+    if (!banner || (banner.dismissible && getPreference("planBannerHiddenOn", "") === today)) return;
+    const el = document.createElement("div");
+    el.id = "planBanner";
+    el.className = `plan-banner${banner.locked ? " locked" : ""}`;
+    el.setAttribute("role", "status");
+    el.innerHTML = `<i class="fa-solid ${banner.locked ? "fa-lock" : "fa-gem"}"></i>
+      <span class="plan-banner-text">${escapeHtml(banner.text)}${isOrgManager() ? "" : " Ask an owner or admin to choose a plan."}</span>
+      ${isOrgManager() && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">Choose a plan</a>` : ""}
+      ${banner.dismissible ? '<button class="plan-banner-close" type="button" aria-label="Hide until tomorrow">&times;</button>' : ""}`;
+    // Full-height pages (the inbox) leave room for it.
+    const room = (px) => document.documentElement.style.setProperty("--plan-banner-h", `${px}px`);
+    el.querySelector(".plan-banner-close")?.addEventListener("click", () => {
+      setPreference("planBannerHiddenOn", today);
+      el.remove();
+      room(0);
+    });
+    topbar.insertAdjacentElement("afterend", el);
+    room(el.offsetHeight);
+  }
+
+  // The prompt when the server says the plan stops something.
+  function nudge(message) {
+    forget(); // the usage just mattered: read it fresh next time
+    nudgeEl?.remove();
+    nudgeMessage = message;
+    const manager = isOrgManager();
+    nudgeEl = document.createElement("div");
+    nudgeEl.className = "upgrade-nudge";
+    nudgeEl.setAttribute("role", "alert");
+    nudgeEl.innerHTML = `<i class="fa-solid fa-gem"></i>
+      <div class="upgrade-nudge-body"><strong>${manager ? "Upgrade to do more" : "Your company's plan stops this"}</strong>${escapeHtml(message)}${manager ? "" : " Ask an owner or admin."}
+        <div class="upgrade-nudge-actions">${manager && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">See plans</a>` : ""}<button class="btn btn-outline" type="button">Close</button></div>
+      </div>`;
+    const el = nudgeEl;
+    const close = () => {
+      el.remove();
+      if (nudgeEl === el) nudgeMessage = "";
+    };
+    el.querySelector("button").addEventListener("click", close);
+    document.body.appendChild(el);
+    setTimeout(close, 12000);
+  }
+
+  const isShowing = (message) => Boolean(nudgeMessage) && message === nudgeMessage && Boolean(nudgeEl?.isConnected);
+
+  return { state, forget, mountBanner, nudge, isShowing };
+})();
 
 // ---------------------------------------------------------------
 // Sidebar user info (called on dashboard/customers/leads/accounts pages)
@@ -1173,6 +1279,7 @@ document.addEventListener("DOMContentLoaded", () => {
   injectGlobalNavItems();
   hideUnavailableModules();
   crmBell.mount();
+  crmPlan.mountBanner();
   // The Inbox page keeps its own count up to date live.
   if (moduleForPage(currentPageName()) !== "inbox") refreshInboxNavBadge();
 
