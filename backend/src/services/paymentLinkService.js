@@ -140,7 +140,10 @@ async function create(req, body) {
   if (subject.filter) {
     const open = await PaymentLink.findOne({ organizationId: req.tenant.organizationId, ...subject.filter, status: { $in: OPEN_LINK_STATUSES } });
     if (open) {
-      throw httpError(409, 'OPEN_LINK_EXISTS', `A link for ${formatRupees(open.amountPaise)} is still open for ${subject.documentNumber}. Send it again, or cancel it first.`, [{ field: 'paymentLinkId', code: 'OPEN_LINK_EXISTS', message: String(open._id) }]);
+      const message = `A link for ${formatRupees(open.amountPaise)} is still open for ${open.documentNumber || subject.documentNumber}. Send it again, or cancel it first.`;
+      const error = httpError(409, 'OPEN_LINK_EXISTS', message, [{ field: 'paymentLinkId', code: 'OPEN_LINK_EXISTS', message }]);
+      error.paymentLinkId = String(open._id);
+      throw error;
     }
   }
   const connection = await gateways.connectionFor(req.tenant.organizationId, body.connectionId);

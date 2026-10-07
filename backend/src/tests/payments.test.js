@@ -351,7 +351,12 @@ describe('Payment links', () => {
     const rzp = (await post(owner, '/payment-links', { orderId: other.id })).body.data;
     expect((await post(owner, `/payment-links/${rzp.id}/cancel`, {})).body.data).toMatchObject({ status: 'cancelled' });
     expect(gateway.razorpay.get(rzp.providerLinkId).status).toBe('cancelled');
-    expect((await post(owner, '/payment-links', { orderId: other.id })).status).toBe(201); // a new one once the old is closed
+    const fresh = (await post(owner, '/payment-links', { orderId: other.id })).body.data; // a new one once the old is closed
+    expect(fresh).toMatchObject({ status: 'created' });
+    // Paid in full by bank transfer: the unpaid link is cancelled, so the customer cannot pay twice.
+    await post(owner, `/orders/${other.id}/payments`, { amountPaise: 1180000, method: 'bank_transfer', reference: 'UTR-FULL-1' });
+    expect((await get(owner, `/payment-links/${fresh.id}`)).body.data).toMatchObject({ status: 'cancelled' });
+    expect(gateway.razorpay.get(fresh.providerLinkId).status).toBe('cancelled');
   });
 
   it('sends a link in the chat, lists what is due, and reminds by workflow (8B)', async () => {

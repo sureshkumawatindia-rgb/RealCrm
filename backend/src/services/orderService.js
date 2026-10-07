@@ -10,6 +10,7 @@ const Product = require('../models/Product');
 const Quotation = require('../models/Quotation');
 const WhatsAppAccount = require('../models/WhatsAppAccount');
 const httpError = require('../utils/httpError');
+const logger = require('../config/logger');
 const { audit } = require('../utils/audit');
 const { nextSequence } = require('../utils/counter');
 const { financialYear, formatRupees } = require('../utils/money');
@@ -329,7 +330,16 @@ async function recordPayment(req, orderId, entry) {
 async function addManualPayment(req, id, { amountPaise, method, reference = '', paidAt }) {
   const order = await findVisible(req, id);
   if (order.stage === 'Cancelled') throw httpError(409, 'ORDER_CANCELLED', 'This order was cancelled.');
-  const { order: result } = await recordPayment(req, order._id, { source: 'manual', amountPaise, method, reference: String(reference || '').trim(), paidAt: paidAt || new Date() });
+  const { order: result, completed } = await recordPayment(req, order._id, { source: 'manual', amountPaise, method, reference: String(reference || '').trim(), paidAt: paidAt || new Date() });
+  // Paid in full outside the links: unpaid links of this order are cancelled, so the customer
+  // cannot pay twice (a part-paid link cannot be cancelled at the gateway; it stays visible).
+  if (completed) {
+    const paymentLinks = require('./paymentLinkService'); // eslint-disable-line global-require -- it uses this service
+    const open = await PaymentLink.find({ organizationId: order.organizationId, $or: [{ orderId: order._id }, ...(order.quotationId ? [{ quotationId: order.quotationId }] : [])], status: 'created' });
+    for (const link of open) {
+      await paymentLinks.cancel(req, link._id).catch((error) => logger.warn(`Could not cancel payment link ${link._id}: ${error.message}`));
+    }
+  }
   return result;
 }
 

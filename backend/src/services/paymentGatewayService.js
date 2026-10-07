@@ -7,6 +7,7 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { encrypt, decrypt } = require('../utils/secretBox');
 const { gatewayFor } = require('../integrations/payments');
+const templateService = require('./templateService');
 const { PAYMENT_PROVIDERS, DEFAULT_EXPIRY_DAYS } = require('../constants/payments');
 
 // Settings → Payments (owners and admins): the organization's payment gateways (Razorpay,
@@ -173,6 +174,8 @@ async function putSettings(req, body) {
     if (!template || template.status !== 'APPROVED') {
       throw httpError(400, 'VALIDATION_ERROR', 'Pick an approved WhatsApp template.', [{ field, code: 'TEMPLATE_NOT_APPROVED', message: 'Pick an approved WhatsApp template.' }]);
     }
+    const shape = templateService.shapeOf(template);
+    if (!shape.sendable) throw httpError(400, 'VALIDATION_ERROR', `"${template.name}" cannot be sent here: ${shape.notSendableReason}`, [{ field, code: 'TEMPLATE_NOT_SENDABLE', message: shape.notSendableReason }]);
   }
   const set = Object.fromEntries(Object.entries(body).map(([key, value]) => [`payments.${key}`, value || (key.endsWith('TemplateId') ? null : value)]));
   const organization = await Organization.findByIdAndUpdate(req.tenant.organizationId, { $set: set }, { returnDocument: 'after' });
