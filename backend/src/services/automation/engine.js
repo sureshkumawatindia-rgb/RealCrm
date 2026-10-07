@@ -171,7 +171,15 @@ async function runSteps(queue, { runId }, job) {
 async function handleEvent(queue, event) {
   // STOP / START change the customer's consent (Phase 7); otherwise the FAQ bot answers a
   // customer message first (quickest reply).
-  if (!(await consent.handleMessage(event))) await bot.handleMessage(event);
+  if (!(await consent.handleMessage(event))) {
+    // The AI assistant (Phase 10D) may answer what the FAQ bot did not. Loaded here: it uses the
+    // conversation service, which uses the automation actions.
+    const botAnswer = await bot.handleMessage(event);
+    if (!botAnswer) {
+      await require('../aiService').queueAutoReply(queue, event) // eslint-disable-line global-require
+        .catch((error) => logger.error(`AI auto-reply could not be queued: ${error.message}`));
+    }
+  }
   // A reply counts for the broadcasts the customer got in the last 7 days (Phase 7).
   // Loaded here: broadcastService uses the automation actions.
   await require('../broadcastService').handleReply(event); // eslint-disable-line global-require

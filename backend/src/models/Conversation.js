@@ -18,6 +18,13 @@ const conversationSchema = new mongoose.Schema(
     tags: { type: [String], default: [] },
     // The FAQ bot in this chat (Phase 6C): handedOffAt = the customer asked for a person (or a
     // teammate paused the bot); the bot stays quiet until the chat is closed or it is turned on.
+    // The AI assistant's answers here (Phase 10D): when it last answered, and when it passed the
+    // chat to a person (it then stays quiet for a day, or until a teammate writes).
+    ai: {
+      answeredAt: { type: Date },
+      handedOffAt: { type: Date },
+      handoffReason: { type: String },
+    },
     bot: {
       handedOffAt: { type: Date },
       handoffReason: { type: String },

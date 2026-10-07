@@ -60,6 +60,13 @@ const organizationSchema = new mongoose.Schema(
       roundOff: { type: Boolean, default: true }, // D28
       reduceStockOnDispatch: { type: Boolean, default: false },
     },
+    // The AI assistant (Phase 10D, Settings → AI assistant): off until an owner or admin turns it
+    // on; autoReply lets it answer customers by itself (else it only drafts replies for agents).
+    ai: {
+      enabled: { type: Boolean, default: false },
+      autoReply: { type: Boolean, default: false },
+      instructions: { type: String, default: '' },
+    },
     // Payment links (Phase 8, Settings → Payments): how long a link lives, and the approved
     // WhatsApp templates for a link or a receipt when the customer's 24-hour window is closed.
     payments: {

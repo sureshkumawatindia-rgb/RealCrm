@@ -58,6 +58,14 @@ const schema = Joi.object({
   BILLING_SELLER_EMAIL: Joi.string().allow('').default(''),
   BILLING_SAC: Joi.string().pattern(/^\d{4,8}$/).default('998315'),
   BILLING_INVOICE_PREFIX: Joi.string().pattern(/^[A-Z0-9-]{1,8}$/).default('YC'),
+  // The optional AI assistant (Phase 10D) on the platform's own Claude API key. Without a key the
+  // assistant is not offered. Each company may spend up to AI_MONTHLY_BUDGET_USD a month.
+  ANTHROPIC_API_KEY: Joi.string().allow('').default(''),
+  AI_SUGGEST_MODEL: Joi.string().allow('').default(''),
+  AI_AUTOREPLY_MODEL: Joi.string().allow('').default(''),
+  AI_MONTHLY_BUDGET_USD: Joi.number().min(0).default(5),
+  // default = on a safety refusal the Claude API retries on another model by itself (Sonnet 5.5).
+  AI_REFUSAL_FALLBACK: Joi.string().valid('default', 'off').default('default'),
 }).unknown(true);
 
 const { error, value } = schema.validate(process.env, { abortEarly: false });
@@ -113,6 +121,13 @@ const env = {
   whatsapp: {
     graphUrl: value.WHATSAPP_GRAPH_URL.replace(/\/+$/, ''),
     graphVersion: value.WHATSAPP_GRAPH_VERSION,
+  },
+  ai: {
+    apiKey: value.ANTHROPIC_API_KEY,
+    suggestModel: value.AI_SUGGEST_MODEL,
+    autoReplyModel: value.AI_AUTOREPLY_MODEL,
+    monthlyBudgetUsd: value.AI_MONTHLY_BUDGET_USD,
+    refusalFallback: value.AI_REFUSAL_FALLBACK,
   },
   billing: {
     provider: value.NODE_ENV === 'production' && value.BILLING_PROVIDER === 'mock' ? 'off' : value.BILLING_PROVIDER,

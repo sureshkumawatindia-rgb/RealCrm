@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const conversationService = require('../services/conversationService');
 const catalogService = require('../services/catalogService');
+const aiService = require('../services/aiService');
 const httpError = require('../utils/httpError');
 const { MEDIA_MAX_BYTES } = require('../constants/whatsapp');
 const { authenticate } = require('../middleware/auth');
@@ -57,6 +58,11 @@ router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.con
 // The FAQ bot in this chat: off (it waits for a person) or back on.
 router.post('/:id/bot', can('edit'), validate({ params: idParams, body: schemas.botSwitch }), async (req, res) => {
   res.json({ success: true, data: await conversationService.setBot(req, req.valid.params.id, req.body), message: req.body.active ? 'The bot answers this chat again' : 'The bot is off in this chat' });
+});
+// The AI assistant's reply drafts for this chat (Phase 10D); the agent edits and sends one.
+router.post('/:id/ai/suggest', can('edit'), byId, async (req, res) => {
+  const conversation = await conversationService.findVisible(req, req.valid.params.id);
+  res.json({ success: true, data: await aiService.suggest(req, conversation) });
 });
 router.post('/:id/read', can('view'), byId, async (req, res) => {
   res.json({ success: true, data: await conversationService.markRead(req, req.valid.params.id) });
