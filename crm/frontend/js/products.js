@@ -44,6 +44,51 @@ function productPriceSummary(p) {
     <strong>Total: ${formatCurrency(pricing.finalPrice)}</strong>
   </div>`;
 }
+// The WhatsApp catalog (Phase 8C): where each product stands with Meta.
+function catalogBadge(p) {
+  if (!p.inCatalog) return '<span class="text-muted">—</span>';
+  const state = p.catalog || {};
+  if (state.status === "synced") return '<span class="badge badge-success" title="Customers can see it in WhatsApp">In catalog</span>';
+  if (state.status === "error") return `<span class="badge badge-danger" title="${escapeHtml(state.error || "")}">Needs attention</span>`;
+  return '<span class="badge badge-warning" title="Goes to WhatsApp at the next sync">Waiting for sync</span>';
+}
+async function loadCatalogBar() {
+  const bar = document.getElementById("catalogBar");
+  let state;
+  try {
+    state = await crmApi("/products/whatsapp-catalog");
+  } catch {
+    bar.hidden = true;
+    return;
+  }
+  const manager = isOrgManager();
+  if (!state.available || (!state.catalogs.length && !manager)) {
+    bar.hidden = true;
+    return;
+  }
+  bar.hidden = false;
+  if (!state.catalogs.length) {
+    bar.innerHTML = '<span><i class="fa-brands fa-whatsapp" style="color:#25d366"></i> Show your products in WhatsApp: connect your Meta catalog in <a href="Settings.html?tab=whatsapp">Settings → WhatsApp</a>, then tick “Show in the WhatsApp catalog” on the products.</span>';
+    return;
+  }
+  const c = state.catalogs[0];
+  const p = state.products;
+  bar.innerHTML = `<span><i class="fa-brands fa-whatsapp" style="color:#25d366"></i> WhatsApp catalog <strong>${escapeHtml(c.name || c.catalogId)}</strong>: ${p.synced} of ${p.included} chosen products are in it${p.failed ? ` · <span style="color:var(--danger)">${p.failed} need attention</span>` : ""}${c.lastSyncAt ? ` · last sync ${escapeHtml(new Date(c.lastSyncAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}` : ""}. Prices go with GST.</span>
+    ${manager ? '<button class="btn btn-outline" type="button" id="catalogSyncBtn"><i class="fa-solid fa-rotate"></i> Sync now</button>' : ""}`;
+  document.getElementById("catalogSyncBtn")?.addEventListener("click", async (event) => {
+    event.target.disabled = true;
+    try {
+      await crmApi("/products/whatsapp-catalog/sync", jsonRequest("POST", {}));
+      await crmLoad(["products"], { force: true });
+      showToast("Catalog synced with WhatsApp.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't sync the catalog."), "error");
+    }
+    renderAll();
+    loadCatalogBar();
+  });
+}
+
 function categoryList() {
   return [
     ...new Set(getProducts().map((p) => (p.category || "").trim()).filter(Boolean)),
@@ -194,6 +239,7 @@ function renderTable() {
           <th>Price</th>
           <th>Stock</th>
           <th>Leads</th>
+          <th>WhatsApp</th>
           <th></th>
         </tr>
       </thead>
@@ -208,6 +254,7 @@ function renderTable() {
             <td class="inline-edit-cell" data-field="price">${productPriceSummary(p)}</td>
             <td class="inline-edit-cell" data-field="quantity">${stockBadge(p)}</td>
             <td><span class="badge ${leadCount ? "badge-info" : "badge-neutral"}">${leadCount}</span></td>
+            <td>${catalogBadge(p)}</td>
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-row" data-id="${p.id}"><i class="fa-solid fa-pen"></i></button>
@@ -265,10 +312,18 @@ function openModal(id) {
     document.getElementById("pDescription").value = product.description || "";
     document.getElementById("pHsn").value = product.hsnSac || "";
     document.getElementById("pUnit").value = product.unit || "";
+    document.getElementById("pSku").value = product.sku || "";
+    document.getElementById("pImage").value = (product.images || [])[0] || "";
+    document.getElementById("pInCatalog").checked = Boolean(product.inCatalog);
+    const state = product.catalog || {};
+    document.getElementById("pCatalogState").textContent = !product.inCatalog ? ""
+      : state.status === "synced" ? "In the WhatsApp catalog."
+        : state.status === "error" ? `Not in the WhatsApp catalog: ${state.error}` : "Goes to the WhatsApp catalog at the next sync.";
     deleteBtn.style.display = "inline-flex";
   } else {
     document.getElementById("modalTitle").textContent = "New Product";
     document.getElementById("editId").value = "";
+    document.getElementById("pCatalogState").textContent = "";
     deleteBtn.style.display = "none";
   }
 
@@ -308,7 +363,10 @@ function renderAll() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-crmReady(["products", "leads", "members"], renderAll);
+crmReady(["products", "leads", "members"], () => {
+  renderAll();
+  loadCatalogBar();
+});
 
 document.getElementById("searchInput").addEventListener("input", renderTable);
 document
@@ -349,6 +407,9 @@ productForm.addEventListener("submit", async (e) => {
     description: document.getElementById("pDescription").value.trim(),
     hsnSac: document.getElementById("pHsn").value.trim(),
     unit: document.getElementById("pUnit").value.trim(),
+    sku: document.getElementById("pSku").value.trim(),
+    image: document.getElementById("pImage").value.trim(),
+    inCatalog: document.getElementById("pInCatalog").checked,
   };
   if (!data.name) {
     showToast("Product name is required.", "error");

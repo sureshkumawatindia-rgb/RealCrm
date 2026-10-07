@@ -131,7 +131,7 @@
           .map(
             (o) => `
           <tr data-open="${escapeHtml(o.id)}" tabindex="0">
-            <td><div class="q-num">${escapeHtml(o.number)}</div><div class="q-muted">${escapeHtml(o.quotationNumber || "")}</div></td>
+            <td><div class="q-num">${escapeHtml(o.number)}</div><div class="q-muted">${o.source === "catalog" ? '<i class="fa-brands fa-whatsapp"></i> Catalog' : escapeHtml(o.quotationNumber || "")}</div></td>
             <td><div>${escapeHtml(o.billTo?.name || "—")}</div>${o.billTo?.company ? `<div class="q-muted">${escapeHtml(o.billTo.company)}</div>` : ""}</td>
             <td>${escapeHtml(day(o.orderDate))}</td>
             <td class="q-muted">${escapeHtml([o.dispatch?.transporter, o.dispatch?.lrNumber].filter(Boolean).join(" · ") || "—")}</td>
@@ -203,10 +203,16 @@
     $("oExpected").value = o.dispatch?.expectedDeliveryDate ? String(o.dispatch.expectedDeliveryDate).slice(0, 10) : "";
     $("oDispatchedAt").textContent = o.dispatch?.dispatchedAt ? `Dispatched ${when(o.dispatch.dispatchedAt)}` : "";
     $("oNotes").value = o.notes || "";
-    $("oQuoteLink").innerHTML = o.quotationId ? `<a href="Quotations.html?id=${encodeURIComponent(o.quotationId)}">${escapeHtml(o.quotationNumber || "Quotation")}</a>` : "";
+    $("oQuoteLink").innerHTML = o.quotationId
+      ? `<a href="Quotations.html?id=${encodeURIComponent(o.quotationId)}">${escapeHtml(o.quotationNumber || "Quotation")}</a>`
+      : o.source === "catalog"
+        ? `<a href="Inbox.html?c=${encodeURIComponent(o.catalogOrder?.conversationId || "")}"><i class="fa-brands fa-whatsapp"></i> From the WhatsApp catalog</a>`
+        : "";
     const b = o.billTo || {};
     $("oCustomer").innerHTML = `<strong>${escapeHtml(b.name || "—")}</strong><div class="q-muted">${[b.company && b.company !== b.name ? b.company : "", b.address, [b.city, b.state].filter(Boolean).join(", "), b.gstin ? `GSTIN ${b.gstin}` : "", b.phone].filter(Boolean).map(escapeHtml).join("<br>")}</div>`;
-    $("oItems").innerHTML = `<table><thead><tr><th>Item</th><th class="q-amount">Qty</th><th class="q-amount">Taxable</th><th class="q-amount">GST</th><th class="q-amount">Amount</th></tr></thead><tbody>${(o.items || [])
+    // A cart from the WhatsApp catalog may need a look (an unknown item, a price that changed).
+    const checks = (o.catalogOrder?.warnings || []).map((w) => `<div class="q-warning">${escapeHtml(w)}</div>`).join("");
+    $("oItems").innerHTML = `${checks}<table><thead><tr><th>Item</th><th class="q-amount">Qty</th><th class="q-amount">Taxable</th><th class="q-amount">GST</th><th class="q-amount">Amount</th></tr></thead><tbody>${(o.items || [])
       .map((item) => `<tr><td>${escapeHtml(item.name)}${item.hsnSac ? `<div class="q-muted">HSN ${escapeHtml(item.hsnSac)}</div>` : ""}</td><td class="q-amount">${escapeHtml(String(item.quantity))} ${escapeHtml(item.unit || "")}</td><td class="q-amount">${rupees(item.taxablePaise)}</td><td class="q-amount">${escapeHtml(String(item.gstRatePct))}%</td><td class="q-amount">${rupees(item.totalPaise)}</td></tr>`)
       .join("")}</tbody></table>`;
     const t = o.totals || {};

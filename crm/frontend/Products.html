@@ -178,6 +178,7 @@
             </div>
           </div>
 
+          <div class="panel catalog-bar" id="catalogBar" hidden></div>
           <div class="panel"><div id="productsTable"></div></div>
         </div>
       </div>
@@ -261,6 +262,21 @@
                 placeholder="Optional notes about this product..."
               ></textarea>
             </div>
+            <!-- WhatsApp catalog (Phase 8C) -->
+            <div class="field-row">
+              <div class="field">
+                <label for="pSku">SKU / item code</label>
+                <input type="text" id="pSku" maxlength="100" placeholder="e.g. JEERA-25" />
+              </div>
+              <div class="field">
+                <label for="pImage">Photo link (https)</label>
+                <input type="url" id="pImage" maxlength="1000" placeholder="https://…/photo.jpg" />
+              </div>
+            </div>
+            <label class="ls-check" style="display: flex; gap: 8px; align-items: center">
+              <input type="checkbox" id="pInCatalog" style="width: auto" /> Show in the WhatsApp catalog (needs a price and a photo link)
+            </label>
+            <p class="settings-hint" id="pCatalogState" style="margin: 6px 0 0"></p>
           </form>
         </div>
         <div class="modal-foot">

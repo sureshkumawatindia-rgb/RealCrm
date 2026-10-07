@@ -1080,3 +1080,22 @@ a.ctx-link:hover {
   flex-wrap: wrap;
   row-gap: 6px;
 }
+
+/* Products from the WhatsApp catalog and carts sent back (Phase 8C) */
+.product-pick {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.product-pick input {
+  width: auto;
+  margin-top: 3px;
+}
+.product-pick .template-item-body {
+  display: block;
+}
+.cart-items {
+  margin: 6px 0;
+  padding-left: 18px;
+}

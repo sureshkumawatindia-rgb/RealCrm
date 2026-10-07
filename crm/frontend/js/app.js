@@ -505,6 +505,10 @@ function productPayload(form) {
   if ("hsnSac" in form) payload.hsnSac = String(form.hsnSac || "").trim();
   if ("unit" in form) payload.unit = String(form.unit || "").trim() || "pcs";
   if ("quantity" in form) payload.stockQty = form.quantity === "" || form.quantity == null ? null : Math.max(0, Math.round(Number(form.quantity)));
+  // The WhatsApp catalog (Phase 8C): item code, one photo link, shown or not.
+  if ("sku" in form) payload.sku = String(form.sku || "").trim();
+  if ("image" in form) payload.images = String(form.image || "").trim() ? [String(form.image).trim()] : [];
+  if ("inCatalog" in form) payload.inCatalog = Boolean(form.inCatalog);
   return payload;
 }
 async function saveProduct(id, form) {

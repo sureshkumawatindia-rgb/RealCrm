@@ -56,6 +56,7 @@
           <div class="sub">Phone number ID ${escapeHtml(a.phoneNumberId)}${a.accessToken.configured ? ` · token …${escapeHtml(a.accessToken.last4)}` : ""} · ${a.lastWebhookAt ? `last message from WhatsApp ${escapeHtml(when(a.lastWebhookAt))}` : "no message received yet"}</div>
           ${a.status === "error" && a.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(a.statusMessage)}</div>` : ""}
           ${setup}
+          ${catalogHtml(a)}
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0">
           <button class="btn btn-outline" type="button" data-wa-test="${escapeHtml(a.id)}"><i class="fa-solid fa-plug-circle-check"></i> Test</button>
@@ -64,6 +65,32 @@
           <button class="icon-btn danger" type="button" data-wa-remove="${escapeHtml(a.id)}" title="Remove"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>`;
+  }
+
+  // --- the Meta catalog of a number (Phase 8C) ---
+  let catalogFormFor = "";
+  function catalogHtml(a) {
+    const c = a.catalog;
+    const sync = c?.lastSyncAt
+      ? `last sync ${escapeHtml(when(c.lastSyncAt))}: ${c.lastSync?.error ? `<span style="color:var(--danger)">${escapeHtml(c.lastSync.error)}</span>` : `${c.lastSync?.sent || 0} sent${c.lastSync?.removed ? `, ${c.lastSync.removed} removed` : ""}${c.lastSync?.failed ? `, <span style="color:var(--danger)">${c.lastSync.failed} need attention (Products page)</span>` : ""}`}`
+      : "syncing…";
+    const summary = c
+      ? `<strong>WhatsApp catalog:</strong> ${escapeHtml(c.name || c.catalogId)} <span class="text-muted">(${escapeHtml(c.catalogId)})</span> · ${sync}${c.statusMessage ? `<div style="color:var(--danger)">${escapeHtml(c.statusMessage)}</div>` : ""}`
+      : '<strong>WhatsApp catalog:</strong> none. Connect the catalog of this WhatsApp Business Account (Meta Commerce Manager → Catalogs) to send products in chats and receive orders.';
+    const form = catalogFormFor === String(a.id)
+      ? `<form class="wa-catalog-form" data-wa-catalog-form="${escapeHtml(a.id)}" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:6px">
+          <input type="text" name="catalogId" inputmode="numeric" placeholder="Catalog ID (digits)" value="${escapeHtml(c?.catalogId || "")}" required style="max-width:220px" />
+          <label class="ls-check" style="margin:0"><input type="checkbox" name="catalogVisible" ${c?.catalogVisible === false ? "" : "checked"} /> Show the shop button in chats</label>
+          <label class="ls-check" style="margin:0"><input type="checkbox" name="cartEnabled" ${c?.cartEnabled === false ? "" : "checked"} /> Customers can send a cart</label>
+          <button class="btn btn-primary" type="submit">Check and connect</button>
+          <button class="btn btn-outline" type="button" data-wa-catalog-cancel>Cancel</button>
+        </form>`
+      : "";
+    return `<div class="sub wa-catalog" style="margin-top:8px">${summary}
+      <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap">
+        ${form ? "" : `<button class="btn btn-outline" type="button" data-wa-catalog="${escapeHtml(a.id)}"><i class="fa-solid fa-store"></i> ${c ? "Change catalog" : "Connect catalog"}</button>`}
+        ${c && !form ? `<a class="btn btn-outline" href="Products.html"><i class="fa-solid fa-box-open"></i> Choose products</a><button class="btn btn-outline" type="button" data-wa-catalog-off="${escapeHtml(a.id)}">Disconnect</button>` : ""}
+      </div>${form}</div>`;
   }
 
   function render() {
@@ -94,7 +121,39 @@
     await load();
   }
 
+  listEl.addEventListener("submit", async (e) => {
+    const form = e.target.closest("[data-wa-catalog-form]");
+    if (!form) return;
+    e.preventDefault();
+    const id = form.dataset.waCatalogForm;
+    const body = { catalogId: form.catalogId.value.trim(), catalogVisible: form.catalogVisible.checked, cartEnabled: form.cartEnabled.checked };
+    form.querySelector('button[type="submit"]').disabled = true;
+    try {
+      const connected = await crmApi(`/whatsapp/accounts/${id}/catalog`, jsonRequest("PUT", body));
+      catalogFormFor = "";
+      showToast(connected.statusMessage || `Catalog "${connected.name || connected.catalogId}" connected. The products marked for it are being sent.`, connected.statusMessage ? "error" : "success");
+      await load();
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't connect the catalog."), "error");
+      form.querySelector('button[type="submit"]').disabled = false;
+    }
+  });
+
   listEl.addEventListener("click", async (e) => {
+    const catalogOpen = e.target.closest("[data-wa-catalog]");
+    if (catalogOpen) {
+      catalogFormFor = catalogOpen.dataset.waCatalog;
+      return render();
+    }
+    if (e.target.closest("[data-wa-catalog-cancel]")) {
+      catalogFormFor = "";
+      return render();
+    }
+    const catalogOff = e.target.closest("[data-wa-catalog-off]");
+    if (catalogOff) {
+      if (!confirm("Disconnect the catalog? Products stay in Meta's catalog, but the CRM stops syncing them and cannot send them in chats.")) return undefined;
+      return run(() => crmApi(`/whatsapp/accounts/${catalogOff.dataset.waCatalogOff}/catalog`, { method: "DELETE" }), "Catalog disconnected.");
+    }
     const copy = e.target.closest("[data-copy]");
     const test = e.target.closest("[data-wa-test]");
     const token = e.target.closest("[data-wa-token]");

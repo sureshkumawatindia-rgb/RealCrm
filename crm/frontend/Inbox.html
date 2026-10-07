@@ -220,6 +220,7 @@
                   <button class="icon-btn" id="quickRepliesBtn" type="button" title="Quick replies (type / )"><i class="fa-solid fa-bolt"></i></button>
                   <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document"><i class="fa-solid fa-paperclip"></i></button>
                   <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)"><i class="fa-solid fa-file-lines"></i></button>
+                  <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog"><i class="fa-solid fa-store"></i></button>
                   <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.mp4,.3gp,.aac,.amr,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
                   <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies"></textarea>
                   <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)"><i class="fa-solid fa-paper-plane"></i></button>
@@ -352,6 +353,32 @@
               <button class="btn btn-primary" id="templateSend" type="submit"><i class="fa-solid fa-paper-plane"></i> Send template</button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products from the WhatsApp catalog (Phase 8C) -->
+    <div class="modal-overlay" id="productsModal">
+      <div class="modal template-modal">
+        <div class="modal-head">
+          <h3>Send products</h3>
+          <button class="icon-btn" id="productsModalClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted template-hint">Products of your WhatsApp catalog. The customer sees the photo and price with GST, and can send a cart back — it becomes an order. One product goes on its own; several go as a list (at most 30).</p>
+          <input type="search" class="template-search" id="productsSearch" placeholder="Search products" aria-label="Search products" />
+          <div class="template-list" id="productsList"></div>
+          <div class="field" id="productsHeaderField" hidden>
+            <label for="productsHeader">Heading of the list</label>
+            <input type="text" id="productsHeader" maxlength="60" />
+          </div>
+          <div class="field">
+            <label for="productsText">Message (optional)</label>
+            <input type="text" id="productsText" maxlength="1024" placeholder="e.g. Fresh stock, dispatch in 2 days" />
+          </div>
+          <div class="template-actions">
+            <button class="btn btn-primary" id="productsSend" type="button" disabled><i class="fa-solid fa-paper-plane"></i> Send</button>
+          </div>
         </div>
       </div>
     </div>

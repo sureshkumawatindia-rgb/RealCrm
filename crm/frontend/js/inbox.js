@@ -219,6 +219,15 @@
       return `<div class="attachment"><i class="fa-solid fa-location-dot"></i><a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(name || address || "Location")}</a></div>`;
     }
     if (m.type === "reaction") return `Reacted ${escapeHtml(m.reaction?.emoji || "")}`;
+    // Products from the WhatsApp catalog (sent), and a cart the customer sent back (Phase 8C).
+    if (m.type === "interactive" && m.interactive?.products?.length) {
+      const names = m.interactive.products.map((p) => `<span class="bot-option"><i class="fa-solid fa-store"></i> ${escapeHtml(p.name || p.retailerId)}</span>`).join("");
+      return `${m.interactive.kind === "product_list" ? text : ""}<div class="bot-options">${names}</div>`;
+    }
+    if (m.type === "order" && m.order) {
+      const items = m.order.items.map((i) => `<li>${escapeHtml(String(i.quantity))} × ${escapeHtml(productNameOf(i.retailerId))}${i.itemPricePaise ? ` · ₹${(i.itemPricePaise / 100).toLocaleString("en-IN")}` : ""}</li>`).join("");
+      return `<div class="attachment"><i class="fa-solid fa-cart-shopping"></i><strong>Order from the catalog</strong></div><ul class="cart-items">${items}</ul>${m.order.text ? `<div class="caption">${linkify(escapeHtml(m.order.text))}</div>` : ""}${m.order.orderId ? `<a class="btn btn-outline" href="Orders.html?id=${encodeURIComponent(m.order.orderId)}"><i class="fa-solid fa-truck-fast"></i> Open the order</a>` : '<div class="text-muted">Making the order…</div>'}`;
+    }
     // The bot's buttons or list (sent), or the customer's choice (received).
     if (m.type === "interactive" && m.direction === "out" && m.interactive) {
       const options = m.interactive.options.map((o) => `<span class="bot-option">${escapeHtml(o.title)}</span>`).join("");
@@ -234,7 +243,7 @@
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
-    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · ", consent: "Opt-out reply · ", receipt: "Payment receipt · ", broadcast: "Broadcast · " }[m.automation.kind] || "Automation · ") : "";
+    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · ", consent: "Opt-out reply · ", receipt: "Payment receipt · ", broadcast: "Broadcast · ", "catalog-order": "Order received · " }[m.automation.kind] || "Automation · ") : "";
     const who = m.direction !== "out" ? "" : robot || (m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "");
     const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
     const replyButton = m.providerMessageId && m.direction === "in"
@@ -373,6 +382,7 @@
     $("composerSend").disabled = !open;
     $("quickRepliesBtn").disabled = !open;
     $("attachBtn").disabled = !open;
+    $("productsBtn").disabled = !open; // product messages need the 24-hour window
     if (!open) clearFile();
   }
 
@@ -818,6 +828,100 @@
       else showToast("Template sent.", "success");
     } catch (error) {
       showToast(apiErrorMessage(error, "Couldn't send the template."), "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  // --- products from the WhatsApp catalog (Phase 8C) ------------------------------------------
+  // Synced products of the chat's number; one goes as a product message, several as a list.
+  const pickedProducts = new Set();
+  function productNameOf(retailerId) {
+    return (state.catalogProducts || []).find((p) => p.retailerId === retailerId)?.name || retailerId;
+  }
+  function renderProductPicker() {
+    const q = $("productsSearch").value.trim().toLowerCase();
+    const list = (state.catalogProducts || []).filter((p) => !q || `${p.name} ${p.category}`.toLowerCase().includes(q));
+    $("productsList").innerHTML = list.length
+      ? list
+          .map(
+            (p) => `
+          <label class="template-item product-pick">
+            <input type="checkbox" data-product="${escapeHtml(p.id)}" ${pickedProducts.has(String(p.id)) ? "checked" : ""} />
+            <span><strong>${escapeHtml(p.name)}</strong>${p.category ? ` <span class="badge badge-neutral">${escapeHtml(p.category)}</span>` : ""}
+              <span class="template-item-body">₹${(p.priceWithGstPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })} with GST${p.unit ? ` per ${escapeHtml(p.unit)}` : ""}</span></span>
+          </label>`,
+          )
+          .join("")
+      : '<p class="text-muted template-empty">No product matches your search.</p>';
+    renderProductPickerFoot();
+  }
+  // The heading (for a list) and the Send button follow the ticks (the list is not redrawn).
+  function renderProductPickerFoot() {
+    const count = pickedProducts.size;
+    $("productsHeaderField").hidden = count < 2;
+    $("productsSend").disabled = !count || count > 30;
+    $("productsSend").innerHTML = `<i class="fa-solid fa-paper-plane"></i> ${count > 30 ? "At most 30 products" : `Send${count ? ` ${count} ${count === 1 ? "product" : "products"}` : ""}`}`;
+  }
+  async function openProductPicker() {
+    if (!state.current) return;
+    pickedProducts.clear();
+    $("productsSearch").value = "";
+    $("productsText").value = "";
+    $("productsHeader").value = "Our products";
+    $("productsHeaderField").hidden = true;
+    $("productsSend").disabled = true;
+    $("productsList").innerHTML = '<p class="text-muted template-empty">Loading the catalog…</p>';
+    $("productsModal").classList.add("open");
+    try {
+      const data = await crmApi(`/conversations/${state.current.id}/catalog`);
+      state.catalogProducts = data.products;
+      if (data.blocked || !data.products.length) {
+        const empty = isOrgManager()
+          ? 'No product is in the WhatsApp catalog yet. On the <a href="Products.html">Products</a> page tick “Show in the WhatsApp catalog” (with a price and a photo link), then sync.'
+          : "No product is in the WhatsApp catalog yet. Ask an owner or admin to add some.";
+        $("productsList").innerHTML = `<p class="text-muted template-empty">${data.blocked ? escapeHtml(data.blocked) : empty}</p>`;
+        return;
+      }
+      renderProductPicker();
+      $("productsSearch").focus();
+    } catch (error) {
+      $("productsList").innerHTML = `<p class="text-muted template-empty">${escapeHtml(apiErrorMessage(error, "Couldn't load the catalog."))}</p>`;
+    }
+  }
+  const closeProductPicker = () => $("productsModal").classList.remove("open");
+  $("productsBtn").addEventListener("click", openProductPicker);
+  $("productsModalClose").addEventListener("click", closeProductPicker);
+  $("productsModal").addEventListener("click", (e) => {
+    if (e.target.id === "productsModal") closeProductPicker();
+  });
+  $("productsSearch").addEventListener("input", renderProductPicker);
+  $("productsList").addEventListener("change", (e) => {
+    const box = e.target.closest("[data-product]");
+    if (!box) return;
+    if (box.checked) pickedProducts.add(box.dataset.product);
+    else pickedProducts.delete(box.dataset.product);
+    renderProductPickerFoot();
+  });
+  $("productsSend").addEventListener("click", async () => {
+    const conversation = state.current;
+    if (!conversation || !pickedProducts.size) return;
+    const button = $("productsSend");
+    button.disabled = true;
+    try {
+      const message = await crmApi(`/conversations/${conversation.id}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
+        body: JSON.stringify({ productIds: [...pickedProducts], header: $("productsHeader").value.trim(), body: $("productsText").value.trim() }),
+      });
+      closeProductPicker();
+      if (state.current && String(state.current.id) === String(conversation.id)) {
+        addOrReplaceMessage(message);
+        renderMessages();
+      }
+      showToast(message.status === "failed" ? `WhatsApp did not send it: ${message.error?.message || "unknown reason"}` : "Products sent.", message.status === "failed" ? "error" : "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't send the products."), "error");
     } finally {
       button.disabled = false;
     }
