@@ -599,6 +599,27 @@ Guide: [AI_ASSISTANT.md](AI_ASSISTANT.md). 409 `AI_UNAVAILABLE` (no platform key
 | `POST` | `/ai/test` | `{ message }` → `{ reply, handoff, confidence, reason }` — what it would answer a customer; nothing is sent. |
 | `POST` | `/conversations/:id/ai/suggest` | Inbox edit permission and a chat the member may see: `{ suggestions [1–3 strings], note }`. |
 
+## Mobile app, web push and phone sign-in (Phase 10E)
+
+The pages are an installable app (`crm/frontend/manifest.webmanifest`, service worker `sw.js`: offline page, push notifications; the API is never cached).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/push/key` | The VAPID public key (base64url) to subscribe with. |
+| `GET` | `/push/devices` | `{ devices }` — this member's subscribed browsers / apps. |
+| `POST` | `/push/subscriptions` | The browser's `PushSubscription.toJSON()` (`{ endpoint (https), keys { p256dh, auth } }`) → 201 `{ id, devices }`; at most 10 per member. |
+| `DELETE` | `/push/subscriptions` | `{ endpoint }` — this member's device only. |
+| `POST` | `/push/test` | A test notification to this member's devices → `{ sent, removed }`; 409 `NO_DEVICES`. |
+| `GET` | `/auth/otp/available` | Public: `{ available }` — does the login page offer a WhatsApp code. |
+| `POST` | `/auth/otp/request` | Public, rate-limited: `{ phone }` → `{ sent, message, expiresInSeconds, devCode? (mock only) }` — the same answer whether or not the number belongs to someone. 429 `OTP_TOO_MANY`, 409 `OTP_OFF`, 502 `OTP_NOT_SENT`. |
+| `POST` | `/auth/otp/verify` | `{ phone, code (6 digits) }` → the same as `POST /auth/google` (token, user, organization, member, memberships; refresh cookie). 401 `OTP_INVALID` / `OTP_LOCKED`. |
+| `GET` | `/auth/phone` | Signed in: `{ phone, verifiedAt, available }`. |
+| `POST` | `/auth/phone/request` | `{ phone }` → a code to verify one's own number; 409 `PHONE_IN_USE`. |
+| `POST` | `/auth/phone/verify` | `{ phone, code }` → the number is verified for sign-in. |
+| `DELETE` | `/auth/phone` | Removes it. |
+
+Every bell note (`notificationService.notify`) is also sent as web push to the member's devices: `{ title, body, url, tag }`, encrypted (RFC 8291 aes128gcm) and signed (RFC 8292 VAPID).
+
 ## Idempotency
 
 `POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.

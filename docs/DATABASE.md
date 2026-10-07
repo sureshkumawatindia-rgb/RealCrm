@@ -173,6 +173,16 @@ No new collections: reports are counted from the records when asked (D47). New i
 
 `organizations.ai` { enabled (false), autoReply (false), instructions } and `conversations.ai` { answeredAt, handedOffAt, handoffReason } (defaults only; no migration). Messages the assistant sends have `automation.kind: "ai"` (API messages: `"api"`), so reports do not count them as a teammate's reply. Job: `ai.reply` (one per customer message, `uniqueKey ai.reply:<message>`, one attempt).
 
+## 1p. Phase 10E (mobile app, push, phone sign-in)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `pushsubscriptions` | `organizationId`, `memberId`, `userId`, `endpoint`, `keys` { p256dh, auth }, `userAgent`, `lastSuccessAt`, `failures` (removed at 10, or on 404/410) | unique `endpoint`; `(organizationId, memberId)` |
+| `platformsettings` | `key` (e.g. `vapid`), `value` (`{ publicKey, privateKeyEnc }` — secretBox) | unique `key` |
+| `otpchallenges` | `phoneE164`, `purpose` login/link, `userId`, `codeHash` (HMAC with JWT_SECRET; a random one when nothing was sent), `sent`, `attempts`, `expiresAt` (5 min), `consumedAt`, `ip` | `(phoneE164, purpose, createdAt -1)`; TTL 1 day |
+
+`users.phoneE164` + `users.phoneVerifiedAt` (unique when set). Job: `push.send` (one per bell note for members with devices).
+
 ## 2. Data migrations
 
 | Migration | What it does |
