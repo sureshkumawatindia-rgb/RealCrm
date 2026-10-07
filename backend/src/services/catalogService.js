@@ -14,7 +14,6 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { nextSequence } = require('../utils/counter');
 const { financialYear, formatRupees } = require('../utils/money');
-const { planOf } = require('../constants/plans');
 const { providerFor } = require('../integrations/whatsapp');
 const accounts = require('./whatsappAccountService');
 const { billingOf } = require('./organizationService');
@@ -23,6 +22,7 @@ const conversationService = require('./conversationService');
 const leadService = require('./leadService');
 const notificationService = require('./notificationService');
 const { leadOfContact } = require('./automation/context');
+const planService = require('./planService');
 
 // The WhatsApp catalog (Phase 8C, Meta Commerce). A number's WhatsApp Business Account has a
 // catalog connected in Meta's Commerce Manager; the CRM checks it, then keeps it in step with the
@@ -42,10 +42,7 @@ const withGstPaise = (product) => Math.round(((product.pricePaise || 0) * (100 +
 
 const { serializeCatalog } = accounts;
 
-async function assertPlan(organizationId) {
-  const plan = planOf(await Organization.findById(organizationId));
-  if (!plan.catalog) throw httpError(403, 'PLAN_LIMIT', `The WhatsApp catalog comes with the Growth plan and above (you are on ${plan.name}).`);
-}
+const assertPlan = (organizationId) => planService.assertFeature(organizationId, 'catalog');
 
 // --- connecting a catalog to a number (Settings → WhatsApp, owners and admins) ----------------
 // PUT /whatsapp/accounts/:id/catalog { catalogId, catalogVisible?, cartEnabled? }
@@ -101,7 +98,7 @@ async function status(req) {
     Product.countDocuments({ organizationId, 'catalog.include': true, active: true, 'catalog.status': 'error' }),
   ]);
   return {
-    available: Boolean(planOf(await Organization.findById(organizationId)).catalog),
+    available: planService.hasFeature(await Organization.findById(organizationId), 'catalog'),
     catalogs: list.map((account) => ({ ...serializeCatalog(account), accountName: account.name || account.verifiedName || account.displayPhone || '' })),
     products: { included, synced, failed },
   };
@@ -141,7 +138,7 @@ async function syncAccount(accountId) {
   const account = await WhatsAppAccount.findById(accountId);
   if (!account?.catalog?.catalogId) return { skipped: 'no catalog' };
   const organization = await Organization.findById(account.organizationId);
-  if (!planOf(organization).catalog) return { skipped: 'plan' };
+  if (!planService.hasFeature(organization, 'catalog')) return { skipped: 'plan' };
   const organizationId = account.organizationId;
   const [products, deleted] = await Promise.all([
     Product.find({ organizationId, $or: [{ 'catalog.include': true }, { 'catalog.retailerId': { $exists: true } }] }),
@@ -226,10 +223,8 @@ async function chatCatalog(req, conversationId) {
 // GET /conversations/:id/catalog — the products that can be sent in this chat.
 async function productsForChat(req, conversationId) {
   const { conversation, catalogId } = await chatCatalog(req, conversationId);
-  const plan = planOf(await Organization.findById(req.tenant.organizationId));
-  let blocked = '';
-  if (!plan.catalog) blocked = `The WhatsApp catalog comes with the Growth plan and above (you are on ${plan.name}).`;
-  else if (!catalogId) blocked = 'This chat\'s WhatsApp number has no catalog yet (Settings → WhatsApp).';
+  let blocked = planService.featureBlock(await Organization.findById(req.tenant.organizationId), 'catalog');
+  if (!blocked && !catalogId) blocked = 'This chat\'s WhatsApp number has no catalog yet (Settings → WhatsApp).';
   const products = blocked ? [] : await Product.find({ organizationId: req.tenant.organizationId, active: true, 'catalog.include': true, 'catalog.status': 'synced' })
     .sort({ category: 1, name: 1 }).limit(500);
   return {

@@ -10,6 +10,7 @@ const { signAccessToken } = require('../utils/tokens');
 const { verifyGoogleIdToken } = require('../integrations/google/idToken');
 const sessionService = require('./sessionService');
 const inviteService = require('./inviteService');
+const planService = require('./planService');
 
 function safeGoogleAuthMessage(error) {
   const message = String(error.message || '');
@@ -39,7 +40,8 @@ async function adoptLegacyOrganization(user) {
 
 async function createOrganizationFor(user) {
   await mongoose.connection.transaction(async (session) => {
-    const [organization] = await Organization.create([{ name: `${user.name || user.email || 'My'} Organization`, ownerId: user._id }], { session });
+    // A new organization starts the 30-day trial (D48).
+    const [organization] = await Organization.create([{ name: `${user.name || user.email || 'My'} Organization`, ownerId: user._id, ...planService.trialFields() }], { session });
     await OrganizationMember.create([{ organizationId: organization._id, userId: user._id, role: 'owner' }], { session });
   });
 }

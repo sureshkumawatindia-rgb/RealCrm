@@ -12,13 +12,13 @@ const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { toPage, paginationMeta } = require('../utils/pagination');
-const { planOf } = require('../constants/plans');
 const { estimateCost } = require('../constants/whatsappPricing');
 const templateService = require('./templateService');
 const conversations = require('./conversationService');
 const notifications = require('./notificationService');
 const segmentService = require('./segmentService');
 const workflowService = require('./workflowService');
+const planService = require('./planService');
 const { resolveVariables } = require('./automation/actions');
 const { loadContext, leadOfContact } = require('./automation/context');
 
@@ -41,17 +41,12 @@ const dailyLimitOf = (account) => DAILY_LIMITS[account?.messagingLimit] ?? 250;
 const EDITABLE = ['draft', 'scheduled'];
 const STOPPABLE = ['scheduled', 'sending', 'paused'];
 
-// The first moment of this month in India time.
-function monthStart(now = new Date()) {
-  const ist = new Date(now.getTime() + 330 * 60 * 1000);
-  return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1) - 330 * 60 * 1000);
-}
+const { monthStart } = planService;
 
+// The plan's broadcasts this month (counted when they start).
 async function quotaOf(organizationId) {
-  const organization = await Organization.findById(organizationId).select('plan');
-  const plan = planOf(organization);
-  const used = await Broadcast.countDocuments({ organizationId, startedAt: { $gte: monthStart() } });
-  return { plan: plan.name, limit: plan.broadcastsPerMonth, used, left: Math.max(plan.broadcastsPerMonth - used, 0) };
+  const { plan, limit, used, left } = await planService.roomFor(organizationId, 'broadcastsPerMonth');
+  return { plan, limit, used, left };
 }
 
 // People who got a template from this organization in the last 24 hours (as Meta counts them).
@@ -185,6 +180,7 @@ async function send(req, id, { scheduledAt }) {
   const broadcast = await find(req, id);
   if (!EDITABLE.includes(broadcast.status)) throw httpError(409, 'BROADCAST_STARTED', 'This broadcast has already started.');
   await checkContent(req, broadcast);
+  await planService.assertActive(req.tenant.organizationId, 'send broadcasts');
   const quota = await quotaOf(req.tenant.organizationId);
   if (!quota.left) throw httpError(409, 'QUOTA_REACHED', `Your ${quota.plan} plan allows ${quota.limit} broadcasts a month; this month's are used up.`);
   const segment = await Segment.findById(broadcast.segmentId);
@@ -263,6 +259,7 @@ async function start({ broadcastId }) {
   const broadcast = await Broadcast.findById(broadcastId);
   if (!broadcast || broadcast.status !== 'scheduled') return;
   const organizationId = broadcast.organizationId;
+  if (planService.subscriptionOf(await Organization.findById(organizationId)).locked) return fail(broadcast, 'Not sent: the subscription is not active (Settings → Plan & usage).');
   const quota = await quotaOf(organizationId);
   if (!quota.left) return fail(broadcast, `Not sent: your ${quota.plan} plan's ${quota.limit} broadcasts for this month were used up.`);
   const template = await MessageTemplate.findOne({ _id: broadcast.templateId, organizationId });

@@ -5,6 +5,7 @@ const { audit } = require('../utils/audit');
 const { normalizePhone } = require('../utils/phone');
 const { providerFor } = require('../integrations/whatsapp');
 const accountService = require('./whatsappAccountService');
+const planService = require('./planService');
 
 // WhatsApp message templates (Settings → WhatsApp → Templates, and the Inbox template picker).
 // Meta's rules checked 2026-09-29 (Template API, template components, template messages):
@@ -196,6 +197,7 @@ function buildTemplate(body) {
 }
 
 async function create(req, body) {
+  await planService.assertRoom(req.tenant.organizationId, 'templates', { action: 'add message templates' });
   const account = await accountFor(req, body.accountId);
   const template = buildTemplate(body);
   if (await MessageTemplate.exists({ organizationId: account.organizationId, whatsappAccountId: account._id, name: template.name, language: template.language })) {

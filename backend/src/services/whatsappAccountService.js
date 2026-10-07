@@ -6,6 +6,7 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { encrypt, decrypt } = require('../utils/secretBox');
 const { providerFor } = require('../integrations/whatsapp');
+const planService = require('./planService');
 
 // Settings → WhatsApp: the organization's connected numbers. Owners and admins only.
 const webhookPath = (account) => `/api/v1/webhooks/whatsapp/${account.webhookKey}`;
@@ -93,6 +94,7 @@ async function create(req, body) {
   if (provider === 'meta' && (!body.phoneNumberId || !body.accessToken || !body.appSecret)) {
     throw httpError(400, 'VALIDATION_ERROR', 'Phone number ID, access token and app secret are required.');
   }
+  await planService.assertRoom(req.tenant.organizationId, 'whatsappNumbers', { action: 'connect WhatsApp numbers' });
   const phoneNumberId = provider === 'mock' ? body.phoneNumberId || `mock-${crypto.randomBytes(6).toString('hex')}` : body.phoneNumberId;
   if (await WhatsAppAccount.exists({ activePhoneNumberId: phoneNumberId })) {
     throw httpError(409, 'NUMBER_IN_USE', 'This WhatsApp number is already connected (here or in another company).');

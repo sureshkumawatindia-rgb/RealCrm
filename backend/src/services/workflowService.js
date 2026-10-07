@@ -18,6 +18,7 @@ const templateService = require('./templateService');
 const leadService = require('./leadService');
 const engine = require('./automation/engine');
 const { VARIABLE_VALUES } = require('./automation/actions');
+const planService = require('./planService');
 
 // Workflows of the automation engine (Sales Automation page, Phase 6): "when <trigger>, if
 // <conditions>, do <steps>". Saving checks what Joi cannot: the people, templates and webhook
@@ -152,13 +153,17 @@ async function stopRuns(workflow, reason) {
 }
 
 // --- workflows -----------------------------------------------------------------------------
+// Workflows come with the Growth plan and above (D48); follow-up sequences, the FAQ bot and
+// auto-replies are in every plan.
 async function create(req, body) {
+  await planService.assertFeature(req.tenant.organizationId, 'advancedAutomation');
   await checkReferences(req, body);
   return base.create(req, body);
 }
 
 async function update(req, id, body) {
   const workflow = await base.findVisible(req, id);
+  if (body.status === 'Active' && workflow.status !== 'Active') await planService.assertFeature(req.tenant.organizationId, 'advancedAutomation');
   if (['conditions', 'steps', 'status'].some((key) => key in body)) {
     await checkReferences(req, {
       conditions: body.conditions || plain(workflow.conditions),
@@ -188,6 +193,7 @@ async function get(req, id) {
 async function runByHand(req, id, { leadId }) {
   const workflow = await base.findVisible(req, id);
   if (workflow.status !== 'Active') throw httpError(409, 'NOT_ACTIVE', 'Only an active workflow can run. Set it to Active first.');
+  await planService.assertFeature(req.tenant.organizationId, 'advancedAutomation');
   const lead = await leadService.findVisible(req, leadId);
   const run = await engine.runByHand(queue, workflow, { leadId: lead._id, startedBy: req.user.name });
   await audit(req, { action: 'workflow.run', entityType: 'Workflow', entityId: workflow._id, changes: { leadId: String(lead._id), runId: String(run._id) } });

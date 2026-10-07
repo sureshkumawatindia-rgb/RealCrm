@@ -8,6 +8,7 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { randomToken, hashToken } = require('../utils/tokens');
 const { DEFAULT_MODULES } = require('../constants/permissions');
+const planService = require('./planService');
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // Soft-delete filter that also matches removed members (see models/plugins/softDelete.js).
@@ -15,6 +16,8 @@ const INCLUDING_REMOVED = { deletedAt: { $exists: true } };
 
 const inviteLink = (token) => `${env.publicUrl}/crm/frontend/login.html?invite=${encodeURIComponent(token)}`;
 const isExpired = (invite) => invite.expiresAt < new Date();
+// A pending invite holds a seat of the plan (D48); re-sending one that still does adds nothing.
+const holdsSeat = (invite) => invite?.status === 'pending' && !isExpired(invite);
 
 function serializeInvite(invite) {
   return {
@@ -54,6 +57,8 @@ async function create(req, { email, role, modules, permissions, displayName = ''
   if (existingUser && await OrganizationMember.exists({ organizationId, userId: existingUser._id, status: 'active' })) {
     throw httpError(409, 'ALREADY_MEMBER', `${email} is already a member of this organization.`);
   }
+  const pending = await Invite.findOne({ organizationId, email });
+  await planService.assertRoom(organizationId, 'users', { adding: holdsSeat(pending) ? 0 : 1, action: 'invite people' });
 
   const { invite, link } = await issue(
     { organizationId, email },
@@ -88,6 +93,7 @@ async function resend(req, id) {
   const existing = await findInOrg(req, id);
   if (existing.status === 'accepted') throw httpError(409, 'CONFLICT', 'This invite was already accepted.');
   if (existing.role === 'admin' && req.member.role !== 'owner') throw httpError(403, 'FORBIDDEN', 'Only an owner can invite admins.');
+  await planService.assertRoom(req.tenant.organizationId, 'users', { adding: holdsSeat(existing) ? 0 : 1, action: 'invite people' });
   const { invite, link } = await issue({ _id: existing._id }, {});
   await audit(req, { action: 'invite.resent', entityType: 'Invite', entityId: invite._id });
   return { invite: serializeInvite(invite), link };

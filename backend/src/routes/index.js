@@ -29,6 +29,7 @@ const segmentRoutes = require('./segments');
 const broadcastRoutes = require('./broadcasts');
 const { settingsRoutes: paymentRoutes, linkRoutes: paymentLinkRoutes } = require('./payments');
 const reportRoutes = require('./reports');
+const billingRoutes = require('./billing');
 
 const router = express.Router();
 
@@ -71,5 +72,6 @@ router.use('/broadcasts', broadcastRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/payment-links', paymentLinkRoutes);
 router.use('/reports', reportRoutes);
+router.use('/billing', billingRoutes);
 
 module.exports = router;

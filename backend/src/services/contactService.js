@@ -6,6 +6,7 @@ const { normalizePhone } = require('../utils/phone');
 const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { searchFilter, sortSpec } = require('../utils/listQuery');
 const { visibilityFilter, resolveOwnerId, ownerPatch } = require('./access');
+const planService = require('./planService');
 
 const MODULE = 'customers';
 const SEARCH_FIELDS = ['name', 'email', 'phone', 'company', 'city'];
@@ -94,6 +95,8 @@ async function findVisible(req, id, session) {
 async function create(req, body, { session } = {}) {
   const data = normalizeFields(body);
   await assertPhoneFree(req, data.phoneE164, undefined, session);
+  // Contacts added by hand count against the plan; WhatsApp messages and lead sources never stop.
+  await planService.assertRoom(req.tenant.organizationId, 'contacts', { action: 'add contacts' });
   const { marketingConsent, ...fields } = data;
   const contact = await repo(req).create({
     ...fields,

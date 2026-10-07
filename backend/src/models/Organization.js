@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { PLAN_KEYS, TRIAL_PLAN } = require('../constants/plans');
+const { PLAN_KEYS, TRIAL_PLAN, SUBSCRIPTION_STATUSES } = require('../constants/plans');
 
 const organizationSchema = new mongoose.Schema(
   {
@@ -20,8 +20,23 @@ const organizationSchema = new mongoose.Schema(
     country: { type: String, trim: true },
     postalCode: { type: String, trim: true },
     description: { type: String, trim: true },
-    // The SaaS plan (constants/plans.js). Until billing (Phase 10) everyone has the trial (D34).
+    // The SaaS plan (constants/plans.js) and where its subscription stands (Phase 10,
+    // services/planService.js). No defaults on purpose: an organization from before billing has
+    // no status and counts as comped (D48); a new one starts a 30-day trial at sign-up.
     plan: { type: String, enum: PLAN_KEYS, default: TRIAL_PLAN },
+    subscription: {
+      status: { type: String, enum: SUBSCRIPTION_STATUSES },
+      since: Date,
+      trialEndsAt: Date,
+      currentPeriodStart: Date,
+      currentPeriodEnd: Date,
+      cancelAtPeriodEnd: Boolean,
+      provider: String,
+      providerSubscriptionId: String,
+      providerCustomerId: String,
+      pendingPlan: { type: String, enum: PLAN_KEYS },
+      remindedFor: String, // the last trial reminder sent ("7", "3", "1", "ended"), once each
+    },
     // Quotations and orders (Phase 5): what the PDF shows and how documents are numbered.
     billing: {
       bank: {

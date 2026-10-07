@@ -29,6 +29,7 @@ const leadService = require('./leadService');
 const contactService = require('./contactService');
 const conversationService = require('./conversationService');
 const templateService = require('./templateService');
+const planService = require('./planService');
 
 // Quotations, estimates and proforma invoices (Phase 5). The browser sends quantities,
 // prices, discounts and rates; every amount is computed here (utils/gst). A draft is edited
@@ -239,6 +240,7 @@ async function preview(req, body) {
 }
 
 async function create(req, body) {
+  await planService.assertRoom(req.tenant.organizationId, 'quotesPerMonth', { action: 'make quotations' });
   let quotation;
   await mongoose.connection.transaction(async (session) => {
     const org = await loadOrg(req, session);

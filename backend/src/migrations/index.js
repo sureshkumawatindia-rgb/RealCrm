@@ -8,6 +8,7 @@ const MIGRATIONS = [
   require('./002-quotations-v2'),
   require('./003-workflows-v2'),
   require('./004-sequences-v2'),
+  require('./005-subscriptions'),
 ];
 
 async function runMigrations() {

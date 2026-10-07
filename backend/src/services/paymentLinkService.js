@@ -13,7 +13,6 @@ const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { formatRupees } = require('../utils/money');
-const { planOf } = require('../constants/plans');
 const { PAYMENT_PROVIDERS, OPEN_LINK_STATUSES, MIN_LINK_PAISE } = require('../constants/payments');
 const { toPage, paginationMeta } = require('../utils/pagination');
 const { visibilityFilter } = require('./access');
@@ -26,6 +25,7 @@ const templateService = require('./templateService');
 const notificationService = require('./notificationService');
 const automationEvents = require('./automation/events');
 const { leadOfContact } = require('./automation/context');
+const planService = require('./planService');
 
 // Payment links (Phase 8): made through the organization's gateway for an order, a quotation or
 // an amount, then followed until they are paid. Two ways a payment reaches the CRM — the
@@ -125,7 +125,7 @@ async function subjectOf(req, body) {
 // minPartialPaise?, expiresInDays?, connectionId? }
 async function create(req, body) {
   const organization = await Organization.findById(req.tenant.organizationId);
-  if (!planOf(organization).paymentLinks) throw httpError(403, 'PLAN_LIMIT', `Payment links come with the Pro plan and above (you are on ${planOf(organization).name}).`);
+  await planService.assertFeature(organization, 'paymentLinks');
   const subject = await subjectOf(req, body);
   const amountPaise = body.amountPaise || (Number.isFinite(subject.maxPaise) ? subject.maxPaise : 0);
   if (!amountPaise) throw httpError(400, 'VALIDATION_ERROR', 'Enter the amount to collect.', [{ field: 'amountPaise', code: 'REQUIRED', message: 'Enter the amount to collect.' }]);
@@ -227,7 +227,8 @@ async function options(req, query) {
     if (error.statusCode === 404) throw error;
     blocked = error.message; // paid already, cancelled, rejected …
   }
-  if (!planOf(organization).paymentLinks) blocked = `Payment links come with the Pro plan and above (you are on ${planOf(organization).name}).`;
+  const planBlock = planService.featureBlock(organization, 'paymentLinks');
+  if (planBlock) blocked = planBlock;
   else if (!connections.length) blocked = ['owner', 'admin'].includes(req.member.role) ? 'Connect Razorpay or Cashfree in Settings → Payments first.' : 'Ask an owner or admin to connect Razorpay or Cashfree in Settings → Payments.';
   // The subject's links: an order's (also those made for its quotation), a quotation's, a customer's.
   let filter = { contactId: query.contactId };

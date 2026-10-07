@@ -78,5 +78,7 @@ quotationSchema.index({ organizationId: 1, leadId: 1, status: 1 });
 quotationSchema.index({ organizationId: 1, contactId: 1, createdAt: -1 });
 quotationSchema.index({ organizationId: 1, status: 1, validUntil: 1 });
 quotationSchema.index({ organizationId: 1, legacyIds: 1 });
+// The plan's quotations this month (Phase 10).
+quotationSchema.index({ organizationId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Quotation', quotationSchema);

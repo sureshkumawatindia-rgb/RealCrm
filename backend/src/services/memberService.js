@@ -4,6 +4,7 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { revokeMemberSessions } = require('./sessionService');
 const bus = require('../realtime/bus');
+const planService = require('./planService');
 
 const MANAGER_ROLES = ['owner', 'admin'];
 
@@ -62,6 +63,8 @@ async function update(req, id, patch) {
   }
   const losesOwner = member.role === 'owner' && ((patch.role && patch.role !== 'owner') || patch.status === 'disabled');
   if (losesOwner) await assertAnotherOwner(req, member);
+  // Turning a disabled member back on takes a seat of the plan.
+  if (patch.status === 'active' && member.status !== 'active') await planService.assertRoom(req.tenant.organizationId, 'users', { action: 'turn members back on' });
 
   const before = { role: member.role, modules: member.modules, permissions: member.permissions, status: member.status };
   Object.assign(member, patch);

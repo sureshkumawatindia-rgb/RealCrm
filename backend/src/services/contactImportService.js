@@ -6,6 +6,7 @@ const { normalizePhone } = require('../utils/phone');
 const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { LEAD_SOURCES } = require('../constants/crm');
 const { visibilityFilter, resolveOwnerId } = require('./access');
+const planService = require('./planService');
 
 // Customers from a CSV file (Phase 7): the person maps the file's columns to CRM fields, phones
 // become +91… numbers, and nobody is added twice — rows of the same file with the same phone
@@ -182,6 +183,8 @@ async function run(req, file, options) {
     writes.push({ updateOne: { filter: { _id: found._id }, update: { $set: set, ...(newTags.length && { $addToSet: { tags: { $each: newTags } } }) } } });
   }
 
+  // New contacts must fit the plan (the whole file, so a half import never happens).
+  await planService.assertRoom(organizationId, 'contacts', { adding: report.created, action: 'import contacts' });
   if (!dryRun && writes.length) {
     try {
       await Contact.bulkWrite(writes, { ordered: false });
