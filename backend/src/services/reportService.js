@@ -177,7 +177,15 @@ async function overview(req, query) {
     orders: { count: orders.length, valuePaise: orders.reduce((s, o) => s + (o.totals?.grandTotalPaise || 0), 0) },
     payments: { collectedPaise: sum(payments, 'amountPaise'), count: payments.length },
     customers: { new: newCustomers },
-    pipeline: { open: openLeads.length, valuePaise: openLeads.reduce((s, l) => s + valueOf(l), 0), weightedPaise: openLeads.reduce((s, l) => s + Math.round((valueOf(l) * (STAGE_PROBABILITY[l.stage] || 0)) / 100), 0) },
+    pipeline: {
+      open: openLeads.length,
+      valuePaise: openLeads.reduce((s, l) => s + valueOf(l), 0),
+      weightedPaise: openLeads.reduce((s, l) => s + Math.round((valueOf(l) * (STAGE_PROBABILITY[l.stage] || 0)) / 100), 0),
+      byStage: OPEN_STAGES.map((stage) => {
+        const list = openLeads.filter((l) => l.stage === stage);
+        return { stage, count: list.length, valuePaise: list.reduce((s, l) => s + valueOf(l), 0) };
+      }),
+    },
     dues: { orders: dues.count, duePaise: dues.duePaise },
     whatsapp: {
       newChats, inboundMessages: inbound, replies: seconds.length,

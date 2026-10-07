@@ -146,40 +146,37 @@
 
         <div class="page">
           <!-- TOOLBAR -->
-          <div class="toolbar no-print">
-            <div class="report-tabs" id="reportTabs">
-              <button class="report-tab active" data-tab="overview">
-                <i class="fa-solid fa-gauge-high"></i> Overview
-              </button>
-              <button class="report-tab" data-tab="sales">
-                <i class="fa-solid fa-handshake"></i> Sales
-              </button>
-              <button class="report-tab" data-tab="leads">
-                <i class="fa-solid fa-bullseye"></i> Leads &amp; Marketing
-              </button>
-              <button class="report-tab" data-tab="team">
-                <i class="fa-solid fa-user-group"></i> Team
-              </button>
-              <button class="report-tab" data-tab="support">
-                <i class="fa-solid fa-headset"></i> Support
-              </button>
+          <div class="toolbar no-print report-toolbar">
+            <div class="report-tabs" id="reportTabs" role="tablist">
+              <button class="report-tab active" data-tab="overview" type="button"><i class="fa-solid fa-gauge-high"></i> Overview</button>
+              <button class="report-tab" data-tab="sales" type="button"><i class="fa-solid fa-file-invoice"></i> Sales</button>
+              <button class="report-tab" data-tab="leads" type="button"><i class="fa-solid fa-bullseye"></i> Leads &amp; Marketing</button>
+              <button class="report-tab" data-tab="team" type="button"><i class="fa-solid fa-user-group"></i> WhatsApp &amp; Team</button>
+              <button class="report-tab" data-tab="payments" type="button"><i class="fa-solid fa-indian-rupee-sign"></i> Payments</button>
+              <button class="report-tab" data-tab="support" type="button"><i class="fa-solid fa-headset"></i> Support</button>
             </div>
-            <div style="display: flex; gap: 10px; margin-left: auto">
-              <select class="filter" id="filterRange">
+            <div class="report-range">
+              <select class="filter" id="filterRange" aria-label="Period">
+                <option value="today">Today</option>
                 <option value="7">Last 7 days</option>
                 <option value="30" selected>Last 30 days</option>
+                <option value="this-month">This month</option>
+                <option value="last-month">Last month</option>
                 <option value="90">Last 90 days</option>
+                <option value="this-fy">This financial year</option>
                 <option value="365">Last 12 months</option>
-                <option value="all">All time</option>
+                <option value="custom">Choose dates…</option>
               </select>
-              <button class="btn btn-outline" id="exportBtn">
-                <i class="fa-solid fa-file-arrow-down"></i> Export CSV
-              </button>
-              <button class="btn btn-outline" id="printBtn">
-                <i class="fa-solid fa-print"></i> Print
-              </button>
+              <span class="report-custom" id="customRange" hidden>
+                <input type="date" class="filter" id="rangeFrom" aria-label="First day" />
+                <span>to</span>
+                <input type="date" class="filter" id="rangeTo" aria-label="Last day" />
+              </span>
+              <button class="btn btn-outline" id="exportBtn" type="button"><i class="fa-solid fa-file-arrow-down"></i> Export CSV</button>
+              <button class="btn btn-outline" id="printBtn" type="button"><i class="fa-solid fa-print"></i> Print</button>
             </div>
           </div>
+          <p class="report-range-label" id="rangeLabel"></p>
 
           <!-- KPI CARDS -->
           <div class="stat-grid" id="kpiGrid"></div>
@@ -189,24 +186,27 @@
             <div class="report-grid">
               <div class="panel report-span-2">
                 <div class="panel-head">
-                  <h3>Revenue Trend</h3>
-                  <span class="text-muted" style="font-size: 12px"
-                    >Won deals, last 6 months</span
-                  >
+                  <h3>Trend</h3>
+                  <div class="report-chips" id="trendChips" role="group" aria-label="What the trend shows">
+                    <button type="button" class="active" data-series="collectedPaise">Collected</button>
+                    <button type="button" data-series="orderValuePaise">Order value</button>
+                    <button type="button" data-series="leads">Leads</button>
+                    <button type="button" data-series="won">Won</button>
+                  </div>
                 </div>
-                <div id="revenueTrend" class="trend-chart"></div>
+                <div id="trendChart" class="trend-chart"></div>
               </div>
               <div class="panel">
-                <div class="panel-head"><h3>Win / Loss</h3></div>
+                <div class="panel-head"><h3>Won / Lost</h3><span class="report-note">in the period</span></div>
                 <div id="winLossDonut" class="donut-wrap"></div>
               </div>
-              <div class="panel report-span-2">
-                <div class="panel-head"><h3>Pipeline by Stage</h3></div>
-                <div id="pipelineBarsOverview" class="pipeline-wrap"></div>
-              </div>
               <div class="panel">
-                <div class="panel-head"><h3>Lead Funnel</h3></div>
-                <div id="leadFunnelOverview" class="funnel-wrap"></div>
+                <div class="panel-head"><h3>Lead funnel</h3><span class="report-note">leads of the period, how far they got</span></div>
+                <div id="leadFunnel" class="funnel-wrap"></div>
+              </div>
+              <div class="panel report-span-2">
+                <div class="panel-head"><h3>Open pipeline by stage</h3><span class="report-note">now</span></div>
+                <div id="pipelineBars" class="pipeline-wrap"></div>
               </div>
             </div>
           </div>
@@ -215,16 +215,16 @@
           <div class="report-panel" data-panel="sales">
             <div class="report-grid">
               <div class="panel">
-                <div class="panel-head"><h3>Pipeline by Stage</h3></div>
-                <div id="pipelineBarsSales" class="pipeline-wrap"></div>
+                <div class="panel-head"><h3>Quotations</h3><span class="report-note">sent in the period</span></div>
+                <div id="quoteFunnel" class="funnel-wrap"></div>
               </div>
               <div class="panel">
-                <div class="panel-head"><h3>Win / Loss Ratio</h3></div>
-                <div id="winLossDonutSales" class="donut-wrap"></div>
+                <div class="panel-head"><h3>Why quotations are rejected</h3></div>
+                <div id="rejectReasons" class="bar-list"></div>
               </div>
               <div class="panel report-span-2">
-                <div class="panel-head"><h3>Deals by Owner</h3></div>
-                <div id="dealsByOwnerTable"></div>
+                <div class="panel-head"><h3>Quotations by owner</h3></div>
+                <div class="report-table" id="quoteOwnerTable"></div>
               </div>
             </div>
           </div>
@@ -232,31 +232,56 @@
           <!-- LEADS & MARKETING TAB -->
           <div class="report-panel" data-panel="leads">
             <div class="report-grid">
-              <div class="panel">
-                <div class="panel-head"><h3>Lead Funnel</h3></div>
-                <div id="leadFunnel" class="funnel-wrap"></div>
+              <div class="panel report-span-2">
+                <div class="panel-head"><h3>Where leads come from</h3><span class="report-note">enquiries and leads of the period, and how far they got</span></div>
+                <div class="report-table" id="sourceTable"></div>
               </div>
               <div class="panel">
-                <div class="panel-head"><h3>Leads by Product Interest</h3></div>
+                <div class="panel-head"><h3>Leads by product interest</h3><span class="report-note">in the period</span></div>
                 <div id="leadsByProduct" class="bar-list"></div>
               </div>
-              <div class="panel report-span-2">
-                <div class="panel-head"><h3>Campaign Performance</h3></div>
-                <div id="campaignPerfTable"></div>
+              <div class="panel">
+                <div class="panel-head"><h3>Campaigns</h3><span class="report-note">running in the period</span></div>
+                <div class="report-table" id="campaignPerfTable"></div>
+              </div>
+              <div class="panel report-span-2" id="broadcastPanel">
+                <div class="panel-head"><h3>WhatsApp broadcasts</h3><span class="report-note">started in the period</span></div>
+                <div class="report-table" id="broadcastTable"></div>
               </div>
             </div>
           </div>
 
-          <!-- TEAM TAB -->
+          <!-- WHATSAPP & TEAM TAB -->
           <div class="report-panel" data-panel="team">
+            <div class="stat-grid report-mini-kpis" id="teamKpis"></div>
             <div class="panel">
               <div class="panel-head">
-                <h3>Agent Leaderboard</h3>
-                <span class="text-muted" style="font-size: 12px"
-                  >Ranked by overall performance score</span
-                >
+                <h3>Agent performance</h3>
+                <span class="report-note">reply times: from a customer's message to a teammate's answer (bot and automatic messages do not count)</span>
               </div>
-              <div id="leaderboardTable"></div>
+              <div class="report-table" id="agentTable"></div>
+            </div>
+          </div>
+
+          <!-- PAYMENTS TAB -->
+          <div class="report-panel" data-panel="payments">
+            <div class="report-grid">
+              <div class="panel report-span-2">
+                <div class="panel-head"><h3>Collected</h3><span class="report-note" id="payTrendNote"></span></div>
+                <div id="payTrend" class="trend-chart"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-head"><h3>How customers paid</h3></div>
+                <div id="payByWay" class="bar-list"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-head"><h3>Payment links and speed</h3></div>
+                <div id="payStats" class="mini-list"></div>
+              </div>
+              <div class="panel report-span-2">
+                <div class="panel-head"><h3>Due now, by how long it has waited</h3><span class="report-note">now</span></div>
+                <div id="payDues" class="pipeline-wrap"></div>
+              </div>
             </div>
           </div>
 
@@ -264,15 +289,15 @@
           <div class="report-panel" data-panel="support">
             <div class="report-grid">
               <div class="panel">
-                <div class="panel-head"><h3>Tickets by Status</h3></div>
+                <div class="panel-head"><h3>Tickets by status</h3><span class="report-note">opened in the period</span></div>
                 <div id="ticketStatusDonut" class="donut-wrap"></div>
               </div>
               <div class="panel">
-                <div class="panel-head"><h3>Tickets by Priority</h3></div>
+                <div class="panel-head"><h3>Tickets by priority</h3><span class="report-note">opened in the period</span></div>
                 <div id="ticketPriorityBars" class="bar-list"></div>
               </div>
               <div class="panel report-span-2">
-                <div class="panel-head"><h3>Support Snapshot</h3></div>
+                <div class="panel-head"><h3>Support snapshot</h3><span class="report-note">now</span></div>
                 <div id="supportSnapshot" class="mini-list"></div>
               </div>
             </div>

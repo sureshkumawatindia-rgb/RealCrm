@@ -140,8 +140,46 @@ function initQuickActions() {
 }
 
 // ---------------------------------------------------------------
-// KPI row
+// KPI row (Phase 9): counted on the server from every record (GET /reports/dashboard);
+// the older counts from the loaded records stay as a fallback.
 // ---------------------------------------------------------------
+function formatWait(minutes) {
+  if (minutes == null) return "";
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 48 * 60) return `${Math.floor(minutes / 60)} h`;
+  return `${Math.round(minutes / 1440)} days`;
+}
+async function renderServerKpis() {
+  let d;
+  try {
+    d = await crmApi("/reports/dashboard");
+  } catch {
+    return; // the cards from the loaded records stay
+  }
+  const money = (paise) => formatCurrency(Math.round((paise || 0) / 100));
+  const cards = [
+    {
+      label: "Chats waiting for a reply", value: d.chats.waitingForReply, route: "Inbox.html",
+      sub: d.chats.waitingForReply ? `longest ${formatWait(d.chats.longestWaitMinutes)} · ${d.chats.unassigned} not taken` : "all answered",
+      cls: d.chats.longestWaitMinutes > 120 ? "warning" : "",
+    },
+    { label: "New leads today", value: d.leads.today, sub: `${d.leads.month} this month · ${d.leads.wonMonth} won`, cls: "info", route: "leads.html" },
+    { label: "Open pipeline", value: money(d.pipeline.valuePaise), sub: `${d.pipeline.open} open leads`, cls: "success", route: "Deals.html" },
+    { label: "Quotes waiting 3+ days", value: d.quotations.waitingThreeDays, sub: "sent, no answer yet", cls: d.quotations.waitingThreeDays ? "warning" : "", route: "leads.html" },
+    { label: "Collected this month", value: money(d.payments.collectedMonthPaise), sub: "payments received", cls: "success", route: "Reports & Analytics.html" },
+    { label: "Due now", value: money(d.payments.duePaise), sub: `${d.payments.dueOrders} order${d.payments.dueOrders === 1 ? "" : "s"}`, cls: d.payments.duePaise ? "warning" : "", route: "Orders.html?tab=dues" },
+    { label: "Tasks due today", value: d.tasks.dueToday, sub: d.tasks.overdue ? `${d.tasks.overdue} overdue` : "none overdue", cls: d.tasks.overdue ? "warning" : "", route: "Tasks.html" },
+  ];
+  document.getElementById("kpiGrid").innerHTML = cards
+    .map((c) => `
+      <a href="${escapeHtml(c.route)}" class="stat-card stat-card-link ${c.cls}" aria-label="Open ${escapeHtml(c.label)}">
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>
+        <div class="label" style="text-transform:none;letter-spacing:0;margin-top:4px;font-weight:500">${escapeHtml(c.sub)}${d.scope === "own" ? " · yours" : ""}</div>
+      </a>`)
+    .join("");
+}
+
 function renderKpis() {
   const customers = getCustomers();
   const leads = getLeads();
@@ -481,6 +519,7 @@ function attachNav(container) {
 function renderDashboard() {
   renderHeader();
   renderKpis();
+  renderServerKpis();
   renderPipeline();
   renderRecentLeads();
   renderCampaigns();

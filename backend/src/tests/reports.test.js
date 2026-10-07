@@ -139,6 +139,7 @@ describe('Reports', () => {
       dues: { orders: 1, duePaise: 680000 },
       whatsapp: { newChats: 2, replies: 2, firstResponseMedianSeconds: 600, responseMedianSeconds: 1200, responseAverageSeconds: 1200 },
     });
+    expect(o.pipeline.byStage).toEqual([{ stage: 'New', count: 2, valuePaise: 0 }, { stage: 'Contacted', count: 0, valuePaise: 0 }, { stage: 'Quote Sent', count: 1, valuePaise: 2000000 }, { stage: 'Negotiation', count: 1, valuePaise: 9000000 }]);
     expect((await get(owner, `/reports/overview?from=${indiaDate(-1)}&to=${indiaDate(0)}`)).body.data.leads).toMatchObject({ won: 0, lost: 1 });
     expect((await get(owner, '/reports/overview?from=2026-10-09&to=2026-10-01')).status).toBe(400);
     const t = (await get(owner, `/reports/trend?from=${indiaDate(-6)}&to=${indiaDate(0)}`)).body.data;

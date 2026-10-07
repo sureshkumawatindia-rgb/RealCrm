@@ -1,721 +1,407 @@
 /**
- * reports.js — Reports & Analytics module
- * Read-only aggregation across every module's server data (through app.js).
- * Reuses shared helpers from app.js (getCustomers, getLeads, getAgents,
- * getProducts, getAccounts, showToast, renderSidebarUser, initSidebarToggle,
- * requireAuth); the read* functions below wrap the getters for deals,
- * tasks, events, campaigns and tickets.
+ * reports.js — Reports & Analytics (Phase 9: on the server's numbers)
+ * Every figure is for the chosen period (calendar days in India) unless the panel says "now".
+ * The KPI row and the tabs come from /reports/* (counted on the server from all records):
+ * Overview (trend, won/lost, lead funnel, open pipeline), Sales (quotations), Leads & Marketing
+ * (sources, broadcasts; products and campaigns from the loaded records), WhatsApp & Team (agent
+ * performance with reply times), Payments, Support (tickets from the loaded records).
+ * "Export CSV" downloads the open tab's report from /reports/export. One IIFE: no globals.
  */
+(function reportsPage() {
+  requireAuth();
+  renderSidebarUser();
+  initSidebarToggle();
 
-requireAuth();
-renderSidebarUser();
-initSidebarToggle();
+  const $ = (id) => document.getElementById(id);
+  const STAGE_COLOR = { New: "var(--info)", Contacted: "var(--brand-darker)", "Quote Sent": "var(--warning)", Negotiation: "#7c3aed", Won: "var(--success)", Lost: "var(--danger)" };
+  const TICKET_STATUSES = ["Open", "In Progress", "Waiting on Customer", "Resolved", "Closed"];
+  const TICKET_COLOR = { Open: "var(--info)", "In Progress": "var(--brand-darker)", "Waiting on Customer": "var(--warning)", Resolved: "var(--success)", Closed: "var(--text-faint)" };
+  const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+  const EXPORT_TYPE = { overview: "trend", sales: "quotations", leads: "sources", team: "agents", payments: "payments", support: "overview" };
 
-const STAGES = LEAD_STAGES;
-const STAGE_DOT = {
-  New: "var(--info)",
-  Contacted: "var(--brand-darker)",
-  "Quote Sent": "var(--warning)",
-  Negotiation: "#7c3aed",
-  Won: "var(--success)",
-  Lost: "var(--danger)",
-};
-const TICKET_STATUSES = [
-  "Open",
-  "In Progress",
-  "Waiting on Customer",
-  "Resolved",
-  "Closed",
-];
-const TICKET_STATUS_COLOR = {
-  Open: "var(--info)",
-  "In Progress": "var(--brand-darker)",
-  "Waiting on Customer": "var(--warning)",
-  Resolved: "var(--success)",
-  Closed: "var(--text-faint)",
-};
-const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+  const state = { tab: "overview", range: null, series: "collectedPaise", data: {}, seq: 0 };
 
-let activeTab = "overview";
-
-// ---------------------------------------------------------------
-// Page-local names for the shared getters
-// ---------------------------------------------------------------
-function readDeals() {
-  return getDeals();
-}
-function readTasks() {
-  return getTasks();
-}
-function readEvents() {
-  return getEvents();
-}
-function readCampaigns() {
-  return getCampaigns();
-}
-function readTickets() {
-  return getTickets();
-}
-
-// ---------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str == null ? "" : String(str);
-  // Quotes too: the result is also used inside HTML attributes.
-  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-function initials(name) {
-  if (!name) return "?";
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0].toUpperCase())
-    .join("");
-}
-function formatCurrency(n) {
-  const num = Number(n) || 0;
-  return "₹" + num.toLocaleString("en-IN");
-}
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-function daysAgoStr(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-function currentRangeDays() {
-  const v = document.getElementById("filterRange").value;
-  return v === "all" ? null : parseInt(v, 10);
-}
-function inRange(dateStr) {
-  const days = currentRangeDays();
-  if (!dateStr) return false;
-  if (days === null) return true;
-  return dateStr.slice(0, 10) >= daysAgoStr(days);
-}
-function pct(part, whole) {
-  if (!whole) return 0;
-  return Math.round((part / whole) * 100);
-}
-
-// ---------------------------------------------------------------
-// KPI cards
-// ---------------------------------------------------------------
-function renderKpis() {
-  const deals = readDeals();
-  const leads = getLeads();
-  const customers = getCustomers();
-  const tickets = readTickets();
-
-  const wonInRange = deals.filter(
-    (d) => d.stage === "Won" && inRange(d.closeDate || d.createdAt),
-  );
-  const totalRevenue = wonInRange.reduce((s, d) => s + Number(d.value || 0), 0);
-  const avgDealSize = wonInRange.length
-    ? totalRevenue / wonInRange.length
-    : 0;
-
-  const openDeals = deals.filter((d) => d.stage !== "Won" && d.stage !== "Lost");
-  const openPipeline = openDeals.reduce((s, d) => s + Number(d.value || 0), 0);
-
-  const leadsInRange = leads.filter((l) => inRange(l.createdAt));
-  const wonLeadsInRange = leadsInRange.filter((l) => l.status === "Won");
-  const conversionRate = pct(wonLeadsInRange.length, leadsInRange.length);
-
-  const newCustomers = customers.filter((c) => inRange(c.createdAt)).length;
-
-  const ticketsInRange = tickets.filter((t) => inRange(t.createdAt));
-  const resolvedInRange = ticketsInRange.filter(
-    (t) => t.status === "Resolved" || t.status === "Closed",
-  );
-  const resolutionRate = pct(resolvedInRange.length, ticketsInRange.length);
-
-  const cards = [
-    { label: "Revenue Won", value: formatCurrency(totalRevenue), cls: "success" },
-    {
-      label: "Open Pipeline",
-      value: `${openDeals.length} · ${formatCurrency(openPipeline)}`,
-      cls: "info",
-    },
-    { label: "Lead Conversion", value: `${conversionRate}%`, cls: "" },
-    { label: "Avg Deal Size", value: formatCurrency(avgDealSize), cls: "" },
-    { label: "New Customers", value: newCustomers, cls: "info" },
-    {
-      label: "Ticket Resolution",
-      value: `${resolutionRate}%`,
-      cls: resolutionRate < 50 ? "warning" : "success",
-    },
-  ];
-
-  document.getElementById("kpiGrid").innerHTML = cards
-    .map(
-      (c) => `
-      <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
-      </div>`,
-    )
-    .join("");
-}
-
-// ---------------------------------------------------------------
-// Revenue trend (last 6 months, Won deals by closeDate)
-// ---------------------------------------------------------------
-function renderRevenueTrend() {
-  const deals = readDeals().filter((d) => d.stage === "Won" && d.closeDate);
-  const now = new Date();
-  const months = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleDateString("en-IN", { month: "short" }), value: 0 });
+  // --- formatting ----------------------------------------------------------------------------
+  const rupees = (paise) => `₹${Math.round(Number(paise || 0) / 100).toLocaleString("en-IN")}`;
+  const pctText = (value) => `${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 1 })}%`;
+  function duration(seconds) {
+    if (seconds == null) return "—";
+    if (seconds < 60) return `${seconds} s`;
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 48) return `${hours} h${minutes % 60 ? ` ${minutes % 60} min` : ""}`;
+    return `${Math.round(hours / 24)} days`;
   }
-  deals.forEach((d) => {
-    const key = d.closeDate.slice(0, 7);
-    const m = months.find((mo) => mo.key === key);
-    if (m) m.value += Number(d.value || 0);
-  });
+  const initials = (name) => String(name || "?").replace(/^=/, "").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "?";
+  const empty = (icon, text) => `<div class="report-empty"><i class="fa-solid ${icon}"></i>${escapeHtml(text)}</div>`;
+  const pct = (part, whole) => (whole ? Math.round((part / whole) * 100) : 0);
 
-  const el = document.getElementById("revenueTrend");
-  const max = Math.max(...months.map((m) => m.value), 1);
-
-  if (!deals.length) {
-    el.innerHTML = `<div class="report-empty" style="width:100%"><i class="fa-solid fa-chart-column"></i>No won deals yet.</div>`;
-    return;
+  // --- the period (days in India) ----------------------------------------------------------
+  const indiaToday = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+  function shift(day, days) {
+    const d = new Date(`${day}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+  function rangeFor(value) {
+    const today = indiaToday();
+    if (value === "today") return { from: today, to: today };
+    if (value === "this-month") return { from: `${today.slice(0, 7)}-01`, to: today };
+    if (value === "last-month") {
+      const firstThis = `${today.slice(0, 7)}-01`;
+      const lastPrev = shift(firstThis, -1);
+      return { from: `${lastPrev.slice(0, 7)}-01`, to: lastPrev };
+    }
+    if (value === "this-fy") {
+      const year = Number(today.slice(0, 4)) - (Number(today.slice(5, 7)) < 4 ? 1 : 0);
+      return { from: `${year}-04-01`, to: today };
+    }
+    if (value === "custom") {
+      const from = $("rangeFrom").value || shift(today, -29);
+      const to = $("rangeTo").value || today;
+      return from <= to ? { from, to } : { from: to, to: from };
+    }
+    const days = Number(value) || 30;
+    return { from: shift(today, -(days - 1)), to: today };
+  }
+  const query = () => `from=${state.range.from}&to=${state.range.to}`;
+  const niceDay = (day) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  function bucketLabel(bucket, unit) {
+    if (unit === "month") return new Date(`${bucket}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "short", year: "2-digit", timeZone: "UTC" });
+    return new Date(`${bucket}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
   }
 
-  el.innerHTML = months
-    .map(
-      (m) => `
-      <div class="trend-bar-col">
-        <div class="trend-value">${m.value ? formatCurrency(m.value) : ""}</div>
-        <div class="trend-bar" style="height:${Math.max(4, Math.round((m.value / max) * 100))}%"></div>
-        <div class="trend-month">${m.label}</div>
-      </div>`,
-    )
-    .join("");
-}
+  // --- loading --------------------------------------------------------------------------------
+  const NEEDS = {
+    overview: ["overview", "trend", "sources"], sales: ["overview", "quotations"], leads: ["overview", "sources", ...(isOrgManager() ? ["broadcasts"] : [])],
+    team: ["overview", "agents"], payments: ["overview", "payments"], support: ["overview"],
+  };
+  async function load() {
+    const seq = ++state.seq;
+    const key = query();
+    const missing = NEEDS[state.tab].filter((name) => state.data[name]?.key !== key);
+    if (missing.length) {
+      try {
+        const results = await Promise.all(missing.map((name) => crmApi(`/reports/${name}?${key}`)));
+        missing.forEach((name, i) => { state.data[name] = { key, value: results[i] }; });
+      } catch (error) {
+        if (seq !== state.seq) return;
+        $("kpiGrid").innerHTML = "";
+        showToast(apiErrorMessage(error, "Couldn't load the report."), "error");
+        return;
+      }
+    }
+    if (seq !== state.seq) return;
+    render();
+  }
+  const got = (name) => state.data[name]?.value;
 
-// ---------------------------------------------------------------
-// Pipeline by stage (shared renderer, targets any container id)
-// ---------------------------------------------------------------
-function renderPipelineBars(containerId) {
-  const deals = readDeals();
-  const el = document.getElementById(containerId);
-  if (!el) return;
-
-  if (!deals.length) {
-    el.innerHTML = `<div class="report-empty"><i class="fa-solid fa-handshake"></i>No deals yet.</div>`;
-    return;
+  // --- KPI row ----------------------------------------------------------------------------------
+  function renderKpis() {
+    const o = got("overview");
+    if (!o) return;
+    const cards = [
+      ["Collected", rupees(o.payments.collectedPaise), `${o.payments.count} payment${o.payments.count === 1 ? "" : "s"}`, "success"],
+      ["Orders", rupees(o.orders.valuePaise), `${o.orders.count} order${o.orders.count === 1 ? "" : "s"}`, "info"],
+      ["New leads", o.leads.created, `${o.customers.new} new customer${o.customers.new === 1 ? "" : "s"}`, ""],
+      ["Won", o.leads.won, `win rate ${pctText(o.leads.winRatePct)} (${o.leads.lost} lost)`, "success"],
+      ["Quotations", o.quotations.sent, `${o.quotations.accepted} accepted`, ""],
+      ["First reply", duration(o.whatsapp.firstResponseMedianSeconds), `median · all replies ${duration(o.whatsapp.responseMedianSeconds)}`, ""],
+      ["Open pipeline", rupees(o.pipeline.valuePaise), `${o.pipeline.open} open leads · now`, "info"],
+      ["Due now", rupees(o.dues.duePaise), `${o.dues.orders} order${o.dues.orders === 1 ? "" : "s"}`, o.dues.duePaise ? "warning" : ""],
+    ];
+    $("kpiGrid").innerHTML = cards
+      .map(([label, value, sub, cls]) => `<div class="stat-card ${cls}"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(String(value))}</div><div class="report-note">${escapeHtml(sub)}</div></div>`)
+      .join("");
+    $("rangeLabel").textContent = `${niceDay(o.range.from)} – ${niceDay(o.range.to)} (${o.range.days} day${o.range.days === 1 ? "" : "s"}, India time)${o.scope === "own" ? " · your own figures" : ""}`;
   }
 
-  const maxValue = Math.max(
-    ...STAGES.map((s) =>
-      deals
-        .filter((d) => d.stage === s)
-        .reduce((sum, d) => sum + Number(d.value || 0), 0),
-    ),
-    1,
-  );
-
-  el.innerHTML = STAGES.map((stage) => {
-    const stageDeals = deals.filter((d) => d.stage === stage);
-    const total = stageDeals.reduce((s, d) => s + Number(d.value || 0), 0);
-    const p = Math.max(4, Math.round((total / maxValue) * 100));
-    return `
-      <div class="pipeline-row">
-        <div class="stage-label">${stage}</div>
-        <div class="stage-track"><div class="stage-fill" style="width:${p}%;background:${STAGE_DOT[stage]}"></div></div>
-        <div class="stage-meta"><strong>${stageDeals.length}</strong> deal${stageDeals.length === 1 ? "" : "s"} · ${formatCurrency(total)}</div>
-      </div>`;
-  }).join("");
-}
-
-// ---------------------------------------------------------------
-// Win / Loss donut (shared renderer)
-// ---------------------------------------------------------------
-function renderWinLossDonut(containerId) {
-  const deals = readDeals();
-  const won = deals.filter((d) => d.stage === "Won").length;
-  const lost = deals.filter((d) => d.stage === "Lost").length;
-  const total = won + lost;
-  const el = document.getElementById(containerId);
-  if (!el) return;
-
-  if (!total) {
-    el.innerHTML = `<div class="report-empty"><i class="fa-solid fa-scale-balanced"></i>No closed deals yet.</div>`;
-    return;
+  // --- charts ---------------------------------------------------------------------------------
+  function barChart(el, rows, valueOf, labelOf, formatter) {
+    const max = Math.max(...rows.map(valueOf), 1);
+    const dense = rows.length > 14;
+    const every = dense ? Math.ceil(rows.length / 8) : 1;
+    el.classList.toggle("dense", dense);
+    el.innerHTML = rows
+      .map((row, i) => {
+        const value = valueOf(row);
+        const label = labelOf(row);
+        return `<div class="trend-bar-col ${i % every === 0 || i === rows.length - 1 ? "labelled" : ""}" title="${escapeHtml(`${label}: ${formatter(value)}`)}">
+          <div class="trend-value">${value ? escapeHtml(formatter(value)) : ""}</div>
+          <div class="trend-bar" style="height:${value ? Math.max(4, Math.round((value / max) * 100)) : 2}%"></div>
+          <div class="trend-month">${escapeHtml(label)}</div>
+        </div>`;
+      })
+      .join("");
   }
-
-  const wonPct = Math.round((won / total) * 100);
-  const gradient = `conic-gradient(var(--success) 0% ${wonPct}%, var(--danger) ${wonPct}% 100%)`;
-
-  el.innerHTML = `
-    <div class="donut-chart" style="background:${gradient}">
-      <div class="donut-center"><span class="num">${wonPct}%</span><span class="lbl">Win Rate</span></div>
-    </div>
-    <div class="donut-legend">
-      <div class="donut-legend-row"><span class="swatch" style="background:var(--success)"></span>Won<strong>${won}</strong></div>
-      <div class="donut-legend-row"><span class="swatch" style="background:var(--danger)"></span>Lost<strong>${lost}</strong></div>
-    </div>`;
-}
-
-// ---------------------------------------------------------------
-// Lead funnel (shared renderer)
-// ---------------------------------------------------------------
-function renderLeadFunnel(containerId) {
-  const leads = getLeads();
-  const el = document.getElementById(containerId);
-  if (!el) return;
-
-  if (!leads.length) {
-    el.innerHTML = `<div class="report-empty"><i class="fa-solid fa-filter"></i>No leads yet.</div>`;
-    return;
+  function donut(el, segments, centre, centreLabel) {
+    const total = segments.reduce((s, x) => s + x.count, 0);
+    if (!total) return false;
+    let acc = 0;
+    const gradient = segments.filter((s) => s.count).map((s) => {
+      const start = acc;
+      acc += (s.count / total) * 100;
+      return `${s.color} ${start}% ${acc}%`;
+    }).join(", ");
+    el.innerHTML = `
+      <div class="donut-chart" style="background:conic-gradient(${gradient})"><div class="donut-center"><span class="num">${escapeHtml(String(centre))}</span><span class="lbl">${escapeHtml(centreLabel)}</span></div></div>
+      <div class="donut-legend">${segments.map((s) => `<div class="donut-legend-row"><span class="swatch" style="background:${s.color}"></span>${escapeHtml(s.label)}<strong>${s.count}</strong></div>`).join("")}</div>`;
+    return true;
   }
-
-  const stages = LEAD_STAGES.map((stage) => ({ key: stage, label: stage }));
-  const total = leads.length;
-  const max = total;
-
-  el.innerHTML = stages
-    .map((s) => {
-      const count = leads.filter((l) => l.status === s.key).length;
-      const width = Math.max(6, Math.round((count / max) * 100));
-      return `
+  function funnel(el, steps) {
+    const top = Math.max(steps[0]?.count || 0, 1);
+    el.innerHTML = steps.map((s) => `
       <div class="funnel-row">
-        <div class="funnel-top"><span>${s.label}</span><strong>${count} · ${pct(count, total)}%</strong></div>
-        <div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:${width}%"></div></div>
-      </div>`;
-    })
-    .join("");
-}
-
-// ---------------------------------------------------------------
-// Leads by product interest
-// ---------------------------------------------------------------
-function renderLeadsByProduct() {
-  const leads = getLeads();
-  const products = getProducts();
-  const el = document.getElementById("leadsByProduct");
-
-  const counted = products
-    .map((p) => ({
-      name: p.name,
-      count: leads.filter((l) => l.product === p.id).length,
-    }))
-    .filter((p) => p.count > 0)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
-
-  if (!counted.length) {
-    el.innerHTML = `<div class="bar-list-empty"><i class="fa-solid fa-box-open"></i>No leads linked to products yet.</div>`;
-    return;
+        <div class="funnel-top"><span>${escapeHtml(s.label)}</span><strong>${s.count}${s.note ? ` · ${escapeHtml(s.note)}` : ""}</strong></div>
+        <div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:${Math.max(4, Math.round((s.count / top) * 100))}%"></div></div>
+      </div>`).join("");
   }
-
-  const max = Math.max(...counted.map((c) => c.count), 1);
-  el.innerHTML = counted
-    .map(
-      (c) => `
+  function bars(el, rows, emptyText, icon = "fa-chart-simple") {
+    if (!rows.length) {
+      el.innerHTML = `<div class="bar-list-empty"><i class="fa-solid ${icon}"></i>${escapeHtml(emptyText)}</div>`;
+      return;
+    }
+    const max = Math.max(...rows.map((r) => r.value), 1);
+    el.innerHTML = rows.map((r) => `
       <div class="bar-row">
-        <div class="bar-label">${escapeHtml(c.name)}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(6, Math.round((c.count / max) * 100))}%"></div></div>
-        <div class="bar-meta">${c.count}</div>
-      </div>`,
-    )
-    .join("");
-}
+        <div class="bar-label" title="${escapeHtml(r.label)}">${escapeHtml(r.label)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(6, Math.round((r.value / max) * 100))}%"></div></div>
+        <div class="bar-meta" style="width:${r.metaWidth || 44}px">${escapeHtml(r.meta ?? String(r.value))}</div>
+      </div>`).join("");
+  }
+  const table = (head, rows) => `<table><thead><tr>${head.map(([label, num]) => `<th${num ? ' class="num"' : ""}>${label}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+  const cell = (value, sub = "", num = true) => `<td${num ? ' class="num"' : ""}>${value}${sub ? `<span class="sub">${sub}</span>` : ""}</td>`;
 
-// ---------------------------------------------------------------
-// Campaign performance table
-// ---------------------------------------------------------------
-function renderCampaignPerf() {
-  const campaigns = readCampaigns();
-  const el = document.getElementById("campaignPerfTable");
-
-  if (!campaigns.length) {
-    el.innerHTML = `<div class="empty-state"><i class="fa-solid fa-bullhorn"></i><p>No campaigns yet.</p></div>`;
-    return;
+  // --- Overview -------------------------------------------------------------------------------
+  function renderOverview() {
+    const o = got("overview");
+    const t = got("trend");
+    const s = got("sources");
+    if (!o || !t || !s) return;
+    const money = state.series.endsWith("Paise");
+    if (!t.items.some((r) => r[state.series])) {
+      $("trendChart").classList.remove("dense");
+      $("trendChart").innerHTML = empty("fa-chart-column", "Nothing in this period yet.");
+    } else {
+      barChart($("trendChart"), t.items, (r) => r[state.series], (r) => bucketLabel(r.bucket, t.range.unit), (v) => (money ? rupees(v) : String(v)));
+    }
+    if (!donut($("winLossDonut"), [{ label: "Won", count: o.leads.won, color: "var(--success)" }, { label: "Lost", count: o.leads.lost, color: "var(--danger)" }], pctText(o.leads.winRatePct), "Win rate")) {
+      $("winLossDonut").innerHTML = empty("fa-scale-balanced", "No lead was won or lost in this period.");
+    }
+    const f = s.items.reduce((acc, r) => ({ created: acc.created + r.funnel.created, contacted: acc.contacted + r.funnel.contacted, quoted: acc.quoted + r.funnel.quoted, won: acc.won + r.funnel.won }), { created: 0, contacted: 0, quoted: 0, won: 0 });
+    if (!f.created) $("leadFunnel").innerHTML = empty("fa-filter", "No new leads in this period.");
+    else funnel($("leadFunnel"), [
+      { label: "New leads", count: f.created },
+      { label: "Contacted or further", count: f.contacted, note: `${pct(f.contacted, f.created)}%` },
+      { label: "Quotation sent or further", count: f.quoted, note: `${pct(f.quoted, f.created)}%` },
+      { label: "Won", count: f.won, note: `${pct(f.won, f.created)}%` },
+    ]);
+    const stages = o.pipeline.byStage || [];
+    if (!o.pipeline.open) {
+      $("pipelineBars").innerHTML = empty("fa-handshake", "No open leads right now.");
+    } else {
+      const max = Math.max(...stages.map((x) => x.count), 1);
+      $("pipelineBars").innerHTML = stages.map((x) => `
+        <div class="pipeline-row">
+          <div class="stage-label">${escapeHtml(x.stage)}</div>
+          <div class="stage-track"><div class="stage-fill" style="width:${Math.max(4, Math.round((x.count / max) * 100))}%;background:${STAGE_COLOR[x.stage]}"></div></div>
+          <div class="stage-meta"><strong>${x.count}</strong> lead${x.count === 1 ? "" : "s"} · ${rupees(x.valuePaise)}</div>
+        </div>`).join("");
+    }
   }
 
-  el.innerHTML = `
-    <table>
-      <thead><tr><th>Campaign</th><th>Type</th><th>Status</th><th>Budget</th><th>Leads</th><th>Cost / Lead</th></tr></thead>
-      <tbody>
-        ${campaigns
-          .map((c) => {
-            const budget = Number(c.budget || 0);
-            const leadsGen = Number(c.leadsGenerated || 0);
-            const cpl = leadsGen ? formatCurrency(budget / leadsGen) : "—";
-            return `
-          <tr>
-            <td><strong>${escapeHtml(c.name)}</strong></td>
-            <td>${escapeHtml(c.type || "—")}</td>
-            <td>${escapeHtml(c.status || "—")}</td>
-            <td>${formatCurrency(budget)}</td>
-            <td>${leadsGen}</td>
-            <td>${cpl}</td>
+  // --- Sales ----------------------------------------------------------------------------------
+  function renderSales() {
+    const q = got("quotations");
+    if (!q) return;
+    const t = q.totals;
+    if (!t.sent) {
+      $("quoteFunnel").innerHTML = empty("fa-file-invoice", "No quotation was sent in this period.");
+    } else {
+      funnel($("quoteFunnel"), [
+        { label: `Sent · ${rupees(t.sentValuePaise)}`, count: t.sent },
+        { label: "Opened by the customer", count: t.viewed, note: pctText(t.viewedPct) },
+        { label: `Accepted · ${rupees(t.acceptedValuePaise)}`, count: t.accepted, note: `win rate ${pctText(t.winRatePct)}` },
+        { label: "Rejected", count: t.rejected },
+        { label: "Expired", count: t.expired },
+        { label: "Still waiting", count: t.open },
+      ]);
+      if (t.averageDaysToAccept != null) $("quoteFunnel").insertAdjacentHTML("beforeend", `<p class="report-note">Accepted on average ${t.averageDaysToAccept} day${t.averageDaysToAccept === 1 ? "" : "s"} after sending.</p>`);
+    }
+    bars($("rejectReasons"), q.rejectionReasons.map((r) => ({ label: r.reason, value: r.count })), "No quotation was rejected in this period.", "fa-circle-xmark");
+    $("quoteOwnerTable").innerHTML = q.byOwner.length
+      ? table([["Owner"], ["Sent", 1], ["Opened", 1], ["Accepted", 1], ["Rejected", 1], ["Win rate", 1], ["Value accepted", 1]],
+        q.byOwner.map((r) => `<tr><td>${escapeHtml(r.name)}</td>${cell(r.sent)}${cell(r.viewed)}${cell(r.accepted)}${cell(r.rejected)}${cell(pctText(r.winRatePct))}${cell(rupees(r.acceptedValuePaise))}</tr>`))
+      : `<div class="empty-state"><i class="fa-solid fa-file-invoice"></i><p>No quotations in this period.</p></div>`;
+  }
+
+  // --- Leads & Marketing ----------------------------------------------------------------------
+  const inPeriod = (iso) => {
+    if (!iso) return false;
+    const day = new Date(new Date(iso).getTime() + 330 * 60000).toISOString().slice(0, 10);
+    return day >= state.range.from && day <= state.range.to;
+  };
+  function renderLeads() {
+    const s = got("sources");
+    if (!s) return;
+    $("sourceTable").innerHTML = s.items.length
+      ? table([["Source"], ["Enquiries", 1], ["Leads", 1], ["Contacted", 1], ["Quoted", 1], ["Won", 1], ["Lost", 1], ["Conversion", 1]],
+        [...s.items.map((r) => `<tr><td><strong>${escapeHtml(r.source)}</strong></td>${cell(r.enquiries || "—", r.repeatEnquiries ? `${r.repeatEnquiries} repeat` : "")}${cell(r.leads)}${cell(r.funnel.contacted)}${cell(r.funnel.quoted)}${cell(r.funnel.won)}${cell(r.byStage.Lost)}${cell(pctText(r.conversionPct))}</tr>`),
+          `<tr><td><strong>Total</strong></td>${cell(s.totals.enquiries || "—")}${cell(s.totals.leads)}${cell("")}${cell("")}${cell(s.totals.won)}${cell("")}${cell(pctText(s.totals.conversionPct))}</tr>`])
+      : `<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>No new leads in this period.</p></div>`;
+
+    const leads = getLeads().filter((l) => inPeriod(l.createdAt));
+    const products = getProducts();
+    const counted = products.map((p) => ({ label: p.name, value: leads.filter((l) => l.product === p.id).length })).filter((p) => p.value).sort((a, b) => b.value - a.value).slice(0, 8);
+    bars($("leadsByProduct"), counted, "No lead of this period names a product.", "fa-box-open");
+
+    const campaigns = getCampaigns().filter((c) => (!c.startDate || c.startDate <= state.range.to) && (!c.endDate || c.endDate >= state.range.from));
+    $("campaignPerfTable").innerHTML = campaigns.length
+      ? table([["Campaign"], ["Status"], ["Budget", 1], ["Leads", 1], ["Cost / lead", 1]], campaigns.map((c) => {
+        const budget = Number(c.budget || 0);
+        const leadsGen = Number(c.leadsGenerated || 0);
+        return `<tr><td><strong>${escapeHtml(c.name)}</strong><span class="sub">${escapeHtml(c.type || "")}</span></td><td>${escapeHtml(c.status || "—")}</td>${cell(`₹${budget.toLocaleString("en-IN")}`)}${cell(leadsGen)}${cell(leadsGen ? `₹${Math.round(budget / leadsGen).toLocaleString("en-IN")}` : "—")}</tr>`;
+      }))
+      : `<div class="empty-state"><i class="fa-solid fa-bullhorn"></i><p>No campaign ran in this period.</p></div>`;
+
+    $("broadcastPanel").hidden = !isOrgManager();
+    const b = got("broadcasts");
+    if (b) {
+      $("broadcastTable").innerHTML = b.items.length
+        ? table([["Broadcast"], ["Recipients", 1], ["Sent", 1], ["Delivered", 1], ["Read", 1], ["Replied", 1], ["Failed", 1]],
+          [...b.items.map((x) => `<tr><td><a href="Marketing.html?broadcast=${encodeURIComponent(x.id)}">${escapeHtml(x.name)}</a><span class="sub">${escapeHtml(x.templateName || "")}${x.startedAt ? ` · ${escapeHtml(niceDay(new Date(new Date(x.startedAt).getTime() + 330 * 60000).toISOString().slice(0, 10)))}` : ""}</span></td>${cell(x.total)}${cell(x.sent)}${cell(x.delivered, pctText(x.deliveredPct))}${cell(x.read, pctText(x.readPct))}${cell(x.replied, pctText(x.repliedPct))}${cell(x.failed)}</tr>`),
+            `<tr><td><strong>Total</strong></td>${cell(b.totals.total)}${cell(b.totals.sent)}${cell(b.totals.delivered, pctText(b.totals.deliveredPct))}${cell(b.totals.read, pctText(b.totals.readPct))}${cell(b.totals.replied, pctText(b.totals.repliedPct))}${cell(b.totals.failed)}</tr>`])
+        : `<div class="empty-state"><i class="fa-brands fa-whatsapp"></i><p>No broadcast started in this period.</p></div>`;
+    }
+  }
+
+  // --- WhatsApp & Team ------------------------------------------------------------------------
+  function renderTeam() {
+    const a = got("agents");
+    if (!a) return;
+    const t = a.team;
+    const kpi = (label, value, sub) => `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(String(value))}</div><div class="report-note">${escapeHtml(sub)}</div></div>`;
+    $("teamKpis").innerHTML = [
+      kpi("First reply", duration(t.firstResponseMedianSeconds), "median, new chats"),
+      kpi("Reply time", duration(t.responseMedianSeconds), `median · average ${duration(t.responseAverageSeconds)}`),
+      kpi("Chats answered", t.chatsHandled, `${t.replies} replies`),
+      kpi("Collected", rupees(t.collectedPaise), `${t.won} won`),
+    ].join("");
+    $("agentTable").innerHTML = a.items.length
+      ? table([["#"], ["Agent"], ["Chats", 1], ["First reply", 1], ["Reply time", 1], ["Open leads", 1], ["New leads", 1], ["Won", 1], ["Quotes", 1], ["Orders", 1], ["Collected", 1], ["Tasks", 1], ["Tickets", 1]],
+        a.items.map((r, i) => {
+          const open = ["New", "Contacted", "Quote Sent", "Negotiation"].reduce((s, stage) => s + (r.leadsByStage[stage] || 0), 0);
+          return `<tr>
+            <td><span class="rank-badge ${i === 0 && (r.collectedPaise || r.won) ? "top" : ""}">${i + 1}</span></td>
+            <td><div class="leaderboard-agent"><span class="avatar">${escapeHtml(initials(r.name))}</span><div>${escapeHtml(r.name)}<span class="sub">${escapeHtml(r.role || "")}${r.active ? "" : " · no longer in the team"}</span></div></div></td>
+            ${cell(r.chatsHandled, `${r.messagesSent} messages`)}${cell(duration(r.firstResponseMedianSeconds))}${cell(duration(r.responseMedianSeconds), r.replies ? `avg ${duration(r.responseAverageSeconds)}` : "")}
+            ${cell(open, Object.entries(r.leadsByStage).filter(([stage, n]) => n && stage !== "Won" && stage !== "Lost").map(([stage, n]) => `${n} ${stage}`).join(", "))}
+            ${cell(r.leadsCreated)}${cell(r.won, r.won || r.lost ? `win rate ${pctText(r.winRatePct)}` : "")}${cell(`${r.quotationsAccepted}/${r.quotationsSent}`, "won / sent")}
+            ${cell(rupees(r.orderValuePaise), `${r.orders} order${r.orders === 1 ? "" : "s"}`)}${cell(rupees(r.collectedPaise))}${cell(r.tasksDone)}${cell(r.ticketsResolved)}
           </tr>`;
-          })
-          .join("")}
-      </tbody>
-    </table>`;
-}
-
-// ---------------------------------------------------------------
-// Deals by owner (Sales tab)
-// ---------------------------------------------------------------
-function renderDealsByOwner() {
-  const deals = readDeals();
-  const agents = getAgents();
-  const el = document.getElementById("dealsByOwnerTable");
-
-  const names = agents.length
-    ? agents.map((a) => a.name)
-    : [...new Set(deals.map((d) => d.owner).filter(Boolean))];
-
-  if (!names.length) {
-    el.innerHTML = `<div class="empty-state"><i class="fa-solid fa-user-group"></i><p>No agents yet.</p></div>`;
-    return;
+        }))
+      : `<div class="empty-state"><i class="fa-solid fa-user-group"></i><p>No team members yet.</p></div>`;
+    if (a.truncated) $("agentTable").insertAdjacentHTML("beforeend", '<p class="report-note" style="padding:0 16px 12px">Very many messages in this period: reply times use the first 100,000.</p>');
   }
 
-  const rows = names
-    .map((name) => {
-      const ownerDeals = deals.filter((d) => d.owner === name);
-      const won = ownerDeals.filter((d) => d.stage === "Won");
-      const open = ownerDeals.filter(
-        (d) => d.stage !== "Won" && d.stage !== "Lost",
-      );
-      const revenue = won.reduce((s, d) => s + Number(d.value || 0), 0);
-      return { name, total: ownerDeals.length, won: won.length, open: open.length, revenue };
-    })
-    .sort((a, b) => b.revenue - a.revenue);
-
-  el.innerHTML = `
-    <table>
-      <thead><tr><th>Owner</th><th>Total Deals</th><th>Open</th><th>Won</th><th>Revenue</th></tr></thead>
-      <tbody>
-        ${rows
-          .map(
-            (r) => `
-          <tr>
-            <td>
-              <div class="leaderboard-agent">
-                <span class="avatar">${initials(r.name)}</span>
-                ${escapeHtml(r.name)}
-              </div>
-            </td>
-            <td>${r.total}</td>
-            <td>${r.open}</td>
-            <td>${r.won}</td>
-            <td>${formatCurrency(r.revenue)}</td>
-          </tr>`,
-          )
-          .join("")}
-      </tbody>
-    </table>`;
-}
-
-// ---------------------------------------------------------------
-// Team leaderboard
-// ---------------------------------------------------------------
-function renderLeaderboard() {
-  const agents = getAgents();
-  const deals = readDeals();
-  const tasks = readTasks();
-  const tickets = readTickets();
-  const el = document.getElementById("leaderboardTable");
-
-  if (!agents.length) {
-    el.innerHTML = `<div class="empty-state"><i class="fa-solid fa-user-group"></i><p>No agents yet. Add one from Account Champions.</p></div>`;
-    return;
+  // --- Payments -------------------------------------------------------------------------------
+  function renderPayments() {
+    const p = got("payments");
+    if (!p) return;
+    $("payTrendNote").textContent = `${rupees(p.collected.amountPaise)} in ${p.collected.count} payment${p.collected.count === 1 ? "" : "s"}`;
+    if (!p.collected.count) {
+      $("payTrend").classList.remove("dense");
+      $("payTrend").innerHTML = empty("fa-indian-rupee-sign", "No payment came in during this period.");
+    } else {
+      barChart($("payTrend"), p.trend, (r) => r.amountPaise, (r) => bucketLabel(r.bucket, p.range.unit), rupees);
+    }
+    bars($("payByWay"), p.byWay.map((r) => ({ label: r.name, value: r.amountPaise, meta: rupees(r.amountPaise), metaWidth: 96 })), "No payments in this period.", "fa-wallet");
+    const row = (icon, cls, name, sub, value) => `<div class="mini-row"><span class="mini-icon ${cls}"><i class="fa-solid ${icon}"></i></span><div class="info"><div class="name">${escapeHtml(name)}</div><div class="sub">${escapeHtml(sub)}</div></div><div class="mini-right">${escapeHtml(String(value))}</div></div>`;
+    $("payStats").innerHTML = [
+      row("fa-link", "info", "Payment links made", "in this period", p.links.made),
+      row("fa-circle-check", "success", "Payment links paid", p.links.averageHoursToPay != null ? `paid on average ${p.links.averageHoursToPay} h after they were made` : "in this period", p.links.paid),
+      row("fa-truck-fast", "", "Orders paid in full", p.averageDaysToCollect != null ? `on average ${p.averageDaysToCollect} days after the order` : "in this period", p.ordersPaidInFull),
+    ].join("");
+    const buckets = Object.entries(p.dues.buckets);
+    const max = Math.max(...buckets.map(([, b]) => b.duePaise), 1);
+    $("payDues").innerHTML = p.dues.count
+      ? buckets.map(([name, b]) => `
+        <div class="pipeline-row">
+          <div class="stage-label">${escapeHtml(name)} days</div>
+          <div class="stage-track"><div class="stage-fill" style="width:${b.duePaise ? Math.max(4, Math.round((b.duePaise / max) * 100)) : 0}%;background:${name === "0-7" ? "var(--info)" : name === "8-30" ? "var(--warning)" : "var(--danger)"}"></div></div>
+          <div class="stage-meta"><strong>${rupees(b.duePaise)}</strong> · ${b.count} order${b.count === 1 ? "" : "s"}</div>
+        </div>`).join("") + `<p class="report-note">Total due ${rupees(p.dues.duePaise)}. <a href="Orders.html?tab=dues">Open the list</a></p>`
+      : empty("fa-circle-check", "Nothing is due: every order is paid.");
   }
 
-  const rows = agents
-    .map((a) => {
-      const dealsWon = deals.filter(
-        (d) => d.owner === a.name && d.stage === "Won",
-      );
-      const revenue = dealsWon.reduce((s, d) => s + Number(d.value || 0), 0);
-      const tasksCompleted = tasks.filter(
-        (t) => t.assignee === a.name && t.status === "Done",
-      ).length;
-      const ticketsResolved = tickets.filter(
-        (t) =>
-          t.assignee === a.name &&
-          (t.status === "Resolved" || t.status === "Closed"),
-      ).length;
-      const score = dealsWon.length * 3 + tasksCompleted + ticketsResolved;
-      return {
-        name: a.name,
-        role: a.role || "Agent",
-        dealsWon: dealsWon.length,
-        revenue,
-        tasksCompleted,
-        ticketsResolved,
-        score,
-      };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  el.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Agent</th>
-          <th>Deals Won</th>
-          <th>Revenue</th>
-          <th>Tasks Done</th>
-          <th>Tickets Resolved</th>
-          <th>Score</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows
-          .map(
-            (r, i) => `
-          <tr>
-            <td><span class="rank-badge ${i === 0 ? "top" : ""}">${i + 1}</span></td>
-            <td>
-              <div class="leaderboard-agent">
-                <span class="avatar">${initials(r.name)}</span>
-                <div>
-                  <div>${escapeHtml(r.name)}</div>
-                  <div class="text-muted" style="font-size:11px">${escapeHtml(r.role)}</div>
-                </div>
-              </div>
-            </td>
-            <td>${r.dealsWon}</td>
-            <td>${formatCurrency(r.revenue)}</td>
-            <td>${r.tasksCompleted}</td>
-            <td>${r.ticketsResolved}</td>
-            <td><strong>${r.score}</strong></td>
-          </tr>`,
-          )
-          .join("")}
-      </tbody>
-    </table>`;
-}
-
-// ---------------------------------------------------------------
-// Support tab
-// ---------------------------------------------------------------
-function renderTicketStatusDonut() {
-  const tickets = readTickets();
-  const el = document.getElementById("ticketStatusDonut");
-
-  if (!tickets.length) {
-    el.innerHTML = `<div class="report-empty"><i class="fa-solid fa-headset"></i>No tickets yet.</div>`;
-    return;
+  // --- Support (from the loaded tickets) --------------------------------------------------
+  function renderSupport() {
+    const tickets = getTickets();
+    const opened = tickets.filter((t) => inPeriod(t.createdAt));
+    if (!donut($("ticketStatusDonut"), TICKET_STATUSES.map((status) => ({ label: status, count: opened.filter((t) => t.status === status).length, color: TICKET_COLOR[status] })), opened.length, "Tickets")) {
+      $("ticketStatusDonut").innerHTML = empty("fa-headset", "No ticket was opened in this period.");
+    }
+    bars($("ticketPriorityBars"), TICKET_PRIORITIES.map((priority) => ({ label: priority, value: opened.filter((t) => t.priority === priority).length })).filter((r) => r.value), "No ticket was opened in this period.", "fa-headset");
+    const today = indiaToday();
+    const isClosed = (t) => t.status === "Resolved" || t.status === "Closed";
+    const o = got("overview");
+    const rows = [
+      ["fa-inbox", "info", "Open tickets", "across the team", tickets.filter((t) => !isClosed(t)).length],
+      ["fa-triangle-exclamation", "warning", "Overdue", "past their due date, not resolved", tickets.filter((t) => t.dueDate && t.dueDate < today && !isClosed(t)).length],
+      ["fa-bolt", "warning", "Urgent and open", "need attention now", tickets.filter((t) => t.priority === "Urgent" && !isClosed(t)).length],
+      ["fa-circle-check", "success", "Resolved in the period", "", o ? o.tickets.resolved : "—"],
+    ];
+    $("supportSnapshot").innerHTML = rows.map(([icon, cls, name, sub, value]) => `<div class="mini-row"><span class="mini-icon ${cls}"><i class="fa-solid ${icon}"></i></span><div class="info"><div class="name">${escapeHtml(name)}</div><div class="sub">${escapeHtml(sub)}</div></div><div class="mini-right">${escapeHtml(String(value))}</div></div>`).join("");
   }
 
-  const total = tickets.length;
-  let acc = 0;
-  const segments = TICKET_STATUSES.map((status) => {
-    const count = tickets.filter((t) => t.status === status).length;
-    const start = acc;
-    acc += (count / total) * 100;
-    return { status, count, start, end: acc };
+  function render() {
+    renderKpis();
+    ({ overview: renderOverview, sales: renderSales, leads: renderLeads, team: renderTeam, payments: renderPayments, support: renderSupport })[state.tab]();
+  }
+
+  // --- controls -------------------------------------------------------------------------------
+  function applyRange() {
+    const value = $("filterRange").value;
+    $("customRange").hidden = value !== "custom";
+    state.range = rangeFor(value);
+    if (value === "custom") {
+      $("rangeFrom").value = state.range.from;
+      $("rangeTo").value = state.range.to;
+    }
+    setPreference("reportsRange", value);
+    load();
+  }
+  $("filterRange").addEventListener("change", applyRange);
+  $("rangeFrom").addEventListener("change", applyRange);
+  $("rangeTo").addEventListener("change", applyRange);
+  $("reportTabs").addEventListener("click", (e) => {
+    const tab = e.target.closest(".report-tab");
+    if (!tab) return;
+    document.querySelectorAll(".report-tab").forEach((t) => t.classList.toggle("active", t === tab));
+    document.querySelectorAll(".report-panel").forEach((p) => p.classList.toggle("active", p.dataset.panel === tab.dataset.tab));
+    state.tab = tab.dataset.tab;
+    load();
   });
-
-  const gradient = segments
-    .filter((s) => s.count > 0)
-    .map((s) => `${TICKET_STATUS_COLOR[s.status]} ${s.start}% ${s.end}%`)
-    .join(", ");
-
-  el.innerHTML = `
-    <div class="donut-chart" style="background:conic-gradient(${gradient})">
-      <div class="donut-center"><span class="num">${total}</span><span class="lbl">Tickets</span></div>
-    </div>
-    <div class="donut-legend">
-      ${segments
-        .map(
-          (s) => `
-        <div class="donut-legend-row"><span class="swatch" style="background:${TICKET_STATUS_COLOR[s.status]}"></span>${s.status}<strong>${s.count}</strong></div>`,
-        )
-        .join("")}
-    </div>`;
-}
-
-function renderTicketPriorityBars() {
-  const tickets = readTickets();
-  const el = document.getElementById("ticketPriorityBars");
-
-  if (!tickets.length) {
-    el.innerHTML = `<div class="bar-list-empty"><i class="fa-solid fa-headset"></i>No tickets yet.</div>`;
-    return;
-  }
-
-  const max = Math.max(
-    ...TICKET_PRIORITIES.map(
-      (p) => tickets.filter((t) => t.priority === p).length,
-    ),
-    1,
-  );
-
-  el.innerHTML = TICKET_PRIORITIES.map((p) => {
-    const count = tickets.filter((t) => t.priority === p).length;
-    return `
-      <div class="bar-row">
-        <div class="bar-label">${p}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(6, Math.round((count / max) * 100))}%"></div></div>
-        <div class="bar-meta">${count}</div>
-      </div>`;
-  }).join("");
-}
-
-function renderSupportSnapshot() {
-  const tickets = readTickets();
-  const today = todayStr();
-  const el = document.getElementById("supportSnapshot");
-
-  const overdue = tickets.filter(
-    (t) =>
-      t.dueDate &&
-      t.dueDate < today &&
-      t.status !== "Resolved" &&
-      t.status !== "Closed",
-  ).length;
-  const open = tickets.filter((t) =>
-    ["Open", "In Progress", "Waiting on Customer"].includes(t.status),
-  ).length;
-  const resolved = tickets.filter(
-    (t) => t.status === "Resolved" || t.status === "Closed",
-  ).length;
-  const urgent = tickets.filter(
-    (t) => t.priority === "Urgent" && t.status !== "Closed",
-  ).length;
-
-  const rows = [
-    { icon: "fa-inbox", cls: "info", name: "Open Tickets", sub: "Across all agents", value: open },
-    { icon: "fa-triangle-exclamation", cls: "warning", name: "Overdue", sub: "Past due date, unresolved", value: overdue },
-    { icon: "fa-bolt", cls: "warning", name: "Urgent & Open", sub: "Needs immediate attention", value: urgent },
-    { icon: "fa-circle-check", cls: "success", name: "Resolved / Closed", sub: "All time", value: resolved },
-  ];
-
-  el.innerHTML = rows
-    .map(
-      (r) => `
-      <div class="mini-row">
-        <span class="mini-icon ${r.cls}"><i class="fa-solid ${r.icon}"></i></span>
-        <div class="info">
-          <div class="name">${r.name}</div>
-          <div class="sub">${r.sub}</div>
-        </div>
-        <div class="mini-right"><span class="mini-tag" style="color:var(--text)">${r.value}</span></div>
-      </div>`,
-    )
-    .join("");
-}
-
-// ---------------------------------------------------------------
-// Export CSV
-// ---------------------------------------------------------------
-function exportCsv() {
-  const deals = readDeals();
-  const leads = getLeads();
-  const tickets = readTickets();
-  const wonInRange = deals.filter(
-    (d) => d.stage === "Won" && inRange(d.closeDate || d.createdAt),
-  );
-  const totalRevenue = wonInRange.reduce((s, d) => s + Number(d.value || 0), 0);
-  const openDeals = deals.filter((d) => d.stage !== "Won" && d.stage !== "Lost");
-  const openPipeline = openDeals.reduce((s, d) => s + Number(d.value || 0), 0);
-  const leadsInRange = leads.filter((l) => inRange(l.createdAt));
-  const wonLeadsInRange = leadsInRange.filter((l) => l.status === "Won");
-  const ticketsInRange = tickets.filter((t) => inRange(t.createdAt));
-  const resolvedInRange = ticketsInRange.filter(
-    (t) => t.status === "Resolved" || t.status === "Closed",
-  );
-
-  const rangeLabel =
-    document.getElementById("filterRange").selectedOptions[0].textContent;
-
-  const rows = [
-    ["Metric", "Value", "Range"],
-    ["Revenue Won", totalRevenue, rangeLabel],
-    ["Open Pipeline Deals", openDeals.length, "Current"],
-    ["Open Pipeline Value", openPipeline, "Current"],
-    ["Leads in Range", leadsInRange.length, rangeLabel],
-    ["Leads Won in Range", wonLeadsInRange.length, rangeLabel],
-    [
-      "Lead Conversion Rate (%)",
-      pct(wonLeadsInRange.length, leadsInRange.length),
-      rangeLabel,
-    ],
-    ["Tickets in Range", ticketsInRange.length, rangeLabel],
-    ["Tickets Resolved in Range", resolvedInRange.length, rangeLabel],
-  ];
-
-  const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `crm-report-${todayStr()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  showToast("Report exported", "success");
-}
-
-// ---------------------------------------------------------------
-// Full render
-// ---------------------------------------------------------------
-function renderAll() {
-  renderKpis();
-  if (activeTab === "overview") {
-    renderRevenueTrend();
-    renderWinLossDonut("winLossDonut");
-    renderPipelineBars("pipelineBarsOverview");
-    renderLeadFunnel("leadFunnelOverview");
-  } else if (activeTab === "sales") {
-    renderPipelineBars("pipelineBarsSales");
-    renderWinLossDonut("winLossDonutSales");
-    renderDealsByOwner();
-  } else if (activeTab === "leads") {
-    renderLeadFunnel("leadFunnel");
-    renderLeadsByProduct();
-    renderCampaignPerf();
-  } else if (activeTab === "team") {
-    renderLeaderboard();
-  } else if (activeTab === "support") {
-    renderTicketStatusDonut();
-    renderTicketPriorityBars();
-    renderSupportSnapshot();
-  }
-}
-
-// ---------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", () => {
-  crmReady(["leads", "contacts", "products", "members", "tasks", "events", "tickets", "campaigns"], renderAll);
-
-  document.querySelectorAll(".report-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      document
-        .querySelectorAll(".report-tab")
-        .forEach((t) => t.classList.remove("active"));
-      document
-        .querySelectorAll(".report-panel")
-        .forEach((p) => p.classList.remove("active"));
-      tab.classList.add("active");
-      document
-        .querySelector(`.report-panel[data-panel="${tab.dataset.tab}"]`)
-        .classList.add("active");
-      activeTab = tab.dataset.tab;
-      renderAll();
-    });
+  $("trendChips").addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-series]");
+    if (!chip) return;
+    state.series = chip.dataset.series;
+    document.querySelectorAll("#trendChips [data-series]").forEach((c) => c.classList.toggle("active", c === chip));
+    renderOverview();
   });
+  $("exportBtn").addEventListener("click", async () => {
+    const type = EXPORT_TYPE[state.tab];
+    try {
+      await crmDownload(`/reports/export?type=${type}&${query()}`, `report-${type}-${state.range.from}-to-${state.range.to}.csv`);
+      showToast("Report downloaded.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't export the report."), "error");
+    }
+  });
+  $("printBtn").addEventListener("click", () => window.print());
 
-  document
-    .getElementById("filterRange")
-    .addEventListener("change", renderAll);
-  document.getElementById("exportBtn").addEventListener("click", exportCsv);
-  document.getElementById("printBtn").addEventListener("click", () => window.print());
-});
+  const remembered = getPreference("reportsRange", "30");
+  if ([...$("filterRange").options].some((o) => o.value === remembered && remembered !== "custom")) $("filterRange").value = remembered;
+  crmReady(["leads", "products", "tickets", "campaigns"], applyRange);
+})();
