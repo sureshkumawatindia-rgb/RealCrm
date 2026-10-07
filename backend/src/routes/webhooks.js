@@ -5,6 +5,7 @@ const inbound = require('../services/whatsappInboundService');
 const indiamart = require('../services/indiamartService');
 const leadWebhooks = require('../services/leadWebhookService');
 const paymentLinks = require('../services/paymentLinkService');
+const billing = require('../services/billingService');
 const queue = require('../jobs/queue');
 const env = require('../config/env');
 const { formatRupees } = require('../utils/money');
@@ -145,6 +146,52 @@ router.post('/payments-test/:providerLinkId', async (req, res) => {
   }
   const link = await paymentLinks.testLink(req.params.providerLinkId);
   return res.status(link ? 200 : 404).type('html').send(testPayPage(link, note));
+});
+
+// The CRM plans (Phase 10B): Razorpay Subscriptions events for the platform's own account.
+router.post('/billing/razorpay', async (req, res) => {
+  const { status } = await billing.receiveWebhook(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), req.headers);
+  res.sendStatus(status);
+});
+
+// The test billing gateway's page (development only): the plan, and buttons that do what
+// Razorpay would (pay, the next month's charge, a failed charge).
+const TEST_ACTIONS = { pay: 'Authorise and pay (test)', charge: 'Charge the next month (test)', fail: 'Fail the next charge (test)' };
+function testBillingPage(sub, note = '') {
+  const actions = !sub ? [] : sub.status === 'created' ? ['pay'] : ['authenticated', 'active', 'pending', 'halted'].includes(sub.status) ? ['charge', 'fail'] : [];
+  const body = !sub ? '<p>This test subscription does not exist (the server may have restarted).</p>'
+    : `<p class="muted">Test subscription — no money moves</p>
+      <h1>${esc(formatRupees(sub.amountPaise))}<small> /month</small></h1>
+      <p>YELLOW CRM ${esc(sub.planName)} plan (GST included)${sub.startAt && sub.status === 'created' ? `<br>First charge on ${esc(new Date(sub.startAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }))}, when the free trial ends` : ''}</p>
+      <p class="muted">Status: ${esc(sub.status)}${sub.paidCount ? ` · ${sub.paidCount} month${sub.paidCount === 1 ? '' : 's'} paid` : ''}</p>
+      ${note ? `<p class="note">${esc(note)}</p>` : ''}
+      ${actions.map((action) => `<form method="post"><input type="hidden" name="action" value="${action}"><button type="submit"${action === 'fail' ? ' class="secondary"' : ''}>${esc(TEST_ACTIONS[action])}</button></form>`).join('')}
+      <p class="muted">Close this page and go back to the CRM; it updates in a moment.</p>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Test subscription</title>
+    <style>body{font-family:system-ui,sans-serif;background:#f5f6f8;margin:0;display:grid;place-items:center;min-height:100vh}
+    main{background:#fff;border-radius:12px;padding:28px;max-width:380px;width:calc(100% - 32px);box-shadow:0 4px 20px rgba(0,0,0,.08);text-align:center}
+    h1{margin:8px 0;font-size:32px}h1 small{font-size:14px;color:#777}.muted{color:#777;font-size:13px}.note{background:#fff7d6;border-radius:8px;padding:8px}
+    form{margin:8px 0}button{width:100%;padding:12px;font-size:16px;border:0;border-radius:8px;background:#1a7f37;color:#fff;cursor:pointer}
+    button.secondary{background:#fff;color:#b42318;border:1px solid #f1b8b2}</style></head>
+    <body><main>${body}</main></body></html>`;
+}
+router.get('/billing-test/:subscriptionId', async (req, res) => {
+  if (env.isProduction) return res.sendStatus(404);
+  const sub = await billing.testSubscription(req.params.subscriptionId);
+  return res.status(sub ? 200 : 404).type('html').send(testBillingPage(sub));
+});
+router.post('/billing-test/:subscriptionId', async (req, res) => {
+  if (env.isProduction) return res.sendStatus(404);
+  const action = new URLSearchParams(Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '').get('action') || 'pay';
+  let note = '';
+  try {
+    await billing.actOnTest(req.params.subscriptionId, action, queue);
+    note = { pay: 'Paid. The CRM records it in a moment.', charge: 'Charged. The invoice appears in the CRM in a moment.', fail: 'The charge failed (test).' }[action] || '';
+  } catch (error) {
+    note = error.message;
+  }
+  const sub = await billing.testSubscription(req.params.subscriptionId);
+  return res.status(sub ? 200 : 404).type('html').send(testBillingPage(sub, note));
 });
 
 // JustDial / TradeIndia: any format, as a GET with query parameters or a POST.

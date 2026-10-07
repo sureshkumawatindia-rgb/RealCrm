@@ -35,6 +35,8 @@ const organizationSchema = new mongoose.Schema(
       providerSubscriptionId: String,
       providerCustomerId: String,
       pendingPlan: { type: String, enum: PLAN_KEYS },
+      gatewayStatus: String, // the billing gateway's own word (created, authenticated, active …)
+      checkoutUrl: String, // the gateway's payment page while the first payment is awaited
       remindedFor: String, // the last trial reminder sent ("7", "3", "1", "ended"), once each
     },
     // Quotations and orders (Phase 5): what the PDF shows and how documents are numbered.

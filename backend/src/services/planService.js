@@ -56,6 +56,10 @@ function subscriptionOf(organization, now = new Date()) {
     cancelAtPeriodEnd: Boolean(sub.cancelAtPeriodEnd),
     pendingPlan: sub.pendingPlan || null,
     provider: sub.provider || null,
+    // A checkout that was started but not paid yet (to finish it from Settings → Plan & usage).
+    checkoutUrl: sub.gatewayStatus === 'created' && sub.checkoutUrl ? sub.checkoutUrl : null,
+    // Paid for with the first charge still ahead (chosen during the trial: it starts at its end).
+    firstChargeAt: sub.gatewayStatus === 'authenticated' ? sub.currentPeriodEnd || null : null,
   };
 }
 

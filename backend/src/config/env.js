@@ -41,6 +41,21 @@ const schema = Joi.object({
   // Enquiries per minute from one address to the public website forms.
   RATE_LIMIT_FORM_PER_MINUTE: Joi.number().integer().min(1).default(10),
   JWT_EXPIRES_IN: Joi.string().allow(''),
+  // SaaS billing (Phase 10): the plans are paid to the platform's own Razorpay account
+  // (Subscriptions), not to a company's gateway. mock = a test checkout page on this server
+  // (never in production); off = the Choose buttons say to contact support.
+  BILLING_PROVIDER: Joi.string().valid('razorpay', 'mock', 'off')
+    .default(process.env.NODE_ENV === 'production' ? 'off' : 'mock'),
+  RAZORPAY_BILLING_KEY_ID: Joi.string().allow('').default(''),
+  RAZORPAY_BILLING_KEY_SECRET: Joi.string().allow('').default(''),
+  RAZORPAY_BILLING_WEBHOOK_SECRET: Joi.string().allow('').default(''),
+  // Who issues the GST invoices for the plans (the platform's business).
+  BILLING_SELLER_NAME: Joi.string().allow('').default(''),
+  BILLING_SELLER_GSTIN: Joi.string().allow('').default(''),
+  BILLING_SELLER_ADDRESS: Joi.string().allow('').default(''),
+  BILLING_SELLER_EMAIL: Joi.string().allow('').default(''),
+  BILLING_SAC: Joi.string().pattern(/^\d{4,8}$/).default('998315'),
+  BILLING_INVOICE_PREFIX: Joi.string().pattern(/^[A-Z0-9-]{1,8}$/).default('YC'),
 }).unknown(true);
 
 const { error, value } = schema.validate(process.env, { abortEarly: false });
@@ -96,7 +111,25 @@ const env = {
     graphUrl: value.WHATSAPP_GRAPH_URL.replace(/\/+$/, ''),
     graphVersion: value.WHATSAPP_GRAPH_VERSION,
   },
+  billing: {
+    provider: value.NODE_ENV === 'production' && value.BILLING_PROVIDER === 'mock' ? 'off' : value.BILLING_PROVIDER,
+    razorpay: {
+      keyId: value.RAZORPAY_BILLING_KEY_ID,
+      keySecret: value.RAZORPAY_BILLING_KEY_SECRET,
+      webhookSecret: value.RAZORPAY_BILLING_WEBHOOK_SECRET,
+    },
+    seller: {
+      name: value.BILLING_SELLER_NAME,
+      gstin: value.BILLING_SELLER_GSTIN.trim().toUpperCase(),
+      address: value.BILLING_SELLER_ADDRESS,
+      email: value.BILLING_SELLER_EMAIL,
+    },
+    sac: value.BILLING_SAC,
+    invoicePrefix: value.BILLING_INVOICE_PREFIX,
+  },
   warnings: [
+    ...(value.BILLING_PROVIDER === 'razorpay' && !(value.RAZORPAY_BILLING_KEY_ID && value.RAZORPAY_BILLING_KEY_SECRET && value.RAZORPAY_BILLING_WEBHOOK_SECRET)
+      ? ['BILLING_PROVIDER is razorpay but a RAZORPAY_BILLING_* key is missing; plans cannot be bought until they are set.'] : []),
     ...(value.JWT_EXPIRES_IN ? ['JWT_EXPIRES_IN is no longer used; access tokens use ACCESS_TOKEN_TTL (default 15m).'] : []),
     ...(!value.DATA_ENCRYPTION_KEY ? ['DATA_ENCRYPTION_KEY is not set; secrets are encrypted with GMAIL_TOKEN_ENCRYPTION_KEY until you add it.'] : []),
   ],
