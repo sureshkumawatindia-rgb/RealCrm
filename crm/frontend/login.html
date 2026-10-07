@@ -26,6 +26,21 @@
 
         <div id="google-signin-slot"></div>
 
+        <!-- Phone sign-in with a WhatsApp code (Phase 10E); shown when the CRM has it switched on. -->
+        <div class="login-otp" id="loginOtp" hidden>
+          <div class="login-divider"><span>or</span></div>
+          <form id="otpPhoneForm" autocomplete="on">
+            <input type="tel" id="otpPhone" inputmode="tel" autocomplete="tel" maxlength="30" placeholder="Your mobile number" aria-label="Your mobile number" required />
+            <button class="btn btn-outline" type="submit" id="otpSendBtn"><i class="fa-brands fa-whatsapp"></i> Get a code on WhatsApp</button>
+          </form>
+          <form id="otpCodeForm" autocomplete="off" hidden>
+            <input type="text" id="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" aria-label="6-digit code" required />
+            <button class="btn btn-primary" type="submit" id="otpVerifyBtn">Sign in</button>
+            <button class="login-link" type="button" id="otpBack">Use another number</button>
+          </form>
+          <p class="login-foot" id="otpHint">Works after you verify your number once, in Settings → Your Profile.</p>
+        </div>
+
         <p class="login-foot">
           By continuing you agree to YELLOW CRM's usage policy.
         </p>

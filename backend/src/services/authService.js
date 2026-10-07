@@ -81,6 +81,13 @@ async function loginWithGoogle(req, { credential, inviteToken }) {
   if (user.disabledAt) throw httpError(403, 'FORBIDDEN', 'This account is disabled.');
 
   const { invitedOrganizationId, inviteError } = await inviteService.acceptPendingInvites(user, email, inviteToken);
+  return startSession(req, user, { invitedOrganizationId, inviteError, method: 'google' });
+}
+
+// After a sign-in (Google, or a WhatsApp code to a verified phone, Phase 10E): picks the
+// organization (an invite's first, then the last one used), opens a session, and answers like
+// POST /auth/google.
+async function startSession(req, user, { invitedOrganizationId = null, inviteError = null, method = 'google' } = {}) {
   let memberships = await activeMemberships(user._id);
   if (!memberships.length) {
     if (!(await adoptLegacyOrganization(user))) await createOrganizationFor(user);
@@ -100,7 +107,7 @@ async function loginWithGoogle(req, { credential, inviteToken }) {
     userId: user._id, organizationId, userAgent: req.get('user-agent'), ip: req.ip,
   });
   const token = signAccessToken({ userId: user._id, organizationId, sessionId: session._id });
-  await audit(req, { organizationId, action: 'auth.login', entityType: 'User', entityId: user._id });
+  await audit(req, { organizationId, action: 'auth.login', entityType: 'User', entityId: user._id, ...(method !== 'google' && { changes: { method } }) });
 
   return {
     refreshToken,
@@ -170,4 +177,4 @@ async function me(req) {
   };
 }
 
-module.exports = { loginWithGoogle, refresh, logout, switchOrganization, me };
+module.exports = { loginWithGoogle, startSession, refresh, logout, switchOrganization, me };

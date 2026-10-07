@@ -197,6 +197,53 @@ button {
   font-size: 13px;
   line-height: 1.45;
 }
+/* Phone sign-in with a WhatsApp code (Phase 10E) */
+.login-otp[hidden],
+.login-otp form[hidden] {
+  display: none;
+}
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 16px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+.login-otp form {
+  display: grid;
+  gap: 8px;
+}
+.login-otp input {
+  padding: 11px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 15px;
+  text-align: center;
+  background: var(--surface);
+  color: var(--text);
+}
+.login-otp .btn {
+  justify-content: center;
+}
+.login-otp .login-foot {
+  margin: 12px 0 20px;
+}
+.login-link {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+}
 
 /* ============================================================
    APP SHELL (dashboard / customers / leads / accounts)

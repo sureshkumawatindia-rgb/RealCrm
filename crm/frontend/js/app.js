@@ -68,7 +68,8 @@ async function crmRequest(path, options = {}, { retried = false, blob = false } 
   }
   if (blob && response.ok) return response.blob();
   const body = await response.json().catch(() => ({}));
-  if (response.status === 401 && !retried && !sessionEnded && !NO_REFRESH_PATHS.has(path)) {
+  // A wrong sign-in code (OTP_…) is a 401 too, but not an ended session.
+  if (response.status === 401 && !retried && !sessionEnded && !NO_REFRESH_PATHS.has(path) && !/^OTP_/.test(body.code || "")) {
     if (await refreshAccessToken(session)) return crmRequest(path, options, { retried: true, blob });
     endSession();
   }

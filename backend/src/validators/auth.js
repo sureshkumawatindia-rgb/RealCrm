@@ -9,4 +9,10 @@ module.exports = {
   switchOrganization: Joi.object({
     organizationId: objectId.required(),
   }),
+  // Phone sign-in with a WhatsApp code (Phase 10E).
+  otpRequest: Joi.object({ phone: Joi.string().trim().min(6).max(30).required() }),
+  otpVerify: Joi.object({
+    phone: Joi.string().trim().min(6).max(30).required(),
+    code: Joi.string().trim().pattern(/^\d{6}$/).required().messages({ 'string.pattern.base': 'The code has 6 digits.' }),
+  }),
 };

@@ -745,6 +745,19 @@
                     <button class="btn btn-outline" id="pushOffBtn" type="button">Switch off here</button>
                   </div>
                 </div>
+                <div class="settings-section" id="phoneSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Sign in with your mobile number</div>
+                  <p class="settings-hint" id="phoneHint">Verify your mobile number once; then you can also sign in with a 6-digit code sent on WhatsApp, next to Google.</p>
+                  <form class="field-row" id="phoneForm" autocomplete="off">
+                    <div class="field"><label for="phoneNumber">Mobile number</label><input type="tel" id="phoneNumber" inputmode="tel" maxlength="30" placeholder="98290 12345" /></div>
+                    <div class="field" id="phoneCodeField" hidden><label for="phoneCode">Code from WhatsApp</label><input type="text" id="phoneCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" /></div>
+                  </form>
+                  <div class="data-actions">
+                    <button class="btn btn-primary" id="phoneSendBtn" type="button"><i class="fa-brands fa-whatsapp"></i> Send a code</button>
+                    <button class="btn btn-primary" id="phoneVerifyBtn" type="button" hidden>Verify</button>
+                    <button class="btn btn-outline" id="phoneRemoveBtn" type="button" hidden>Remove this number</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1779,5 +1792,6 @@
     <script src="./js/settings-integrations.js"></script>
     <script src="./js/settings-ai.js"></script>
     <script src="./js/settings-push.js"></script>
+    <script src="./js/settings-phone.js"></script>
   </body>
 </html>

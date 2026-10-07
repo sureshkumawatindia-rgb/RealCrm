@@ -79,26 +79,74 @@ async function handleGoogleCredentialResponse(response) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ credential: response.credential, inviteToken }),
     });
-
-    // A different company than last time on this browser: drop the old company cache.
-    const previousMember = getCurrentMember();
-    if (previousMember && String(previousMember.organizationId) !== String(auth.organizationId)) {
-      localStorage.removeItem(KEYS.COMPANY);
-    }
-    localStorage.setItem(KEYS.SESSION, auth.token);
-    localStorage.setItem(KEYS.USER, JSON.stringify(auth.user));
-    localStorage.setItem(KEYS.MEMBER, JSON.stringify({ ...auth.member, organizationId: auth.organizationId }));
-    sessionStorage.removeItem(INVITE_KEY);
-
-    if (auth.inviteError) {
-      showToast(auth.inviteError.message, "error");
-      await new Promise((resolve) => setTimeout(resolve, 2500));
-    }
-    window.location.href = await nextPage(auth.member);
+    await completeSignIn(auth);
   } catch (error) {
     showToast(error.message || "Google sign-in failed. Please try again.", "error");
   }
 }
+
+// After Google or a WhatsApp code: keep the session and open the first allowed page.
+async function completeSignIn(auth) {
+  // A different company than last time on this browser: drop the old company cache.
+  const previousMember = getCurrentMember();
+  if (previousMember && String(previousMember.organizationId) !== String(auth.organizationId)) {
+    localStorage.removeItem(KEYS.COMPANY);
+  }
+  localStorage.setItem(KEYS.SESSION, auth.token);
+  localStorage.setItem(KEYS.USER, JSON.stringify(auth.user));
+  localStorage.setItem(KEYS.MEMBER, JSON.stringify({ ...auth.member, organizationId: auth.organizationId }));
+  sessionStorage.removeItem(INVITE_KEY);
+
+  if (auth.inviteError) {
+    showToast(auth.inviteError.message, "error");
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+  }
+  window.location.href = await nextPage(auth.member);
+}
+
+// Phone sign-in with a WhatsApp code (Phase 10E): shown when the CRM has it switched on.
+(function phoneSignIn() {
+  const $ = (id) => document.getElementById(id);
+  if (!$("loginOtp")) return;
+  const json = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  crmApi("/auth/otp/available").then((status) => {
+    $("loginOtp").hidden = !status?.available;
+    const subtitle = document.querySelector(".login-card h1 + p");
+    if (status?.available && subtitle) subtitle.textContent = "Sign in to continue";
+  }).catch(() => {});
+
+  $("otpPhoneForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    $("otpSendBtn").disabled = true;
+    try {
+      const sent = await crmApi("/auth/otp/request", json({ phone: $("otpPhone").value.trim() }));
+      $("otpHint").textContent = sent.devCode ? `${sent.message} (Development: the code is ${sent.devCode}.)` : sent.message;
+      $("otpPhoneForm").hidden = true;
+      $("otpCodeForm").hidden = false;
+      $("otpCode").focus();
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Could not send a code."), "error");
+    } finally {
+      $("otpSendBtn").disabled = false;
+    }
+  });
+  $("otpCodeForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    $("otpVerifyBtn").disabled = true;
+    try {
+      await completeSignIn(await crmApi("/auth/otp/verify", json({ phone: $("otpPhone").value.trim(), code: $("otpCode").value.trim() })));
+    } catch (error) {
+      showToast(apiErrorMessage(error, "That code did not work."), "error");
+      $("otpVerifyBtn").disabled = false;
+    }
+  });
+  $("otpBack").addEventListener("click", () => {
+    $("otpCodeForm").hidden = true;
+    $("otpPhoneForm").hidden = false;
+    $("otpCode").value = "";
+    $("otpHint").textContent = "Works after you verify your number once, in Settings → Your Profile.";
+  });
+})();
 
 function initGoogleSignIn() {
   if (typeof google === "undefined" || !google.accounts?.id) {
