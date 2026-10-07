@@ -42,6 +42,14 @@ module.exports = {
     description: text(200),
     active: Joi.boolean(),
   }).min(1),
+  metaConversionsSave: Joi.object({
+    datasetId: Joi.string().trim().pattern(/^\d{5,20}$/).messages({ 'string.pattern.base': 'The dataset (pixel) id is a number from Events Manager.' }),
+    accessToken: Joi.string().trim().min(20).max(1000),
+    testEventCode: text(50),
+    enabled: Joi.boolean(),
+    allSources: Joi.boolean(),
+    stages: Joi.array().items(Joi.string().valid(...LEAD_STAGES)).min(1).unique(),
+  }).min(1),
   deliveryList: Joi.object({ ...paginationQuery, status: Joi.string().valid('pending', 'delivered', 'failed') }),
 
   // --- /api/public/v1 ---

@@ -1,6 +1,7 @@
 const express = require('express');
 const apiKeys = require('../services/apiKeyService');
 const webhooks = require('../services/outboundWebhookService');
+const metaConversions = require('../services/metaConversionsService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -8,8 +9,8 @@ const { idParams } = require('../validators/common');
 const schemas = require('../validators/integrations');
 const { API_SCOPES } = require('../constants/api');
 
-// Settings → API & webhooks (Phase 10C, owners and admins): the public API's keys and the
-// outbound webhooks with their delivery log.
+// Settings → API & webhooks (Phase 10C, owners and admins): the public API's keys, the
+// outbound webhooks with their delivery log, and the Meta Conversions API.
 const byId = validate({ params: idParams });
 
 const apiKeyRoutes = express.Router();
@@ -53,4 +54,21 @@ webhookRoutes.post('/deliveries/:id/retry', byId, async (req, res) => {
   res.json({ success: true, data: await webhooks.retry(req, req.valid.params.id) });
 });
 
-module.exports = { apiKeyRoutes, webhookRoutes };
+// Meta Conversions API for CRM (Pro and up).
+const metaConversionsRoutes = express.Router();
+metaConversionsRoutes.use(authenticate, requireRole('owner', 'admin'));
+metaConversionsRoutes.get('/', async (req, res) => {
+  res.json({ success: true, data: await metaConversions.get(req) });
+});
+metaConversionsRoutes.put('/', validate({ body: schemas.metaConversionsSave }), async (req, res) => {
+  res.json({ success: true, data: await metaConversions.save(req, req.body), message: 'Conversions API saved' });
+});
+metaConversionsRoutes.delete('/', async (req, res) => {
+  await metaConversions.remove(req);
+  res.json({ success: true, message: 'Conversions API removed' });
+});
+metaConversionsRoutes.post('/test', async (req, res) => {
+  res.json({ success: true, data: await metaConversions.test(req) });
+});
+
+module.exports = { apiKeyRoutes, webhookRoutes, metaConversionsRoutes };

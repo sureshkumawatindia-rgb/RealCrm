@@ -11,6 +11,7 @@ const paymentLinks = require('../services/paymentLinkService');
 const catalog = require('../services/catalogService');
 const billing = require('../services/billingService');
 const outboundWebhooks = require('../services/outboundWebhookService');
+const metaConversions = require('../services/metaConversionsService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
@@ -20,8 +21,8 @@ const outboundWebhooks = require('../services/outboundWebhookService');
 // links handle gateway webhooks and check open links every 10 minutes, and the WhatsApp catalog
 // syncs products daily and turns carts into orders (Phase 8); billing follows the plan subscriptions
 // (webhooks, a check every 6 hours, trial reminders) and outbound webhooks send business events
-// to the companies' own systems (Phase 10).
-const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register];
+// to the companies' own systems and lead stages to Meta's Conversions API (Phase 10).
+const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register];
 
 function start(config) {
   definitions.forEach((register) => register(queue));
