@@ -141,6 +141,10 @@ Contacts imported from CSV are ordinary `contacts` (source from the file or `Imp
 
 `orders.payments[]` { source link/manual, amountPaise, method, reference, paidAt, paymentLinkId, provider, providerPaymentId, recordedById, recordedByName } and `orders.amountPaidPaise` (their sum); `paidAt` is set when paid in full. Payment status and the amount due are computed (`orderService.paymentStatusOf` / `duePaise`), not stored, so older orders need no migration. `organizations.payments` { expiryDays, sendReceipt, linkTemplateId, receiptTemplateId }. `inboundevents` also holds gateway events (`provider` razorpay/cashfree/mock, `kind: payment_link`, the parsed event as `payload`). Jobs: `payment.webhook` (one per stored event), `payment.links.sync` (every 10 minutes, 50 open links checked longest ago).
 
+## 1l. Phase 9 (reports)
+
+No new collections: reports are counted from the records when asked (D47). New index `messages (organizationId, createdAt -1)` for the messages of a date range (response times). Range boundaries are 00:00 India time (`utils/reportRange.js`).
+
 ## 2. Data migrations
 
 | Migration | What it does |
