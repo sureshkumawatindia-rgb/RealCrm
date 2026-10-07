@@ -25,4 +25,7 @@ const linkLimiter = perMinute(60, {
   handler: (req, res) => res.status(429).type('text').send('Too many requests. Please wait a minute and try again.'),
 });
 
-module.exports = { apiLimiter, authLimiter, webhookLimiter, formLimiter, linkLimiter };
+// The public API (Phase 10C): per API key, after the key is checked.
+const publicApiLimiter = perMinute(env.rateLimit.publicApiPerMinute, { keyGenerator: (req) => `key:${req.apiKey.prefix}` });
+
+module.exports = { apiLimiter, authLimiter, webhookLimiter, formLimiter, linkLimiter, publicApiLimiter };

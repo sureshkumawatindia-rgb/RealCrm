@@ -10,6 +10,7 @@ const routes = require('./routes');
 const webhookRoutes = require('./routes/webhooks');
 const publicRoutes = require('./routes/public');
 const quotationLinkRoutes = require('./routes/quotationLinks');
+const publicApiRoutes = require('./routes/publicApi');
 const logger = require('./config/logger');
 const path = require('path');
 const env = require('./config/env');
@@ -58,6 +59,8 @@ app.use('/api/v1/webhooks', webhookRoutes);
 app.use('/api/v1/public', publicRoutes);
 // Customers' quotation links (/q/<signed id>), with their own rate limit and strict headers.
 app.use('/q', quotationLinkRoutes);
+// The public REST API for the companies' own systems, Zapier and Make (API keys, Phase 10C).
+app.use('/api/public/v1', publicApiRoutes);
 app.use('/api/v1', apiLimiter, routes);
 
 // 404 handler

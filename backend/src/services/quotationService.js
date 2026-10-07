@@ -29,6 +29,7 @@ const leadService = require('./leadService');
 const contactService = require('./contactService');
 const conversationService = require('./conversationService');
 const templateService = require('./templateService');
+const automationEvents = require('./automation/events');
 const planService = require('./planService');
 
 // Quotations, estimates and proforma invoices (Phase 5). The browser sends quantities,
@@ -320,8 +321,18 @@ async function update(req, id, body) {
     if (lead) for (const [type, text] of events) await leadService.addActivity(req, lead, type, text, { session });
   });
   await audit(req, { action: status ? 'quotation.status_changed' : 'quotation.updated', entityType: 'Quotation', entityId: quotation._id, changes: status ? { status } : Object.keys(content) });
+  emitStatusChange(quotation, quotation.$locals.statusChange, req);
   if (quotation.$locals.stageChange) await leadService.emitStageChange(req, quotation.$locals.stageChange.leadId, quotation.$locals.stageChange);
   return serializeQuotation(quotation);
+}
+
+// "A quotation's status changed" (outbound webhooks), after the change is saved.
+function emitStatusChange(quotation, change, req) {
+  if (!change) return;
+  automationEvents.emit('quotation.status_changed', {
+    organizationId: quotation.organizationId, quotationId: quotation._id, leadId: quotation.leadId || null, contactId: quotation.contactId, ...change,
+    key: `quotation.status:${quotation._id}:${change.to}:${Date.now()}`,
+  }, req);
 }
 
 // Applies a status change a person asked for; returns the lead timeline entries.
@@ -334,6 +345,7 @@ async function changeStatus(req, quotation, status, { rejectedReason, session, v
   }
   const events = [];
   const label = `${quotation.type} ${quotation.number}`;
+  quotation.$locals.statusChange = { from: quotation.status, to: status };
   quotation.status = status;
   if (status === 'Sent' && quotation.acceptedAt) {
     quotation.acceptedAt = undefined; // "accepted" undone
@@ -441,10 +453,14 @@ async function buildImported(organizationId, contact, items) {
 
 // Sent quotations past their last valid day become Expired (hourly).
 async function expireDue() {
+  const due = await Quotation.find({ status: { $in: ['Sent', 'Viewed'] }, validUntil: { $lt: today() }, deletedAt: null })
+    .select('organizationId leadId contactId status').limit(5000);
+  if (!due.length) return 0;
   const result = await Quotation.updateMany(
-    { status: { $in: ['Sent', 'Viewed'] }, validUntil: { $lt: today() }, deletedAt: null },
+    { _id: { $in: due.map((q) => q._id) }, status: { $in: ['Sent', 'Viewed'] } },
     { $set: { status: 'Expired', expiredAt: new Date() } },
   );
+  for (const quotation of due) emitStatusChange(quotation, { from: quotation.status, to: 'Expired' });
   if (result.modifiedCount) logger.info(`Quotations expired: ${result.modifiedCount}`);
   return result.modifiedCount;
 }
@@ -473,6 +489,7 @@ async function recordView(quotation) {
   await Quotation.updateOne({ _id: quotation._id }, { $inc: { viewCount: 1 }, $set: { lastViewedAt: now } });
   await Quotation.updateOne({ _id: quotation._id, viewedAt: null }, { $set: { viewedAt: now } });
   const turned = await Quotation.findOneAndUpdate({ _id: quotation._id, status: 'Sent' }, { $set: { status: 'Viewed' } });
+  if (turned) emitStatusChange(turned, { from: 'Sent', to: 'Viewed' });
   if (turned?.leadId) {
     await LeadActivity.create({
       organizationId: turned.organizationId, leadId: turned.leadId, contactId: turned.contactId, type: 'Quotation',
@@ -612,6 +629,7 @@ async function sendOnWhatsApp(req, id, { mode, caption = '', templateId, variabl
     if (lead) for (const [type, text] of events) await leadService.addActivity(req, lead, type, text, { session });
   });
   await audit(req, { action: 'quotation.sent_whatsapp', entityType: 'Quotation', entityId: quotation._id, changes: { mode, templateId: templateId || null } });
+  emitStatusChange(quotation, quotation.$locals.statusChange, req);
   if (quotation.$locals.stageChange) await leadService.emitStageChange(req, quotation.$locals.stageChange.leadId, quotation.$locals.stageChange);
   return { quotation: serializeQuotation(quotation), message, conversationId: conversation._id };
 }
@@ -656,6 +674,7 @@ async function awaitingReply(req, { days = 3 } = {}) {
 }
 
 module.exports = {
+  emitStatusChange,
   awaitingReply, sendOptions, sendOnWhatsApp,
   pdf, pdfFor, openShared, recordView, shareUrlOf,
   preview, create, update, revise, list, remove, saveDraftForLead, buildImported, expireDue, register, nextNumber,

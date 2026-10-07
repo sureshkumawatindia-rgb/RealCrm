@@ -30,6 +30,7 @@ const broadcastRoutes = require('./broadcasts');
 const { settingsRoutes: paymentRoutes, linkRoutes: paymentLinkRoutes } = require('./payments');
 const reportRoutes = require('./reports');
 const billingRoutes = require('./billing');
+const { apiKeyRoutes, webhookRoutes: outboundWebhookRoutes } = require('./integrations');
 
 const router = express.Router();
 
@@ -73,5 +74,7 @@ router.use('/payments', paymentRoutes);
 router.use('/payment-links', paymentLinkRoutes);
 router.use('/reports', reportRoutes);
 router.use('/billing', billingRoutes);
+router.use('/api-keys', apiKeyRoutes);
+router.use('/outbound-webhooks', outboundWebhookRoutes);
 
 module.exports = router;

@@ -40,6 +40,8 @@ const schema = Joi.object({
   RATE_LIMIT_WEBHOOK_PER_MINUTE: Joi.number().integer().min(1).default(1200),
   // Enquiries per minute from one address to the public website forms.
   RATE_LIMIT_FORM_PER_MINUTE: Joi.number().integer().min(1).default(10),
+  // Public API requests per minute per API key (Phase 10C).
+  RATE_LIMIT_PUBLIC_API_PER_MINUTE: Joi.number().integer().min(1).default(120),
   JWT_EXPIRES_IN: Joi.string().allow(''),
   // SaaS billing (Phase 10): the plans are paid to the platform's own Razorpay account
   // (Subscriptions), not to a company's gateway. mock = a test checkout page on this server
@@ -103,6 +105,7 @@ const env = {
     authPerMinute: value.RATE_LIMIT_AUTH_PER_MINUTE,
     webhookPerMinute: value.RATE_LIMIT_WEBHOOK_PER_MINUTE,
     formPerMinute: value.RATE_LIMIT_FORM_PER_MINUTE,
+    publicApiPerMinute: value.RATE_LIMIT_PUBLIC_API_PER_MINUTE,
   },
   leadSources: {
     indiamartUrl: value.INDIAMART_PULL_URL,

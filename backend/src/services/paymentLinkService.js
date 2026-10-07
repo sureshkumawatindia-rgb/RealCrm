@@ -404,15 +404,19 @@ async function orderFor(req, link) {
   if (!quotation) return null;
   if (!quotation.orderId) {
     if (quotation.status !== 'Accepted') {
+      let accepted = null;
       await mongoose.connection.transaction(async (session) => {
+        accepted = null;
         const fresh = await Quotation.findById(quotation._id).session(session);
         if (fresh.status === 'Accepted') return;
+        accepted = { quotation: fresh, change: { from: fresh.status, to: 'Accepted' } };
         fresh.status = 'Accepted';
         fresh.acceptedAt = new Date();
         await fresh.save({ session });
         const lead = fresh.leadId ? await leadService.findVisible(req, fresh.leadId, session).catch(() => null) : null;
         if (lead) await leadService.addActivity(req, lead, 'Quotation', `${fresh.type} ${fresh.number} accepted: the customer paid`, { session });
       });
+      if (accepted) require('./quotationService').emitStatusChange(accepted.quotation, accepted.change, req); // eslint-disable-line global-require
     }
     try {
       await orderService.create(req, { quotationId: quotation._id });

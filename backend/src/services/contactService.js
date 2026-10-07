@@ -7,6 +7,7 @@ const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { searchFilter, sortSpec } = require('../utils/listQuery');
 const { visibilityFilter, resolveOwnerId, ownerPatch } = require('./access');
 const planService = require('./planService');
+const automationEvents = require('./automation/events');
 
 const MODULE = 'customers';
 const SEARCH_FIELDS = ['name', 'email', 'phone', 'company', 'city'];
@@ -106,6 +107,7 @@ async function create(req, body, { session } = {}) {
     createdById: req.user._id,
   }, { session });
   await audit(req, { action: 'contact.created', entityType: 'Contact', entityId: contact._id });
+  automationEvents.emit('contact.created', { organizationId: contact.organizationId, contactId: contact._id, source: contact.source, key: `contact.created:${contact._id}` }, req);
   return contact;
 }
 

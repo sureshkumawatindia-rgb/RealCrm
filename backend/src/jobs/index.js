@@ -10,6 +10,7 @@ const broadcasts = require('../services/broadcastService');
 const paymentLinks = require('../services/paymentLinkService');
 const catalog = require('../services/catalogService');
 const billing = require('../services/billingService');
+const outboundWebhooks = require('../services/outboundWebhookService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
@@ -18,8 +19,9 @@ const billing = require('../services/billingService');
 // sequences the follow-ups (Phase 6); broadcasts send WhatsApp campaigns (Phase 7); payment
 // links handle gateway webhooks and check open links every 10 minutes, and the WhatsApp catalog
 // syncs products daily and turns carts into orders (Phase 8); billing follows the plan subscriptions
-// (webhooks, a check every 6 hours, trial reminders; Phase 10).
-const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register];
+// (webhooks, a check every 6 hours, trial reminders) and outbound webhooks send business events
+// to the companies' own systems (Phase 10).
+const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register];
 
 function start(config) {
   definitions.forEach((register) => register(queue));

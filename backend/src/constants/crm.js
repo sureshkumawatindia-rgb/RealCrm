@@ -7,7 +7,7 @@ const OPEN_STAGES = Object.freeze(['New', 'Contacted', 'Quote Sent', 'Negotiatio
 const STAGE_PROBABILITY = Object.freeze({ New: 10, Contacted: 25, 'Quote Sent': 50, Negotiation: 75, Won: 100, Lost: 0 });
 
 const LEAD_SOURCES = Object.freeze([
-  'WhatsApp', 'IndiaMART', 'JustDial', 'TradeIndia', 'Facebook', 'Google Ads', 'Website', 'Manual', 'Import',
+  'WhatsApp', 'IndiaMART', 'JustDial', 'TradeIndia', 'Facebook', 'Google Ads', 'Website', 'Manual', 'Import', 'API',
 ]);
 
 const CONTACT_LIFECYCLES = Object.freeze(['lead', 'customer']);

@@ -163,6 +163,7 @@ async function findOrCreateContact(organizationId, phoneE164, name) {
   if (existing) return { contact: existing, created: false };
   try {
     const contact = await Contact.create({ organizationId, name, phone: phoneE164, phoneE164, source: 'WhatsApp', lifecycle: 'lead' });
+    automationEvents.emit('contact.created', { organizationId, contactId: contact._id, source: 'WhatsApp', key: `contact.created:${contact._id}` });
     return { contact, created: true };
   } catch (error) {
     if (error.code !== 11000) throw error; // the same number arrived twice at once

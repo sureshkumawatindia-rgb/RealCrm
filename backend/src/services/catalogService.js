@@ -17,6 +17,7 @@ const { financialYear, formatRupees } = require('../utils/money');
 const { providerFor } = require('../integrations/whatsapp');
 const accounts = require('./whatsappAccountService');
 const { billingOf } = require('./organizationService');
+const automationEvents = require('./automation/events');
 const quotationService = require('./quotationService');
 const conversationService = require('./conversationService');
 const leadService = require('./leadService');
@@ -331,6 +332,7 @@ async function orderFromMessage({ messageId }) {
       await order.save({ session });
       if (openLead) await leadService.addActivity(req, openLead, 'Order', `Order ${order.number} received from the WhatsApp catalog (${formatRupees(order.totals.grandTotalPaise)})`, { session });
     });
+    automationEvents.emit('order.created', { organizationId, orderId: order._id, leadId: order.leadId || null, contactId: order.contactId, key: `order.created:${order._id}` });
   } catch (error) {
     if (error.code !== 11000) throw error;
     order = await Order.findOne({ 'catalogOrder.messageId': message._id });

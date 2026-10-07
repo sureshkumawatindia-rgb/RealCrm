@@ -145,6 +145,7 @@ async function create(req, { quotationId }) {
     if (lead) await leadService.addActivity(req, lead, 'Order', `Order ${order.number} received (${formatRupees(order.totals.grandTotalPaise)}) from ${quotation.number}`, { session });
   });
   await audit(req, { action: 'order.created', entityType: 'Order', entityId: order._id, changes: { quotationId } });
+  automationEvents.emit('order.created', { organizationId: order.organizationId, orderId: order._id, leadId: order.leadId || null, contactId: order.contactId, quotationId: order.quotationId, key: `order.created:${order._id}` }, req);
   return serializeOrder(order);
 }
 

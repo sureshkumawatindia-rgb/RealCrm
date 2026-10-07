@@ -5,6 +5,7 @@ const LeadIntake = require('../models/LeadIntake');
 const LeadSourceConnection = require('../models/LeadSourceConnection');
 const Product = require('../models/Product');
 const bus = require('../realtime/bus');
+const automationEvents = require('./automation/events');
 const logger = require('../config/logger');
 const { normalizePhone } = require('../utils/phone');
 const { OPEN_STAGES, STAGE_PROBABILITY } = require('../constants/crm');
@@ -68,6 +69,7 @@ async function findOrCreateContact(organizationId, source, sourceRef, person) {
       organizationId, ...details, name: details.name || phoneE164 || email,
       phone: phoneE164 || '', ...(phoneE164 && { phoneE164 }), source, sourceRef, lifecycle: 'lead',
     });
+    automationEvents.emit('contact.created', { organizationId, contactId: contact._id, source, key: `contact.created:${contact._id}` });
     return { contact, created: true };
   } catch (error) {
     if (error.code !== 11000) throw error; // the same number arrived twice at once
