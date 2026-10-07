@@ -587,6 +587,18 @@ Owners and admins; the API keys and webhooks need a plan with the API (Growth an
 
 **Outbound webhook calls**: `POST` JSON `{ id: evt_…, type, createdAt, data }` with `X-CRM-Event`, `X-CRM-Event-Id`, `X-CRM-Delivery`, `X-CRM-Signature: sha256=<HMAC-SHA256 of the raw body with the webhook's secret>`; 2xx within 10 s, else retried after 1 min, 5 min, 30 min, 2 h, 6 h, 12 h, 24 h; switched off after 25 failed deliveries in a row.
 
+## AI assistant (Phase 10D)
+
+Guide: [AI_ASSISTANT.md](AI_ASSISTANT.md). 409 `AI_UNAVAILABLE` (no platform key, switched off, plan not active, monthly budget used up — the message says which), 502 `AI_FAILED` (the Claude API failed after the SDK's retries; a plain message), 422 `AI_NO_ANSWER` (refused / no suggestion).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/ai/status` | Every member: `{ available, autoReply }` (does the inbox show "Suggest a reply"). |
+| `GET` | `/ai/settings` | Owners and admins: `{ configured, enabled, autoReply, instructions, models { suggest, autoReply }, month { calls, suggested, sent, handoffs, inputTokens, outputTokens, cacheReadTokens, costUsd, budgetUsd } }`. |
+| `PUT` | `/ai/settings` | `{ enabled?, autoReply?, instructions? (≤1500) }` — autoReply on also switches enabled on; enabled off switches autoReply off; 403 `SUBSCRIPTION_INACTIVE` to switch on while the plan is not active. |
+| `POST` | `/ai/test` | `{ message }` → `{ reply, handoff, confidence, reason }` — what it would answer a customer; nothing is sent. |
+| `POST` | `/conversations/:id/ai/suggest` | Inbox edit permission and a chat the member may see: `{ suggestions [1–3 strings], note }`. |
+
 ## Idempotency
 
 `POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.

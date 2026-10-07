@@ -165,6 +165,14 @@ No new collections: reports are counted from the records when asked (D47). New i
 
 `API` is a new lead and contact source (`LEAD_SOURCES`). New business events on the automation bus: `contact.created`, `quotation.status_changed` { from, to }, `order.created` (workflows ignore them; webhooks use them). Jobs: `webhook.fanout` (one per event with subscribers, `uniqueKey webhook.fanout:<event key>`), `webhook.deliver` (one per attempt), `capi.send` (one per lead event, `uniqueKey capi:<event key>`).
 
+## 1o. Phase 10D (AI assistant)
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `aiusages` | `feature` suggest/auto_reply/test, `model`, `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `costMicros` (millionths of a US dollar, from `constants/ai.js` list prices), `outcome` suggested/sent/handoff/refused/error/skipped, `reason`, `conversationId`, `messageId`, `memberId`, `durationMs` | `(organizationId, createdAt -1)`; TTL 400 days |
+
+`organizations.ai` { enabled (false), autoReply (false), instructions } and `conversations.ai` { answeredAt, handedOffAt, handoffReason } (defaults only; no migration). Messages the assistant sends have `automation.kind: "ai"` (API messages: `"api"`), so reports do not count them as a teammate's reply. Job: `ai.reply` (one per customer message, `uniqueKey ai.reply:<message>`, one attempt).
+
 ## 2. Data migrations
 
 | Migration | What it does |
