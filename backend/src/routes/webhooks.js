@@ -186,7 +186,9 @@ router.post('/billing-test/:subscriptionId', async (req, res) => {
   let note = '';
   try {
     await billing.actOnTest(req.params.subscriptionId, action, queue);
-    note = { pay: 'Paid. The CRM records it in a moment.', charge: 'Charged. The invoice appears in the CRM in a moment.', fail: 'The charge failed (test).' }[action] || '';
+    const authorisedOnly = action === 'pay' && (await billing.testSubscription(req.params.subscriptionId))?.status === 'authenticated';
+    note = authorisedOnly ? 'Authorised. Nothing is charged until the free trial ends; the CRM shows the plan in a moment.'
+      : { pay: 'Paid. The CRM records it in a moment.', charge: 'Charged. The invoice appears in the CRM in a moment.', fail: 'The charge failed (test).' }[action] || '';
   } catch (error) {
     note = error.message;
   }

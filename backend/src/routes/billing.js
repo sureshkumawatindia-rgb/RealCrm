@@ -26,10 +26,10 @@ router.post('/checkout', managers, validate({ body: schemas.checkout }), async (
   res.json({ success: true, data: await billingService.checkout(req, req.body) });
 });
 router.post('/subscription/cancel', managers, async (req, res) => {
-  res.json({ success: true, data: await billingService.cancel(req), message: 'Plan cancelled' });
+  res.json({ success: true, data: { ...(await billingService.cancel(req)), billing: billingService.publicStatus() }, message: 'Plan cancelled' });
 });
 router.post('/subscription/refresh', managers, async (req, res) => {
-  res.json({ success: true, data: await billingService.refresh(req) });
+  res.json({ success: true, data: { ...(await billingService.refresh(req)), billing: billingService.publicStatus() } });
 });
 
 router.get('/invoices', managers, async (req, res) => {
