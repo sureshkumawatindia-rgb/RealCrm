@@ -1070,6 +1070,74 @@ const crmPlan = (() => {
 })();
 
 // ---------------------------------------------------------------
+// Installable app and web push (Phase 10E): every page links the manifest and registers the
+// service worker (sw.js: offline notice, push notifications). Browsers allow both only on
+// https or this computer (127.0.0.1 / localhost).
+// ---------------------------------------------------------------
+(function installableApp() {
+  const head = document.head;
+  if (!head || !/^https?:$/.test(window.location.protocol)) return;
+  const add = (tag, attributes) => {
+    if (head.querySelector(`${tag}[rel="${attributes.rel}"]${attributes.name ? `,${tag}[name="${attributes.name}"]` : ""}`)) return;
+    const el = document.createElement(tag);
+    Object.entries(attributes).forEach(([key, value]) => el.setAttribute(key, value));
+    head.appendChild(el);
+  };
+  add("link", { rel: "manifest", href: "manifest.webmanifest" });
+  add("link", { rel: "apple-touch-icon", href: "img/icons/icon-192.png" });
+  add("meta", { rel: "theme-color", name: "theme-color", content: "#ffde59" });
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      /* the app works without it */
+    });
+  }
+})();
+
+const crmPush = (() => {
+  const supported = () => window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const keyBytes = (base64url) => {
+    const raw = atob(base64url.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(base64url.length / 4) * 4, "="));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  };
+  const sameKey = (buffer, bytes) => Boolean(buffer) && new Uint8Array(buffer).every((b, i) => b === bytes[i]) && buffer.byteLength === bytes.length;
+
+  // This browser's push subscription, or null.
+  async function current() {
+    if (!supported()) return null;
+    const registration = await navigator.serviceWorker.getRegistration();
+    return registration ? registration.pushManager.getSubscription() : null;
+  }
+
+  async function enable() {
+    if (!supported()) throw new Error("This browser cannot show notifications from the CRM here (it needs https, or the installed app).");
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") throw new Error("Notifications are blocked for this site. Allow them in the browser's site settings, then try again.");
+    const registration = await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+    const { publicKey } = await crmApi("/push/key");
+    const key = keyBytes(publicKey);
+    let subscription = await registration.pushManager.getSubscription();
+    // Made with another server key (e.g. the keys were changed): start again.
+    if (subscription && !sameKey(subscription.options?.applicationServerKey, key)) {
+      await subscription.unsubscribe();
+      subscription = null;
+    }
+    subscription = subscription || await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    return crmApi("/push/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(subscription.toJSON()) });
+  }
+
+  async function disable() {
+    const subscription = await current();
+    if (!subscription) return { devices: 0 };
+    const result = await crmApi("/push/subscriptions", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }) });
+    await subscription.unsubscribe();
+    return result;
+  }
+
+  return { supported, current, enable, disable };
+})();
+
+// ---------------------------------------------------------------
 // Sidebar user info (called on dashboard/customers/leads/accounts pages)
 // ---------------------------------------------------------------
 function renderSidebarUser() {

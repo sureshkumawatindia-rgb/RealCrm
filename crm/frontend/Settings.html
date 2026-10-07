@@ -736,6 +736,15 @@
                   <p class="settings-hint">You are a member of more than one company. Switch to work in another one.</p>
                   <div id="companySwitchList"></div>
                 </div>
+                <div class="settings-section" id="pushSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Notifications on this device</div>
+                  <p class="settings-hint" id="pushHint">Get the bell's notes (new chats, leads, payments …) on this phone or computer, even when the CRM is closed. On a phone, first add the CRM to the home screen (browser menu → Install app / Add to Home Screen).</p>
+                  <div class="data-actions">
+                    <button class="btn btn-primary" id="pushOnBtn" type="button"><i class="fa-solid fa-bell"></i> Switch on here</button>
+                    <button class="btn btn-outline" id="pushTestBtn" type="button">Send a test</button>
+                    <button class="btn btn-outline" id="pushOffBtn" type="button">Switch off here</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1769,5 +1778,6 @@
     <script src="./js/settings-plan.js"></script>
     <script src="./js/settings-integrations.js"></script>
     <script src="./js/settings-ai.js"></script>
+    <script src="./js/settings-push.js"></script>
   </body>
 </html>

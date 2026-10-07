@@ -13,6 +13,7 @@ const billing = require('../services/billingService');
 const outboundWebhooks = require('../services/outboundWebhookService');
 const metaConversions = require('../services/metaConversionsService');
 const ai = require('../services/aiService');
+const push = require('../services/pushService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
@@ -24,7 +25,7 @@ const ai = require('../services/aiService');
 // (webhooks, a check every 6 hours, trial reminders) and outbound webhooks send business events
 // to the companies' own systems, lead stages to Meta's Conversions API, and the AI assistant answers
 // customers when a company lets it (Phase 10).
-const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register];
+const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register];
 
 function start(config) {
   definitions.forEach((register) => register(queue));

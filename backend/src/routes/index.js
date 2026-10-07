@@ -31,6 +31,7 @@ const { settingsRoutes: paymentRoutes, linkRoutes: paymentLinkRoutes } = require
 const reportRoutes = require('./reports');
 const billingRoutes = require('./billing');
 const aiRoutes = require('./ai');
+const pushRoutes = require('./push');
 const { apiKeyRoutes, webhookRoutes: outboundWebhookRoutes, metaConversionsRoutes } = require('./integrations');
 
 const router = express.Router();
@@ -76,6 +77,7 @@ router.use('/payment-links', paymentLinkRoutes);
 router.use('/reports', reportRoutes);
 router.use('/billing', billingRoutes);
 router.use('/ai', aiRoutes);
+router.use('/push', pushRoutes);
 router.use('/api-keys', apiKeyRoutes);
 router.use('/outbound-webhooks', outboundWebhookRoutes);
 router.use('/meta-conversions', metaConversionsRoutes);

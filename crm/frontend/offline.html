@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffde59" />
+    <title>Offline | YELLOW CRM</title>
+    <link rel="icon" type="image/png" href="./img/icons/icon-192.png" />
+    <style>
+      :root {
+        --bg: #fbfbfd;
+        --text: #1d1d1f;
+        --muted: #6e6e73;
+        --brand: #ffde59;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1c1c1e;
+          --text: #f5f5f7;
+          --muted: #a1a1a6;
+        }
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        padding: 16px;
+        box-sizing: border-box;
+        text-align: center;
+      }
+      img {
+        width: 72px;
+        height: 72px;
+        border-radius: 16px;
+      }
+      p {
+        color: var(--muted);
+        max-width: 340px;
+      }
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 20px;
+        font-size: 15px;
+        font-weight: 600;
+        background: var(--brand);
+        color: #1d1d1f;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="./img/icons/icon-192.png" alt="YELLOW CRM" />
+      <h1>You are offline</h1>
+      <p>The CRM needs the internet to show your chats, leads and orders. It opens again as soon as you are back online.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

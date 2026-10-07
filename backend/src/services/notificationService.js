@@ -2,6 +2,8 @@ const Notification = require('../models/Notification');
 const OrganizationMember = require('../models/OrganizationMember');
 const bus = require('../realtime/bus');
 const httpError = require('../utils/httpError');
+const logger = require('../config/logger');
+const pushService = require('./pushService');
 
 // The CRM's bell (Phase 6, D31): notifications for one member, shown live (Socket.IO for those
 // with the inbox open) and on every page through GET /notifications.
@@ -20,6 +22,15 @@ async function notify(organizationId, memberIds, { title, body = '', link = '', 
     const notification = await Notification.create({ organizationId, memberId: member._id, title: title.slice(0, 200), body: body.slice(0, 1000), link, source });
     bus.emit('notification:new', { organizationId, memberId: member._id, notification: serialize(notification) });
     created.push(notification);
+  }
+  // The same note as web push on the devices where they switched it on (Phase 10E).
+  if (created.length) {
+    const withDevices = new Set((await pushService.hasDevices(created.map((n) => n.memberId))).map(String));
+    for (const notification of created) {
+      if (withDevices.has(String(notification.memberId))) {
+        pushService.queueForNote(notification.memberId, notification).catch((error) => logger.error(`Web push could not be queued: ${error.message}`));
+      }
+    }
   }
   return created;
 }

@@ -61,6 +61,11 @@ const schema = Joi.object({
   // The optional AI assistant (Phase 10D) on the platform's own Claude API key. Without a key the
   // assistant is not offered. Each company may spend up to AI_MONTHLY_BUDGET_USD a month.
   ANTHROPIC_API_KEY: Joi.string().allow('').default(''),
+  // Web push (Phase 10E): VAPID keys (base64url; made once and kept in the database when empty)
+  // and who sends (mailto: or https: address).
+  VAPID_PUBLIC_KEY: Joi.string().allow('').default(''),
+  VAPID_PRIVATE_KEY: Joi.string().allow('').default(''),
+  VAPID_SUBJECT: Joi.string().pattern(/^(mailto:|https:\/\/)/).allow('').default(''),
   AI_SUGGEST_MODEL: Joi.string().allow('').default(''),
   AI_AUTOREPLY_MODEL: Joi.string().allow('').default(''),
   AI_MONTHLY_BUDGET_USD: Joi.number().min(0).default(5),
@@ -121,6 +126,11 @@ const env = {
   whatsapp: {
     graphUrl: value.WHATSAPP_GRAPH_URL.replace(/\/+$/, ''),
     graphVersion: value.WHATSAPP_GRAPH_VERSION,
+  },
+  push: {
+    publicKey: value.VAPID_PUBLIC_KEY,
+    privateKey: value.VAPID_PRIVATE_KEY,
+    subject: value.VAPID_SUBJECT,
   },
   ai: {
     apiKey: value.ANTHROPIC_API_KEY,
