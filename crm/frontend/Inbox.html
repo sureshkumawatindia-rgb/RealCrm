@@ -215,12 +215,14 @@
                   <span class="text-muted" id="fileSize"></span>
                   <button class="icon-btn" id="fileCancel" type="button" aria-label="Remove the file"><i class="fa-solid fa-xmark"></i></button>
                 </div>
+                <div class="ai-suggest" id="aiSuggest" hidden></div>
                 <div class="quick-menu" id="quickMenu" hidden></div>
                 <form class="composer-row" id="composerForm">
                   <button class="icon-btn" id="quickRepliesBtn" type="button" title="Quick replies (type / )"><i class="fa-solid fa-bolt"></i></button>
                   <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document"><i class="fa-solid fa-paperclip"></i></button>
                   <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)"><i class="fa-solid fa-file-lines"></i></button>
                   <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog"><i class="fa-solid fa-store"></i></button>
+                  <button class="icon-btn" id="aiSuggestBtn" type="button" title="Suggest a reply (AI assistant)" style="display: none"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                   <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.mp4,.3gp,.aac,.amr,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
                   <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies"></textarea>
                   <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)"><i class="fa-solid fa-paper-plane"></i></button>

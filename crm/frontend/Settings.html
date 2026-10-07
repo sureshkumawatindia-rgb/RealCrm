@@ -637,6 +637,9 @@
             <button class="settings-tab" data-panel="leadrules" id="leadRulesTab" style="display: none">
               <i class="fa-solid fa-route"></i> Lead rules
             </button>
+            <button class="settings-tab" data-panel="ai" id="aiTab" style="display: none">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> AI assistant
+            </button>
             <button class="settings-tab" data-panel="integrations" id="integrationsTab" style="display: none">
               <i class="fa-solid fa-plug"></i> API & webhooks
             </button>
@@ -1523,6 +1526,48 @@
             </div>
           </div>
 
+          <!-- AI ASSISTANT (Phase 10D, owners and admins) -->
+          <div class="settings-panel" data-settings-panel="ai">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>AI assistant</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint">The assistant answers from your company profile, your products and prices (Products) and your FAQ answers (Sales Automation → FAQ bot). It never makes up prices, discounts or delivery dates: when it is not sure, it leaves the chat to your team. To write answers, the customer's recent messages and your product list are sent to Anthropic's Claude API.</p>
+                <p class="settings-hint" id="aiNotReady" hidden></p>
+                <form class="settings-section" id="aiForm" autocomplete="off">
+                  <div class="settings-section-label">Switches</div>
+                  <div class="field">
+                    <label class="ls-check"><input type="checkbox" id="aiEnabled" /> Switch on the AI assistant: agents get <strong>Suggest a reply</strong> in the inbox (they check and send it themselves)</label>
+                    <label class="ls-check"><input type="checkbox" id="aiAutoReply" /> Let it answer customers by itself on WhatsApp, only when it is sure and only in chats no teammate wrote in for 30 minutes (the FAQ bot answers first)</label>
+                  </div>
+                  <div class="field">
+                    <label for="aiInstructions">Your instructions (optional)</label>
+                    <textarea id="aiInstructions" rows="3" maxlength="1500" placeholder="e.g. Always mention free delivery above 50 bags. Use 'ji' with customers. Our working hours are 10 am to 7 pm."></textarea>
+                  </div>
+                  <div class="data-actions" style="justify-content: flex-end">
+                    <button class="btn btn-primary" type="submit">Save</button>
+                  </div>
+                </form>
+                <div class="settings-section">
+                  <div class="settings-section-label">This month</div>
+                  <div class="plan-meters" id="aiUsage"></div>
+                </div>
+                <form class="settings-section" id="aiTestForm" autocomplete="off">
+                  <div class="settings-section-label">Try it</div>
+                  <div class="field">
+                    <label for="aiTestMessage">A customer writes…</label>
+                    <input type="text" id="aiTestMessage" maxlength="1000" placeholder="e.g. Jeera 25 kg ka rate kya hai?" />
+                  </div>
+                  <div class="data-actions" style="justify-content: flex-end">
+                    <button class="btn btn-outline" type="submit" id="aiTestBtn">See what it would answer</button>
+                  </div>
+                  <div id="aiTestResult"></div>
+                </form>
+              </div>
+            </div>
+          </div>
+
           <!-- API & WEBHOOKS (Phase 10C, owners and admins) -->
           <div class="settings-panel" data-settings-panel="integrations">
             <div class="panel">
@@ -1723,5 +1768,6 @@
     <script src="./js/settings-payments.js"></script>
     <script src="./js/settings-plan.js"></script>
     <script src="./js/settings-integrations.js"></script>
+    <script src="./js/settings-ai.js"></script>
   </body>
 </html>

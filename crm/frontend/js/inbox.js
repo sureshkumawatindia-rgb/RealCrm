@@ -243,7 +243,7 @@
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
-    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · ", consent: "Opt-out reply · ", receipt: "Payment receipt · ", broadcast: "Broadcast · ", "catalog-order": "Order received · " }[m.automation.kind] || "Automation · ") : "";
+    const robot = m.automation ? ({ ai: "AI assistant · ", api: "API · ", "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · ", consent: "Opt-out reply · ", receipt: "Payment receipt · ", broadcast: "Broadcast · ", "catalog-order": "Order received · " }[m.automation.kind] || "Automation · ") : "";
     const who = m.direction !== "out" ? "" : robot || (m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "");
     const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
     const replyButton = m.providerMessageId && m.direction === "in"
@@ -383,7 +383,44 @@
     $("quickRepliesBtn").disabled = !open;
     $("attachBtn").disabled = !open;
     $("productsBtn").disabled = !open; // product messages need the 24-hour window
+    $("aiSuggestBtn").style.display = state.aiAvailable ? "" : "none";
+    $("aiSuggestBtn").disabled = !open;
     if (!open) clearFile();
+  }
+
+  // --- the AI assistant's reply drafts (Phase 10D): the agent picks one, edits and sends it ---
+  function hideAiSuggest() {
+    state.aiAsk = (state.aiAsk || 0) + 1; // an answer still on its way is dropped
+    $("aiSuggest").hidden = true;
+    $("aiSuggest").innerHTML = "";
+  }
+  async function suggestReplies() {
+    const c = state.current;
+    if (!c) return;
+    const ask = (state.aiAsk || 0) + 1;
+    state.aiAsk = ask;
+    const panel = $("aiSuggest");
+    panel.hidden = false;
+    panel.innerHTML = '<div class="ai-suggest-head"><span><i class="fa-solid fa-wand-magic-sparkles"></i> Writing suggestions…</span></div>';
+    try {
+      const { suggestions, note } = await crmApi(`/conversations/${c.id}/ai/suggest`, { method: "POST" });
+      if (state.aiAsk !== ask || !state.current || String(state.current.id) !== String(c.id)) return;
+      panel.innerHTML = `
+        <div class="ai-suggest-head"><span><i class="fa-solid fa-wand-magic-sparkles"></i> Suggested replies: pick one, check it, then send</span><button class="icon-btn" type="button" data-ai-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+        ${suggestions.map((text, i) => `<button class="ai-suggestion" type="button" data-ai-pick="${i}">${escapeHtml(text)}</button>`).join("")}
+        ${note ? `<div class="ai-suggest-note">${escapeHtml(note)}</div>` : ""}`;
+      panel.querySelectorAll("[data-ai-pick]").forEach((button) => button.addEventListener("click", () => {
+        composer.value = suggestions[Number(button.dataset.aiPick)];
+        autoSize();
+        composer.focus();
+        hideAiSuggest();
+      }));
+      panel.querySelector("[data-ai-close]").addEventListener("click", hideAiSuggest);
+    } catch (error) {
+      if (state.aiAsk !== ask) return;
+      panel.innerHTML = `<div class="ai-suggest-head"><span>${escapeHtml(apiErrorMessage(error, "No suggestion this time."))}</span><button class="icon-btn" type="button" data-ai-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>`;
+      panel.querySelector("[data-ai-close]").addEventListener("click", hideAiSuggest);
+    }
   }
 
   // D33: the bot answers while nobody has the chat and the customer has not asked for a person.
@@ -421,6 +458,7 @@
     if (!state.current || String(state.current.id) !== String(c.id)) {
       forgetMedia();
       clearFile();
+      hideAiSuggest();
       state.context = null;
       renderContext();
     }
@@ -1483,10 +1521,15 @@
 
   // --- start -----------------------------------------------------------------
   $("threadBot").addEventListener("click", toggleBot);
+  $("aiSuggestBtn").addEventListener("click", suggestReplies);
   crmReady(["members"], async () => {
     updateNotifyButton();
     crmApi("/bot/status").then((status) => {
       state.botEnabled = Boolean(status?.enabled);
+      if (state.current) renderThreadHead();
+    }).catch(() => {});
+    crmApi("/ai/status").then((status) => {
+      state.aiAvailable = Boolean(status?.available);
       if (state.current) renderThreadHead();
     }).catch(() => {});
     await Promise.all([loadConversations(), loadSummary(), loadQuickReplies()]);
