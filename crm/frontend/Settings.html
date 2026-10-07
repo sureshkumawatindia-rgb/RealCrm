@@ -256,7 +256,9 @@
         padding-top: 20px;
       }
       .wa-block[hidden],
-      .wa-link[hidden] {
+      .wa-link[hidden],
+      .settings-panel .btn[hidden],
+      .settings-panel .pl-url[hidden] {
         display: none;
       }
       .wa-toolbar {
@@ -634,6 +636,9 @@
             </button>
             <button class="settings-tab" data-panel="leadrules" id="leadRulesTab" style="display: none">
               <i class="fa-solid fa-route"></i> Lead rules
+            </button>
+            <button class="settings-tab" data-panel="integrations" id="integrationsTab" style="display: none">
+              <i class="fa-solid fa-plug"></i> API & webhooks
             </button>
             <button class="settings-tab" data-panel="plan" id="planTab" style="display: none">
               <i class="fa-solid fa-gem"></i> Plan & usage
@@ -1518,6 +1523,77 @@
             </div>
           </div>
 
+          <!-- API & WEBHOOKS (Phase 10C, owners and admins) -->
+          <div class="settings-panel" data-settings-panel="integrations">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>API & webhooks</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint">Connect your own software, Zapier or Make to the CRM. Step-by-step help: <strong>docs/INTEGRATIONS.md</strong>.</p>
+                <p class="settings-hint" id="intPlanNote" hidden></p>
+
+                <div class="settings-section">
+                  <div class="settings-section-label">API keys</div>
+                  <p class="settings-hint">Your systems call <strong id="intApiBase"></strong> with <code>Authorization: Bearer &lt;key&gt;</code>. A key works for the whole company, within the permissions you tick, and stops when you revoke it.</p>
+                  <div id="intKeys"><p class="settings-hint">Loading…</p></div>
+                  <div class="pl-url" id="intNewKey" hidden></div>
+                  <button class="btn btn-outline" id="intKeyAddBtn" type="button"><i class="fa-solid fa-plus"></i> New API key</button>
+                  <form class="wa-block" id="intKeyForm" autocomplete="off" hidden>
+                    <div class="field"><label for="intKeyName">Name (who uses it)</label><input type="text" id="intKeyName" maxlength="100" placeholder="e.g. Zapier, our ERP" /></div>
+                    <div class="field"><label>What it may do</label><div id="intKeyScopes"></div></div>
+                    <div class="data-actions" style="justify-content: flex-end">
+                      <button class="btn btn-outline" id="intKeyCancel" type="button">Cancel</button>
+                      <button class="btn btn-primary" type="submit">Make the key</button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="settings-section">
+                  <div class="settings-section-label">Webhooks</div>
+                  <p class="settings-hint">The CRM tells your https address when something happens (a new lead, a stage change, a WhatsApp message, an order, a payment …). Each call is signed with the webhook's secret: <code>X-CRM-Signature: sha256=&lt;HMAC of the body&gt;</code>.</p>
+                  <div id="intHooks"><p class="settings-hint">Loading…</p></div>
+                  <div class="pl-url" id="intNewSecret" hidden></div>
+                  <button class="btn btn-outline" id="intHookAddBtn" type="button"><i class="fa-solid fa-plus"></i> Add a webhook</button>
+                  <form class="wa-block" id="intHookForm" autocomplete="off" hidden>
+                    <h4 id="intHookFormTitle" style="margin: 0 0 12px">Add a webhook</h4>
+                    <div class="field"><label for="intHookUrl">Address (https)</label><input type="url" id="intHookUrl" maxlength="2000" placeholder="https://hooks.zapier.com/…" spellcheck="false" /></div>
+                    <div class="field"><label for="intHookDesc">Note (optional)</label><input type="text" id="intHookDesc" maxlength="200" /></div>
+                    <div class="field"><label>Events</label><div id="intHookEvents"></div></div>
+                    <div class="data-actions" style="justify-content: flex-end">
+                      <button class="btn btn-outline" id="intHookCancel" type="button">Cancel</button>
+                      <button class="btn btn-primary" type="submit" id="intHookSave">Save</button>
+                    </div>
+                  </form>
+                </div>
+
+                <form class="settings-section wa-block" id="intCapiForm" autocomplete="off">
+                  <div class="settings-section-label">Meta Conversions API</div>
+                  <p class="settings-hint">Tells Meta which Facebook and Instagram Lead Ads leads move on (Contacted, Quote Sent, Won …), so your ads find more people like your best customers. In Meta Events Manager: make (or pick) a dataset, then Settings → Conversions API → Generate access token.</p>
+                  <p class="settings-hint" id="intCapiStatus"></p>
+                  <div class="field-row">
+                    <div class="field"><label for="intCapiDataset">Dataset (pixel) ID</label><input type="text" id="intCapiDataset" inputmode="numeric" maxlength="20" spellcheck="false" /></div>
+                    <div class="field"><label for="intCapiToken">Access token</label><input type="password" id="intCapiToken" maxlength="1000" autocomplete="new-password" /></div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field"><label for="intCapiTest">Test event code (only while testing)</label><input type="text" id="intCapiTest" maxlength="50" spellcheck="false" /></div>
+                    <div class="field">
+                      <label>Send</label>
+                      <label class="ls-check"><input type="checkbox" id="intCapiEnabled" /> Switched on</label>
+                      <label class="ls-check"><input type="checkbox" id="intCapiAll" /> Leads from every source, not only Lead Ads (matched by phone and email)</label>
+                    </div>
+                  </div>
+                  <div class="field"><label>Stages to send</label><div id="intCapiStages"></div></div>
+                  <div class="data-actions" style="justify-content: flex-end">
+                    <button class="btn btn-danger-outline" id="intCapiRemove" type="button" hidden>Remove</button>
+                    <button class="btn btn-outline" id="intCapiTestBtn" type="button" hidden>Send a test event</button>
+                    <button class="btn btn-primary" type="submit">Check and save</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
           <!-- PLAN & USAGE (Phase 10, owners and admins) -->
           <div class="settings-panel" data-settings-panel="plan">
             <div class="panel">
@@ -1646,5 +1722,6 @@
     <script src="./js/settings-billing.js"></script>
     <script src="./js/settings-payments.js"></script>
     <script src="./js/settings-plan.js"></script>
+    <script src="./js/settings-integrations.js"></script>
   </body>
 </html>
