@@ -97,5 +97,7 @@ const messageSchema = new mongoose.Schema(
 
 messageSchema.index({ providerMessageId: 1 }, { unique: true, sparse: true });
 messageSchema.index({ organizationId: 1, conversationId: 1, createdAt: -1 });
+// Reports (Phase 9): messages of a date range.
+messageSchema.index({ organizationId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Message', messageSchema);

@@ -397,5 +397,5 @@ module.exports = {
   JOBS, register, list, create, update, remove, estimate, send, cancel, pause, resume, recipients, handleReply, onMessageStatus,
   get: async (req, id) => withStats(await find(req, id)),
   quota: (req) => quotaOf(req.tenant.organizationId),
-  monthStart, dailyLimitOf,
+  monthStart, dailyLimitOf, statsOf,
 };
