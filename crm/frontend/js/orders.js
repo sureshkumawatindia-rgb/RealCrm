@@ -1,9 +1,11 @@
 /**
- * orders.js — Orders page (Phase 5)
- * The list (stage tabs with counts, search) and one order: the stage stepper, moving it on
- * (with dispatch details, a cancel reason), the dispatch form, items and totals, notes, the
- * history, and a WhatsApp update to the customer after a move.
- * Addresses: Orders.html, Orders.html?id=<order>. One IIFE: no globals.
+ * orders.js — Orders page (Phase 5; payments Phase 8)
+ * The list (stage tabs with counts, search, what is paid) and one order: the stage stepper,
+ * moving it on (with dispatch details, a cancel reason), the dispatch form, items and totals,
+ * notes, the history, and a WhatsApp update to the customer after a move. Payments: the
+ * order's payment card (payment link through js/payment-links.js, payments entered by hand)
+ * and the "Payment due" tab (GET /orders/dues).
+ * Addresses: Orders.html, Orders.html?id=<order>, Orders.html?tab=dues. One IIFE: no globals.
  */
 (function ordersPage() {
   const $ = (id) => document.getElementById(id);
@@ -26,6 +28,14 @@
   const day = (iso) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "");
   const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
   const badge = (stage) => `<span class="badge ${BADGE[stage] || "badge-neutral"}">${escapeHtml(stage)}</span>`;
+  const DUES = "__dues";
+  const METHODS = { cash: "Cash", bank_transfer: "Bank transfer", upi: "UPI", cheque: "Cheque", card: "Card", other: "Other", netbanking: "Net banking", wallet: "Wallet", emi: "EMI" };
+  function paymentBadge(o) {
+    if (o.stage === "Cancelled") return '<span class="q-muted">—</span>';
+    if (o.paymentStatus === "paid") return '<span class="badge badge-success">Paid</span>';
+    if (o.paymentStatus === "partly_paid") return `<span class="badge badge-warning">${rupees(o.duePaise)} due</span>`;
+    return '<span class="badge badge-neutral">Unpaid</span>';
+  }
 
   // ------------------------------------------------------------------------------------------
   // List
@@ -34,8 +44,8 @@
 
   async function loadTabs() {
     try {
-      const { counts, total } = await crmApi("/orders/summary");
-      $("oTabs").innerHTML = [["", "All", total], ...STAGES.map((s) => [s, s, counts[s] || 0])]
+      const [{ counts, total }, dues] = await Promise.all([crmApi("/orders/summary"), crmApi("/orders/dues").catch(() => null)]);
+      $("oTabs").innerHTML = [["", "All", total], ...STAGES.map((s) => [s, s, counts[s] || 0]), ...(dues ? [[DUES, "Payment due", dues.summary.count]] : [])]
         .map(([value, label, count]) => `<button class="o-tab ${list.stage === value ? "active" : ""}" type="button" role="tab" data-stage="${escapeHtml(value)}">${escapeHtml(label)}<span class="count">${count}</span></button>`)
         .join("");
     } catch {
@@ -43,7 +53,51 @@
     }
   }
 
+  // --- what is due (Phase 8): unpaid and part-paid orders, oldest first ---
+  async function loadDues() {
+    const seq = ++list.seq;
+    $("oMore").hidden = true;
+    const q = $("oSearch").value.trim();
+    try {
+      const dues = await crmApi(`/orders/dues${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+      if (seq !== list.seq) return;
+      const s = dues.summary;
+      $("oDuesSummary").hidden = false;
+      $("oDuesSummary").innerHTML = [
+        `<div class="dues-chip total"><span>Total due (${s.count} ${s.count === 1 ? "order" : "orders"})</span><strong>${rupees(s.duePaise)}</strong></div>`,
+        ...Object.entries(s.buckets).map(([name, b]) => `<div class="dues-chip"><span>${escapeHtml(name)} days</span><strong>${rupees(b.duePaise)}</strong> <span>${b.count} ${b.count === 1 ? "order" : "orders"}</span></div>`),
+      ].join("");
+      if (!dues.items.length) {
+        $("oTable").innerHTML = `<div class="empty-state"><i class="fa-solid fa-circle-check"></i><p>${q ? "No unpaid order matches." : "Nothing is due: every order is paid."}</p></div>`;
+        return;
+      }
+      $("oTable").innerHTML = `
+        <table>
+          <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Waiting</th><th class="q-amount">Paid</th><th class="q-amount">Due</th><th>Payment link</th><th></th></tr></thead>
+          <tbody>${dues.items
+            .map(
+              (d) => `
+            <tr data-open="${escapeHtml(d.id)}" tabindex="0">
+              <td><div class="q-num">${escapeHtml(d.number)}</div><div class="q-muted">${escapeHtml(d.stage)}</div></td>
+              <td><div>${escapeHtml(d.customer.name || "—")}</div>${d.customer.company && d.customer.company !== d.customer.name ? `<div class="q-muted">${escapeHtml(d.customer.company)}</div>` : ""}</td>
+              <td>${escapeHtml(day(d.orderDate))}</td>
+              <td class="dues-days ${d.daysOutstanding > 30 ? "late" : ""}">${d.daysOutstanding} ${d.daysOutstanding === 1 ? "day" : "days"}</td>
+              <td class="q-amount">${rupees(d.amountPaidPaise)}</td>
+              <td class="q-amount"><strong>${rupees(d.duePaise)}</strong></td>
+              <td class="q-muted">${d.openLink ? (d.openLink.sentAt ? `Sent ${escapeHtml(day(d.openLink.sentAt))}` : "Made, not sent") : "—"}</td>
+              <td>${can("edit") ? `<button class="btn btn-outline" type="button" data-pay-link="${escapeHtml(d.id)}"><i class="fa-solid fa-indian-rupee-sign"></i> ${d.openLink ? "Send link" : "Payment link"}</button>` : ""}</td>
+            </tr>`,
+            )
+            .join("")}</tbody>
+        </table>${dues.truncated ? '<p class="q-muted">Showing the oldest 500.</p>' : ""}`;
+    } catch (error) {
+      $("oTable").innerHTML = `<div class="empty-state"><p>${escapeHtml(apiErrorMessage(error, "Couldn't load what is due."))}</p></div>`;
+    }
+  }
+
   async function loadList(reset = true) {
+    $("oDuesSummary").hidden = list.stage !== DUES;
+    if (list.stage === DUES) return loadDues();
     if (reset) {
       list.page = 1;
       list.items = [];
@@ -72,7 +126,7 @@
     }
     $("oTable").innerHTML = `
       <table>
-        <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Dispatch</th><th class="q-amount">Amount</th><th>Stage</th></tr></thead>
+        <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Dispatch</th><th class="q-amount">Amount</th><th>Stage</th><th>Payment</th></tr></thead>
         <tbody>${list.items
           .map(
             (o) => `
@@ -83,6 +137,7 @@
             <td class="q-muted">${escapeHtml([o.dispatch?.transporter, o.dispatch?.lrNumber].filter(Boolean).join(" · ") || "—")}</td>
             <td class="q-amount">${rupees(o.totals?.grandTotalPaise)}</td>
             <td>${badge(o.stage)}</td>
+            <td>${paymentBadge(o)}</td>
           </tr>`,
           )
           .join("")}</tbody>
@@ -106,8 +161,11 @@
     loadList(false);
   });
   $("oTable").addEventListener("click", (e) => {
+    const payLink = e.target.closest("[data-pay-link]");
+    if (payLink) return crmPaymentLinks.open({ orderId: payLink.dataset.payLink, onChange: () => { loadTabs(); loadDues(); } });
     const row = e.target.closest("[data-open]");
     if (row) go(`id=${encodeURIComponent(row.dataset.open)}`);
+    return undefined;
   });
   $("oTable").addEventListener("keydown", (e) => {
     const row = e.target.closest("[data-open]");
@@ -164,10 +222,94 @@
       .reverse()
       .map((h) => `<div class="o-history"><span class="when">${escapeHtml(when(h.at))}</span><span>${h.from ? `${escapeHtml(h.from)} → ` : ""}<strong>${escapeHtml(h.stage)}</strong>${h.byName ? ` · ${escapeHtml(h.byName)}` : ""}${h.note ? `<div class="q-muted">${escapeHtml(h.note)}</div>` : ""}${h.notified ? '<div class="q-muted"><i class="fa-brands fa-whatsapp"></i> Customer updated on WhatsApp</div>' : ""}</span></div>`)
       .join("");
+    renderPayment();
     renderActions();
     const locked = !can("edit") || o.stage === "Cancelled";
     document.querySelectorAll("#oDispatchForm input, #oDispatchForm button, #oNotes, #oSaveNotes").forEach((field) => { field.disabled = locked; });
   }
+
+  // --- payments (Phase 8): what is paid, the payment link, payments entered by hand ---
+  function renderPayment() {
+    const o = order;
+    const open = o.stage !== "Cancelled" && o.duePaise > 0;
+    const paymentRow = (p) => {
+      const how = p.source === "link" ? `Payment link · ${p.provider === "mock" ? "test gateway" : escapeHtml(p.provider)}${p.method ? ` · ${escapeHtml(METHODS[p.method] || p.method)}` : ""}` : `${escapeHtml(METHODS[p.method] || p.method || "By hand")}${p.reference ? ` · ${escapeHtml(p.reference)}` : ""}`;
+      const remove = p.source === "manual" && can("edit") ? `<button class="icon-btn danger" type="button" data-remove-payment="${escapeHtml(p.id)}" title="Remove this payment"><i class="fa-solid fa-trash"></i></button>` : "";
+      return `<div class="pl-payment"><span><strong>${rupees(p.amountPaise)}</strong><small>${escapeHtml(day(p.paidAt))} · ${how}${p.recordedByName && p.source === "manual" ? ` · ${escapeHtml(p.recordedByName)}` : ""}</small></span>${remove}</div>`;
+    };
+    $("oPayment").innerHTML = `
+      <div class="q-card-head"><h3>Payment</h3>${paymentBadge(o)}</div>
+      <div class="pl-figures">
+        <div class="pl-figure"><span>Paid</span><strong>${rupees(o.amountPaidPaise)}</strong></div>
+        <div class="pl-figure"><span>Due</span><strong>${rupees(o.duePaise)}</strong></div>
+      </div>
+      ${o.stage === "Payment Collected" && o.amountPaidPaise < (o.totals?.grandTotalPaise || 0) ? '<p class="q-muted">Marked as collected outside the CRM.</p>' : ""}
+      ${(o.payments || []).map(paymentRow).join("")}
+      ${can("edit") && open ? `<div class="pl-buttons">
+        <button class="btn btn-primary" type="button" data-pay="link"><i class="fa-solid fa-indian-rupee-sign"></i> Payment link</button>
+        <button class="btn btn-outline" type="button" data-pay="record">Record payment</button>
+      </div>` : can("view") && (o.payments || []).some((p) => p.source === "link") ? '<div class="pl-buttons"><button class="btn btn-outline" type="button" data-pay="link">Payment links</button></div>' : ""}`;
+  }
+
+  async function reloadOrder() {
+    try {
+      order = await crmApi(`/orders/${encodeURIComponent(order.id)}`);
+      renderDetail();
+    } catch {
+      /* stays as it was */
+    }
+  }
+
+  function openRecord() {
+    $("payDue").textContent = `Still due: ${rupees(order.duePaise)} of ${rupees(order.totals?.grandTotalPaise)}.`;
+    $("payAmount").value = (order.duePaise / 100).toFixed(2);
+    $("payDate").value = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+    $("payDate").max = $("payDate").value;
+    $("payMethod").value = "bank_transfer";
+    $("payRef").value = "";
+    $("payOverlay").classList.add("open");
+    $("payAmount").focus();
+  }
+  const closeRecord = () => $("payOverlay").classList.remove("open");
+  $("payClose").addEventListener("click", closeRecord);
+  $("payCancel").addEventListener("click", closeRecord);
+  $("payGo").addEventListener("click", async () => {
+    const amountPaise = Math.round(Number($("payAmount").value.replace(/[₹,\s]/g, "")) * 100);
+    if (!(amountPaise > 0)) return showToast("Enter the amount received.", "error");
+    $("payGo").disabled = true;
+    try {
+      const body = { amountPaise, method: $("payMethod").value, reference: $("payRef").value.trim() };
+      // An earlier day is kept as noon India time; today is "now".
+      if ($("payDate").value && $("payDate").value !== $("payDate").max) body.paidAt = `${$("payDate").value}T12:00:00+05:30`;
+      const request = jsonRequest("POST", body);
+      request.headers["Idempotency-Key"] = newIdempotencyKey();
+      order = await crmApi(`/orders/${order.id}/payments`, request);
+      closeRecord();
+      renderDetail();
+      showToast(order.paymentStatus === "paid" ? "Payment recorded: the order is paid." : `Payment recorded. ${rupees(order.duePaise)} is still due.`, "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't record the payment."), "error");
+    } finally {
+      $("payGo").disabled = false;
+    }
+    return undefined;
+  });
+  $("oPayment").addEventListener("click", async (e) => {
+    const action = e.target.closest("[data-pay]")?.dataset.pay;
+    if (action === "link") return crmPaymentLinks.open({ orderId: order.id, onChange: reloadOrder });
+    if (action === "record") return openRecord();
+    const remove = e.target.closest("[data-remove-payment]");
+    if (remove && window.confirm("Remove this payment? Only do this if it was entered by mistake.")) {
+      try {
+        order = await crmApi(`/orders/${order.id}/payments/${encodeURIComponent(remove.dataset.removePayment)}`, { method: "DELETE" });
+        renderDetail();
+        showToast("Payment removed.", "success");
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't remove the payment."), "error");
+      }
+    }
+    return undefined;
+  });
 
   function renderActions() {
     const o = order;
@@ -388,7 +530,9 @@
 
   // --- page addresses ---
   function route() {
-    const id = new URLSearchParams(window.location.search).get("id");
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    if (params.get("tab") === "dues") list.stage = DUES;
     if (id) openOrder(id);
     else showList();
   }

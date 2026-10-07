@@ -15,6 +15,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
     />
     <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/payments.css" />
     <style>
       /* Scoped styles for this page only — reuses tokens from style.css */
       .settings-tabs {
@@ -627,6 +628,9 @@
             </button>
             <button class="settings-tab" data-panel="billing" id="billingTab" style="display: none">
               <i class="fa-solid fa-file-invoice"></i> Billing
+            </button>
+            <button class="settings-tab" data-panel="payments" id="paymentsTab" style="display: none">
+              <i class="fa-solid fa-indian-rupee-sign"></i> Payments
             </button>
             <button class="settings-tab" data-panel="leadrules" id="leadRulesTab" style="display: none">
               <i class="fa-solid fa-route"></i> Lead rules
@@ -1347,6 +1351,70 @@
             </div>
           </div>
 
+          <!-- PAYMENTS (Phase 8) -->
+          <div class="settings-panel" data-settings-panel="payments">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Payments</h3>
+              </div>
+              <div style="padding: 20px" class="pay-settings">
+                <p class="settings-hint">Collect money with payment links in WhatsApp, through your own Razorpay or Cashfree account (the money goes straight to you). When a customer pays, the order is updated, the lead is won, the customer gets a receipt and you get a note under the bell. Step-by-step help: <strong>docs/PAYMENTS_SETUP.md</strong>.</p>
+
+                <div class="settings-section">
+                  <div class="settings-section-label">Payment gateways</div>
+                  <div id="payGateways"><p class="settings-hint">Loading…</p></div>
+                  <button class="btn btn-outline" id="payAddBtn" type="button"><i class="fa-solid fa-plus"></i> Connect a gateway</button>
+                  <form class="wa-block" id="payForm" autocomplete="off" hidden>
+                    <h4 id="payFormTitle" style="margin: 0 0 12px">Connect a gateway</h4>
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="payProvider">Gateway</label>
+                        <select id="payProvider">
+                          <option value="razorpay">Razorpay</option>
+                          <option value="cashfree">Cashfree</option>
+                          <option value="mock">Test gateway (no real money, for trying out)</option>
+                        </select>
+                      </div>
+                      <div class="field" id="payModeField" hidden>
+                        <label for="payMode">Account</label>
+                        <select id="payMode"><option value="test">Test (sandbox)</option><option value="live">Live</option></select>
+                      </div>
+                    </div>
+                    <div id="payKeyFields">
+                      <div class="field-row">
+                        <div class="field"><label for="payKeyId" id="payKeyIdLabel">Key Id</label><input type="text" id="payKeyId" maxlength="100" spellcheck="false" /></div>
+                        <div class="field"><label for="payKeySecret" id="payKeySecretLabel">Key Secret</label><input type="password" id="payKeySecret" maxlength="300" autocomplete="new-password" /></div>
+                      </div>
+                      <div class="field" id="payWebhookSecretField"><label for="payWebhookSecret">Webhook secret (you choose it; type the same in Razorpay)</label><input type="password" id="payWebhookSecret" maxlength="300" autocomplete="new-password" /></div>
+                      <p class="settings-hint" id="payKeyHint"></p>
+                    </div>
+                    <div class="data-actions" style="justify-content: flex-end">
+                      <button class="btn btn-outline" id="payFormCancel" type="button">Cancel</button>
+                      <button class="btn btn-primary" id="payFormSave" type="submit">Check and save</button>
+                    </div>
+                  </form>
+                </div>
+
+                <form class="settings-section wa-block" id="paySettingsForm" autocomplete="off">
+                  <div class="settings-section-label">Links and receipts</div>
+                  <div class="field-row">
+                    <div class="field"><label for="payExpiry">A payment link is valid for (days)</label><input type="number" id="payExpiry" min="1" max="180" /></div>
+                    <div class="field">
+                      <label>Receipts</label>
+                      <label class="ls-check"><input type="checkbox" id="paySendReceipt" /> Send the customer a receipt on WhatsApp</label>
+                    </div>
+                  </div>
+                  <div class="field"><label for="payLinkTpl">Template for a payment link when the customer has not written in 24 hours</label><select id="payLinkTpl"></select></div>
+                  <div class="field"><label for="payReceiptTpl">Template for a receipt when the customer has not written in 24 hours</label><select id="payReceiptTpl"></select></div>
+                  <p class="settings-hint">Inside 24 hours a normal message goes. A template gets the customer's name, the amount, the order number and the link, in that order (or by the names of its variables, e.g. {{customer_name}}, {{amount}}, {{order_number}}, {{link}}); a link button gets the end of the link.</p>
+                  <div class="data-actions" style="justify-content: flex-end">
+                    <button class="btn btn-primary" type="submit">Save payment settings</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
           <!-- LEAD RULES -->
           <div class="settings-panel" data-settings-panel="leadrules">
             <div class="panel">
@@ -1544,5 +1612,6 @@
     <script src="./js/settings-leadsources.js"></script>
     <script src="./js/settings-routing.js"></script>
     <script src="./js/settings-billing.js"></script>
+    <script src="./js/settings-payments.js"></script>
   </body>
 </html>

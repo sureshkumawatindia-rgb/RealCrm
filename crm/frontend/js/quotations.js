@@ -349,6 +349,8 @@
       buttons[q.status === "Draft" ? "unshift" : "push"](button("whatsapp", q.status === "Draft" ? "Send on WhatsApp" : "Send again on WhatsApp", q.status === "Draft" ? "btn-primary" : "btn-outline", "fa-paper-plane"));
     }
     if (q?.orderId) buttons.unshift(`<a class="btn btn-primary" href="Orders.html?id=${encodeURIComponent(q.orderId)}"><i class="fa-solid fa-truck-fast"></i> Open the order</a>`);
+    // Phase 8: a payment link for the quotation's total (an advance is fine); paying accepts it.
+    if (q && can("edit") && (q.orderId || ["Sent", "Viewed", "Accepted"].includes(q.status))) buttons.push(button("paylink", "Payment link", "btn-outline", "fa-indian-rupee-sign"));
     if (q) {
       buttons.push(button("pdf", "Download PDF", "btn-outline", "fa-file-pdf"));
       if (q.status !== "Draft") {
@@ -682,6 +684,9 @@
           saved = null;
         }
         await openSend();
+        return;
+      } else if (action === "paylink") {
+        crmPaymentLinks.open(ed.q.orderId ? { orderId: ed.q.orderId } : { quotationId: ed.q.id });
         return;
       } else if (action === "pdf") {
         if (ed.dirty && ed.q.status === "Draft") {

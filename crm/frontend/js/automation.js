@@ -40,6 +40,7 @@
     wait: ["fa-solid fa-hourglass-half", "Wait"],
     "webhook.call": ["fa-solid fa-plug", "Call a webhook"],
     "sequence.enroll": ["fa-solid fa-layer-group", "Add the customer to a sequence"],
+    "payment.link": ["fa-solid fa-indian-rupee-sign", "Send the order's payment link"],
   };
   const TRIGGER_SHORT = {
     "lead.created": "New lead",
@@ -49,6 +50,7 @@
     "quotation.not_accepted": "Quote not accepted",
     "order.stage_changed": "Order stage",
     "payment.received": "Payment",
+    "payment.overdue": "Not paid",
     "task.overdue": "Overdue task",
     manual: "Test run",
   };
@@ -64,9 +66,10 @@
     "owner.name": "Name of the lead's owner",
     "org.name": "Your business name",
     "order.number": "Order number",
+    "order.due": "Amount still due on the order",
     "quotation.number": "Quotation number",
   };
-  const PLACEHOLDERS = ["contact.name", "contact.company", "contact.city", "lead.title", "owner.name", "org.name", "order.number", "quotation.number", "task.title", "message.text"];
+  const PLACEHOLDERS = ["contact.name", "contact.company", "contact.city", "lead.title", "owner.name", "org.name", "order.number", "order.due", "quotation.number", "task.title", "message.text"];
   const RUN_BADGE = {
     running: ["badge-info", "Running"], waiting: ["badge-warning", "Waiting"], done: ["badge-success", "Done"],
     failed: ["badge-danger", "Failed"], skipped: ["badge-neutral", "Skipped"], cancelled: ["badge-neutral", "Stopped"],
@@ -100,6 +103,7 @@
       "lead.stage_changed": [p.fromStages?.length ? `from ${p.fromStages.join(" / ")}` : "", p.toStages?.length ? `to ${p.toStages.join(" / ")}` : ""].filter(Boolean).join(" "),
       "lead.no_reply": `${p.hours || 24} hours`,
       "quotation.not_accepted": `${p.days || 3} days`,
+      "payment.overdue": `${p.days || 7} days`,
       "order.stage_changed": p.toStages?.length ? `to ${p.toStages.join(" / ")}` : "",
     }[trigger.type];
     return extra ? `${triggerLabel(trigger.type)} · ${extra}` : triggerLabel(trigger.type);
@@ -119,6 +123,7 @@
       case "wait": return `Wait ${p.amount} ${p.unit || "hours"}`;
       case "webhook.call": return "Webhook";
       case "sequence.enroll": return `Sequence ${sequenceOf(p.sequenceId)?.name || ""}`.trim();
+      case "payment.link": return "Payment link";
       default: return step.type;
     }
   }
@@ -138,6 +143,7 @@
     wait: { amount: 1, unit: "hours" },
     "webhook.call": { url: "" },
     "sequence.enroll": { sequenceId: "" },
+    "payment.link": {},
   };
 
   const placeholderChips = () =>
@@ -215,6 +221,8 @@
       case "sequence.enroll":
         return `<select data-p="sequenceId"><option value="">Choose a sequence…</option>${sequences.map((s) => `<option value="${escapeHtml(s.id)}" ${idOf(s.id) === idOf(p.sequenceId) ? "selected" : ""}>${escapeHtml(s.name)}${s.status !== "Active" ? ` (${escapeHtml(s.status)})` : ""}</option>`).join("")}</select>
           ${hint("The customer gets the sequence's follow-ups from day 0. Someone already in it is not added twice.")}`;
+      case "payment.link":
+        return hint("For the order of this run (order and payment triggers): its open payment link — or a new one for what is still due — goes to the customer on WhatsApp: a message within 24 hours of their last message, else the payment-link template chosen in Settings → Payments. Paid or cancelled orders are skipped.");
       default:
         return "";
     }
@@ -481,7 +489,9 @@
       "quotation.not_accepted": `<div class="au-inline"><span>Still not accepted</span><input type="number" data-tp="days" min="1" max="90" value="${escapeHtml(params.days || 3)}" /><span>days after it was sent</span></div>
         ${hint("Quotations that are Sent or Viewed. Checked every 10 minutes; once per quotation revision.")}`,
       "order.stage_changed": `${hint("Moved to (none ticked = any stage):")}${checks("toStages", meta.orderStages, params.toStages)}`,
-      "payment.received": hint("When an order moves to Payment Collected."),
+      "payment.received": hint("When a payment comes in: through a payment link, entered by hand on an order, or an order moved to Payment Collected."),
+      "payment.overdue": `<div class="au-inline"><span>Still not fully paid</span><input type="number" data-tp="days" min="1" max="180" value="${escapeHtml(params.days || 7)}" /><span>days after the order date</span></div>
+        ${hint("Orders that are not cancelled or collected. Checked every 10 minutes; once per order, and again after a part payment. Add the step “Send the order's payment link” for a reminder.")}`,
       "task.overdue": hint("Tasks past their due date and not done. Checked every 10 minutes; once per task and due date."),
     }[type] || "";
     $("wfTriggerParams").innerHTML = html;
@@ -501,7 +511,7 @@
     if (type === "lead.stage_changed") Object.assign(params, { toStages: ticked("toStages"), fromStages: ticked("fromStages") });
     if (type === "order.stage_changed") params.toStages = ticked("toStages");
     if (type === "lead.no_reply") params.hours = number("hours");
-    if (type === "quotation.not_accepted") params.days = number("days");
+    if (type === "quotation.not_accepted" || type === "payment.overdue") params.days = number("days");
     return { type, params: clean(params) };
   }
 

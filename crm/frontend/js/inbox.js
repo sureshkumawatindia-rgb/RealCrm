@@ -234,7 +234,7 @@
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
-    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · ", consent: "Opt-out reply · " }[m.automation.kind] || "Automation · ") : "";
+    const robot = m.automation ? ({ "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · ", consent: "Opt-out reply · ", receipt: "Payment receipt · ", broadcast: "Broadcast · " }[m.automation.kind] || "Automation · ") : "";
     const who = m.direction !== "out" ? "" : robot || (m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "");
     const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
     const replyButton = m.providerMessageId && m.direction === "in"
@@ -912,11 +912,21 @@
             (o) => `
           <a class="ctx-item ctx-link" href="Orders.html?id=${encodeURIComponent(o.id)}">
             <div class="ctx-main"><div class="ctx-title">Order ${escapeHtml(o.number)}</div><div class="ctx-meta">${escapeHtml([o.dispatch?.transporter, o.dispatch?.lrNumber].filter(Boolean).join(" · ") || shortTime(o.orderDate || o.createdAt))}</div></div>
-            <span class="ctx-amount">${rupees(o.totals?.grandTotalPaise)}</span> <span class="badge badge-neutral">${escapeHtml(o.stage)}</span>
+            <span class="ctx-amount">${rupees(o.totals?.grandTotalPaise)}</span> ${o.stage !== "Cancelled" && o.duePaise > 0 && o.amountPaidPaise > 0 ? `<span class="badge badge-warning">${rupees(o.duePaise)} due</span>` : o.paymentStatus === "paid" && o.stage !== "Payment Collected" ? '<span class="badge badge-success">Paid</span>' : `<span class="badge badge-neutral">${escapeHtml(o.stage)}</span>`}
           </a>`,
           )
           .join("")
       : "";
+    // Phase 8: a payment link for the newest order with money due, else the newest sent
+    // quotation without an order, else an amount for this customer.
+    const canPay = memberCan("leads", "edit") || memberCan("deals", "edit");
+    if (canPay && typeof crmPaymentLinks !== "undefined" && state.current?.contact?.id) {
+      const dueOrder = (orders || []).find((o) => o.stage !== "Cancelled" && o.duePaise > 0);
+      const openQuote = !dueOrder && (quotes || []).find((q) => !q.orderId && ["Sent", "Viewed", "Accepted"].includes(q.status));
+      const subject = dueOrder ? `data-pay-order="${escapeHtml(dueOrder.id)}"` : openQuote ? `data-pay-quote="${escapeHtml(openQuote.id)}"` : `data-pay-contact="${escapeHtml(state.current.contact.id)}"`;
+      const label = dueOrder ? `Payment link · order ${escapeHtml(dueOrder.number)}` : openQuote ? `Payment link · ${escapeHtml(openQuote.number)}` : "Payment link for an amount";
+      $("detailsOrders").innerHTML += `<button class="btn btn-outline ctx-new-quote" type="button" ${subject}><i class="fa-solid fa-indian-rupee-sign"></i> ${label}</button>`;
+    }
     const canQuote = memberCan("leads", "create") || memberCan("deals", "create");
     $("detailsQuotes").innerHTML = Array.isArray(quotes)
       ? quotes
@@ -947,6 +957,14 @@
           .join("")
       : '<p class="ctx-empty">No open follow-up.</p>';
   }
+  $("detailsOrders").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-pay-order], [data-pay-quote], [data-pay-contact]");
+    if (!button) return;
+    crmPaymentLinks.open({
+      orderId: button.dataset.payOrder, quotationId: button.dataset.payQuote, contactId: button.dataset.payContact,
+      onChange: () => loadContext(),
+    });
+  });
   $("detailsLeads").addEventListener("change", async (e) => {
     const select = e.target.closest("[data-lead-stage]");
     if (!select) return;

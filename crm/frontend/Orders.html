@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="./css/style.css" />
     <link rel="stylesheet" href="./css/quotations.css" />
     <link rel="stylesheet" href="./css/orders.css" />
+    <link rel="stylesheet" href="./css/payments.css" />
     <script>
       if (!localStorage.getItem("crm_session")) {
         window.location.replace("login.html");
@@ -158,6 +159,7 @@
               </div>
               <p class="q-muted" style="margin: 0">Orders are made from accepted quotations (Quotations → “Create order”).</p>
             </div>
+            <div class="dues-summary" id="oDuesSummary" hidden></div>
             <div class="panel"><div class="q-table-wrap" id="oTable"></div></div>
             <div class="q-more"><button class="btn btn-outline" id="oMore" type="button" hidden>Show more</button></div>
           </section>
@@ -216,6 +218,7 @@
                   <div id="oCustomer"></div>
                 </div>
                 <div class="panel q-card q-summary"><div id="oTotals"></div></div>
+                <div class="panel q-card pl-card" id="oPayment"></div>
                 <div class="q-actions" id="oActions"></div>
               </aside>
             </div>
@@ -265,9 +268,45 @@
       </div>
     </div>
 
+    <!-- RECORD A PAYMENT (cash, bank transfer …) -->
+    <div class="modal-overlay" id="payOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Record a payment</h3>
+          <button class="icon-btn" id="payClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <p class="q-muted" id="payDue" style="margin-top: 0"></p>
+          <div class="field-row">
+            <div class="field"><label for="payAmount">Amount (₹)</label><input type="text" id="payAmount" inputmode="decimal" /></div>
+            <div class="field"><label for="payDate">Received on</label><input type="date" id="payDate" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="payMethod">How</label>
+              <select id="payMethod">
+                <option value="bank_transfer">Bank transfer (NEFT / RTGS / IMPS)</option>
+                <option value="upi">UPI</option>
+                <option value="cash">Cash</option>
+                <option value="cheque">Cheque</option>
+                <option value="card">Card</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field"><label for="payRef">Reference (UTR, cheque no.)</label><input type="text" id="payRef" maxlength="120" /></div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="payCancel" type="button">Cancel</button>
+          <button class="btn btn-primary" id="payGo" type="button">Record payment</button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast-stack" id="toast-stack"></div>
 
     <script src="./js/app.js"></script>
+    <script src="./js/payment-links.js"></script>
     <script src="./js/orders.js"></script>
   </body>
 </html>
