@@ -169,6 +169,15 @@ module.exports = {
     createdTemplates.set(phoneNumberId, list.filter((t) => !(t.name === name && (!providerTemplateId || t.id === providerTemplateId))));
   },
 
+  // A pretend catalog: any id works, and every product is accepted.
+  async getCatalog(credentials, catalogId) {
+    return { catalogId: String(catalogId), name: 'Test catalog (mock)', productCount: 0 };
+  },
+  async catalogBatch(credentials, catalogId, requests) {
+    return { handles: [`mock-handle-${requests.length}`], problems: [] };
+  },
+  async setCommerceSettings() {},
+
   async uploadMedia() {
     return { mediaId: `mock-media-upload-${crypto.randomBytes(8).toString('hex')}` };
   },

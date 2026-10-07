@@ -62,4 +62,10 @@ module.exports = {
     title: Joi.string().trim().max(100).allow(''),
     body: Joi.string().trim().min(1).max(4096),
   }).min(1),
+  // Products from the WhatsApp catalog (Phase 8C): one, or a list of up to 30 with a heading.
+  productsSend: Joi.object({
+    productIds: Joi.array().items(objectId).min(1).max(30).unique().required(),
+    header: Joi.string().trim().max(60).allow(''),
+    body: Joi.string().trim().max(1024).allow(''),
+  }),
 };

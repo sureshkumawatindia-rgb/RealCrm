@@ -77,7 +77,13 @@ function serializeMessage(message) {
     reaction: message.reaction?.emoji ? message.reaction : null,
     template: message.template?.name ? message.template : null,
     interactive: message.interactive?.kind
-      ? { kind: message.interactive.kind, listButton: message.interactive.listButton || '', footer: message.interactive.footer || '', options: message.interactive.options || [] }
+      ? {
+        kind: message.interactive.kind, listButton: message.interactive.listButton || '', footer: message.interactive.footer || '', options: message.interactive.options || [],
+        ...(message.interactive.products?.length && { products: message.interactive.products }),
+      }
+      : null,
+    order: message.order?.items?.length
+      ? { catalogId: message.order.catalogId || '', text: message.order.text || '', items: message.order.items, orderId: message.order.orderId || null }
       : null,
     // Meta's message id (wamid): lets the page show which message a reply quotes.
     providerMessageId: message.providerMessageId || null,
@@ -454,6 +460,38 @@ async function sendInteractiveAutomatically({ conversation, interactive, automat
   }));
 }
 
+// Products from the number's WhatsApp catalog (Phase 8C), sent by a member inside the 24-hour
+// window: one product, or a list (header required) in sections of at most 30 products in all.
+// products: [{ productId, retailerId, name, section }].
+async function sendProducts(req, id, { catalogId, products, header = '', body, footer = '' }) {
+  const context = await sendContext(req, id, { needsWindow: true });
+  const single = products.length === 1;
+  const sections = [];
+  for (const product of products) {
+    const title = String(product.section || 'Products').slice(0, 24);
+    let section = sections.find((s) => s.title === title);
+    if (!section) {
+      section = { title, product_items: [] };
+      sections.push(section);
+    }
+    section.product_items.push({ product_retailer_id: product.retailerId });
+  }
+  const text = body || (single ? products[0].name : header);
+  const fields = {
+    type: 'interactive', text,
+    interactive: { kind: single ? 'product' : 'product_list', footer: footer || undefined, products: products.map(({ productId, retailerId, name }) => ({ productId, retailerId, name })) },
+  };
+  return deliver(asMember(req), context, fields, async () => ({
+    type: 'interactive',
+    interactive: single
+      ? { type: 'product', ...(body && { body: { text: body } }), ...(footer && { footer: { text: footer } }), action: { catalog_id: catalogId, product_retailer_id: products[0].retailerId } }
+      : {
+        type: 'product_list', header: { type: 'text', text: header }, body: { text: body || header }, ...(footer && { footer: { text: footer } }),
+        action: { catalog_id: catalogId, sections: sections.slice(0, 10) },
+      },
+  }));
+}
+
 // A teammate turns the FAQ bot off (it waits for a person) or back on in one chat.
 async function setBot(req, id, { active }) {
   const conversation = await findVisible(req, id);
@@ -517,6 +555,6 @@ async function addNote(req, id, body) {
 
 module.exports = {
   list, summary, get, update, markRead, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
-  ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, announce, findVisible, setBot,
+  ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, sendProducts, announce, findVisible, setBot,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };

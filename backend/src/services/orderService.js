@@ -66,6 +66,10 @@ function serializeOrder(order) {
     financialYear: order.financialYear,
     quotationId: order.quotationId || null,
     quotationNumber: order.quotationNumber || '',
+    source: order.source || 'quotation',
+    catalogOrder: order.catalogOrder?.messageId
+      ? { messageId: order.catalogOrder.messageId, conversationId: order.catalogOrder.conversationId || null, text: order.catalogOrder.text || '', warnings: order.catalogOrder.warnings || [] }
+      : null,
     leadId: order.leadId || null,
     contactId: order.contactId || null,
     ownerId: order.ownerId || null,

@@ -44,6 +44,15 @@ const orderSchema = new mongoose.Schema(
     financialYear: { type: String, required: true },
     quotationId: { type: ObjectId, ref: 'Quotation' },
     quotationNumber: { type: String, default: '' },
+    // Where it came from: an accepted quotation, or a cart sent from the WhatsApp catalog (8C).
+    source: { type: String, enum: ['quotation', 'catalog'], default: 'quotation' },
+    catalogOrder: {
+      messageId: { type: ObjectId, ref: 'Message' },
+      conversationId: { type: ObjectId, ref: 'Conversation' },
+      catalogId: { type: String },
+      text: { type: String },
+      warnings: { type: [String], default: undefined },
+    },
     leadId: { type: ObjectId, ref: 'Lead' },
     contactId: { type: ObjectId, ref: 'Contact' },
     ownerId: { type: ObjectId, ref: 'OrganizationMember' },
@@ -84,5 +93,7 @@ orderSchema.index({ organizationId: 1, number: 1 }, { unique: true });
 orderSchema.index({ organizationId: 1, stage: 1, createdAt: -1 });
 orderSchema.index({ organizationId: 1, contactId: 1, createdAt: -1 });
 orderSchema.index({ organizationId: 1, quotationId: 1 }, { unique: true, partialFilterExpression: { quotationId: { $type: 'objectId' } } });
+// One order per catalog cart message, however often its job runs.
+orderSchema.index({ 'catalogOrder.messageId': 1 }, { unique: true, partialFilterExpression: { 'catalogOrder.messageId': { $type: 'objectId' } } });
 
 module.exports = mongoose.model('Order', orderSchema);

@@ -10,7 +10,7 @@ const CONVERSATION_STATUSES = Object.freeze(['open', 'pending', 'closed']);
 // Message types from the webhook reference; anything else is stored as "unsupported".
 const MESSAGE_TYPES = Object.freeze([
   'text', 'image', 'document', 'audio', 'video', 'sticker', 'location', 'contacts',
-  'interactive', 'button', 'reaction', 'template', 'unsupported',
+  'interactive', 'button', 'reaction', 'template', 'order', 'unsupported',
 ]);
 const MEDIA_TYPES = Object.freeze(['image', 'document', 'audio', 'video', 'sticker']);
 

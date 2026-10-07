@@ -18,6 +18,15 @@ const productSchema = new mongoose.Schema(
     stockQty: { type: Number, min: 0 },
     images: { type: [String], default: [] },
     active: { type: Boolean, default: true },
+    // The WhatsApp catalog (Phase 8C): include = shown to customers in WhatsApp; retailerId is the
+    // id Meta knows it by (the SKU, else this product's id) as last sent; status of the last sync.
+    catalog: {
+      include: { type: Boolean, default: false },
+      retailerId: { type: String },
+      status: { type: String, enum: ['pending', 'synced', 'error', 'removed'] },
+      error: { type: String, default: '' },
+      syncedAt: { type: Date },
+    },
     legacyIds: { type: [String], default: undefined },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
@@ -28,5 +37,6 @@ productSchema.plugin(softDelete);
 productSchema.index({ organizationId: 1, deletedAt: 1, active: 1, category: 1 });
 productSchema.index({ organizationId: 1, name: 1 });
 productSchema.index({ organizationId: 1, legacyIds: 1 });
+productSchema.index({ organizationId: 1, 'catalog.retailerId': 1 }, { sparse: true });
 
 module.exports = mongoose.model('Product', productSchema);

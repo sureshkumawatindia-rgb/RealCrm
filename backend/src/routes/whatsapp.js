@@ -1,6 +1,7 @@
 const express = require('express');
 const accountService = require('../services/whatsappAccountService');
 const clickToChat = require('../services/clickToChatService');
+const catalogService = require('../services/catalogService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -26,6 +27,15 @@ router.post('/accounts/:id/test', validate({ params: idParams }), async (req, re
 router.delete('/accounts/:id', validate({ params: idParams }), async (req, res) => {
   await accountService.remove(req, req.valid.params.id);
   res.json({ success: true, data: { deleted: true }, message: 'WhatsApp number removed' });
+});
+
+// The Meta catalog of a number (Phase 8C): connect (checked with Meta, then synced), disconnect.
+router.put('/accounts/:id/catalog', validate({ params: idParams, body: schemas.catalogConnect }), async (req, res) => {
+  res.json({ success: true, data: await catalogService.connect(req, req.valid.params.id, req.body), message: 'Catalog connected' });
+});
+router.delete('/accounts/:id/catalog', validate({ params: idParams }), async (req, res) => {
+  await catalogService.disconnect(req, req.valid.params.id);
+  res.json({ success: true, data: { disconnected: true }, message: 'Catalog disconnected' });
 });
 
 // Click-to-chat link + QR code for a number (?accountId=&text=).

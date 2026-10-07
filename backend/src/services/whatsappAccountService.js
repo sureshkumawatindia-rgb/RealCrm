@@ -10,6 +10,17 @@ const { providerFor } = require('../integrations/whatsapp');
 // Settings → WhatsApp: the organization's connected numbers. Owners and admins only.
 const webhookPath = (account) => `/api/v1/webhooks/whatsapp/${account.webhookKey}`;
 
+// The Meta catalog connected to the number (Phase 8C), or null.
+function serializeCatalog(account) {
+  const c = account.catalog || {};
+  if (!c.catalogId) return null;
+  return {
+    accountId: account._id, catalogId: c.catalogId, name: c.name || '', productCount: c.productCount ?? null, status: c.status || 'connected', statusMessage: c.statusMessage || '',
+    checkedAt: c.checkedAt || null, catalogVisible: c.catalogVisible ?? null, cartEnabled: c.cartEnabled ?? null, lastSyncAt: c.lastSyncAt || null,
+    lastSync: c.lastSync ? { sent: c.lastSync.sent || 0, removed: c.lastSync.removed || 0, failed: c.lastSync.failed || 0, error: c.lastSync.error || '' } : null,
+  };
+}
+
 function serializeAccount(account) {
   return {
     id: account._id,
@@ -31,6 +42,7 @@ function serializeAccount(account) {
     verifyToken: decrypt(account.verifyTokenEnc),
     accessToken: { configured: Boolean(account.accessTokenEnc), last4: account.accessTokenLast4 },
     appSecretConfigured: Boolean(account.appSecretEnc),
+    catalog: serializeCatalog(account),
     createdAt: account.createdAt,
   };
 }
@@ -172,5 +184,5 @@ async function defaultAccount(organizationId) {
 
 module.exports = {
   list, create, update, test, remove, findInOrg, findByWebhookKey, verifyTokenOf, appSecretOf, credentials,
-  defaultAccount, serializeAccount,
+  defaultAccount, serializeAccount, serializeCatalog,
 };

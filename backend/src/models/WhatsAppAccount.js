@@ -29,6 +29,20 @@ const whatsappAccountSchema = new mongoose.Schema(
     statusMessage: { type: String, default: '' },
     lastWebhookAt: { type: Date },
     isDefault: { type: Boolean, default: false },
+    // The Meta Commerce catalog connected to this number's WhatsApp Business Account (Phase 8C):
+    // the CRM's products marked "in the WhatsApp catalog" are synced to it.
+    catalog: {
+      catalogId: { type: String, trim: true },
+      name: { type: String, default: '' },
+      productCount: { type: Number },
+      status: { type: String, enum: ['connected', 'error'] },
+      statusMessage: { type: String, default: '' },
+      checkedAt: { type: Date },
+      catalogVisible: { type: Boolean },
+      cartEnabled: { type: Boolean },
+      lastSyncAt: { type: Date },
+      lastSync: { sent: Number, removed: Number, failed: Number, error: String },
+    },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },

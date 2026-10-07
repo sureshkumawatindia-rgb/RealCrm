@@ -159,6 +159,7 @@ module.exports = {
     stockQty: Joi.number().integer().min(0).allow(null),
     images: Joi.array().items(Joi.string().uri({ scheme: ['http', 'https'] })).max(10),
     active: Joi.boolean(),
+    inCatalog: Joi.boolean(), // shown in the WhatsApp catalog (Phase 8C)
   }),
   productList: Joi.object({ ...listBase, category: Joi.string().trim().max(100), active: Joi.boolean() }),
 

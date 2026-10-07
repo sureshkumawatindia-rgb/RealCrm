@@ -38,14 +38,29 @@ const messageSchema = new mongoose.Schema(
       emoji: { type: String },
     },
     // Buttons or a list the CRM sent (Phase 6C bot); the customer's choice comes back as reply.
+    // Products from the WhatsApp catalog (Phase 8C): kind product (one) or product_list.
     interactive: {
-      kind: { type: String, enum: ['button', 'list'] },
+      kind: { type: String, enum: ['button', 'list', 'product', 'product_list'] },
       listButton: { type: String },
       footer: { type: String },
       options: {
         type: [{ _id: false, id: String, title: String, description: String }],
         default: undefined,
       },
+      products: {
+        type: [{ _id: false, productId: mongoose.Schema.Types.ObjectId, retailerId: String, name: String }],
+        default: undefined,
+      },
+    },
+    // A cart the customer sent from the WhatsApp catalog (type "order"), and the CRM order made from it.
+    order: {
+      catalogId: { type: String },
+      text: { type: String },
+      items: {
+        type: [{ _id: false, retailerId: String, quantity: Number, itemPricePaise: Number, currency: String }],
+        default: undefined,
+      },
+      orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
     },
     template: {
       name: { type: String },

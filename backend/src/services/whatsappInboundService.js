@@ -120,6 +120,19 @@ function messageFields(message) {
     fields.text = fields.reply.title;
   }
   if (type === 'reaction') fields.reaction = { providerMessageId: str(message.reaction?.message_id, 200), emoji: str(message.reaction?.emoji, 20) };
+  // A cart from the WhatsApp catalog (Phase 8C); the CRM turns it into an order.
+  if (type === 'order') {
+    const order = message.order || {};
+    const items = (Array.isArray(order.product_items) ? order.product_items : []).slice(0, 100).map((item) => ({
+      retailerId: str(item?.product_retailer_id, 100),
+      quantity: Math.max(Math.floor(Number(item?.quantity) || 0), 0),
+      itemPricePaise: Math.round((Number(item?.item_price) || 0) * 100),
+      currency: str(item?.currency, 3),
+    })).filter((item) => item.retailerId && item.quantity > 0);
+    fields.order = { catalogId: str(order.catalog_id, 100), text: str(order.text, 1000), items };
+    const count = items.reduce((sum, item) => sum + item.quantity, 0);
+    fields.text = fields.order.text || `${count} ${count === 1 ? 'item' : 'items'} from the catalog`;
+  }
   if (type === 'contacts') {
     fields.text = (Array.isArray(message.contacts) ? message.contacts : []).map((c) => str(c?.name?.formatted_name, 100)).filter(Boolean).join(', ');
   }
@@ -132,7 +145,7 @@ function previewOf(fields) {
   const labels = {
     image: 'Photo', video: 'Video', audio: fields.media?.voice ? 'Voice message' : 'Audio', sticker: 'Sticker',
     document: `Document${fields.media?.fileName ? `: ${fields.media.fileName}` : ''}`, location: 'Location',
-    contacts: 'Contact card', reaction: `Reacted ${fields.reaction?.emoji || ''}`.trim(), unsupported: 'Unsupported message',
+    contacts: 'Contact card', reaction: `Reacted ${fields.reaction?.emoji || ''}`.trim(), unsupported: 'Unsupported message', order: 'Order',
   };
   const text = fields.text ? fields.text.replace(/\s+/g, ' ').trim() : '';
   const label = labels[fields.type];

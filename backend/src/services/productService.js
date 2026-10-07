@@ -22,6 +22,8 @@ function serializeProduct(product) {
     stockQty: product.stockQty ?? null,
     images: product.images,
     active: product.active,
+    inCatalog: Boolean(product.catalog?.include),
+    catalog: { status: product.catalog?.status || (product.catalog?.include ? 'pending' : ''), error: product.catalog?.error || '', retailerId: product.catalog?.retailerId || '', syncedAt: product.catalog?.syncedAt || null },
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };
@@ -45,8 +47,14 @@ async function list(req, query) {
   return { items: items.map(serializeProduct), pagination };
 }
 
+// "In the WhatsApp catalog" (Phase 8C): included products wait for the next catalog sync.
+function catalogFields({ inCatalog, ...rest }) {
+  return inCatalog === undefined ? rest : { ...rest, 'catalog.include': inCatalog, ...(inCatalog && { 'catalog.status': 'pending', 'catalog.error': '' }) };
+}
+
 async function create(req, body) {
-  const product = await repo(req).create({ ...body, createdById: req.user._id });
+  const { inCatalog, ...fields } = body;
+  const product = await repo(req).create({ ...fields, ...(inCatalog && { catalog: { include: true, status: 'pending' } }), createdById: req.user._id });
   await audit(req, { action: 'product.created', entityType: 'Product', entityId: product._id });
   return serializeProduct(product);
 }
@@ -54,7 +62,11 @@ async function create(req, body) {
 async function update(req, id, patch) {
   const product = await findInOrg(req, id);
   const before = { pricePaise: product.pricePaise, gstRatePct: product.gstRatePct, stockQty: product.stockQty };
-  Object.assign(product, patch);
+  product.set(catalogFields(patch));
+  // A change Meta shows (name, price, photo …) of a product in the catalog goes at the next sync.
+  if (product.catalog?.include && product.catalog.status === 'synced' && ['name', 'description', 'pricePaise', 'gstRatePct', 'images', 'sku', 'stockQty', 'active'].some((field) => patch[field] !== undefined)) {
+    product.set('catalog.status', 'pending');
+  }
   await product.save();
   await audit(req, { action: 'product.updated', entityType: 'Product', entityId: product._id, changes: { before, after: patch } });
   return serializeProduct(product);

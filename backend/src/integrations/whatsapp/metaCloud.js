@@ -110,6 +110,30 @@ module.exports = {
     await graph(`${enc(wabaId)}/message_templates?name=${enc(name)}${providerTemplateId ? `&hsm_id=${enc(providerTemplateId)}` : ''}`, { accessToken, method: 'DELETE' });
   },
 
+  // --- the catalog (Meta Commerce, Phase 8C) ---
+  // https://developers.facebook.com/docs/marketing-api/catalog-batch/reference — POST /{catalog}/items_batch
+  // https://developers.facebook.com/documentation/business-messaging/whatsapp/catalogs/sell-products-and-services/set-commerce-settings
+  // The token's system user needs the catalog assigned to it (catalog_management).
+  async getCatalog({ accessToken }, catalogId) {
+    const data = await graph(`${enc(catalogId)}?fields=id,name,product_count`, { accessToken });
+    return { catalogId: String(data.id || catalogId), name: String(data.name || ''), productCount: Number(data.product_count) || 0 };
+  },
+
+  // requests: [{ method: CREATE | UPDATE | DELETE, data: { id, … } }] (at most 5000; we send ≤ 1000).
+  // Returns Meta's per-item problems: [{ retailerId, message }].
+  async catalogBatch({ accessToken }, catalogId, requests) {
+    const data = await graph(`${enc(catalogId)}/items_batch`, { accessToken, method: 'POST', body: { item_type: 'PRODUCT_ITEM', requests }, timeoutMs: DOWNLOAD_TIMEOUT_MS });
+    const problems = (Array.isArray(data.validation_status) ? data.validation_status : [])
+      .filter((v) => Array.isArray(v?.errors) && v.errors.length)
+      .map((v) => ({ retailerId: String(v.retailer_id || ''), message: String(v.errors[0]?.message || 'Refused by Meta') }));
+    return { handles: Array.isArray(data.handles) ? data.handles : [], problems };
+  },
+
+  // Shows the catalog (shop button) and lets customers send a cart from this number.
+  async setCommerceSettings({ phoneNumberId, accessToken }, { catalogVisible, cartEnabled }) {
+    await graph(`${enc(phoneNumberId)}/whatsapp_commerce_settings?is_catalog_visible=${catalogVisible ? 'true' : 'false'}&is_cart_enabled=${cartEnabled ? 'true' : 'false'}`, { accessToken, method: 'POST' });
+  },
+
   // --- media ---
   // Uploads a file for sending; the media id is valid for 30 days.
   async uploadMedia({ phoneNumberId, accessToken }, { buffer, mimeType, fileName }) {

@@ -32,7 +32,7 @@ function simulatedMedia(type, caption) {
 
 // Pretends a customer sent a WhatsApp message: the same processing as a real webhook, without Meta.
 router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbound }), async (req, res) => {
-  const { accountId, from, name, type, text, replyId } = req.body;
+  const { accountId, from, name, type, text, replyId, items, catalogId } = req.body;
   const account = accountId
     ? await accountService.findInOrg(req, accountId)
     : await accountService.defaultAccount(req.tenant.organizationId);
@@ -46,9 +46,17 @@ router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbou
   const waId = phone.slice(1);
   const messageId = `wamid.SIM${crypto.randomBytes(12).toString('hex')}`;
   // A tapped bot button or list row looks like WhatsApp's interactive reply.
+  // A cart from the WhatsApp catalog looks like Meta's "order" message.
+  const order = () => ({
+    order: {
+      catalog_id: catalogId || account.catalog?.catalogId || 'simulated', ...(text && { text }),
+      product_items: items.map((item) => ({ product_retailer_id: item.retailerId, quantity: item.quantity, item_price: item.price, currency: 'INR' })),
+    },
+  });
   const content = type === 'text' ? { text: { body: text } }
     : type === 'interactive' ? { interactive: { type: 'button_reply', button_reply: { id: replyId, title: text } } }
-      : simulatedMedia(type, text);
+      : type === 'order' ? order()
+        : simulatedMedia(type, text);
   const payload = {
     object: 'whatsapp_business_account',
     entry: [{

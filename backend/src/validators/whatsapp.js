@@ -28,10 +28,27 @@ module.exports = {
     accountId: objectId,
     from: Joi.string().trim().max(30).required(),
     name: Joi.string().trim().max(100).allow(''),
-    type: Joi.string().valid('text', 'image', 'document', 'audio', 'interactive').default('text'),
+    type: Joi.string().valid('text', 'image', 'document', 'audio', 'interactive', 'order').default('text'),
     text: Joi.when('type', { is: Joi.valid('text', 'interactive'), then: Joi.string().trim().min(1).max(4096).required(), otherwise: Joi.string().trim().max(1024).allow('') }),
     // interactive: the id of the button or list row the customer tapped (text is its title).
     replyId: Joi.when('type', { is: 'interactive', then: Joi.string().trim().min(1).max(200).required(), otherwise: Joi.forbidden() }),
+    // order: a cart from the WhatsApp catalog (Phase 8C), prices in rupees as WhatsApp sends them.
+    items: Joi.when('type', {
+      is: 'order',
+      then: Joi.array().min(1).max(30).items(Joi.object({
+        retailerId: Joi.string().trim().min(1).max(100).required(),
+        quantity: Joi.number().integer().min(1).max(100000).required(),
+        price: Joi.number().min(0).max(10000000).default(0),
+      })).required(),
+      otherwise: Joi.forbidden(),
+    }),
+    catalogId: Joi.when('type', { is: 'order', then: Joi.string().trim().max(100).allow(''), otherwise: Joi.forbidden() }),
+  }),
+  // The Meta catalog of a number (Phase 8C), and whether WhatsApp shows the shop and a cart.
+  catalogConnect: Joi.object({
+    catalogId: numericId.required(),
+    catalogVisible: Joi.boolean(),
+    cartEnabled: Joi.boolean(),
   }),
   clickToChat: Joi.object({
     accountId: objectId,

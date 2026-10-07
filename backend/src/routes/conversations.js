@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const conversationService = require('../services/conversationService');
+const catalogService = require('../services/catalogService');
 const httpError = require('../utils/httpError');
 const { MEDIA_MAX_BYTES } = require('../constants/whatsapp');
 const { authenticate } = require('../middleware/auth');
@@ -71,6 +72,13 @@ router.post('/:id/messages', can('create'), idempotency, validate({ params: idPa
 });
 // A file in the "file" field, with an optional caption. The file is read before the
 // Idempotency-Key check so a retry of the same file is recognised.
+// Products from the number's WhatsApp catalog (Phase 8C): what can be sent, and sending them.
+router.get('/:id/catalog', can('view'), byId, async (req, res) => {
+  res.json({ success: true, data: await catalogService.productsForChat(req, req.valid.params.id) });
+});
+router.post('/:id/products', can('create'), idempotency, validate({ params: idParams, body: schemas.productsSend }), async (req, res) => {
+  res.status(201).json({ success: true, data: await catalogService.sendProducts(req, req.valid.params.id, req.body) });
+});
 router.post('/:id/messages/media', can('create'), acceptFile, idempotency, validate({ params: idParams, body: schemas.mediaSend }), async (req, res) => {
   res.status(201).json({ success: true, data: await conversationService.sendMedia(req, req.valid.params.id, req.body, req.file) });
 });

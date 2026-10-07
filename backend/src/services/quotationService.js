@@ -657,6 +657,6 @@ module.exports = {
   awaitingReply, sendOptions, sendOnWhatsApp,
   pdf, pdfFor, openShared, recordView, shareUrlOf,
   preview, create, update, revise, list, remove, saveDraftForLead, buildImported, expireDue, register, nextNumber,
-  serializeQuotation, sellerOf, changeStatus, findVisible, EXPIRE_JOB,
+  serializeQuotation, sellerOf, partyFromContact, priceFor, changeStatus, findVisible, EXPIRE_JOB,
   get: async (req, id) => serializeQuotation(await findVisible(req, id)),
 };
