@@ -49,9 +49,20 @@ Quotations → *Send on WhatsApp* sends the quotation PDF into the customer's ch
 
 Sales Automation → **FAQ bot** (owners and admins) answers customers on WhatsApp with text, reply buttons (up to 3) or a list (up to 10 options) while nobody from the team has the chat. Nothing extra is needed in Meta: these are ordinary messages inside the 24-hour window (the customer has just written), so no template approval. When a customer asks for a person, the bot stops in that chat until a teammate turns it on again (the chip in the Inbox) or closes the chat.
 
+### The WhatsApp catalog (products and orders)
+
+Customers can see your products inside WhatsApp, add them to a cart and send the cart to you; the CRM turns it into an order. (Meta renames its menus from time to time; if a name below differs, look for the nearest one.)
+
+1. **In Meta:** open Commerce Manager (business.facebook.com/commerce), create a catalog of type *E-commerce* (you can leave it empty: the CRM fills it), then in WhatsApp Manager → your account → *Catalog* connect that catalog to your WhatsApp Business Account. In Business Settings → System users, give your system user access to the catalog (*Manage catalog*). Copy the **catalog ID** (Commerce Manager shows it under the catalog's name).
+2. **In the CRM:** Settings → WhatsApp → your number → **Connect catalog**, paste the catalog ID, keep "Show the shop button" and "Customers can send a cart" ticked, and press *Check and connect*.
+3. **Products:** on the Products page open a product, add a **Photo link (https)** (a photo on your website or any public https address), optionally an SKU, tick **Show in the WhatsApp catalog** and save. The CRM sends them at once, every day, and when you press **Sync now**. Prices go to WhatsApp **with GST** (decision D43). A product without a photo or price shows "Needs attention".
+4. **In a chat:** the store button next to the template button sends one product or a list (up to 30). Customers who send a cart get a thank-you message, and the order appears under Orders (stage Received) with a note under your bell.
+
+The catalog comes with the Growth plan (the trial has it).
+
 ## Without a Meta account
 
-In development, Settings → WhatsApp → **Add a test number instead**, then **Receive Test Message** pretends a customer wrote (a text, or a sample photo, document or voice note). A test number has five sample templates (one, `quotation_pdf`, with a document header for quotations) and approves new ones at once. Nothing is sent to WhatsApp. Test numbers and the simulator are switched off on a production server (`NODE_ENV=production`).
+In development, Settings → WhatsApp → **Add a test number instead**, then **Receive Test Message** pretends a customer wrote (a text, or a sample photo, document or voice note). On a test number, **Connect catalog** accepts any digits as the catalog ID, so you can try products and carts (the API simulator can send a cart: `type: "order"`). A test number has five sample templates (one, `quotation_pdf`, with a document header for quotations) and approves new ones at once. Nothing is sent to WhatsApp. Test numbers and the simulator are switched off on a production server (`NODE_ENV=production`).
 
 ## Settings (backend/.env)
 

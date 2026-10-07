@@ -98,8 +98,10 @@ Module permissions: contacts need `customers`; leads and quotations need `leads`
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/products?q=&category=&active=&sort=` | Catalog (any member). |
-| `POST` | `/products` | `{ name, sku?, category?, description?, unit?, hsnSac?, pricePaise?, gstRatePct?, moq?, stockQty?, images?, active? }` — tax-exclusive price in paise. |
+| `GET` | `/products?q=&category=&active=&sort=` | Catalog (any member). Each product has `inCatalog` and `catalog { status (pending / synced / error / removed / ""), error, retailerId, syncedAt }` (Phase 8C). |
+| `POST` | `/products` | `{ name, sku?, category?, description?, unit?, hsnSac?, pricePaise?, gstRatePct?, moq?, stockQty?, images?, active?, inCatalog? }` — tax-exclusive price in paise; `inCatalog` shows it in the WhatsApp catalog (needs a price and an https photo in `images[0]`). Changing what Meta shows of an included product sets it back to `pending`. |
+| `GET` | `/products/whatsapp-catalog` | Phase 8C, any member: `{ available (the plan has the catalog), catalogs [{ accountId, accountName, catalogId, name, status, lastSyncAt, lastSync { sent, removed, failed, error } }], products { included, synced, failed } }`. |
+| `POST` | `/products/whatsapp-catalog/sync` | Owners and admins: syncs every connected catalog now (409 `NO_CATALOG`; 403 `PLAN_LIMIT` below Growth). |
 | `GET/PATCH/DELETE` | `/products/:id` | |
 
 ### Leads (the single pipeline; the Deals page is its Kanban)
@@ -366,6 +368,8 @@ Setup steps for Meta: [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md). Module for the inb
 | `PATCH` | `/whatsapp/accounts/:id` | `{ name?, wabaId?, accessToken?, appSecret?, isDefault: true? }`; a new token is checked again. |
 | `POST` | `/whatsapp/accounts/:id/test` | Asks Meta again and updates `status`. |
 | `DELETE` | `/whatsapp/accounts/:id` | Soft delete; chats stay, the number can be connected again. |
+| `PUT` | `/whatsapp/accounts/:id/catalog` | Phase 8C: `{ catalogId, catalogVisible?, cartEnabled? }` — Meta is asked about the catalog with the number's token (`GET /<catalog>?fields=id,name,product_count`; 400 `CATALOG_REFUSED` when it cannot be opened); with the two flags also `POST /<phone number id>/whatsapp_commerce_settings` (shop button, cart). Then a `catalog.sync` job runs at once and daily. Numbers carry `catalog { catalogId, name, productCount, status, statusMessage, catalogVisible, cartEnabled, lastSyncAt, lastSync }` (or null). 403 `PLAN_LIMIT` below Growth. |
+| `DELETE` | `/whatsapp/accounts/:id/catalog` | Stops syncing and sending products (Meta keeps the catalog). |
 | `GET` | `/whatsapp/click-to-chat?accountId=&text=` | `{ accountId, phone, link, qrDataUrl }`: the `https://wa.me/<number>?text=<pre-filled message>` link of a number (default number if none given) and its QR code as an SVG data URL. 400 `NO_DISPLAY_PHONE` until the number was checked with Meta. |
 | `GET` | `/whatsapp/click-to-chat/qr.png?accountId=&text=` | The same QR code as an 800 px PNG download (`whatsapp-qr.png`). |
 
@@ -377,6 +381,15 @@ Each number has its own URL `/api/v1/webhooks/whatsapp/<webhookKey>` (not rate l
 | --- | --- |
 | `GET` | Handshake: `?hub.mode=subscribe&hub.verify_token=<verify token>&hub.challenge=<n>` → 200 with the challenge, else 403. |
 | `POST` | Messages, statuses and template status changes (fields `messages` and `message_template_status_update`). `X-Hub-Signature-256` must be `sha256=` + HMAC-SHA256 of the raw body with the app secret (else 401). Items for another connected number of the same organization (one Meta app, one callback URL) go to that number; unknown numbers are skipped. Each message and status is stored as an `InboundEvent` (Meta's retries are ignored), the answer is 200, then: the contact is found by phone or created (source WhatsApp; a new number also gets a WhatsApp lead), the conversation is opened, the message stored, the 24-hour window moved; statuses move sent → delivered → read (never back; failed keeps Meta's error); photos, documents, audio and video are copied into private storage (see "Files in chats"); a template status change updates the template (reason kept). Events that could not be processed are retried at start-up and every 5 minutes. |
+
+### Products and carts from the WhatsApp catalog (Phase 8C)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/conversations/:id/catalog` | `{ blocked, windowOpen, products [{ id, name, category, unit, pricePaise, gstRatePct, priceWithGstPaise, image, retailerId }] }` — synced products of the chat's number. |
+| `POST` | `/conversations/:id/products` | `{ productIds (1–30), header?, body? }` inside the 24-hour window (422 `WINDOW_CLOSED`): one product → Cloud API `interactive.type: product`; several → `product_list` with the heading (default "<business> products") and sections by category (at most 10). The message keeps `interactive { kind: product / product_list, products [{ productId, retailerId, name }] }`. 400 `NOT_IN_CATALOG` for products that are not synced. |
+
+A cart the customer sends back arrives as a message of type `order` (`order { catalogId, text, items [{ retailerId, quantity, itemPricePaise, currency }], orderId }`). The `catalog.order` job makes an order once per message: items matched to products by `catalog.retailerId` (or the product id) and priced as usual (GST on the tax-exclusive price, D43); an unknown item goes in at the cart's price without GST, with a warning (`order.catalogOrder.warnings`, also a price that changed by more than ₹1); `source: "catalog"`, stage Received, the customer's note in `notes`, the open lead's timeline; the customer gets a thank-you (`automation.kind: "catalog-order"`), the order's owner (else owners and admins) a bell note, and the chat shows "Open the order".
 
 ### Inbox (module `inbox`)
 
@@ -419,7 +432,7 @@ Same address as the API (path `/socket.io`; the browser client is served at `/so
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `POST` | `/dev/simulate/lead` | Owners/admins. `{ source? (default IndiaMART), sourceRef?, name, phone, email?, company?, city?, state?, product?, quantity?, message? }` → the same intake as a real lead; returns `{ outcome, leadId, contactId, contactCreated }` (400 `LEAD_REJECTED` without a valid mobile number or email). |
-| `POST` | `/dev/simulate/whatsapp-inbound` | Owners/admins. `{ from, name?, type? (text/image/document/audio/interactive), text, replyId? (interactive), accountId? }` → processes a made-up incoming message exactly like a webhook (photos, documents, voice notes and button taps only on test numbers; media get a sample file and `text` is the caption; `interactive` is a tapped reply button with id `replyId` and title `text`); returns `{ conversationId, messageId, contactId }`. |
+| `POST` | `/dev/simulate/whatsapp-inbound` | Owners/admins. `{ from, name?, type? (text/image/document/audio/interactive/order), text, replyId? (interactive), items? (order: [{ retailerId, quantity, price in rupees }]), catalogId?, accountId? }` → processes a made-up incoming message exactly like a webhook (photos, documents, voice notes and button taps only on test numbers; media get a sample file and `text` is the caption; `interactive` is a tapped reply button with id `replyId` and title `text`); returns `{ conversationId, messageId, contactId }`. |
 
 ## Lead sources (Phase 4)
 
