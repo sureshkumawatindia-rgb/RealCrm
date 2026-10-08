@@ -2,25 +2,21 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const OtpChallenge = require('../models/OtpChallenge');
 const env = require('../config/env');
-const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { normalizePhone } = require('../utils/phone');
 const whatsappOtp = require('../integrations/whatsapp/otp');
-const authService = require('./authService');
 
-// Phone sign-in with a WhatsApp code (Phase 10E, D55), next to Google. A member first verifies
-// their mobile number while signed in (Settings → Your Profile); afterwards the login page can
-// send a 6-digit code to it on WhatsApp from the platform's number. Codes: HMAC-stored, 5
-// minutes, 5 tries, one use; at most 3 codes per number in 15 minutes. The login request answers
-// the same whether or not the number belongs to someone (no way to find out who uses the CRM).
+// 6-digit codes on WhatsApp from the platform's number (Phase 10E; since 2026-10-08 the second,
+// required step of every sign-in after Google — services/loginService.js — and how a member
+// changes their number in Settings → Your Profile). Codes: HMAC-stored, 5 minutes, 5 tries, one
+// use; at most 3 codes per number in 15 minutes.
 // OTP_PROVIDER: whatsapp (the platform's number and template), mock (development: the code is
 // returned as devCode, never in production), off.
 const CODE_TTL_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_PER_WINDOW = 3;
-const LOGIN_MESSAGE = 'If this number is linked to a CRM account, a 6-digit code is on its way on WhatsApp.';
 
 const provider = () => env.otp.provider;
 const available = () => provider() === 'mock' || (provider() === 'whatsapp' && Boolean(env.otp.phoneNumberId && env.otp.accessToken && env.otp.template));
@@ -68,35 +64,7 @@ async function check({ phoneE164, purpose, userId = null, code }) {
 }
 
 function assertAvailable() {
-  if (!available()) throw httpError(409, 'OTP_OFF', 'Sign-in with a WhatsApp code is not switched on for this CRM. Sign in with Google.');
-}
-
-const verifiedUser = (phoneE164) => User.findOne({ phoneE164, phoneVerifiedAt: { $ne: null }, disabledAt: null });
-
-// --- the login page -----------------------------------------------------------------------------
-// POST /auth/otp/request { phone }
-async function requestLogin(req, { phone }) {
-  assertAvailable();
-  const phoneE164 = phoneOf(phone);
-  const user = await verifiedUser(phoneE164);
-  let devCode;
-  try {
-    devCode = await issue(req, { phoneE164, purpose: 'login', userId: user?._id || null, send: Boolean(user) });
-  } catch (error) {
-    if (error.code === 'OTP_NOT_SENT') logger.warn(`OTP for a login was not sent: ${error.providerMessage || error.message}`);
-    throw error;
-  }
-  return { sent: true, message: LOGIN_MESSAGE, expiresInSeconds: CODE_TTL_MS / 1000, ...(devCode && { devCode }) };
-}
-
-// POST /auth/otp/verify { phone, code } → the same answer as POST /auth/google.
-async function verifyLogin(req, { phone, code }) {
-  assertAvailable();
-  const phoneE164 = phoneOf(phone);
-  const challenge = await check({ phoneE164, purpose: 'login', code });
-  const user = await verifiedUser(phoneE164);
-  if (!user || String(user._id) !== String(challenge.userId)) throw httpError(401, 'OTP_INVALID', 'The code is wrong or has expired. Ask for a new one.');
-  return authService.startSession(req, user, { method: 'whatsapp-code' });
+  if (!available()) throw httpError(409, 'OTP_OFF', 'Codes on WhatsApp are not switched on for this CRM yet.');
 }
 
 // --- the member's own number (signed in) ---------------------------------------------------------------
@@ -140,4 +108,4 @@ async function unlink(req) {
   return { phone: '', verifiedAt: null, available: available() };
 }
 
-module.exports = { available, requestLogin, verifyLogin, status, requestLink, verifyLink, unlink, CODE_TTL_MS, MAX_ATTEMPTS };
+module.exports = { available, issue, check, phoneOf, status, requestLink, verifyLink, unlink, CODE_TTL_MS, MAX_ATTEMPTS };

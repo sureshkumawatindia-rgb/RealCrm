@@ -17,4 +17,6 @@ Object.assign(process.env, {
   RATE_LIMIT_API_PER_MINUTE: '100000',
   RATE_LIMIT_AUTH_PER_MINUTE: '100000',
   RATE_LIMIT_FORM_PER_MINUTE: '30',
+  // Most tests sign in with Google alone; tests/login.test.js switches the WhatsApp step on.
+  LOGIN_WHATSAPP_CODE: 'off',
 });

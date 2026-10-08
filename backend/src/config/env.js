@@ -69,6 +69,9 @@ const schema = Joi.object({
   // Phone sign-in with a WhatsApp code (Phase 10E) from the platform's own number and approved
   // AUTHENTICATION template. mock = the code comes back in the answer (development only).
   OTP_PROVIDER: Joi.string().valid('whatsapp', 'mock', 'off').default(process.env.NODE_ENV === 'production' ? 'off' : 'mock'),
+  // Signing in (2026-10-08): required = after Google, a code on WhatsApp to the person's mobile
+  // number is needed too (whenever OTP_PROVIDER can send codes); off = Google alone.
+  LOGIN_WHATSAPP_CODE: Joi.string().valid('required', 'off').default('required'),
   WHATSAPP_OTP_PHONE_NUMBER_ID: Joi.string().allow('').default(''),
   WHATSAPP_OTP_ACCESS_TOKEN: Joi.string().allow('').default(''),
   WHATSAPP_OTP_TEMPLATE: Joi.string().allow('').default(''),
@@ -140,6 +143,9 @@ const env = {
   whatsapp: {
     graphUrl: value.WHATSAPP_GRAPH_URL.replace(/\/+$/, ''),
     graphVersion: value.WHATSAPP_GRAPH_VERSION,
+  },
+  login: {
+    whatsappCode: value.LOGIN_WHATSAPP_CODE,
   },
   otp: {
     provider: value.NODE_ENV === 'production' && value.OTP_PROVIDER === 'mock' ? 'off' : value.OTP_PROVIDER,

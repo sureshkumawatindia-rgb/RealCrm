@@ -81,6 +81,11 @@ async function loginWithGoogle(req, { credential, inviteToken }) {
   if (user.disabledAt) throw httpError(403, 'FORBIDDEN', 'This account is disabled.');
 
   const { invitedOrganizationId, inviteError } = await inviteService.acceptPendingInvites(user, email, inviteToken);
+  // Unless this browser is remembered, the mobile number and a WhatsApp code come next (D58):
+  // no session yet, only what the login page needs for those steps.
+  await user.save();
+  const pending = await require('./loginService').secondStepFor(req, user, { invitedOrganizationId, inviteError }); // eslint-disable-line global-require
+  if (pending) return { refreshToken: null, data: pending };
   return startSession(req, user, { invitedOrganizationId, inviteError, method: 'google' });
 }
 
