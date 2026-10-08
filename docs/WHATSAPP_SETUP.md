@@ -60,15 +60,15 @@ Customers can see your products inside WhatsApp, add them to a cart and send the
 
 The catalog comes with the Growth plan (the trial has it).
 
-## Sign-in codes on WhatsApp (the platform's own number)
+## Login codes on WhatsApp (the platform's own number)
 
-People can also sign in with a 6-digit code on WhatsApp, after they verify their number once in Settings → Your Profile. The codes come from **one WhatsApp number of the platform** (yours, not a company's):
+Logging in on a new browser needs Google, the person's mobile number and a 6-digit code on WhatsApp (D58; or a QR code scanned with a phone that is already logged in). Until the codes can be sent, the CRM logs in with Google alone. The codes come from **one WhatsApp number of the platform** (yours, not a company's):
 
 1. In WhatsApp Manager, add a number for the platform (or reuse one) and note its **Phone number ID**; make a permanent System User token with `whatsapp_business_messaging`.
 2. Create a message template: category **Authentication**, a **Copy code** button, code expiry about 5 minutes; wait for approval. Meta writes the text ("<code> is your verification code").
 3. In `backend/.env`: `OTP_PROVIDER=whatsapp`, `WHATSAPP_OTP_PHONE_NUMBER_ID`, `WHATSAPP_OTP_ACCESS_TOKEN`, `WHATSAPP_OTP_TEMPLATE` (its name) and `WHATSAPP_OTP_LANGUAGE` (its language, e.g. `en`); restart.
 
-Codes last 5 minutes, work once, allow 5 tries, and at most 3 can be asked for a number in 15 minutes. In development (`OTP_PROVIDER=mock`, the default) nothing is sent and the code is shown on the screen.
+Codes last 5 minutes, work once, allow 5 tries, and at most 3 can be asked for a number in 15 minutes. In development (`OTP_PROVIDER=mock`, the default) nothing is sent and the code is shown on the screen. `LOGIN_WHATSAPP_CODE=off` makes Google alone enough again.
 
 ## Without a Meta account
 

@@ -79,7 +79,7 @@ Start from `backend/.env.example`.
 - Plan billing: `BILLING_PROVIDER`, `RAZORPAY_BILLING_*`, `BILLING_SELLER_*`
 - AI assistant: `ANTHROPIC_API_KEY`, `AI_*`
 - Web push: `VAPID_*`
-- Phone sign-in: `OTP_PROVIDER`, `WHATSAPP_OTP_*`
+- Login codes on WhatsApp (D58): `OTP_PROVIDER`, `WHATSAPP_OTP_*`, `LOGIN_WHATSAPP_CODE`
 - Rate limits: `RATE_LIMIT_*`
 - Company deletion: `ORG_DELETION_GRACE_DAYS`
 

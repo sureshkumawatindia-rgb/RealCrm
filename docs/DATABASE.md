@@ -183,6 +183,15 @@ No new collections: reports are counted from the records when asked (D47). New i
 
 `users.phoneE164` + `users.phoneVerifiedAt` (unique when set). Job: `push.send` (one per bell note for members with devices).
 
+Logging in like WhatsApp Web (D58, 2026-10-08):
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `trusteddevices` | `userId`, `tokenHash` (SHA-256 of the `crm_device` cookie), `userAgent`, `expiresAt` (30 days), `lastUsedAt` | unique `tokenHash`; `userId`; TTL on `expiresAt` |
+| `qrlogins` | `secretHash`, `status` pending/approved/used/declined, `expiresAt` (2 min), `computerUserAgent`, `computerIp`, `approvedByUserId`, `organizationId`, `approvedAt` | TTL 1 hour on `createdAt` |
+
+`otpchallenges.purpose` `login` is now step 3 of the login (after Google); `link` is Settings → Your Profile.
+
 ## 1q. Phase 10F (audit log viewer, deletion)
 
 No new collections. `organizations.deletion` { requestedAt, scheduledFor, requestedById } while a deletion is pending. The purge deletes, in every collection whose model has an `organizationId` path (all model files are loaded first), the documents with that id — soft-deleted ones too — except `billinginvoices` (tax records) and `users` (whose `organizationId` "last used" pointer is cleared); then the organization; its `DOCUMENT_DIR/<id>/` folder and logo file are removed. Job: `organization.purge` (every 6 hours). The audit log uses the existing index `(organizationId, createdAt -1)`.

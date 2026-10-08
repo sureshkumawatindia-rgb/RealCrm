@@ -30,13 +30,21 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 
 | Method | Route | Auth | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/auth/google` | none | Body `{ credential, inviteToken? }`. Verifies the Google ID token, creates the user on first sign-in, accepts pending invites for the verified email, creates an organization only if the user belongs to none. Returns `{ token, user, organizationId, member, memberships, inviteError? }` and sets the refresh cookie. |
+| `POST` | `/auth/google` | none | Body `{ credential, inviteToken? }`. Verifies the Google ID token, creates the user on first sign-in, accepts pending invites for the verified email, creates an organization only if the user belongs to none. Returns `{ token, user, organizationId, member, memberships, inviteError? }` and sets the refresh cookie — or, on a browser that is not remembered (D58), `{ step: 'whatsapp-code', challenge, phoneHint, user { email, name, picture } }` and no session yet. Google alone signs in when `LOGIN_WHATSAPP_CODE=off` or the CRM cannot send codes (`OTP_PROVIDER=off`). |
+| `POST` | `/auth/login/code` | none | Step 2 (D58). `{ challenge, phone }` → a 6-digit code on WhatsApp: `{ sent, message, expiresInSeconds, devCode? (mock only) }`. The challenge lives 10 minutes (400 `LOGIN_EXPIRED`). A verified number must match (400 `PHONE_MISMATCH`); a number of another account: 409 `PHONE_IN_USE`. 429 `OTP_TOO_MANY`, 502 `OTP_NOT_SENT`. |
+| `POST` | `/auth/login/verify` | none | Step 3. `{ challenge, phone, code, stayLoggedIn? }` → the same as a signed-in `POST /auth/google`; the number is verified the first time. `stayLoggedIn` sets the `crm_device` cookie (httpOnly, SameSite=Strict, path `/api/v1/auth`, 30 days): Google alone on this browser until logout. 401 `OTP_INVALID` / `OTP_LOCKED`. |
+| `POST` | `/auth/qr` | none | "Scan to log in": `{ id, secret, image (PNG data URL of …/link-device.html#<id>.<secret>), expiresAt (2 min) }`. |
+| `POST` | `/auth/qr/:id/poll` | none | `{ secret, stayLoggedIn? }` → `{ status: pending \| declined \| expired }`, or once `{ status: 'approved', token, user, organizationId, member, memberships }` with the refresh (and device) cookie. 120 per minute per IP. |
+| `POST` | `/auth/qr/:id/peek` | bearer | The phone: `{ secret }` → `{ computer ('Chrome on Windows'), askedAt, expiresAt }`; 404 `QR_NOT_FOUND`, 410 `QR_EXPIRED`. |
+| `POST` | `/auth/qr/:id/approve` | bearer | The phone: `{ secret, allow (default true) }` → `{ allowed, computer }`; the computer gets the phone user's session in the phone's organization. Audit `auth.computer_linked`. |
 | `POST` | `/auth/refresh` | refresh cookie | Rotates the refresh token and returns `{ token, organizationId }`. A token that was already rotated revokes its whole family (`REFRESH_TOKEN_REUSED`). |
 | `POST` | `/auth/logout` | refresh cookie | Revokes the session family and clears the cookie. |
 | `GET` | `/auth/me` | bearer | `{ user, organization, member, memberships }`. |
 | `POST` | `/auth/switch-organization` | bearer | Body `{ organizationId }`. Returns a new access token for another organization the user belongs to. |
 
-Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout` and `/invites/lookup`: `RATE_LIMIT_AUTH_PER_MINUTE` (default 20) per IP. Everything else: `RATE_LIMIT_API_PER_MINUTE` (default 300).
+`POST /auth/logout` also forgets the remembered browser (`crm_device`).
+
+Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout`, `/auth/login/*`, `POST /auth/qr` and `/invites/lookup`: `RATE_LIMIT_AUTH_PER_MINUTE` (default 20) per IP. Everything else: `RATE_LIMIT_API_PER_MINUTE` (default 300).
 
 ## Organization
 
@@ -610,13 +618,12 @@ The pages are an installable app (`crm/frontend/manifest.webmanifest`, service w
 | `POST` | `/push/subscriptions` | The browser's `PushSubscription.toJSON()` (`{ endpoint (https), keys { p256dh, auth } }`) → 201 `{ id, devices }`; at most 10 per member. |
 | `DELETE` | `/push/subscriptions` | `{ endpoint }` — this member's device only. |
 | `POST` | `/push/test` | A test notification to this member's devices → `{ sent, removed }`; 409 `NO_DEVICES`. |
-| `GET` | `/auth/otp/available` | Public: `{ available }` — does the login page offer a WhatsApp code. |
-| `POST` | `/auth/otp/request` | Public, rate-limited: `{ phone }` → `{ sent, message, expiresInSeconds, devCode? (mock only) }` — the same answer whether or not the number belongs to someone. 429 `OTP_TOO_MANY`, 409 `OTP_OFF`, 502 `OTP_NOT_SENT`. |
-| `POST` | `/auth/otp/verify` | `{ phone, code (6 digits) }` → the same as `POST /auth/google` (token, user, organization, member, memberships; refresh cookie). 401 `OTP_INVALID` / `OTP_LOCKED`. |
 | `GET` | `/auth/phone` | Signed in: `{ phone, verifiedAt, available }`. |
-| `POST` | `/auth/phone/request` | `{ phone }` → a code to verify one's own number; 409 `PHONE_IN_USE`. |
-| `POST` | `/auth/phone/verify` | `{ phone, code }` → the number is verified for sign-in. |
-| `DELETE` | `/auth/phone` | Removes it. |
+| `POST` | `/auth/phone/request` | `{ phone }` → a code to verify (or change) one's own number; 409 `PHONE_IN_USE`. |
+| `POST` | `/auth/phone/verify` | `{ phone, code }` → the number is verified for logging in. |
+| `DELETE` | `/auth/phone` | Removes it (the next new browser verifies one again). |
+
+The 2026-10-08 login (D58) replaced the Phase 10E `/auth/otp/available`, `/auth/otp/request` and `/auth/otp/verify` (a code alone no longer signs in): see `/auth/login/*` and `/auth/qr*` under Auth.
 
 Every bell note (`notificationService.notify`) is also sent as web push to the member's devices: `{ title, body, url, tag }`, encrypted (RFC 8291 aes128gcm) and signed (RFC 8292 VAPID).
 
