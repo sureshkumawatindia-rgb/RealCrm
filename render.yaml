@@ -1,0 +1,48 @@
+# Render Blueprint for YELLOW CRM (D18). Step-by-step: docs/RENDER_SETUP.md.
+# One web service runs everything (pages, API, webhooks, live inbox, background jobs).
+# A disk keeps uploaded logos, documents and WhatsApp media across deploys (a disk needs a paid
+# instance and keeps the service to one instance, which this CRM needs anyway).
+services:
+  - type: web
+    name: yellow-crm
+    runtime: node
+    region: singapore # closest to India
+    plan: 1c-2g # 1 CPU, 2 GB; 0.5c-512mb is cheaper but tight for PDFs and the live inbox
+    buildCommand: cd backend && npm ci --omit=dev
+    startCommand: cd backend && node src/server.js
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: commit # every push to main deploys
+    disk:
+      name: crm-files
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: DOCUMENT_DIR
+        value: /var/data/documents
+      # New secrets are encrypted with this key (made by Render).
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      # Copied from your backend/.env (Render asks for them when the Blueprint is created):
+      # the same database, and the same keys, so existing tokens, keys and customers'
+      # quotation links keep working.
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GMAIL_TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # https://yellow-crm.onrender.com (or your own domain), without a trailing slash.
+      - key: PUBLIC_URL
+        sync: false
