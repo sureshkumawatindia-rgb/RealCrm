@@ -15,6 +15,15 @@ module.exports = {
     accessToken: secret,
     appSecret: Joi.string().trim().min(16).max(200),
   }),
+  // What Meta's Embedded Signup popup gave the connect page (D60): the code (valid 30 seconds),
+  // the WhatsApp Business Account and, for a new number, the phone number id. mode: coexistence
+  // = the WhatsApp Business app number (FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING), new = FINISH.
+  embeddedSignup: Joi.object({
+    code: Joi.string().trim().min(10).max(2000).required(),
+    wabaId: numericId.required(),
+    phoneNumberId: numericId,
+    mode: Joi.string().valid('coexistence', 'new').default('coexistence'),
+  }),
   accountPatch: Joi.object({
     name: Joi.string().trim().max(100).allow(''),
     wabaId: Joi.alternatives(numericId, Joi.string().valid('')),

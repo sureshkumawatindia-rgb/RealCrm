@@ -81,6 +81,11 @@ function attachRealtime(httpServer) {
     'note:new': async ({ conversation, note }) => {
       io.to(targetsFor(conversation)).emit('note:new', { conversationId: conversation._id, note });
     },
+    // Importing a connected WhatsApp Business app number's contacts and chats (D60): to the
+    // owners and admins, who connect numbers.
+    'whatsapp:sync': async ({ organizationId, accountId, sync }) => {
+      io.to(rooms.all(organizationId)).emit('whatsapp:sync', { accountId, sync });
+    },
     // The bell (Phase 6): only to the member it is for.
     'notification:new': async ({ memberId, notification }) => {
       io.to(rooms.member(memberId)).emit('notification:new', notification);

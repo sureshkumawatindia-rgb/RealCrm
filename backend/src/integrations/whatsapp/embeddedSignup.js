@@ -50,6 +50,10 @@ async function subscribeApp({ wabaId, accessToken }) {
   await graph(`${enc(wabaId)}/subscribed_apps`, { accessToken, method: 'POST' });
 }
 
+async function unsubscribeApp({ wabaId, accessToken }) {
+  await graph(`${enc(wabaId)}/subscribed_apps`, { accessToken, method: 'DELETE' });
+}
+
 async function registerNumber({ phoneNumberId, accessToken, pin }) {
   await graph(`${enc(phoneNumberId)}/register`, { accessToken, method: 'POST', body: { messaging_product: 'whatsapp', pin } });
 }
@@ -59,4 +63,4 @@ async function startSync({ phoneNumberId, accessToken, syncType }) {
   return graph(`${enc(phoneNumberId)}/smb_app_data`, { accessToken, method: 'POST', body: { messaging_product: 'whatsapp', sync_type: syncType } });
 }
 
-module.exports = { available, exchangeCode, phoneNumbersOf, subscribeApp, registerNumber, startSync };
+module.exports = { available, exchangeCode, phoneNumbersOf, subscribeApp, unsubscribeApp, registerNumber, startSync };

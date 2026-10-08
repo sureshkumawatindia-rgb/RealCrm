@@ -6,6 +6,7 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { encrypt, decrypt } = require('../utils/secretBox');
 const { providerFor } = require('../integrations/whatsapp');
+const embeddedSignup = require('../integrations/whatsapp/embeddedSignup');
 const planService = require('./planService');
 
 // Settings → WhatsApp: the organization's connected numbers. Owners and admins only.
@@ -22,11 +23,24 @@ function serializeCatalog(account) {
   };
 }
 
+// Importing a WhatsApp Business app number's contacts and chats (D60), or null.
+function serializeSync(account) {
+  const s = account.sync || {};
+  if (!s.status) return null;
+  return {
+    status: s.status, contacts: s.contacts || 0, chats: s.chats || 0, messages: s.messages || 0,
+    phase: s.phase ?? null, progress: s.progress ?? null, error: s.error || '', finishedAt: s.finishedAt || null,
+  };
+}
+
 function serializeAccount(account) {
   return {
     id: account._id,
     name: account.name,
     provider: account.provider,
+    connectionType: account.connectionType || 'manual',
+    connectedAt: account.connectedAt || null,
+    sync: serializeSync(account),
     phoneNumberId: account.phoneNumberId,
     wabaId: account.wabaId,
     displayPhone: account.displayPhone,
@@ -37,10 +51,11 @@ function serializeAccount(account) {
     statusMessage: account.statusMessage,
     isDefault: account.isDefault,
     lastWebhookAt: account.lastWebhookAt || null,
-    // What to paste into the Meta app (Webhooks → Callback URL / Verify token).
+    // What to paste into the Meta app (Webhooks → Callback URL / Verify token) — a manual number
+    // only; "Connect WhatsApp" numbers use the platform's app-level webhook.
     webhookPath: webhookPath(account),
     webhookUrl: `${env.publicUrl}${webhookPath(account)}`,
-    verifyToken: decrypt(account.verifyTokenEnc),
+    verifyToken: (account.connectionType || 'manual') === 'manual' ? decrypt(account.verifyTokenEnc) : '',
     accessToken: { configured: Boolean(account.accessTokenEnc), last4: account.accessTokenLast4 },
     appSecretConfigured: Boolean(account.appSecretEnc),
     catalog: serializeCatalog(account),
@@ -149,6 +164,12 @@ async function test(req, id) {
 // Conversations and messages stay; the number can be connected again later.
 async function remove(req, id) {
   const account = await findInOrg(req, id);
+  // A "Connect WhatsApp" number: stop the platform's app getting its webhooks (best effort; the
+  // business can also remove the CRM in WhatsApp Manager or the WhatsApp Business app).
+  if (account.connectionType && account.connectionType !== 'manual' && account.wabaId && account.accessTokenEnc) {
+    await embeddedSignup.unsubscribeApp({ wabaId: account.wabaId, accessToken: credentials(account).accessToken })
+      .catch((error) => logger.warn(`Unsubscribing from WABA ${account.wabaId} failed: ${error.message}`));
+  }
   account.activePhoneNumberId = undefined;
   account.isDefault = false;
   await account.softDelete();
@@ -186,5 +207,5 @@ async function defaultAccount(organizationId) {
 
 module.exports = {
   list, create, update, test, remove, findInOrg, findByWebhookKey, verifyTokenOf, appSecretOf, credentials,
-  defaultAccount, serializeAccount, serializeCatalog,
+  defaultAccount, serializeAccount, serializeCatalog, serializeSync,
 };

@@ -29,6 +29,26 @@ const whatsappAccountSchema = new mongoose.Schema(
     statusMessage: { type: String, default: '' },
     lastWebhookAt: { type: Date },
     isDefault: { type: Boolean, default: false },
+    // How the number was connected (D60): manual = the IDs and token pasted in Settings (its own
+    // Meta app and webhook URL); embedded = "Connect WhatsApp" with a new number; coexistence =
+    // "Connect WhatsApp" with the WhatsApp Business app number (the app keeps working, chats sync).
+    // Embedded and coexistence numbers use the platform's app and /api/v1/webhooks/meta.
+    connectionType: { type: String, enum: ['manual', 'embedded', 'coexistence'], default: 'manual' },
+    connectedAt: { type: Date },
+    registrationPinEnc: { type: String }, // a new number's two-step PIN (secretBox)
+    // Importing a coexistence number's contacts and chats (Meta sends up to 6 months of history
+    // in phases 0–2 with a progress percentage; the business may decline sharing it).
+    sync: {
+      status: { type: String, enum: ['pending', 'importing', 'done', 'declined', 'failed'] },
+      requestedAt: { type: Date },
+      contacts: { type: Number, default: 0 },
+      chats: { type: Number, default: 0 },
+      messages: { type: Number, default: 0 },
+      phase: { type: Number },
+      progress: { type: Number },
+      error: { type: String },
+      finishedAt: { type: Date },
+    },
     // The Meta Commerce catalog connected to this number's WhatsApp Business Account (Phase 8C):
     // the CRM's products marked "in the WhatsApp catalog" are synced to it.
     catalog: {
@@ -52,5 +72,6 @@ whatsappAccountSchema.plugin(softDelete);
 whatsappAccountSchema.index({ activePhoneNumberId: 1 }, { unique: true, sparse: true });
 whatsappAccountSchema.index({ webhookKey: 1 }, { unique: true });
 whatsappAccountSchema.index({ organizationId: 1, deletedAt: 1, isDefault: -1 });
+whatsappAccountSchema.index({ wabaId: 1 }); // the app-level webhook finds a number by its WABA
 
 module.exports = mongoose.model('WhatsAppAccount', whatsappAccountSchema);

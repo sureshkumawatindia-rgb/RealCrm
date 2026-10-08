@@ -3,7 +3,8 @@
 // "meta": the real Cloud API. "mock": a local stand-in for development without a Meta account
 // (never allowed in production).
 const WHATSAPP_PROVIDERS = Object.freeze(['meta', 'mock']);
-const ACCOUNT_STATUSES = Object.freeze(['pending', 'connected', 'error']);
+// disconnected: the business removed the CRM in WhatsApp (account_update PARTNER_REMOVED, D60).
+const ACCOUNT_STATUSES = Object.freeze(['pending', 'connected', 'error', 'disconnected']);
 
 const CONVERSATION_STATUSES = Object.freeze(['open', 'pending', 'closed']);
 
