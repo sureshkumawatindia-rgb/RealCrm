@@ -86,6 +86,9 @@ const messageSchema = new mongoose.Schema(
     // When WhatsApp says the message was sent (inbound) — may be earlier than createdAt.
     providerTimestamp: { type: Date },
     sentByMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
+    // Not written in the CRM (a WhatsApp Business app number, D60): history = imported from the
+    // last 6 months when the number was connected; phone = sent from the app on the phone.
+    origin: { type: String, enum: ['history', 'phone'] },
     // Sent by the CRM itself (e.g. an auto-reply rule), not by a person.
     automation: {
       kind: { type: String },

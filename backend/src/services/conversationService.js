@@ -87,6 +87,8 @@ function serializeMessage(message) {
       : null,
     // Meta's message id (wamid): lets the page show which message a reply quotes.
     providerMessageId: message.providerMessageId || null,
+    // history (imported) or phone (sent from the WhatsApp Business app), D60.
+    origin: message.origin || null,
     replyToProviderMessageId: message.replyToProviderMessageId || null,
     status: message.status,
     sentAt: message.sentAt || null,

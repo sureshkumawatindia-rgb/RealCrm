@@ -165,7 +165,10 @@ const env = {
     esConfigId: value.META_ES_CONFIG_ID,
     webhookVerifyToken: value.META_WEBHOOK_VERIFY_TOKEN,
   },
-  devTools: !isProduction && value.DEV_TOOLS,
+  // Read each time, so it can never be on while isProduction is.
+  get devTools() {
+    return !this.isProduction && value.DEV_TOOLS;
+  },
   login: {
     whatsappCode: value.LOGIN_WHATSAPP_CODE,
   },

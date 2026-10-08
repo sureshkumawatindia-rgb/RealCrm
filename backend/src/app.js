@@ -37,6 +37,8 @@ app.use(cors({
   credentials: true,
 }));
 // Webhooks are signed over the exact bytes that were sent, so they keep a raw body.
+// The platform's Meta webhook carries chat history in chunks (D60): a larger limit there.
+app.use('/api/v1/webhooks/meta', express.raw({ type: () => true, limit: '16mb' }));
 app.use('/api/v1/webhooks', express.raw({ type: () => true, limit: '3mb' }));
 // A browser-data import carries the whole old localStorage in one request.
 app.use('/api/v1/imports/localstorage', express.json({ limit: '25mb' }));

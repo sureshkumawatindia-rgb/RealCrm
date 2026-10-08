@@ -9,7 +9,8 @@ const Message = require('../models/Message');
 const logger = require('../config/logger');
 const bus = require('../realtime/bus');
 const automationEvents = require('./automation/events');
-const { appSecretOf } = require('./whatsappAccountService');
+const env = require('../config/env');
+const { appSecretOf, serializeSync } = require('./whatsappAccountService');
 const media = require('./whatsappMediaService');
 const templateService = require('./templateService');
 const { STAGE_PROBABILITY } = require('../constants/crm');
@@ -31,20 +32,97 @@ const unixTime = (value) => {
 };
 
 // --- signature -------------------------------------------------------------
-function signatureOk(account, rawBody, header) {
-  const secret = appSecretOf(account);
+function signedWith(secret, rawBody, header) {
   const match = /^sha256=([a-f0-9]{64})$/i.exec(String(header || ''));
   if (!secret || !match || !Buffer.isBuffer(rawBody)) return false;
   const expected = crypto.createHmac('sha256', secret).update(rawBody).digest();
   return crypto.timingSafeEqual(expected, Buffer.from(match[1], 'hex'));
 }
+// A number connected by hand: its own Meta app's secret.
+const signatureOk = (account, rawBody, header) => signedWith(appSecretOf(account), rawBody, header);
+// The platform's Meta app (D60): one secret for every "Connect WhatsApp" number.
+const appSignatureOk = (rawBody, header) => signedWith(env.meta.appSecret, rawBody, header);
 
 // --- storing the webhook ----------------------------------------------------
-// Returns the ids of the events that are new (retries of stored events are skipped).
+// The events of one change of a webhook for the number `target`.
+// Fields: messages (messages and statuses), message_template_status_update, and for a WhatsApp
+// Business app number (coexistence, D60): history (its chats of the last 6 months, in chunks),
+// smb_message_echoes (what the business sent from the app on the phone), smb_app_state_sync
+// (its contacts) and account_update (e.g. PARTNER_REMOVED: the business disconnected the CRM).
+function itemsOf(target, entry, change) {
+  const value = change?.value || {};
+  const sourceId = target._id;
+  const items = [];
+  switch (change?.field) {
+    case 'message_template_status_update':
+      if (value.message_template_id && value.event) {
+        items.push({ kind: 'template_status', sourceId, eventId: `template:${value.message_template_id}:${value.event}:${entry.time || ''}`, payload: { value } });
+      }
+      break;
+    case 'messages': {
+      const contacts = Array.isArray(value.contacts) ? value.contacts : [];
+      for (const message of Array.isArray(value.messages) ? value.messages : []) {
+        if (!message?.id) continue;
+        const contact = contacts.find((c) => c?.wa_id === message.from) || contacts[0] || null;
+        items.push({ kind: 'message', sourceId, eventId: `message:${message.id}`, payload: { message, contact } });
+      }
+      for (const status of Array.isArray(value.statuses) ? value.statuses : []) {
+        if (!status?.id || !status.status) continue;
+        items.push({ kind: 'status', sourceId, eventId: `status:${status.id}:${status.status}`, payload: { status } });
+      }
+      break;
+    }
+    case 'history':
+      (Array.isArray(value.history) ? value.history : []).forEach((chunk, index) => {
+        const meta = chunk?.metadata || {};
+        const errorCode = chunk?.errors?.[0]?.code;
+        const eventId = errorCode
+          ? `history-error:${target.phoneNumberId}:${errorCode}:${entry.time || ''}`
+          : `history:${target.phoneNumberId}:${meta.phase ?? ''}:${meta.chunk_order ?? index}:${meta.progress ?? ''}`;
+        items.push({ kind: 'history', sourceId, eventId, payload: { chunk, businessPhone: str(value.metadata?.display_phone_number, 40) } });
+      });
+      break;
+    case 'smb_message_echoes':
+      for (const message of Array.isArray(value.message_echoes) ? value.message_echoes : []) {
+        if (message?.id) items.push({ kind: 'echo', sourceId, eventId: `echo:${message.id}`, payload: { message } });
+      }
+      break;
+    case 'smb_app_state_sync':
+      for (const item of Array.isArray(value.state_sync) ? value.state_sync : []) {
+        if (item?.type !== 'contact' || !item.contact?.phone_number) continue;
+        items.push({
+          kind: 'contact_sync', sourceId,
+          eventId: `contact:${target.phoneNumberId}:${str(item.contact.phone_number, 30)}:${item.action}:${item.metadata?.timestamp || ''}`, payload: { item },
+        });
+      }
+      break;
+    case 'account_update':
+      if (value.event) items.push({ kind: 'account_update', sourceId, eventId: `account:${entry.id}:${value.event}:${entry.time || ''}`, payload: { value } });
+      break;
+    default:
+  }
+  return items;
+}
+
+// Stores the items once each (Meta's retries of stored events are skipped) → the new ids.
+async function store(items) {
+  const ids = [];
+  for (const item of items) {
+    try {
+      const event = await InboundEvent.create({ provider: 'whatsapp', ...item });
+      ids.push(event._id);
+    } catch (error) {
+      if (error.code !== 11000) throw error; // already received
+    }
+  }
+  return ids;
+}
+
+// The webhook of a number connected by hand (/webhooks/whatsapp/:webhookKey). One Meta app (one
+// callback URL) can serve several numbers of the same company: items of another connected number
+// of this organization go to that number; unknown numbers are skipped.
 async function ingest(account, payload) {
   const items = [];
-  // One Meta app (one callback URL) can serve several numbers of the same company: items of
-  // another connected number of this organization go to that number; unknown numbers are skipped.
   const numbers = new Map([[account.phoneNumberId, account]]);
   const numberFor = async (phoneNumberId) => {
     if (!phoneNumberId) return account;
@@ -54,41 +132,39 @@ async function ingest(account, payload) {
   };
   for (const entry of Array.isArray(payload?.entry) ? payload.entry : []) {
     for (const change of Array.isArray(entry?.changes) ? entry.changes : []) {
-      const value = change?.value || {};
-      if (change?.field === 'message_template_status_update') {
-        if (!value.message_template_id || !value.event) continue;
-        items.push({
-          kind: 'template_status', sourceId: account._id,
-          eventId: `template:${value.message_template_id}:${value.event}:${entry.time || ''}`, payload: { value },
-        });
-        continue;
-      }
-      if (change?.field !== 'messages') continue;
-      const target = await numberFor(value.metadata?.phone_number_id);
-      if (!target) continue;
-      const contacts = Array.isArray(value.contacts) ? value.contacts : [];
-      for (const message of Array.isArray(value.messages) ? value.messages : []) {
-        if (!message?.id) continue;
-        const contact = contacts.find((c) => c?.wa_id === message.from) || contacts[0] || null;
-        items.push({ kind: 'message', sourceId: target._id, eventId: `message:${message.id}`, payload: { message, contact } });
-      }
-      for (const status of Array.isArray(value.statuses) ? value.statuses : []) {
-        if (!status?.id || !status.status) continue;
-        items.push({ kind: 'status', sourceId: target._id, eventId: `status:${status.id}:${status.status}`, payload: { status } });
-      }
+      const target = change?.field === 'message_template_status_update' ? account : await numberFor(change?.value?.metadata?.phone_number_id);
+      if (target) items.push(...itemsOf(target, entry, change).map((item) => ({ ...item, organizationId: account.organizationId })));
     }
   }
-
-  const ids = [];
-  for (const item of items) {
-    try {
-      const event = await InboundEvent.create({ provider: 'whatsapp', ...item, organizationId: account.organizationId });
-      ids.push(event._id);
-    } catch (error) {
-      if (error.code !== 11000) throw error; // already received
-    }
-  }
+  const ids = await store(items);
   await WhatsAppAccount.updateOne({ _id: account._id }, { lastWebhookAt: new Date() });
+  return ids;
+}
+
+// The platform's app-level webhook (/webhooks/meta, D60): every number connected with "Connect
+// WhatsApp", of every company. Each change goes to the number named in it (phone_number_id), or —
+// for WABA-wide changes such as account_update — to the active number of that WABA (entry.id).
+async function ingestApp(payload) {
+  const items = [];
+  const touched = new Set();
+  const cache = new Map();
+  const find = async (key, filter) => {
+    if (!cache.has(key)) cache.set(key, await WhatsAppAccount.findOne(filter));
+    return cache.get(key);
+  };
+  for (const entry of Array.isArray(payload?.entry) ? payload.entry : []) {
+    for (const change of Array.isArray(entry?.changes) ? entry.changes : []) {
+      const phoneNumberId = change?.value?.metadata?.phone_number_id;
+      const target = phoneNumberId
+        ? await find(`p:${phoneNumberId}`, { activePhoneNumberId: String(phoneNumberId) })
+        : entry?.id && await find(`w:${entry.id}`, { wabaId: String(entry.id), activePhoneNumberId: { $exists: true } });
+      if (!target) continue;
+      touched.add(String(target._id));
+      items.push(...itemsOf(target, entry, change).map((item) => ({ ...item, organizationId: target.organizationId })));
+    }
+  }
+  const ids = await store(items);
+  if (touched.size) await WhatsAppAccount.updateMany({ _id: { $in: [...touched] } }, { lastWebhookAt: new Date() });
   return ids;
 }
 
@@ -158,12 +234,14 @@ function phoneFromWaId(waId) {
   return /^[1-9]\d{7,14}$/.test(digits) ? `+${digits}` : null;
 }
 
-async function findOrCreateContact(organizationId, phoneE164, name) {
+// quiet: imported from a WhatsApp Business app number (history, contacts, its own messages) —
+// no automation hears about it (D60).
+async function findOrCreateContact(organizationId, phoneE164, name, { quiet = false } = {}) {
   const existing = await Contact.findOne({ organizationId, phoneE164 });
   if (existing) return { contact: existing, created: false };
   try {
     const contact = await Contact.create({ organizationId, name, phone: phoneE164, phoneE164, source: 'WhatsApp', lifecycle: 'lead' });
-    automationEvents.emit('contact.created', { organizationId, contactId: contact._id, source: 'WhatsApp', key: `contact.created:${contact._id}` });
+    if (!quiet) automationEvents.emit('contact.created', { organizationId, contactId: contact._id, source: 'WhatsApp', key: `contact.created:${contact._id}` });
     return { contact, created: true };
   } catch (error) {
     if (error.code !== 11000) throw error; // the same number arrived twice at once
@@ -248,6 +326,150 @@ async function handleMessage(account, { message, contact: profile }) {
   return 'processed';
 }
 
+// --- a WhatsApp Business app number (coexistence, D60) ---------------------------------------------
+// None of this runs automations, the bot, auto-replies, lead creation or notifications: the
+// history is the past, and echoes and contacts are the business's own doings on the phone.
+const HISTORY_STATUS = { READ: 'read', PLAYED: 'read', DELIVERED: 'delivered', SENT: 'sent', PENDING: 'sent', ERROR: 'failed', FAILED: 'failed' };
+const digitsOf = (value) => String(value || '').replace(/\D/g, '');
+const RECENT_CHAT_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function chatOf(account, phoneE164, name) {
+  const { contact, created } = await findOrCreateContact(account.organizationId, phoneE164, name, { quiet: true });
+  const before = await Conversation.findOne({ organizationId: account.organizationId, contactId: contact._id, whatsappAccountId: account._id }).select('_id');
+  // An imported chat starts closed (it needs no answer); the customer's next message opens it.
+  const conversation = before || await Conversation.findOneAndUpdate(
+    { organizationId: account.organizationId, contactId: contact._id, whatsappAccountId: account._id },
+    { $setOnInsert: { status: 'closed' } },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+  );
+  return { contact, conversation, contactCreated: created, chatCreated: !before };
+}
+
+// Moves the chat's last-message time forward, and sets the preview when this is the newest.
+async function touchChat(conversationId, { at, fields, direction }) {
+  const set = { $max: { lastMessageAt: at, ...(direction === 'in' && { lastInboundAt: at }) } };
+  let conversation = await Conversation.findOneAndUpdate({ _id: conversationId }, set, { returnDocument: 'after' });
+  if (conversation.lastMessageAt.getTime() === at.getTime()) {
+    conversation = await Conversation.findOneAndUpdate(
+      { _id: conversationId },
+      { $set: { lastMessagePreview: previewOf(fields), lastMessageDirection: direction } },
+      { returnDocument: 'after' },
+    );
+  }
+  return conversation;
+}
+
+function announceSync(account) {
+  bus.emit('whatsapp:sync', { organizationId: account.organizationId, accountId: account._id, sync: serializeSync(account) });
+}
+
+// One chunk of the history: threads (one per customer) of messages, with their real time.
+async function handleHistory(account, { chunk, businessPhone }) {
+  const error = chunk?.errors?.[0];
+  if (error) {
+    // 2593109: the business turned history sharing off in the WhatsApp Business app.
+    const declined = Number(error.code) === 2593109;
+    const updated = await WhatsAppAccount.findOneAndUpdate({ _id: account._id }, {
+      $set: { 'sync.status': declined ? 'declined' : 'failed', 'sync.error': str(error.error_data?.details || error.message || error.title, 300), 'sync.finishedAt': new Date() },
+    }, { returnDocument: 'after' });
+    announceSync(updated);
+    return 'processed';
+  }
+  const business = digitsOf(businessPhone || account.displayPhone);
+  let messages = 0;
+  let chats = 0;
+  for (const thread of Array.isArray(chunk?.threads) ? chunk.threads : []) {
+    const phoneE164 = phoneFromWaId(thread?.id);
+    if (!phoneE164) continue;
+    const { contact, conversation, chatCreated } = await chatOf(account, phoneE164, phoneE164);
+    if (chatCreated) chats += 1;
+    const docs = (Array.isArray(thread.messages) ? thread.messages : []).filter((message) => message?.id).map((message) => {
+      const fields = messageFields(message);
+      const direction = digitsOf(message.from) === digitsOf(thread.id) || (business && digitsOf(message.from) !== business) ? 'in' : 'out';
+      const at = unixTime(message.timestamp);
+      return {
+        organizationId: account.organizationId, conversationId: conversation._id, contactId: contact._id, whatsappAccountId: account._id,
+        direction, status: direction === 'in' ? 'received' : HISTORY_STATUS[String(message.history_context?.status || '').toUpperCase()] || 'sent',
+        providerMessageId: str(message.id, 300), providerTimestamp: at, origin: 'history', createdAt: at, updatedAt: new Date(), ...fields,
+      };
+    });
+    if (!docs.length) continue;
+    try {
+      messages += (await Message.insertMany(docs, { ordered: false, timestamps: false })).length;
+    } catch (bulk) {
+      // Some were stored before (a retried webhook): keep the rest.
+      if (!bulk.writeErrors?.every?.((item) => (item.err?.code ?? item.code) === 11000)) throw bulk;
+      messages += bulk.insertedDocs?.length || 0;
+    }
+    const newest = docs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+    await touchChat(conversation._id, { at: newest.createdAt, fields: newest, direction: newest.direction });
+    // A chat of the last week shows in the Inbox right away; older ones are under "Closed".
+    if (chatCreated && newest.createdAt > new Date(Date.now() - RECENT_CHAT_MS)) await Conversation.updateOne({ _id: conversation._id }, { $set: { status: 'open' } });
+    const newestIn = docs.filter((doc) => doc.direction === 'in').reduce((a, b) => (!a || b.createdAt > a.createdAt ? b : a), null);
+    if (newestIn) await Conversation.updateOne({ _id: conversation._id }, { $max: { lastInboundAt: newestIn.createdAt } });
+  }
+  const meta = chunk?.metadata || {};
+  const progress = Number(meta.progress);
+  const phase = Number(meta.phase);
+  const done = phase >= 2 && progress >= 100;
+  const updated = await WhatsAppAccount.findOneAndUpdate({ _id: account._id }, {
+    $inc: { 'sync.messages': messages, 'sync.chats': chats },
+    $set: {
+      'sync.status': done ? 'done' : 'importing', ...(Number.isFinite(phase) && { 'sync.phase': phase }),
+      ...(Number.isFinite(progress) && { 'sync.progress': progress }), ...(done && { 'sync.finishedAt': new Date() }),
+    },
+  }, { returnDocument: 'after' });
+  announceSync(updated);
+  return 'processed';
+}
+
+// What the business sent from the WhatsApp Business app on the phone: shown in the chat as
+// "sent from phone", live.
+async function handleEcho(account, { message }) {
+  const phoneE164 = phoneFromWaId(message.to);
+  if (!phoneE164) return 'ignored';
+  const { contact, conversation } = await chatOf(account, phoneE164, phoneE164);
+  const fields = messageFields(message);
+  const at = unixTime(message.timestamp);
+  let stored;
+  try {
+    stored = await Message.create({
+      organizationId: account.organizationId, conversationId: conversation._id, contactId: contact._id, whatsappAccountId: account._id,
+      direction: 'out', status: 'sent', providerMessageId: str(message.id, 300), providerTimestamp: at, sentAt: at, origin: 'phone', ...fields,
+    });
+  } catch (error) {
+    if (error.code === 11000) return 'ignored';
+    throw error;
+  }
+  const updated = await touchChat(conversation._id, { at, fields, direction: 'out' });
+  bus.emit('message:new', { organizationId: account.organizationId, conversation: updated, message: stored });
+  return 'processed';
+}
+
+// The WhatsApp Business app's contacts: names for the numbers (a removed contact stays in the CRM).
+async function handleContactSync(account, { item }) {
+  const phoneE164 = phoneFromWaId(item.contact?.phone_number);
+  if (!phoneE164 || item.action === 'remove') return 'ignored';
+  const name = str(item.contact.full_name || item.contact.first_name, 200).trim() || phoneE164;
+  const { contact, created } = await findOrCreateContact(account.organizationId, phoneE164, name, { quiet: true });
+  // A chat imported before its contact got the number as its name; the real name replaces it.
+  if (!created && contact.name === phoneE164 && name !== phoneE164) await Contact.updateOne({ _id: contact._id }, { $set: { name } });
+  if (created) await WhatsAppAccount.updateOne({ _id: account._id }, { $inc: { 'sync.contacts': 1 } });
+  return 'processed';
+}
+
+// The business removed the CRM in WhatsApp (or Meta offboarded the number).
+async function handleAccountUpdate(account, { value }) {
+  if (!['PARTNER_REMOVED', 'ACCOUNT_OFFBOARDED'].includes(String(value.event || '').toUpperCase())) return 'ignored';
+  const reason = str(value.disconnection_info?.reason, 200);
+  await WhatsAppAccount.updateOne({ _id: account._id }, {
+    $set: { status: 'disconnected', statusMessage: `Disconnected in WhatsApp${reason ? ` (${reason})` : ''}. Connect it again from Settings → WhatsApp.` },
+    $unset: { activePhoneNumberId: 1 },
+  });
+  logger.warn(`WhatsApp number ${account.phoneNumberId} was disconnected by the business (${value.event}).`);
+  return 'processed';
+}
+
 // attempts: how often this event was tried. A status can arrive before our own send has saved
 // Meta's message id, so an unknown message is retried a few times before it is ignored.
 async function handleStatus(account, { status }, attempts) {
@@ -286,6 +508,10 @@ async function processEvent(id) {
       message: () => handleMessage(account, event.payload),
       status: () => handleStatus(account, event.payload, event.attempts),
       template_status: () => templateService.applyStatusUpdate(account, event.payload.value || {}),
+      history: () => handleHistory(account, event.payload),
+      echo: () => handleEcho(account, event.payload),
+      contact_sync: () => handleContactSync(account, event.payload),
+      account_update: () => handleAccountUpdate(account, event.payload),
     };
     const outcome = !account || !handlers[event.kind] ? 'ignored' : await handlers[event.kind]();
     await InboundEvent.updateOne({ _id: event._id }, { status: outcome, processedAt: new Date(), error: '' });
@@ -328,5 +554,5 @@ function startRetryLoop(intervalMs = 5 * 60 * 1000) {
 }
 
 module.exports = {
-  signatureOk, ingest, processNow, processLater, idle, retryPending, startRetryLoop, messageFields, previewOf, phoneFromWaId,
+  signatureOk, appSignatureOk, ingest, ingestApp, processNow, processLater, idle, retryPending, startRetryLoop, messageFields, previewOf, phoneFromWaId,
 };

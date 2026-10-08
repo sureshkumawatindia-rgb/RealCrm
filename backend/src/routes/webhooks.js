@@ -51,6 +51,32 @@ router.post('/whatsapp/:webhookKey', async (req, res) => {
   inbound.processLater(ids);
 });
 
+// The platform's Meta app (D60): one callback URL for every number connected with "Connect
+// WhatsApp" — Meta's handshake with META_WEBHOOK_VERIFY_TOKEN, then POSTs signed with
+// META_APP_SECRET (X-Hub-Signature-256 over the raw body). 404 until the app is set up.
+router.get('/meta', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  if (!env.meta.webhookVerifyToken || mode !== 'subscribe' || !sameText(token, env.meta.webhookVerifyToken) || typeof challenge !== 'string') {
+    return res.sendStatus(403);
+  }
+  return res.type('text/plain').send(challenge.slice(0, 200));
+});
+router.post('/meta', async (req, res) => {
+  if (!env.meta.appSecret) return res.sendStatus(404);
+  if (!inbound.appSignatureOk(req.body, req.get('x-hub-signature-256'))) return res.sendStatus(401);
+  let payload;
+  try {
+    payload = JSON.parse(req.body.toString('utf8'));
+  } catch {
+    return res.sendStatus(400);
+  }
+  const ids = await inbound.ingestApp(payload);
+  res.sendStatus(200);
+  return inbound.processLater(ids);
+});
+
 // IndiaMART push: one lead per POST, JSON { CODE, STATUS, RESPONSE: { UNIQUE_QUERY_ID, … } }. There
 // is no signature; the random key in the URL is the secret. IndiaMART retries until it gets 200.
 router.post('/leads/indiamart/:webhookKey', async (req, res) => {
