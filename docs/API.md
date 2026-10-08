@@ -620,6 +620,19 @@ The pages are an installable app (`crm/frontend/manifest.webmanifest`, service w
 
 Every bell note (`notificationService.notify`) is also sent as web push to the member's devices: `{ title, body, url, tag }`, encrypted (RFC 8291 aes128gcm) and signed (RFC 8292 VAPID).
 
+## Audit log, export and deleting the company (Phase 10F)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/audit-logs?action=&entityType=&entityId=&actorUserId=&from=&to=&page=&limit=` | Owners and admins: `[{ id, at, action, entityType, entityId, actor { id, name, email } \| null, changes, ip }]` newest first, paginated; `action` matches the beginning (`contact.` = every contact action); `from`/`to` are days in India. |
+| `GET` | `/audit-logs/meta` | `{ areas, actions, people [{ userId, name, email }] }` for the filters. |
+| `GET` | `/exports/crm` | (Phase 2, extended) version 2: every section of the CRM — WhatsApp numbers, chats and messages, templates, lead sources and intakes, rules, the FAQ bot, sequences and runs, segments and broadcasts, payment gateways, plan invoices, API keys, webhooks, the Conversions API, AI usage, the audit log — without secrets (fields ending in Enc or Hash, hash, webhookKey, encrypted…, storage paths). |
+| `GET` | `/organization/deletion` | Every member: `null` or `{ requestedAt, scheduledFor }` (also in `GET /billing/subscription` as `deletion`, for the banner). |
+| `DELETE` | `/organization` | Owners: `{ confirmName }` (the company name, any case) → `{ requestedAt, scheduledFor }` (ORG_DELETION_GRACE_DAYS, 7). 400 wrong name, 409 `DELETION_SCHEDULED`. Owners and admins get a bell note. |
+| `POST` | `/organization/deletion/cancel` | Owners: keep the company. 409 `NOT_SCHEDULED`. |
+
+After the date a job (`organization.purge`, every 6 hours) removes every record with the organization's id, its files and logo, and stops its paid plan; the platform's GST invoices and users stay.
+
 ## Idempotency
 
 `POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.

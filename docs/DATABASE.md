@@ -183,6 +183,10 @@ No new collections: reports are counted from the records when asked (D47). New i
 
 `users.phoneE164` + `users.phoneVerifiedAt` (unique when set). Job: `push.send` (one per bell note for members with devices).
 
+## 1q. Phase 10F (audit log viewer, deletion)
+
+No new collections. `organizations.deletion` { requestedAt, scheduledFor, requestedById } while a deletion is pending. The purge deletes, in every collection whose model has an `organizationId` path (all model files are loaded first), the documents with that id — soft-deleted ones too — except `billinginvoices` (tax records) and `users` (whose `organizationId` "last used" pointer is cleared); then the organization; its `DOCUMENT_DIR/<id>/` folder and logo file are removed. Job: `organization.purge` (every 6 hours). The audit log uses the existing index `(organizationId, createdAt -1)`.
+
 ## 2. Data migrations
 
 | Migration | What it does |
