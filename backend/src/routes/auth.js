@@ -21,6 +21,10 @@ router.post('/qr', authLimiter, controller.qrStart);
 router.post('/qr/:id/poll', qrPollLimiter, validate({ params: idParams, body: schemas.qrPoll }), controller.qrPoll);
 router.post('/qr/:id/peek', authenticate, validate({ params: idParams, body: schemas.qrSecret }), controller.qrPeek);
 router.post('/qr/:id/approve', authenticate, validate({ params: idParams, body: schemas.qrApprove }), controller.qrApprove);
+// Where you're logged in (Settings → Your Profile), like WhatsApp's linked devices.
+router.get('/devices', authenticate, controller.devices);
+router.post('/devices/logout-others', authenticate, controller.devicesLogOutOthers);
+router.delete('/devices/:id', authenticate, validate({ params: schemas.deviceParams }), controller.deviceLogOut);
 // One's own WhatsApp number (Settings → Your Profile).
 router.get('/phone', authenticate, controller.phoneStatus);
 router.post('/phone/request', authLimiter, authenticate, validate({ body: schemas.otpRequest }), controller.phoneRequest);

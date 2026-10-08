@@ -6,7 +6,7 @@ const { randomToken, hashToken } = require('../utils/tokens');
 
 const expiry = () => new Date(Date.now() + env.refreshTokenTtlDays * 24 * 60 * 60 * 1000);
 
-async function createSession({ userId, organizationId, familyId = crypto.randomUUID(), userAgent = '', ip = '' }) {
+async function createSession({ userId, organizationId, familyId = crypto.randomUUID(), userAgent = '', ip = '', loginMethod = '', familyStartedAt = new Date() }) {
   const refreshToken = randomToken();
   const session = await Session.create({
     userId,
@@ -16,6 +16,8 @@ async function createSession({ userId, organizationId, familyId = crypto.randomU
     expiresAt: expiry(),
     userAgent: String(userAgent).slice(0, 300),
     ip,
+    loginMethod,
+    familyStartedAt,
   });
   return { session, refreshToken };
 }
@@ -50,6 +52,8 @@ async function rotateSession(refreshToken, { userAgent = '', ip = '', organizati
     familyId: current.familyId,
     userAgent,
     ip,
+    loginMethod: current.loginMethod || '',
+    familyStartedAt: current.familyStartedAt || current.createdAt,
   });
 }
 

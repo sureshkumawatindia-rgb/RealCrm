@@ -76,6 +76,11 @@ const schema = Joi.object({
   WHATSAPP_OTP_ACCESS_TOKEN: Joi.string().allow('').default(''),
   WHATSAPP_OTP_TEMPLATE: Joi.string().allow('').default(''),
   WHATSAPP_OTP_LANGUAGE: Joi.string().default('en'),
+  // The SMS backup for login codes (2026-10-08): MSG91's OTP API with a DLT-approved template.
+  // mock = development (the code comes back in the answer), off = no "Get the code by SMS".
+  SMS_PROVIDER: Joi.string().valid('msg91', 'mock', 'off').default(process.env.NODE_ENV === 'production' ? 'off' : 'mock'),
+  MSG91_AUTH_KEY: Joi.string().allow('').default(''),
+  MSG91_OTP_TEMPLATE_ID: Joi.string().allow('').default(''),
   // Web push (Phase 10E): VAPID keys (base64url; made once and kept in the database when empty)
   // and who sends (mailto: or https: address).
   VAPID_PUBLIC_KEY: Joi.string().allow('').default(''),
@@ -153,6 +158,11 @@ const env = {
     accessToken: value.WHATSAPP_OTP_ACCESS_TOKEN,
     template: value.WHATSAPP_OTP_TEMPLATE,
     language: value.WHATSAPP_OTP_LANGUAGE,
+  },
+  sms: {
+    provider: value.NODE_ENV === 'production' && value.SMS_PROVIDER === 'mock' ? 'off' : value.SMS_PROVIDER,
+    msg91AuthKey: value.MSG91_AUTH_KEY,
+    msg91TemplateId: value.MSG91_OTP_TEMPLATE_ID,
   },
   push: {
     publicKey: value.VAPID_PUBLIC_KEY,

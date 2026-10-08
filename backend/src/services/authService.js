@@ -84,9 +84,12 @@ async function loginWithGoogle(req, { credential, inviteToken }) {
   // Unless this browser is remembered, the mobile number and a WhatsApp code come next (D58):
   // no session yet, only what the login page needs for those steps.
   await user.save();
-  const pending = await require('./loginService').secondStepFor(req, user, { invitedOrganizationId, inviteError }); // eslint-disable-line global-require
+  const loginService = require('./loginService'); // eslint-disable-line global-require
+  const pending = await loginService.secondStepFor(req, user, { invitedOrganizationId, inviteError });
   if (pending) return { refreshToken: null, data: pending };
-  return startSession(req, user, { invitedOrganizationId, inviteError, method: 'google' });
+  const session = await startSession(req, user, { invitedOrganizationId, inviteError, method: 'google' });
+  await loginService.linkRememberedBrowser(req, user, session.familyId);
+  return session;
 }
 
 // After a sign-in (Google, or a WhatsApp code to a verified phone, Phase 10E): picks the
@@ -109,7 +112,7 @@ async function startSession(req, user, { invitedOrganizationId = null, inviteErr
   await user.save();
 
   const { session, refreshToken } = await sessionService.createSession({
-    userId: user._id, organizationId, userAgent: req.get('user-agent'), ip: req.ip,
+    userId: user._id, organizationId, userAgent: req.get('user-agent'), ip: req.ip, loginMethod: method,
   });
   const token = signAccessToken({ userId: user._id, organizationId, sessionId: session._id });
   req.user = user; // the audit log shows who signed in
@@ -117,6 +120,7 @@ async function startSession(req, user, { invitedOrganizationId = null, inviteErr
 
   return {
     refreshToken,
+    familyId: session.familyId, // the browser's entry under "Where you're logged in"
     data: {
       token,
       user: { id: user.googleId, email: user.email, name: user.name, picture: user.picture },

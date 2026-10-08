@@ -13,6 +13,10 @@ const sessionSchema = new mongoose.Schema(
     revokedReason: { type: String, enum: ['rotated', 'logout', 'reuse', 'removed'] },
     userAgent: { type: String, default: '' },
     ip: { type: String, default: '' },
+    // For Settings → Your Profile → "Where you're logged in" (2026-10-08), carried along when
+    // the token rotates: how this browser logged in, and when.
+    loginMethod: { type: String, default: '' },
+    familyStartedAt: Date,
   },
   { timestamps: true },
 );

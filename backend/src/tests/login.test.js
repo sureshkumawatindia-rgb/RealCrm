@@ -53,7 +53,7 @@ describe('Signing in with Google, the mobile number and a WhatsApp code', () => 
     expect(again.body.data.token).toEqual(expect.any(String));
     // Another browser: all three again, and only this account's number is accepted.
     const elsewhere = (await google('two-step@example.com')).body.data;
-    expect(elsewhere).toMatchObject({ step: 'whatsapp-code', phoneHint: '+91 ••••• 2222' });
+    expect(elsewhere).toMatchObject({ step: 'whatsapp-code', phoneHint: '+91 ••••• 2222', phone: '+919829022222' }); // filled in
     expect((await api().post('/api/v1/auth/login/code').send({ challenge: elsewhere.challenge, phone: '9829033333' })).body.code).toBe('PHONE_MISMATCH');
 
     // Signing out forgets the browser.
@@ -70,6 +70,44 @@ describe('Signing in with Google, the mobile number and a WhatsApp code', () => 
     const mine = (await google('third@example.com')).body.data;
     const code = (await api().post('/api/v1/auth/login/code').send({ challenge: mine.challenge, phone: '9829055555' })).body.data.devCode;
     expect((await api().post('/api/v1/auth/login/verify').send({ challenge: other.challenge, phone: '9829055555', code })).body.code).toBe('OTP_INVALID');
+  });
+
+  it('can send the code by SMS instead (MSG91), and says so when SMS is off', async () => {
+    const start = (await google('sms-user@example.com')).body.data;
+    expect(start).toMatchObject({ smsBackup: true, phone: '' });
+    const sent = await api().post('/api/v1/auth/login/code').send({ challenge: start.challenge, phone: '9829077770', channel: 'sms' });
+    expect(sent.body.data).toMatchObject({ sent: true, channel: 'sms', devCode: expect.stringMatching(/^\d{6}$/) });
+    expect((await api().post('/api/v1/auth/login/verify').send({ challenge: start.challenge, phone: '9829077770', code: sent.body.data.devCode })).status).toBe(200);
+    expect(await AuditLog.exists({ action: 'auth.login', 'changes.method': 'google+sms' })).toBeTruthy();
+
+    const saved = { ...env.sms };
+    Object.assign(env.sms, { provider: 'msg91', msg91AuthKey: 'test-msg91-key', msg91TemplateId: 'tmpl-login' });
+    const calls = [];
+    let ok = true;
+    const spy = jest.spyOn(global, 'fetch').mockImplementation(async (url, options) => {
+      calls.push({ url: String(url), options });
+      // MSG91 can answer an error with HTTP 200.
+      return new Response(JSON.stringify(ok ? { type: 'success', request_id: 'req-1' } : { type: 'error', message: 'Template not approved by DLT' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+    try {
+      const again = (await google('sms-user@example.com')).body.data;
+      expect(again.phone).toBe('+919829077770');
+      const asked = await api().post('/api/v1/auth/login/code').send({ challenge: again.challenge, phone: again.phone, channel: 'sms' });
+      expect(asked.body.data.devCode).toBeUndefined();
+      const url = new URL(calls[0].url);
+      expect(`${url.origin}${url.pathname}`).toBe('https://control.msg91.com/api/v5/otp');
+      expect(Object.fromEntries(url.searchParams)).toMatchObject({ template_id: 'tmpl-login', mobile: '919829077770', otp: expect.stringMatching(/^\d{6}$/), otp_expiry: '5' });
+      expect(calls[0].options.headers.authkey).toBe('test-msg91-key');
+      ok = false;
+      const refused = await api().post('/api/v1/auth/login/code').send({ challenge: again.challenge, phone: again.phone, channel: 'sms' });
+      expect(refused.body).toMatchObject({ code: 'OTP_NOT_SENT', message: expect.stringContaining('Template not approved by DLT') });
+      env.sms.provider = 'off';
+      expect((await google('sms-user@example.com')).body.data.smsBackup).toBe(false);
+      expect((await api().post('/api/v1/auth/login/code').send({ challenge: again.challenge, phone: again.phone, channel: 'sms' })).body.code).toBe('SMS_OFF');
+    } finally {
+      spy.mockRestore();
+      Object.assign(env.sms, saved);
+    }
   });
 
   it('signs in with Google alone when codes cannot be sent', async () => {

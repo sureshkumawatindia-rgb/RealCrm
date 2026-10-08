@@ -1,7 +1,10 @@
 const User = require('../models/User');
 const OrganizationMember = require('../models/OrganizationMember');
+const Session = require('../models/Session');
 const { verifyAccessToken } = require('../utils/tokens');
 const httpError = require('../utils/httpError');
+
+const ENDED = new Set(['logout', 'reuse', 'removed']);
 
 function bearerToken(req) {
   const header = req.get('authorization') || '';
@@ -23,12 +26,16 @@ async function authenticate(req, res, next) {
       throw httpError(401, 'INVALID_AUTHENTICATION', 'Invalid or expired authentication token');
     }
 
-    const [user, member] = await Promise.all([
+    const [user, member, session] = await Promise.all([
       User.findById(payload.sub),
       OrganizationMember.findOne({ organizationId: payload.org, userId: payload.sub, status: 'active' }),
+      Session.findById(payload.sid).select('revokedReason').lean(),
     ]);
     if (!user || user.disabledAt) throw httpError(401, 'USER_NOT_REGISTERED', 'Authenticated user is not registered');
     if (!member) throw httpError(401, 'MEMBERSHIP_REVOKED', 'You no longer have access to this organization.');
+    // Logged out (here, or from "Where you're logged in" on another device): at once, not when
+    // the 15-minute token runs out. A rotated session is fine — its newer token is in this tab.
+    if (!session || ENDED.has(session.revokedReason)) throw httpError(401, 'SESSION_ENDED', 'You were logged out on this device. Please log in again.');
 
     req.user = user;
     req.member = member;

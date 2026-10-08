@@ -116,7 +116,8 @@ async function lookup(token) {
     throw httpError(404, 'INVITE_INVALID', 'This invite link is no longer valid. Ask for a new one.');
   }
   const organization = await Organization.findById(invite.organizationId);
-  return { organizationName: organization?.name || 'an organization', email: invite.email, role: invite.role, expiresAt: invite.expiresAt };
+  // The logo (a public /uploads file) shows on the login card in place of the CRM's mark.
+  return { organizationName: organization?.name || 'an organization', logoUrl: organization?.logoUrl || '', email: invite.email, role: invite.role, expiresAt: invite.expiresAt };
 }
 
 async function accept(invite, user) {

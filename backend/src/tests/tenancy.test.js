@@ -179,7 +179,7 @@ describe('Invites and several organizations', () => {
 
     const found = await api().post('/api/v1/invites/lookup').send({ token });
     expect(found.status).toBe(200);
-    expect(found.body.data).toMatchObject({ organizationName: 'Lookup Organization', email: 'lookup@example.com', role: 'agent' });
+    expect(found.body.data).toMatchObject({ organizationName: 'Lookup Organization', logoUrl: '', email: 'lookup@example.com', role: 'agent' });
 
     await api().delete(`/api/v1/invites/${invite.body.data.invite.id}`).set(bearer(owner.token));
     const gone = await api().post('/api/v1/invites/lookup').send({ token });

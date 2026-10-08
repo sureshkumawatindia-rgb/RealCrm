@@ -7,6 +7,7 @@ const trustedDeviceSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     tokenHash: { type: String, required: true },
+    familyId: { type: String, default: '' }, // its latest session family ("Where you're logged in")
     userAgent: { type: String, default: '' },
     expiresAt: { type: Date, required: true },
     lastUsedAt: Date,

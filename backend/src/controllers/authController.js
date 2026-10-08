@@ -1,6 +1,7 @@
 const authService = require('../services/authService');
 const otpService = require('../services/otpService');
 const loginService = require('../services/loginService');
+const deviceService = require('../services/deviceService');
 const { REFRESH_COOKIE, readCookie, setRefreshCookie, clearRefreshCookie } = require('../utils/cookies');
 
 // A finished sign-in: the refresh cookie, and the remembered-browser cookie when asked for.
@@ -65,6 +66,17 @@ async function qrApprove(req, res) {
   res.json({ success: true, data: await loginService.approveQr(req, { ...req.body, id: req.valid.params.id }) });
 }
 
+// Where you're logged in (Settings → Your Profile).
+async function devices(req, res) {
+  res.json({ success: true, data: await deviceService.list(req) });
+}
+async function deviceLogOut(req, res) {
+  res.json({ success: true, data: await deviceService.logOut(req, req.valid.params.id), message: 'Logged out' });
+}
+async function devicesLogOutOthers(req, res) {
+  res.json({ success: true, data: await deviceService.logOutOthers(req), message: 'Logged out everywhere else' });
+}
+
 // One's own WhatsApp number (Settings → Your Profile).
 async function phoneStatus(req, res) {
   res.json({ success: true, data: otpService.status(req) });
@@ -81,5 +93,5 @@ async function phoneUnlink(req, res) {
 
 module.exports = {
   google, refresh, logout, me, switchOrganization, loginCode, loginVerify, qrStart, qrPoll, qrPeek, qrApprove,
-  phoneStatus, phoneRequest, phoneVerify, phoneUnlink,
+  devices, deviceLogOut, devicesLogOutOthers, phoneStatus, phoneRequest, phoneVerify, phoneUnlink,
 };

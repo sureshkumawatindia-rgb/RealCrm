@@ -16,6 +16,7 @@ const authService = require('./authService');
 //    time, on a new browser. A person without a verified number verifies it here (step 2 + 3).
 //    "Stay logged in on this browser" remembers the browser for 30 days (Google alone there).
 // Or: scan the login page's QR code with a phone where they are already signed in, and allow it.
+// The code can also come by SMS (the backup, SMS_PROVIDER), and a verified number is filled in.
 // When the CRM cannot send codes (OTP_PROVIDER off) or LOGIN_WHATSAPP_CODE=off, Google alone signs in.
 const DEVICE_COOKIE = 'crm_device';
 const DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -55,10 +56,11 @@ async function forgetDevice(req, res) {
   res.clearCookie(DEVICE_COOKIE, { httpOnly: true, sameSite: 'strict', secure: env.isProduction || req.secure, path: AUTH_COOKIE_PATH });
 }
 
-// → a cookie for the controller to set: { name, value, options }.
-async function rememberDevice(req, userId) {
+// → a cookie for the controller to set: { name, value, options }. familyId ties the browser to
+// its entry under "Where you're logged in", so logging it out there forgets it too.
+async function rememberDevice(req, userId, familyId) {
   const token = randomToken();
-  await TrustedDevice.create({ userId, tokenHash: hashToken(token), userAgent: String(req.get('user-agent') || '').slice(0, 300), expiresAt: new Date(Date.now() + DEVICE_TTL_MS) });
+  await TrustedDevice.create({ userId, familyId, tokenHash: hashToken(token), userAgent: String(req.get('user-agent') || '').slice(0, 300), expiresAt: new Date(Date.now() + DEVICE_TTL_MS) });
   return {
     name: DEVICE_COOKIE,
     value: token,
@@ -66,15 +68,24 @@ async function rememberDevice(req, userId) {
   };
 }
 
+// A remembered browser logged in with Google alone: its new session is the one to log out there.
+async function linkRememberedBrowser(req, user, familyId) {
+  const token = readDeviceCookie(req);
+  if (token) await TrustedDevice.updateOne({ tokenHash: hashToken(token), userId: user._id }, { $set: { familyId } });
+}
+
 // --- after Google -------------------------------------------------------------------------------------
 // Called by authService.loginWithGoogle. → null (sign in now) or what the login page needs for
 // steps 2 and 3.
 async function secondStepFor(req, user, { invitedOrganizationId, inviteError }) {
   if (!secondStepOn() || await trustedFor(req, user)) return null;
+  const verified = user.phoneE164 && user.phoneVerifiedAt ? user.phoneE164 : '';
   return {
     step: 'whatsapp-code',
     challenge: signLoginChallenge({ userId: user._id, invitedOrganizationId, inviteError }),
-    phoneHint: masked(user.phoneE164 && user.phoneVerifiedAt ? user.phoneE164 : ''),
+    phone: verified, // filled in for them (they have just proved the Google account)
+    phoneHint: masked(verified),
+    smsBackup: otpService.smsAvailable(),
     user: { email: user.email, name: user.name, picture: user.picture },
   };
 }
@@ -91,9 +102,11 @@ async function userOfChallenge(challenge) {
   return { user, claims };
 }
 
-// POST /auth/login/code { challenge, phone } — step 2: the code goes to the person's number.
-async function sendCode(req, { challenge, phone }) {
+// POST /auth/login/code { challenge, phone, channel } — step 2: the code goes to the person's
+// number on WhatsApp, or by SMS when they ask for the backup.
+async function sendCode(req, { challenge, phone, channel = 'whatsapp' }) {
   if (!secondStepOn()) throw httpError(409, 'OTP_OFF', 'Codes on WhatsApp are not switched on for this CRM yet.');
+  if (channel === 'sms' && !otpService.smsAvailable()) throw httpError(409, 'SMS_OFF', 'Codes by SMS are not switched on for this CRM.');
   const { user } = await userOfChallenge(challenge);
   const phoneE164 = otpService.phoneOf(phone);
   if (user.phoneE164 && user.phoneVerifiedAt && user.phoneE164 !== phoneE164) {
@@ -102,8 +115,12 @@ async function sendCode(req, { challenge, phone }) {
   if (await User.exists({ phoneE164, _id: { $ne: user._id } })) {
     throw httpError(409, 'PHONE_IN_USE', 'This number belongs to another account.', [{ field: 'phone', message: 'This number belongs to another account.' }]);
   }
-  const devCode = await otpService.issue(req, { phoneE164, purpose: 'login', userId: user._id, send: true });
-  return { sent: true, message: 'A 6-digit code is on its way on WhatsApp.', expiresInSeconds: otpService.CODE_TTL_MS / 1000, ...(devCode && { devCode }) };
+  const devCode = await otpService.issue(req, { phoneE164, purpose: 'login', userId: user._id, send: true, channel });
+  return {
+    sent: true, channel,
+    message: channel === 'sms' ? 'A 6-digit code is on its way by SMS.' : 'A 6-digit code is on its way on WhatsApp.',
+    expiresInSeconds: otpService.CODE_TTL_MS / 1000, ...(devCode && { devCode }),
+  };
 }
 
 // POST /auth/login/verify { challenge, phone, code, stayLoggedIn } — step 3: signed in.
@@ -111,7 +128,7 @@ async function verifyCode(req, { challenge, phone, code, stayLoggedIn }) {
   if (!secondStepOn()) throw httpError(409, 'OTP_OFF', 'Codes on WhatsApp are not switched on for this CRM yet.');
   const { user, claims } = await userOfChallenge(challenge);
   const phoneE164 = otpService.phoneOf(phone);
-  await otpService.check({ phoneE164, purpose: 'login', userId: user._id, code });
+  const used = await otpService.check({ phoneE164, purpose: 'login', userId: user._id, code });
   if (!user.phoneVerifiedAt || user.phoneE164 !== phoneE164) {
     try {
       await User.updateOne({ _id: user._id }, { $set: { phoneE164, phoneVerifiedAt: new Date() } });
@@ -121,9 +138,9 @@ async function verifyCode(req, { challenge, phone, code, stayLoggedIn }) {
     }
   }
   const session = await authService.startSession(req, await User.findById(user._id), {
-    invitedOrganizationId: claims.inv, inviteError: claims.err || null, method: 'google+whatsapp',
+    invitedOrganizationId: claims.inv, inviteError: claims.err || null, method: `google+${used.channel || 'whatsapp'}`,
   });
-  return { ...session, device: stayLoggedIn ? await rememberDevice(req, user._id) : null };
+  return { ...session, device: stayLoggedIn ? await rememberDevice(req, user._id, session.familyId) : null };
 }
 
 // --- QR: log in a computer from the phone -------------------------------------------------------------
@@ -178,9 +195,10 @@ async function pollQr(req, { id, secret, stayLoggedIn }) {
   const member = user && await OrganizationMember.exists({ organizationId: qr.organizationId, userId: user._id, status: 'active' });
   if (!user || user.disabledAt || !member) return { status: 'expired' };
   const session = await authService.startSession(req, user, { invitedOrganizationId: qr.organizationId, method: 'qr' });
-  return { status: 'approved', ...session, device: stayLoggedIn ? await rememberDevice(req, user._id) : null };
+  return { status: 'approved', ...session, device: stayLoggedIn ? await rememberDevice(req, user._id, session.familyId) : null };
 }
 
 module.exports = {
-  secondStepFor, sendCode, verifyCode, startQr, peekQr, approveQr, pollQr, readDeviceCookie, trustedFor, forgetDevice, secondStepOn, masked, DEVICE_COOKIE,
+  secondStepFor, sendCode, verifyCode, startQr, peekQr, approveQr, pollQr, readDeviceCookie, trustedFor, forgetDevice, linkRememberedBrowser,
+  secondStepOn, masked, shortAgent, DEVICE_COOKIE,
 };

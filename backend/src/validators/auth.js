@@ -18,9 +18,11 @@ module.exports = {
   otpRequest: Joi.object({ phone }),
   otpVerify: Joi.object({ phone, code }),
   // Signing in after Google, and from the phone by QR (D58).
-  loginCode: Joi.object({ challenge, phone }),
+  loginCode: Joi.object({ challenge, phone, channel: Joi.string().valid('whatsapp', 'sms').default('whatsapp') }),
   loginVerify: Joi.object({ challenge, phone, code, stayLoggedIn: Joi.boolean().default(false) }),
   qrPoll: Joi.object({ secret, stayLoggedIn: Joi.boolean().default(false) }),
   qrSecret: Joi.object({ secret }),
   qrApprove: Joi.object({ secret, allow: Joi.boolean().default(true) }),
+  // "Where you're logged in": a session family id (a UUID).
+  deviceParams: Joi.object({ id: Joi.string().guid().required() }),
 };
