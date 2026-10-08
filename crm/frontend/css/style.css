@@ -124,7 +124,13 @@ button {
     radial-gradient(520px 280px at 92% 92%, var(--brand-light), transparent),
     var(--bg);
 }
+.login-page,
+.login-page button,
+.login-page input {
+  font-family: "Inter", "Noto Sans Devanagari", sans-serif;
+}
 .login-card {
+  position: relative;
   width: 100%;
   max-width: 400px;
   background: var(--surface);
@@ -163,6 +169,39 @@ button {
   font-size: 20px;
   letter-spacing: -0.5px;
   box-shadow: var(--pop-3);
+  overflow: hidden;
+}
+/* An invite link: the inviting company's logo */
+.login-mark.has-logo {
+  width: 64px;
+  height: 64px;
+  background: #fff;
+}
+.login-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* English / हिंदी */
+.login-lang {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.login-lang:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 .login-card h1 {
   font-size: 22px;

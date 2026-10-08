@@ -109,6 +109,65 @@
         flex-wrap: wrap;
         gap: 10px;
       }
+      /* Settings → Your Profile → Where you're logged in */
+      .device-list {
+        list-style: none;
+        margin: 0 0 14px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm, 8px);
+      }
+      .device-list li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+      }
+      .device-list li + li {
+        border-top: 1px solid var(--border);
+      }
+      .device-list .device-icon {
+        width: 36px;
+        height: 36px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--brand-light);
+        color: var(--text);
+      }
+      .device-list .device-text {
+        flex: 1;
+        min-width: 0;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .device-list .device-name {
+        font-weight: 600;
+      }
+      .device-list .device-meta {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+      .device-list .device-here {
+        margin-left: 6px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: #e7f9ee;
+        color: #1a9e4b;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .device-list .btn {
+        flex-shrink: 0;
+        padding: 6px 12px;
+        font-size: 12.5px;
+      }
+      .device-list .device-empty {
+        color: var(--text-muted);
+        font-size: 13px;
+      }
       /* Settings → Lead sources */
       .field label.ls-check {
         display: inline-flex;
@@ -766,6 +825,14 @@
                   <p class="settings-hint">On the computer, open the login page and choose “Log in with QR code”. Then tap below and point this phone at the code, like WhatsApp Web.</p>
                   <div class="data-actions">
                     <a class="btn btn-primary" href="link-device.html"><i class="fa-solid fa-qrcode"></i> Scan the computer's code</a>
+                  </div>
+                </div>
+                <div class="settings-section" id="devicesSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Where you're logged in</div>
+                  <p class="settings-hint">Every browser and phone where your account is open, like WhatsApp's linked devices. Log out one you don't know or no longer use.</p>
+                  <ul class="device-list" id="deviceList"><li class="device-empty">Loading…</li></ul>
+                  <div class="data-actions">
+                    <button class="btn btn-outline" id="devicesLogoutOthersBtn" type="button" hidden><i class="fa-solid fa-right-from-bracket"></i> Log out of all other devices</button>
                   </div>
                 </div>
               </div>
@@ -1835,6 +1902,7 @@
     <script src="./js/settings-ai.js"></script>
     <script src="./js/settings-push.js"></script>
     <script src="./js/settings-phone.js"></script>
+    <script src="./js/settings-devices.js"></script>
     <script src="./js/settings-audit.js"></script>
     <script src="./js/settings-deletion.js"></script>
   </body>

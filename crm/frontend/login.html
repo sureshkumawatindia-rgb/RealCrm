@@ -6,7 +6,7 @@
     <title>Sign In | YELLOW CRM</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link
@@ -17,17 +17,19 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
-    <!-- Logging in (D58): Google, then the mobile number, then a code on WhatsApp — one step at a
-         time, all three needed. Or "Log in with QR code" from a phone that is signed in. -->
+    <!-- Logging in (D58): Google, then the mobile number, then a code on WhatsApp (or SMS) — one
+         step at a time, all three needed. Or "Log in with QR code" from a phone that is signed in.
+         Texts with data-i18n come from js/login.js (English / Hindi). -->
     <main class="login-page">
       <section class="login-card" aria-live="polite">
-        <div class="login-mark">A</div>
-        <h1>YELLOW CRM</h1>
-        <p class="login-sub" id="loginSub">Sign in with your Google account to continue</p>
+        <button class="login-lang" id="langBtn" type="button"><i class="fa-solid fa-language"></i> <span id="langLabel">हिंदी</span></button>
+        <div class="login-mark" id="loginMark">A</div>
+        <h1 id="loginTitle">YELLOW CRM</h1>
+        <p class="login-sub" id="loginSub"></p>
         <p class="login-note" id="login-note" role="status" hidden></p>
 
         <div class="login-progress" id="loginProgress">
-          <span class="login-progress-label" id="progressLabel">Step 1 of 3</span>
+          <span class="login-progress-label" id="progressLabel"></span>
           <span class="login-progress-bars"><i data-step="1"></i><i data-step="2"></i><i data-step="3"></i></span>
         </div>
 
@@ -38,25 +40,28 @@
 
         <!-- Step 2: the mobile number -->
         <div class="login-step" id="phoneStep" hidden>
-          <p class="login-who"><i class="fa-solid fa-circle-check"></i> <span id="whoEmail"></span> <button type="button" class="login-link" id="changeGoogle">Change</button></p>
+          <p class="login-who"><i class="fa-solid fa-circle-check"></i> <span id="whoEmail"></span> <button type="button" class="login-link" id="changeGoogle" data-i18n="change">Change</button></p>
           <form class="login-form" id="phoneForm" autocomplete="on">
-            <input type="tel" id="loginPhone" inputmode="tel" autocomplete="tel" maxlength="30" placeholder="Your mobile number" aria-label="Your mobile number" required />
-            <button class="btn btn-primary" type="submit" id="sendCodeBtn"><i class="fa-brands fa-whatsapp"></i> Get a code on WhatsApp</button>
+            <input type="tel" id="loginPhone" inputmode="tel" autocomplete="tel" maxlength="30" data-i18n-placeholder="phonePlaceholder" placeholder="Your mobile number" aria-label="Your mobile number" required />
+            <button class="btn btn-primary" type="submit" id="sendCodeBtn"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="getCode">Get a code on WhatsApp</span></button>
           </form>
           <p class="login-hint" id="phoneHint"></p>
         </div>
 
-        <!-- Step 3: the code from WhatsApp -->
+        <!-- Step 3: the code from WhatsApp (or SMS) -->
         <div class="login-step" id="codeStep" hidden>
           <p class="login-hint" id="codeHint"></p>
           <form class="login-form" id="codeForm" autocomplete="off">
-            <input type="text" id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" aria-label="6-digit code" required />
-            <button class="btn btn-primary" type="submit" id="verifyBtn">Log in</button>
+            <input type="text" id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-i18n-placeholder="codePlaceholder" placeholder="6-digit code" aria-label="6-digit code" required />
+            <button class="btn btn-primary" type="submit" id="verifyBtn" data-i18n="logIn">Log in</button>
           </form>
           <p class="login-links">
             <button type="button" class="login-link" id="resendBtn">Send the code again</button>
             <span aria-hidden="true">·</span>
-            <button type="button" class="login-link" id="changePhone">Change number</button>
+            <button type="button" class="login-link" id="changePhone" data-i18n="changeNumber">Change number</button>
+          </p>
+          <p class="login-links" id="smsRow" hidden>
+            <button type="button" class="login-link" id="smsBtn"></button>
           </p>
         </div>
 
@@ -66,28 +71,28 @@
             <img id="qrImage" alt="QR code to log in from your phone" width="220" height="220" hidden />
             <div class="login-qr-wait" id="qrWait"><i class="fa-solid fa-spinner fa-spin"></i></div>
             <button class="login-qr-reload" id="qrReload" type="button" hidden>
-              <i class="fa-solid fa-rotate-right"></i><span>Click to reload the QR code</span>
+              <i class="fa-solid fa-rotate-right"></i><span data-i18n="qrReload">Click to reload the QR code</span>
             </button>
             <span class="login-qr-logo" aria-hidden="true">A</span>
           </div>
           <ol class="login-qr-steps">
-            <li>Open <strong>YELLOW CRM</strong> on your phone, where you are signed in</li>
-            <li>Tap <strong>Settings → Your Profile → Log in on a computer</strong></li>
-            <li>Point your phone at this code and tap <strong>Allow</strong></li>
+            <li data-i18n-html="qr1"></li>
+            <li data-i18n-html="qr2"></li>
+            <li data-i18n-html="qr3"></li>
           </ol>
         </div>
 
         <label class="login-stay" id="stayRow" hidden>
           <input type="checkbox" id="stayLoggedIn" checked />
-          <span>Stay logged in on this browser</span>
-          <i class="fa-solid fa-circle-info" title="On this browser, the WhatsApp code is not asked again for 30 days. Logging out ends it. Don't tick it on a shared computer."></i>
+          <span data-i18n="stay">Stay logged in on this browser</span>
+          <i class="fa-solid fa-circle-info" data-i18n-title="stayInfo"></i>
         </label>
 
-        <p class="login-foot">By continuing you agree to YELLOW CRM's usage policy.</p>
+        <p class="login-foot" data-i18n="foot">By continuing you agree to YELLOW CRM's usage policy.</p>
       </section>
 
-      <button class="login-alt" id="toQr" type="button"><i class="fa-solid fa-qrcode"></i><span>Log in with QR code</span></button>
-      <button class="login-alt" id="toGoogle" type="button" hidden><i class="fa-solid fa-chevron-left"></i><span>Log in with Google and phone number</span></button>
+      <button class="login-alt" id="toQr" type="button"><i class="fa-solid fa-qrcode"></i><span data-i18n="toQr">Log in with QR code</span></button>
+      <button class="login-alt" id="toGoogle" type="button" hidden><i class="fa-solid fa-chevron-left"></i><span data-i18n="toGoogle">Log in with Google and phone number</span></button>
     </main>
 
     <div class="toast-stack" id="toast-stack"></div>
