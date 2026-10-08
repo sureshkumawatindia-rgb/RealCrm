@@ -1,13 +1,14 @@
 /**
- * settings-phone.js — Settings → Your Profile → Sign in with your mobile number (Phase 10E)
- * Each member verifies their own number with a WhatsApp code; the login page can then sign them
- * in with a code sent to it. Hidden when the CRM has codes switched off.
+ * settings-phone.js — Settings → Your Profile → Your mobile number for logging in (D58)
+ * A new browser logs in with Google, this number and a 6-digit WhatsApp code; the number is
+ * verified there the first time, or here. "Change number" verifies a new one with a code.
+ * Hidden when the CRM has codes switched off.
  * Runs after settings.js; everything stays inside this function so no names clash.
  */
 (function settingsPhone() {
   const $ = (id) => document.getElementById(id);
   const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, ...(body && { body: JSON.stringify(body) }) });
-  const DEFAULT_HINT = "Verify your mobile number once; then you can also sign in with a 6-digit code sent on WhatsApp, next to Google.";
+  const DEFAULT_HINT = "On a new browser you log in with Google, this number and a 6-digit code on WhatsApp.";
 
   function render(status) {
     $("phoneSection").hidden = !status.available && !status.phone;
@@ -17,9 +18,9 @@
     $("phoneCodeField").hidden = true;
     $("phoneSendBtn").hidden = verified || !status.available;
     $("phoneVerifyBtn").hidden = true;
-    $("phoneRemoveBtn").hidden = !verified;
+    $("phoneChangeBtn").hidden = !verified || !status.available;
     $("phoneHint").textContent = verified
-      ? `${status.phone} is verified. On the login page, choose “Get a code on WhatsApp” and enter this number.`
+      ? `${status.phone} is verified. A new browser asks for it, with a code on WhatsApp.`
       : DEFAULT_HINT;
   }
 
@@ -54,13 +55,14 @@
       showToast(apiErrorMessage(error, "That code did not work."), "error");
     }
   });
-  $("phoneRemoveBtn").addEventListener("click", async () => {
-    if (!confirm("Remove this number? You can then sign in with Google only.")) return;
-    try {
-      render(await crmApi("/auth/phone", json("DELETE")));
-    } catch (error) {
-      showToast(apiErrorMessage(error, "Could not remove the number."), "error");
-    }
+  // The old number stays until the new one is verified.
+  $("phoneChangeBtn").addEventListener("click", () => {
+    $("phoneNumber").disabled = false;
+    $("phoneNumber").value = "";
+    $("phoneNumber").focus();
+    $("phoneChangeBtn").hidden = true;
+    $("phoneSendBtn").hidden = false;
+    $("phoneHint").textContent = "Enter the new number. It replaces the old one once you enter the code from WhatsApp.";
   });
 
   load();

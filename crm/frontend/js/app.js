@@ -22,7 +22,7 @@ const CRM_API_BASE =
     : "http://127.0.0.1:3000/api/v1";
 
 // Auth endpoints answer 401 for their own reasons; never try a token refresh for them.
-const NO_REFRESH_PATHS = new Set(["/auth/google", "/auth/refresh", "/auth/logout"]);
+const NO_REFRESH_PATHS = new Set(["/auth/google", "/auth/refresh", "/auth/logout", "/auth/login/code", "/auth/login/verify", "/auth/qr"]);
 let refreshInFlight = null;
 let sessionEnded = false;
 
@@ -160,6 +160,10 @@ function requireAuth() {
 
 // Shared guard: every page except login/index needs a session.
 if (!PUBLIC_PAGES.has(currentPageName()) && !isAuthenticated()) {
+  // A phone that scanned a computer's QR code before signing in comes back to it afterwards.
+  if (currentPageName() === "link-device.html" && window.location.hash.length > 1) {
+    sessionStorage.setItem("crm_pending_link", window.location.hash.slice(1));
+  }
   window.location.replace("login.html");
 }
 

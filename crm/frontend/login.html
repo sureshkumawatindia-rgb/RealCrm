@@ -17,34 +17,91 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
-    <main class="login-page">
-      <div class="login-card">
-        <div class="login-mark">A</div>
-        <h1>YELLOW CRM</h1>
-        <p>Sign in with your Google account to continue</p>
+    <!-- Signing in like WhatsApp Web (D58): scan the QR code with the phone, or Google + mobile
+         number + WhatsApp code (all three). -->
+    <main class="wa-login-page">
+      <header class="wa-login-brand">
+        <img src="img/icons/icon-192.png" alt="" width="36" height="36" />
+        <span>YELLOW CRM</span>
+      </header>
+
+      <section class="wa-login-card" aria-live="polite">
         <p class="login-note" id="login-note" role="status" hidden></p>
 
-        <div id="google-signin-slot"></div>
-
-        <!-- Phone sign-in with a WhatsApp code (Phase 10E); shown when the CRM has it switched on. -->
-        <div class="login-otp" id="loginOtp" hidden>
-          <div class="login-divider"><span>or</span></div>
-          <form id="otpPhoneForm" autocomplete="on">
-            <input type="tel" id="otpPhone" inputmode="tel" autocomplete="tel" maxlength="30" placeholder="Your mobile number" aria-label="Your mobile number" required />
-            <button class="btn btn-outline" type="submit" id="otpSendBtn"><i class="fa-brands fa-whatsapp"></i> Get a code on WhatsApp</button>
-          </form>
-          <form id="otpCodeForm" autocomplete="off" hidden>
-            <input type="text" id="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" aria-label="6-digit code" required />
-            <button class="btn btn-primary" type="submit" id="otpVerifyBtn">Sign in</button>
-            <button class="login-link" type="button" id="otpBack">Use another number</button>
-          </form>
-          <p class="login-foot" id="otpHint">Works after you verify your number once, in Settings → Your Profile.</p>
+        <!-- 1. Scan to log in (the phone allows this computer) -->
+        <div class="wa-login-view" id="qrView">
+          <div class="wa-login-main">
+            <h1>Scan to log in</h1>
+            <ol class="wa-steps">
+              <li><span class="wa-step-no">1</span><span>Open <strong>YELLOW CRM</strong> on your phone, where you are signed in</span></li>
+              <li><span class="wa-step-no">2</span><span>Tap <strong>Settings → Your Profile → Log in on a computer</strong></span></li>
+              <li><span class="wa-step-no">3</span><span>Point your phone at this code and tap <strong>Allow</strong></span></li>
+            </ol>
+          </div>
+          <div class="wa-login-side">
+            <div class="wa-qr" id="qrBox">
+              <img id="qrImage" alt="QR code to log in from your phone" width="264" height="264" hidden />
+              <div class="wa-qr-wait" id="qrWait"><i class="fa-solid fa-spinner fa-spin"></i></div>
+              <button class="wa-qr-reload" id="qrReload" type="button" hidden>
+                <i class="fa-solid fa-rotate-right"></i><span>Click to reload the QR code</span>
+              </button>
+              <img class="wa-qr-logo" src="img/icons/icon-192.png" alt="" width="52" height="52" />
+            </div>
+          </div>
         </div>
 
-        <p class="login-foot">
-          By continuing you agree to YELLOW CRM's usage policy.
-        </p>
-      </div>
+        <!-- 2. Google + mobile number + WhatsApp code: all three are needed -->
+        <div class="wa-login-view" id="stepsView" hidden>
+          <div class="wa-login-main wa-login-wide">
+            <h1>Log in with Google and your phone</h1>
+            <p class="wa-login-sub">All three steps are needed.</p>
+            <ol class="wa-steps wa-steps-form">
+              <li id="step1" class="active">
+                <span class="wa-step-no">1</span>
+                <div class="wa-step-body">
+                  <strong>Sign in with Google</strong>
+                  <div id="google-signin-slot"></div>
+                  <p class="wa-step-done" id="googleDone" hidden></p>
+                </div>
+              </li>
+              <li id="step2">
+                <span class="wa-step-no">2</span>
+                <div class="wa-step-body">
+                  <strong>Your mobile number</strong>
+                  <form class="wa-inline-form" id="phoneForm" autocomplete="on">
+                    <input type="tel" id="loginPhone" inputmode="tel" autocomplete="tel" maxlength="30" placeholder="98290 12345" aria-label="Your mobile number" disabled required />
+                    <button class="btn btn-primary" type="submit" id="sendCodeBtn" disabled><i class="fa-brands fa-whatsapp"></i> Get a code on WhatsApp</button>
+                  </form>
+                  <p class="wa-step-hint" id="phoneHint"></p>
+                </div>
+              </li>
+              <li id="step3">
+                <span class="wa-step-no">3</span>
+                <div class="wa-step-body">
+                  <strong>Enter the code from WhatsApp</strong>
+                  <form class="wa-inline-form" id="codeForm" autocomplete="off">
+                    <input type="text" id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" aria-label="6-digit code" disabled required />
+                    <button class="btn btn-primary" type="submit" id="verifyBtn" disabled>Log in</button>
+                  </form>
+                  <p class="wa-step-hint" id="codeHint"></p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <footer class="wa-login-foot">
+          <label class="wa-stay">
+            <input type="checkbox" id="stayLoggedIn" checked />
+            <span>Stay logged in on this browser</span>
+            <i class="fa-solid fa-circle-info" title="On this browser, the WhatsApp code is not asked again for 30 days. Logging out ends it. Don't tick it on a shared computer."></i>
+          </label>
+          <button class="wa-switch" id="toSteps" type="button">Log in with Google and phone number <i class="fa-solid fa-chevron-right"></i></button>
+          <button class="wa-switch" id="toQr" type="button" hidden><i class="fa-solid fa-chevron-left"></i> Log in with QR code</button>
+        </footer>
+      </section>
+
+      <p class="wa-login-legal">By continuing you agree to YELLOW CRM's usage policy.</p>
     </main>
 
     <div class="toast-stack" id="toast-stack"></div>

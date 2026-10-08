@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Log in on a computer | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- The phone side of "Scan to log in" (D58): scan the computer's QR code, then Allow. -->
+    <main class="wa-login-page">
+      <header class="wa-login-brand">
+        <img src="img/icons/icon-192.png" alt="" width="36" height="36" />
+        <span>YELLOW CRM</span>
+      </header>
+
+      <section class="wa-login-card link-device-card" aria-live="polite">
+        <!-- Scan -->
+        <div class="link-step" id="scanStep" hidden>
+          <h1>Log in on a computer</h1>
+          <p class="wa-login-sub">On the computer, open the CRM's login page and point this phone at the QR code.</p>
+          <div class="link-camera" id="cameraBox" hidden>
+            <video id="cameraVideo" playsinline muted></video>
+            <span class="link-camera-frame" aria-hidden="true"></span>
+          </div>
+          <p class="wa-step-hint" id="scanHint"></p>
+          <div class="link-actions">
+            <button class="btn btn-primary" id="startCameraBtn" type="button"><i class="fa-solid fa-camera"></i> Open the camera</button>
+          </div>
+        </div>
+
+        <!-- Allow? -->
+        <div class="link-step" id="askStep" hidden>
+          <div class="link-icon"><i class="fa-solid fa-desktop"></i></div>
+          <h1>Log in on this computer?</h1>
+          <p class="link-computer" id="askComputer"></p>
+          <p class="wa-login-sub" id="askAccount"></p>
+          <div class="link-actions">
+            <button class="btn btn-primary" id="allowBtn" type="button"><i class="fa-solid fa-check"></i> Allow</button>
+            <button class="btn btn-outline" id="denyBtn" type="button">Don't allow</button>
+          </div>
+          <p class="wa-step-hint">Only allow a computer you are using right now.</p>
+        </div>
+
+        <!-- Done / something went wrong -->
+        <div class="link-step" id="doneStep" hidden>
+          <div class="link-icon" id="doneIcon"><i class="fa-solid fa-circle-check"></i></div>
+          <h1 id="doneTitle"></h1>
+          <p class="wa-login-sub" id="doneText"></p>
+          <div class="link-actions">
+            <button class="btn btn-outline" id="scanAgainBtn" type="button"><i class="fa-solid fa-qrcode"></i> Scan another code</button>
+            <a class="btn btn-outline" href="Settings.html">Back to the CRM</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="js/app.js"></script>
+    <script src="js/link-device.js"></script>
+  </body>
+</html>

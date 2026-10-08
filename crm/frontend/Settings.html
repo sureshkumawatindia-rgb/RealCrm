@@ -749,8 +749,8 @@
                   </div>
                 </div>
                 <div class="settings-section" id="phoneSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Sign in with your mobile number</div>
-                  <p class="settings-hint" id="phoneHint">Verify your mobile number once; then you can also sign in with a 6-digit code sent on WhatsApp, next to Google.</p>
+                  <div class="settings-section-label">Your mobile number for logging in</div>
+                  <p class="settings-hint" id="phoneHint">On a new browser you log in with Google, this number and a 6-digit code on WhatsApp.</p>
                   <form class="field-row" id="phoneForm" autocomplete="off">
                     <div class="field"><label for="phoneNumber">Mobile number</label><input type="tel" id="phoneNumber" inputmode="tel" maxlength="30" placeholder="98290 12345" /></div>
                     <div class="field" id="phoneCodeField" hidden><label for="phoneCode">Code from WhatsApp</label><input type="text" id="phoneCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" /></div>
@@ -758,7 +758,14 @@
                   <div class="data-actions">
                     <button class="btn btn-primary" id="phoneSendBtn" type="button"><i class="fa-brands fa-whatsapp"></i> Send a code</button>
                     <button class="btn btn-primary" id="phoneVerifyBtn" type="button" hidden>Verify</button>
-                    <button class="btn btn-outline" id="phoneRemoveBtn" type="button" hidden>Remove this number</button>
+                    <button class="btn btn-outline" id="phoneChangeBtn" type="button" hidden>Change number</button>
+                  </div>
+                </div>
+                <div class="settings-section" id="linkComputerSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Log in on a computer</div>
+                  <p class="settings-hint">On the computer, open the CRM's login page. Then tap below and point this phone at the QR code, like WhatsApp Web.</p>
+                  <div class="data-actions">
+                    <a class="btn btn-primary" href="link-device.html"><i class="fa-solid fa-qrcode"></i> Scan the computer's code</a>
                   </div>
                 </div>
               </div>

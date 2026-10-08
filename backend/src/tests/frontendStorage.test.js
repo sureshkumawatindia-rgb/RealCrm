@@ -3,11 +3,11 @@ const path = require('path');
 
 // Phase 2 acceptance: the pages keep no business data in the browser. Only sign-in details, the
 // company profile copy and this browser's page preferences (crm_prefs, e.g. the inbox sound) live
-// in localStorage (app.js KEYS), plus two sessionStorage flags on the login page. Settings → Data &
+// in localStorage (app.js KEYS), plus three sessionStorage flags around sign-in. Settings → Data &
 // Privacy is the one screen that still reads the old browser keys, to move them to the server
 // (and to export or clear them).
 const FRONTEND = path.resolve(__dirname, '..', '..', '..', 'crm', 'frontend');
-const SIGN_IN_KEYS = new Set(['crm_session', 'crm_user', 'crm_member', 'crm_company', 'crm_prefs', 'crm_pending_invite', 'crm_session_expired']);
+const SIGN_IN_KEYS = new Set(['crm_session', 'crm_user', 'crm_member', 'crm_company', 'crm_prefs', 'crm_pending_invite', 'crm_session_expired', 'crm_pending_link']);
 const MIGRATION_SCREEN = 'js/settings.js';
 const MAY_WRITE_STORAGE = new Set(['js/app.js', 'js/login.js', MIGRATION_SCREEN]);
 

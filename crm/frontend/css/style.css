@@ -108,28 +108,43 @@ button {
 }
 
 /* ============================================================
-   LOGIN
+   LOGIN — like WhatsApp Web (D58): "Scan to log in" with the
+   phone, or Google + mobile number + WhatsApp code
    ============================================================ */
-.login-page {
+.wa-login-page {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
+  padding: 28px 16px 32px;
   background:
-    radial-gradient(600px 320px at 12% 8%, var(--brand-light), transparent),
-    radial-gradient(520px 280px at 92% 92%, var(--brand-light), transparent),
+    linear-gradient(var(--brand-light), var(--brand-light)) top / 100% 220px no-repeat,
     var(--bg);
 }
-.login-card {
+.wa-login-brand {
   width: 100%;
-  max-width: 380px;
+  max-width: 1000px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+.wa-login-brand img {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.wa-login-card {
+  width: 100%;
+  max-width: 1000px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pop);
-  padding: 40px 32px;
-  text-align: center;
+  padding: 48px 56px 0;
   animation: card-in 0.45s var(--ease-spring);
 }
 @keyframes card-in {
@@ -142,107 +157,370 @@ button {
     transform: translateY(0) scale(1);
   }
 }
-.login-mark {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 20px;
-  border-radius: 15px;
-  background: var(--brand);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text);
-  font-weight: 700;
-  font-size: 20px;
-  letter-spacing: -0.5px;
-  box-shadow: var(--pop-3);
-  overflow: hidden;
-}
-.login-mark img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: inherit;
-}
-.login-card h1 {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 6px;
-  letter-spacing: -0.5px;
-}
-.login-card p {
-  color: var(--text-muted);
-  font-size: 14px;
-  margin: 0 0 28px;
-  font-weight: 400;
-}
-#google-signin-slot {
-  display: flex;
-  justify-content: center;
-  min-height: 44px;
-}
-.login-foot {
-  margin-top: 24px;
-  font-size: 12px;
-  color: var(--text-faint);
-  font-weight: 500;
-}
-.login-card .login-note {
-  margin: -12px 0 20px;
-  padding: 10px 12px;
+.wa-login-card .login-note {
+  margin: 0 0 24px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: var(--brand-light);
   color: var(--text);
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.45;
 }
-/* Phone sign-in with a WhatsApp code (Phase 10E) */
-.login-otp[hidden],
-.login-otp form[hidden] {
-  display: none;
+.wa-login-card [hidden] {
+  display: none !important;
 }
-.login-divider {
+.wa-login-view {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 48px;
+  min-height: 300px;
+}
+.wa-login-main {
+  flex: 1;
+  min-width: 0;
+}
+.wa-login-main h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+  margin: 0 0 28px;
+  color: var(--text);
+}
+.wa-login-wide h1 {
+  margin-bottom: 6px;
+}
+.wa-login-sub {
+  margin: 0 0 24px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.wa-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 22px;
+}
+.wa-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.wa-step-no {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+/* The form steps: the current one stands out, finished ones get a tick colour. */
+.wa-steps-form li {
+  opacity: 0.55;
+  transition: opacity 0.2s;
+}
+.wa-steps-form li.active,
+.wa-steps-form li.done {
+  opacity: 1;
+}
+.wa-steps-form li.active .wa-step-no {
+  background: var(--brand);
+  border-color: var(--text);
+  color: var(--text);
+}
+.wa-steps-form li.done .wa-step-no {
+  background: #25d366;
+  border-color: #25d366;
+  color: #fff;
+}
+.wa-step-body {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.wa-step-body > strong {
+  font-weight: 600;
+}
+.wa-step-body #google-signin-slot {
+  min-height: 44px;
+}
+.wa-step-done {
+  margin: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 20px 0 16px;
-  color: var(--text-faint);
-  font-size: 12px;
-}
-.login-divider::before,
-.login-divider::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--border);
-}
-.login-otp form {
-  display: grid;
+  flex-wrap: wrap;
   gap: 8px;
+  font-size: 14.5px;
+  color: var(--text);
 }
-.login-otp input {
-  padding: 11px 12px;
+.wa-step-done .fa-circle-check {
+  color: #25d366;
+}
+.wa-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.wa-inline-form input {
+  flex: 1 1 200px;
+  max-width: 260px;
+  padding: 11px 14px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   font: inherit;
   font-size: 15px;
-  text-align: center;
   background: var(--surface);
   color: var(--text);
 }
-.login-otp .btn {
+.wa-inline-form input#loginCode:not(:placeholder-shown) {
+  letter-spacing: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.wa-inline-form input:disabled {
+  background: var(--bg);
+  cursor: not-allowed;
+}
+.wa-inline-form .btn {
   justify-content: center;
 }
-.login-otp .login-foot {
-  margin: 12px 0 20px;
+.wa-step-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
 }
-.login-link {
+.wa-step-hint:empty {
+  display: none;
+}
+.wa-link {
   border: 0;
   background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
   color: var(--text-muted);
-  font-size: 12.5px;
-  cursor: pointer;
   text-decoration: underline;
+  cursor: pointer;
+}
+/* The QR code, with the CRM mark in the middle (like WhatsApp's logo) */
+.wa-login-side {
+  flex-shrink: 0;
+}
+.wa-qr {
+  position: relative;
+  width: 264px;
+  height: 264px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #fff;
+}
+.wa-qr #qrImage {
+  display: block;
+  width: 264px;
+  height: 264px;
+  image-rendering: pixelated;
+}
+.wa-qr-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 12px;
+  border: 4px solid #fff;
+  background: #fff;
+  pointer-events: none;
+}
+.wa-qr #qrImage[hidden] ~ .wa-qr-logo {
+  display: none;
+}
+.wa-qr-wait {
+  color: var(--text-muted);
+  font-size: 28px;
+}
+.wa-qr.is-stale {
+  background: repeating-linear-gradient(45deg, #f2f2f2 0 8px, #fafafa 8px 16px);
+}
+.wa-qr-reload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 152px;
+  height: 152px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--brand);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 18px;
+  cursor: pointer;
+  box-shadow: var(--pop-3);
+}
+.wa-qr-reload i {
+  font-size: 24px;
+}
+.wa-login-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 40px -56px 0;
+  padding: 22px 56px 28px;
+  border-top: 1px solid var(--border);
+}
+.wa-stay {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14.5px;
+  color: var(--text);
+  cursor: pointer;
+}
+.wa-stay input {
+  width: 18px;
+  height: 18px;
+  accent-color: #25d366;
+}
+.wa-stay .fa-circle-info {
+  color: var(--text-faint);
+  cursor: help;
+}
+.wa-switch {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.wa-switch i {
+  font-size: 11px;
+  margin: 0 4px;
+}
+.wa-login-legal {
+  margin: 24px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+/* The phone side: link-device.html */
+.link-device-card {
+  max-width: 460px;
+  padding: 36px 28px 32px;
+  text-align: center;
+}
+.link-device-card h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  margin: 0 0 8px;
+}
+.link-device-card .wa-login-sub {
+  margin-bottom: 20px;
+}
+.link-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: var(--brand-light);
+  color: var(--text);
+}
+.link-icon.is-ok {
+  background: #e7f9ee;
+  color: #1a9e4b;
+}
+.link-icon.is-no,
+.link-icon.is-warn {
+  background: #fdecec;
+  color: #c0392b;
+}
+.link-computer {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+}
+.link-actions .btn {
+  justify-content: center;
+  min-width: 140px;
+}
+.link-camera {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  margin: 0 auto 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #111;
+}
+.link-camera video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.link-camera-frame {
+  position: absolute;
+  inset: 18%;
+  border: 3px solid #fff;
+  border-radius: 14px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35);
+}
+@media (max-width: 760px) {
+  .wa-login-card {
+    padding: 28px 20px 0;
+  }
+  .wa-login-view {
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 28px;
+    min-height: 0;
+  }
+  #stepsView {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .wa-login-main h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+  .wa-login-foot {
+    margin: 28px -20px 0;
+    padding: 18px 20px 22px;
+  }
+  .wa-inline-form input {
+    max-width: none;
+  }
 }
 
 /* ============================================================
