@@ -19,19 +19,38 @@ const PaymentLink = require('../models/PaymentLink');
 const { audit } = require('../utils/audit');
 const { indiaDate } = require('../utils/dates');
 
-// "Download CRM data": one JSON file with the organization's business records, for backups and
-// for moving to another system. Deleted records, secrets (tokens, sessions, Gmail) and internal
-// fields are left out; uploaded files are listed but not included (download them from Documents).
+// "Download CRM data": one JSON file with all of the organization's data (Phase 10F: every
+// section of the CRM, for backups, for moving to another system, and for a company that asked
+// to be deleted). Deleted records, secrets (keys, tokens, hashes, sessions, Gmail) and internal
+// fields are left out; stored files are listed but not included (download them from Documents
+// or the chat).
+const model = (name) => require(`../models/${name}`); // eslint-disable-line global-require, import/no-dynamic-require
 const SECTIONS = [
   ['contacts', Contact], ['products', Product], ['leads', Lead], ['leadActivities', LeadActivity],
   ['quotations', Quotation], ['orders', Order], ['tasks', Task], ['events', CalendarEvent], ['tickets', Ticket], ['notes', Note],
   ['documents', Document], ['campaigns', Campaign], ['workflows', Workflow], ['sequences', Sequence], ['paymentLinks', PaymentLink],
+  // WhatsApp and the inbox
+  ['whatsappNumbers', model('WhatsAppAccount')], ['conversations', model('Conversation')], ['messages', model('Message')],
+  ['quickReplies', model('QuickReply')], ['messageTemplates', model('MessageTemplate')],
+  // Lead sources and routing
+  ['leadSources', model('LeadSourceConnection')], ['leadIntakes', model('LeadIntake')], ['assignmentRules', model('AssignmentRule')],
+  ['assignmentHistory', model('AssignmentHistory')], ['autoReplyRules', model('AutoReplyRule')],
+  // Automation, the FAQ bot, marketing
+  ['faqAnswers', model('FaqRule')], ['botSettings', model('BotSettings')], ['sequenceEnrollments', model('SequenceEnrollment')],
+  ['automationRuns', model('AutomationRun')], ['segments', model('Segment')], ['broadcasts', model('Broadcast')], ['broadcastRecipients', model('BroadcastRecipient')],
+  // Payments, the plan and integrations
+  ['paymentGateways', model('PaymentConnection')], ['planInvoices', model('BillingInvoice')], ['apiKeys', model('ApiKey')],
+  ['webhooks', model('WebhookSubscription')], ['metaConversionsApi', model('ConversionsApiConnection')], ['aiUsage', model('AiUsage')],
+  ['auditLog', model('AuditLog')],
 ];
-const HIDDEN_FIELDS = ['organizationId', '__v', 'deletedAt', 'storageKey', 'webhookSecret'];
+// Never in the file: internal fields, and anything secret (encrypted keys and tokens, hashes,
+// webhook keys, storage paths).
+const HIDDEN_FIELDS = ['organizationId', '__v', 'deletedAt', 'storageKey', 'webhookSecret', 'webhookKey', 'hash', 'liveKey'];
+const SECRET_FIELD = /(Enc|Hash)$|^encrypted/;
 
 function clean(doc) {
   const copy = { ...doc };
-  HIDDEN_FIELDS.forEach((field) => delete copy[field]);
+  for (const field of Object.keys(copy)) if (HIDDEN_FIELDS.includes(field) || SECRET_FIELD.test(field)) delete copy[field];
   return copy;
 }
 
@@ -70,7 +89,7 @@ async function streamExport(req, res) {
   res.type('application/json');
   res.setHeader('Cache-Control', 'private, no-store');
   try {
-    await send(res, `{"format":"yellow-crm-export","version":1,"exportedAt":${JSON.stringify(new Date())}`);
+    await send(res, `{"format":"yellow-crm-export","version":2,"exportedAt":${JSON.stringify(new Date())}`);
     await send(res, `,"organization":${JSON.stringify(clean(organization || {}))}`);
     await send(res, `,"team":${JSON.stringify(members.map(teamEntry))}`);
     for (const [name, Model] of SECTIONS) {

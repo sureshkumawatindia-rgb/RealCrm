@@ -101,7 +101,11 @@ describe('Phase 2 acceptance: one organization, one set of data', () => {
       expect(res.headers['content-disposition']).toMatch(/^attachment; filename="crm-export-\d{4}-\d{2}-\d{2}\.json"/);
       expect(res.headers['cache-control']).toBe('private, no-store');
       const file = res.body;
-      expect(file).toMatchObject({ format: 'yellow-crm-export', version: 1 });
+      expect(file).toMatchObject({ format: 'yellow-crm-export', version: 2 });
+      // Phase 10F: every part of the CRM is in it (WhatsApp, automation, payments, the plan …).
+      for (const section of ['whatsappNumbers', 'conversations', 'messages', 'messageTemplates', 'leadSources', 'faqAnswers', 'segments', 'broadcasts', 'paymentGateways', 'planInvoices', 'apiKeys', 'webhooks', 'auditLog']) {
+        expect(Array.isArray(file[section])).toBe(true);
+      }
       expect(file.team.map((m) => m.email).sort()).toEqual(['acc-admin@example.com', 'acc-agent@example.com', 'acc-owner@example.com']);
       for (const resource of RESOURCES.filter((r) => r !== 'events')) {
         expect(file[resource].map((r) => String(r._id))).toContain(String(created[resource].id));

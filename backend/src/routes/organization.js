@@ -8,6 +8,9 @@ const { organizationPatch, billing: billingSchema } = require('../validators/org
 const routingSchemas = require('../validators/routing');
 const assignment = require('../services/assignmentService');
 const organizationService = require('../services/organizationService');
+const deletion = require('../services/organizationDeletionService');
+const Organization = require('../models/Organization');
+const Joi = require('joi');
 
 const router = express.Router();
 const upload = multer({
@@ -45,5 +48,19 @@ router.put('/billing', requireRole('owner', 'admin'), validate({ body: billingSc
 router.patch('/', requireRole('owner', 'admin'), validate({ body: organizationPatch }), controller.update);
 router.post('/logo', requireRole('owner', 'admin'), uploadLogo, controller.uploadLogo);
 router.delete('/logo', requireRole('owner', 'admin'), controller.deleteLogo);
+
+// Deleting the company (Phase 10F): owners ask (typing its name) and can cancel during the grace
+// period; everyone can see that it is coming.
+router.get('/deletion', async (req, res) => {
+  const organization = await Organization.findById(req.tenant.organizationId).select('deletion');
+  res.json({ success: true, data: deletion.statusOf(organization) });
+});
+router.delete('/', requireRole('owner'), validate({ body: Joi.object({ confirmName: Joi.string().trim().max(200).required() }) }), async (req, res) => {
+  res.json({ success: true, data: await deletion.request(req, req.body), message: 'The company will be deleted after the waiting period' });
+});
+router.post('/deletion/cancel', requireRole('owner'), async (req, res) => {
+  await deletion.cancel(req);
+  res.json({ success: true, data: null, message: 'The company will not be deleted' });
+});
 
 module.exports = router;

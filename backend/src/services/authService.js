@@ -107,6 +107,7 @@ async function startSession(req, user, { invitedOrganizationId = null, inviteErr
     userId: user._id, organizationId, userAgent: req.get('user-agent'), ip: req.ip,
   });
   const token = signAccessToken({ userId: user._id, organizationId, sessionId: session._id });
+  req.user = user; // the audit log shows who signed in
   await audit(req, { organizationId, action: 'auth.login', entityType: 'User', entityId: user._id, ...(method !== 'google' && { changes: { method } }) });
 
   return {

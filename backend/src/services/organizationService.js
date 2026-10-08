@@ -155,5 +155,5 @@ async function setBilling(req, body) {
 
 module.exports = {
   get, update, setLogo, removeLogo, serializeOrganization, PROFILE_FIELDS,
-  getBilling, setBilling, billingOf, sellerStateCode, fileNameFromUrl, DEFAULT_PREFIXES,
+  getBilling, setBilling, billingOf, sellerStateCode, fileNameFromUrl, removeStoredLogo, DEFAULT_PREFIXES,
 };

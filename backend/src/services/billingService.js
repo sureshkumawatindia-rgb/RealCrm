@@ -437,6 +437,14 @@ async function actOnTest(id, action, queue = require('../jobs/queue')) {
   for (const parsed of mock.act(id, action)) await storeEvent('mock', parsed, queue);
 }
 
+// A deleted company's plan stops at once (Phase 10F): no more charges.
+async function cancelForDeletion(organization) {
+  const sub = organization.subscription || {};
+  if (!sub.providerSubscriptionId || !gateway() || sub.provider !== providerName() || FINAL.includes(sub.gatewayStatus)) return false;
+  await gateway().cancelSubscription(keys(), sub.providerSubscriptionId, { atCycleEnd: false });
+  return true;
+}
+
 function register(queue) {
   queue.define(JOBS.WEBHOOK, processWebhook, { maxAttempts: 6 });
   queue.define(JOBS.SYNC, () => syncAll(), { maxAttempts: 2 });
@@ -448,4 +456,5 @@ function register(queue) {
 module.exports = {
   JOBS, publicStatus, checkout, cancel, refresh, receiveWebhook, processWebhook, applySubscription, recordCharge,
   syncOrganization, syncAll, remindTrials, listInvoices, invoicePdf, serializeInvoice, testSubscription, actOnTest, register, PLATFORM_ID,
+  cancelForDeletion,
 };

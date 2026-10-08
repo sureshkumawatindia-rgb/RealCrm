@@ -32,6 +32,7 @@ const reportRoutes = require('./reports');
 const billingRoutes = require('./billing');
 const aiRoutes = require('./ai');
 const pushRoutes = require('./push');
+const auditLogRoutes = require('./auditLogs');
 const { apiKeyRoutes, webhookRoutes: outboundWebhookRoutes, metaConversionsRoutes } = require('./integrations');
 
 const router = express.Router();
@@ -78,6 +79,7 @@ router.use('/reports', reportRoutes);
 router.use('/billing', billingRoutes);
 router.use('/ai', aiRoutes);
 router.use('/push', pushRoutes);
+router.use('/audit-logs', auditLogRoutes);
 router.use('/api-keys', apiKeyRoutes);
 router.use('/outbound-webhooks', outboundWebhookRoutes);
 router.use('/meta-conversions', metaConversionsRoutes);

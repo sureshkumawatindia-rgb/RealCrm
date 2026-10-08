@@ -17,6 +17,8 @@ const env = require('./config/env');
 
 const app = express();
 const frontendDir = path.resolve(__dirname, '..', '..', 'crm', 'frontend');
+// Behind a proxy (nginx, a hosting platform): the client's address and https come from it.
+if (env.trustProxy) app.set('trust proxy', env.trustProxy);
 
 app.use(requestId);
 

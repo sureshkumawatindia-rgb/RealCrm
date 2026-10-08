@@ -40,6 +40,13 @@ function createLocalDiskStorage(rootDir) {
       if (!key) return;
       await fs.promises.rm(fullPath(key), { force: true });
     },
+
+    // Every file of one organization (its folder), when the organization is deleted.
+    async removeOrganization(organizationId) {
+      const id = String(organizationId);
+      if (!/^[a-f0-9]{24}$/.test(id)) throw new Error('Invalid organization id');
+      await fs.promises.rm(path.join(root, id), { recursive: true, force: true });
+    },
   };
 }
 

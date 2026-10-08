@@ -43,6 +43,11 @@ const schema = Joi.object({
   // Public API requests per minute per API key (Phase 10C).
   RATE_LIMIT_PUBLIC_API_PER_MINUTE: Joi.number().integer().min(1).default(120),
   JWT_EXPIRES_IN: Joi.string().allow(''),
+  // Behind a reverse proxy or hosting platform (Phase 10F, docs/DEPLOYMENT.md): how many proxies
+  // to trust for the client's address and https (Express "trust proxy"); 0 = none (this computer).
+  TRUST_PROXY: Joi.number().integer().min(0).max(5).default(0),
+  // How many days a company asked to be deleted keeps working before its data is removed.
+  ORG_DELETION_GRACE_DAYS: Joi.number().integer().min(1).max(60).default(7),
   // SaaS billing (Phase 10): the plans are paid to the platform's own Razorpay account
   // (Subscriptions), not to a company's gateway. mock = a test checkout page on this server
   // (never in production); off = the Choose buttons say to contact support.
@@ -111,6 +116,8 @@ const env = {
   uploadDir: value.UPLOAD_DIR,
   documentDir: value.DOCUMENT_DIR,
   documentMaxBytes: value.DOCUMENT_MAX_MB * 1024 * 1024,
+  trustProxy: value.TRUST_PROXY,
+  orgDeletionGraceDays: value.ORG_DELETION_GRACE_DAYS,
   jwtSecret: value.JWT_SECRET,
   accessTokenTtl: value.ACCESS_TOKEN_TTL,
   refreshTokenTtlDays: value.REFRESH_TOKEN_TTL_DAYS,

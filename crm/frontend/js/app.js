@@ -996,7 +996,16 @@ const crmPlan = (() => {
   const day = (iso) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   const onPlanPage = () => /settings\.html$/i.test(currentPageName()) && new URLSearchParams(window.location.search).get("tab") === "plan";
 
-  function bannerOf({ plan, subscription: s }) {
+  function bannerOf({ plan, subscription: s, deletion }) {
+    // An owner asked to delete the company (Phase 10F): nothing matters more.
+    if (deletion?.scheduledFor) {
+      return {
+        locked: true,
+        link: "Settings.html?tab=data",
+        action: "Keep or download",
+        text: `This company will be deleted on ${day(deletion.scheduledFor)} with all its data. Download what you need before then.`,
+      };
+    }
     if (s.locked) {
       const why = s.wasTrial && s.trialEndsAt
         ? `Your free trial ended on ${day(s.trialEndsAt)}.`
@@ -1028,8 +1037,9 @@ const crmPlan = (() => {
     el.className = `plan-banner${banner.locked ? " locked" : ""}`;
     el.setAttribute("role", "status");
     el.innerHTML = `<i class="fa-solid ${banner.locked ? "fa-lock" : "fa-gem"}"></i>
-      <span class="plan-banner-text">${escapeHtml(banner.text)}${isOrgManager() ? "" : " Ask an owner or admin to choose a plan."}</span>
-      ${isOrgManager() && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">Choose a plan</a>` : ""}
+      <span class="plan-banner-text">${escapeHtml(banner.text)}${isOrgManager() || banner.link ? "" : " Ask an owner or admin to choose a plan."}</span>
+      ${banner.link && isOrgManager() ? `<a class="btn btn-primary" href="${banner.link}">${escapeHtml(banner.action)}</a>` : ""}
+      ${!banner.link && isOrgManager() && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">Choose a plan</a>` : ""}
       ${banner.dismissible ? '<button class="plan-banner-close" type="button" aria-label="Hide until tomorrow">&times;</button>' : ""}`;
     // Full-height pages (the inbox) leave room for it.
     const room = (px) => document.documentElement.style.setProperty("--plan-banner-h", `${px}px`);

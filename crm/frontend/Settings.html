@@ -643,6 +643,9 @@
             <button class="settings-tab" data-panel="integrations" id="integrationsTab" style="display: none">
               <i class="fa-solid fa-plug"></i> API & webhooks
             </button>
+            <button class="settings-tab" data-panel="audit" id="auditTab" style="display: none">
+              <i class="fa-solid fa-clipboard-list"></i> Audit log
+            </button>
             <button class="settings-tab" data-panel="plan" id="planTab" style="display: none">
               <i class="fa-solid fa-gem"></i> Plan & usage
             </button>
@@ -1661,6 +1664,28 @@
             </div>
           </div>
 
+          <!-- AUDIT LOG (Phase 10F, owners and admins) -->
+          <div class="settings-panel" data-settings-panel="audit">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Audit log</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint">Who did what, and when: sign-ins, changes to customers, leads, quotations, orders and settings, keys, the plan and more. Entries cannot be changed or removed. Passwords and keys never appear here.</p>
+                <form class="field-row" id="auditFilters" autocomplete="off">
+                  <div class="field"><label for="auditArea">Area</label><select id="auditArea"><option value="">Everything</option></select></div>
+                  <div class="field"><label for="auditPerson">Person</label><select id="auditPerson"><option value="">Everyone</option></select></div>
+                  <div class="field"><label for="auditFrom">From</label><input type="date" id="auditFrom" /></div>
+                  <div class="field"><label for="auditTo">To</label><input type="date" id="auditTo" /></div>
+                </form>
+                <div id="auditList"><p class="settings-hint">Loading…</p></div>
+                <div class="data-actions" style="justify-content: center; margin-top: 12px">
+                  <button class="btn btn-outline" id="auditMore" type="button" hidden>Show more</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- PLAN & USAGE (Phase 10, owners and admins) -->
           <div class="settings-panel" data-settings-panel="plan">
             <div class="panel">
@@ -1728,11 +1753,12 @@
                   <div id="serverExportSection" hidden>
                     <div class="settings-section-label">Download CRM data</div>
                     <p class="settings-hint">
-                      A backup of your company's CRM data on the server (customers,
-                      leads, deals, products, quotations, tasks, calendar, tickets,
-                      notes, documents list, campaigns, automations and team) as one
-                      JSON file. Uploaded files are not included; download them from
-                      Documents.
+                      All of your company's CRM data on the server as one JSON file:
+                      customers, leads, quotations, orders, products, WhatsApp chats and
+                      messages, templates, lead sources, automations, broadcasts, payments,
+                      plan invoices, the audit log and the team. Passwords, keys and tokens
+                      are never in it. Uploaded files are not included; download them from
+                      Documents or the chat.
                     </p>
                     <div class="data-actions" style="margin-bottom: 20px">
                       <button class="btn btn-primary" id="serverExportBtn">
@@ -1771,6 +1797,15 @@
                       <i class="fa-solid fa-triangle-exclamation"></i> Clear This Browser's CRM Data
                     </button>
                   </div>
+                  <!-- Deleting the company (Phase 10F, owners) -->
+                  <div class="danger-zone" id="orgDeleteSection" hidden style="margin-top: 14px">
+                    <p id="orgDeleteText"></p>
+                    <div id="orgDeleteForm">
+                      <div class="field"><label for="orgDeleteName">Type the company name to confirm</label><input type="text" id="orgDeleteName" autocomplete="off" maxlength="200" /></div>
+                      <button class="btn btn-danger-outline" id="orgDeleteBtn" type="button"><i class="fa-solid fa-trash"></i> Delete this company</button>
+                    </div>
+                    <button class="btn btn-primary" id="orgKeepBtn" type="button" hidden>Keep the company (cancel the deletion)</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1793,5 +1828,7 @@
     <script src="./js/settings-ai.js"></script>
     <script src="./js/settings-push.js"></script>
     <script src="./js/settings-phone.js"></script>
+    <script src="./js/settings-audit.js"></script>
+    <script src="./js/settings-deletion.js"></script>
   </body>
 </html>

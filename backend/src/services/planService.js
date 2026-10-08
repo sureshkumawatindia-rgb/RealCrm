@@ -198,6 +198,8 @@ async function summary(req) {
   return {
     plan: serializePlan(key),
     subscription: subscriptionOf(organization),
+    // A company set to be deleted (Phase 10F): every page says so.
+    deletion: organization.deletion?.scheduledFor ? { scheduledFor: organization.deletion.scheduledFor, requestedAt: organization.deletion.requestedAt } : null,
     ...(manager && { usage: await usageOf(organization._id, plan) }),
   };
 }
