@@ -108,43 +108,31 @@ button {
 }
 
 /* ============================================================
-   LOGIN — like WhatsApp Web (D58): "Scan to log in" with the
-   phone, or Google + mobile number + WhatsApp code
+   LOGIN (D58): one card, one step at a time — Google, the mobile
+   number, the WhatsApp code; or "Log in with QR code"
    ============================================================ */
-.wa-login-page {
+.login-page {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 16px 32px;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px 16px;
   background:
-    linear-gradient(var(--brand-light), var(--brand-light)) top / 100% 220px no-repeat,
+    radial-gradient(600px 320px at 12% 8%, var(--brand-light), transparent),
+    radial-gradient(520px 280px at 92% 92%, var(--brand-light), transparent),
     var(--bg);
 }
-.wa-login-brand {
+.login-card {
   width: 100%;
-  max-width: 1000px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 28px;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.2px;
-  color: var(--text);
-}
-.wa-login-brand img {
-  border-radius: 10px;
-  border: 1px solid var(--border);
-}
-.wa-login-card {
-  width: 100%;
-  max-width: 1000px;
+  max-width: 400px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pop);
-  padding: 48px 56px 0;
+  padding: 36px 32px 24px;
+  text-align: center;
   animation: card-in 0.45s var(--ease-spring);
 }
 @keyframes card-in {
@@ -157,290 +145,292 @@ button {
     transform: translateY(0) scale(1);
   }
 }
-.wa-login-card .login-note {
-  margin: 0 0 24px;
-  padding: 10px 14px;
+.login-card [hidden] {
+  display: none !important;
+}
+.login-mark {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 18px;
+  border-radius: 15px;
+  background: var(--brand);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.5px;
+  box-shadow: var(--pop-3);
+}
+.login-card h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+.login-sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0 0 20px;
+}
+.login-card .login-note {
+  margin: 0 0 18px;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: var(--brand-light);
   color: var(--text);
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.45;
 }
-.wa-login-card [hidden] {
-  display: none !important;
-}
-.wa-login-view {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 48px;
-  min-height: 300px;
-}
-.wa-login-main {
-  flex: 1;
-  min-width: 0;
-}
-.wa-login-main h1 {
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.6px;
-  margin: 0 0 28px;
-  color: var(--text);
-}
-.wa-login-wide h1 {
-  margin-bottom: 6px;
-}
-.wa-login-sub {
-  margin: 0 0 24px;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-.wa-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* Step 1 of 3, with three bars */
+.login-progress {
   display: grid;
-  gap: 22px;
+  gap: 8px;
+  margin: 0 0 20px;
 }
-.wa-steps li {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  font-size: 16px;
-  line-height: 1.5;
-  color: var(--text);
-}
-.wa-step-no {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.5px solid var(--text-muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13.5px;
+.login-progress-label {
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-muted);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
-/* The form steps: the current one stands out, finished ones get a tick colour. */
-.wa-steps-form li {
-  opacity: 0.55;
-  transition: opacity 0.2s;
+.login-progress-bars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
 }
-.wa-steps-form li.active,
-.wa-steps-form li.done {
-  opacity: 1;
+.login-progress-bars i {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--border);
+  transition: background 0.25s;
 }
-.wa-steps-form li.active .wa-step-no {
-  background: var(--brand);
-  border-color: var(--text);
-  color: var(--text);
+.login-progress-bars i.on {
+  background: var(--brand-dark);
 }
-.wa-steps-form li.done .wa-step-no {
-  background: #25d366;
-  border-color: #25d366;
-  color: #fff;
-}
-.wa-step-body {
+.login-step {
   display: grid;
   gap: 10px;
-  flex: 1;
-  min-width: 0;
 }
-.wa-step-body > strong {
-  font-weight: 600;
-}
-.wa-step-body #google-signin-slot {
+#google-signin-slot {
+  display: flex;
+  justify-content: center;
   min-height: 44px;
 }
-.wa-step-done {
-  margin: 0;
+.login-who {
+  margin: 0 0 4px;
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 8px;
-  font-size: 14.5px;
+  gap: 6px;
+  font-size: 13.5px;
   color: var(--text);
 }
-.wa-step-done .fa-circle-check {
+.login-who .fa-circle-check {
   color: #25d366;
 }
-.wa-inline-form {
-  display: flex;
-  flex-wrap: wrap;
+.login-form {
+  display: grid;
   gap: 10px;
 }
-.wa-inline-form input {
-  flex: 1 1 200px;
-  max-width: 260px;
-  padding: 11px 14px;
+.login-form input {
+  padding: 11px 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   font: inherit;
   font-size: 15px;
+  text-align: center;
   background: var(--surface);
   color: var(--text);
 }
-.wa-inline-form input#loginCode:not(:placeholder-shown) {
+.login-form input#loginCode:not(:placeholder-shown) {
   letter-spacing: 6px;
   font-variant-numeric: tabular-nums;
+  font-size: 18px;
 }
-.wa-inline-form input:disabled {
-  background: var(--bg);
-  cursor: not-allowed;
-}
-.wa-inline-form .btn {
+.login-form .btn {
   justify-content: center;
+  padding-top: 11px;
+  padding-bottom: 11px;
 }
-.wa-step-hint {
+.login-hint {
   margin: 0;
-  font-size: 13px;
+  font-size: 12.5px;
+  line-height: 1.45;
   color: var(--text-muted);
 }
-.wa-step-hint:empty {
+.login-hint:empty {
   display: none;
 }
-.wa-link {
+.login-links {
+  margin: 2px 0 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+.login-link {
   border: 0;
   background: none;
   padding: 0;
   font: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-muted);
   text-decoration: underline;
   cursor: pointer;
 }
-/* The QR code, with the CRM mark in the middle (like WhatsApp's logo) */
-.wa-login-side {
-  flex-shrink: 0;
+.login-link:disabled {
+  text-decoration: none;
+  cursor: default;
+  color: var(--text-faint);
 }
-.wa-qr {
+.login-stay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: 13.5px;
+  color: var(--text);
+  cursor: pointer;
+}
+.login-stay input {
+  width: 16px;
+  height: 16px;
+  accent-color: #25d366;
+}
+.login-stay .fa-circle-info {
+  color: var(--text-faint);
+  cursor: help;
+}
+.login-foot {
+  margin: 20px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+/* Below the card: "Log in with QR code" */
+.login-alt {
+  border: 0;
+  background: none;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.login-alt span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.login-alt i {
+  margin-right: 8px;
+}
+.login-alt[hidden] {
+  display: none;
+}
+/* The QR code, with the "A" mark in the middle (like WhatsApp's logo) */
+.login-qr {
   position: relative;
-  width: 264px;
-  height: 264px;
+  width: 220px;
+  height: 220px;
+  margin: 0 auto 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 12px;
   background: #fff;
 }
-.wa-qr #qrImage {
+.login-qr #qrImage {
   display: block;
-  width: 264px;
-  height: 264px;
+  width: 220px;
+  height: 220px;
   image-rendering: pixelated;
 }
-.wa-qr-logo {
+.login-qr-logo {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  border-radius: 12px;
-  border: 4px solid #fff;
-  background: #fff;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 3px solid #fff;
+  background: var(--brand);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 16px;
   pointer-events: none;
 }
-.wa-qr #qrImage[hidden] ~ .wa-qr-logo {
+.login-qr #qrImage[hidden] ~ .login-qr-logo {
   display: none;
 }
-.wa-qr-wait {
+.login-qr-wait {
   color: var(--text-muted);
-  font-size: 28px;
+  font-size: 26px;
 }
-.wa-qr.is-stale {
+.login-qr.is-stale {
   background: repeating-linear-gradient(45deg, #f2f2f2 0 8px, #fafafa 8px 16px);
 }
-.wa-qr-reload {
+.login-qr-reload {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  width: 152px;
-  height: 152px;
+  gap: 8px;
+  width: 132px;
+  height: 132px;
   border-radius: 50%;
   border: 0;
   background: var(--brand);
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   line-height: 1.3;
-  padding: 18px;
+  padding: 16px;
   cursor: pointer;
   box-shadow: var(--pop-3);
 }
-.wa-qr-reload i {
-  font-size: 24px;
+.login-qr-reload i {
+  font-size: 22px;
 }
-.wa-login-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin: 40px -56px 0;
-  padding: 22px 56px 28px;
-  border-top: 1px solid var(--border);
+.login-qr-steps {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
-.wa-stay {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14.5px;
+.login-qr-steps strong {
   color: var(--text);
-  cursor: pointer;
-}
-.wa-stay input {
-  width: 18px;
-  height: 18px;
-  accent-color: #25d366;
-}
-.wa-stay .fa-circle-info {
-  color: var(--text-faint);
-  cursor: help;
-}
-.wa-switch {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-size: 14.5px;
   font-weight: 600;
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.wa-switch i {
-  font-size: 11px;
-  margin: 0 4px;
-}
-.wa-login-legal {
-  margin: 24px 0 0;
-  font-size: 12px;
-  color: var(--text-faint);
 }
 /* The phone side: link-device.html */
 .link-device-card {
-  max-width: 460px;
-  padding: 36px 28px 32px;
-  text-align: center;
+  max-width: 440px;
 }
-.link-device-card h1 {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.4px;
-  margin: 0 0 8px;
-}
-.link-device-card .wa-login-sub {
-  margin-bottom: 20px;
+.link-step {
+  display: grid;
+  gap: 4px;
 }
 .link-icon {
   width: 64px;
   height: 64px;
-  margin: 0 auto 16px;
+  margin: 0 auto 14px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -459,7 +449,7 @@ button {
   color: #c0392b;
 }
 .link-computer {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-size: 17px;
   font-weight: 600;
 }
@@ -468,7 +458,7 @@ button {
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
-  margin: 8px 0 14px;
+  margin: 12px 0;
 }
 .link-actions .btn {
   justify-content: center;
@@ -477,9 +467,9 @@ button {
 .link-camera {
   position: relative;
   width: 100%;
-  max-width: 320px;
+  max-width: 300px;
   aspect-ratio: 1;
-  margin: 0 auto 14px;
+  margin: 6px auto 12px;
   border-radius: 16px;
   overflow: hidden;
   background: #111;
@@ -496,30 +486,9 @@ button {
   border-radius: 14px;
   box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35);
 }
-@media (max-width: 760px) {
-  .wa-login-card {
-    padding: 28px 20px 0;
-  }
-  .wa-login-view {
-    flex-direction: column-reverse;
-    align-items: center;
-    gap: 28px;
-    min-height: 0;
-  }
-  #stepsView {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .wa-login-main h1 {
-    font-size: 22px;
-    margin-bottom: 20px;
-  }
-  .wa-login-foot {
-    margin: 28px -20px 0;
-    padding: 18px 20px 22px;
-  }
-  .wa-inline-form input {
-    max-width: none;
+@media (max-width: 480px) {
+  .login-card {
+    padding: 28px 20px 20px;
   }
 }
 

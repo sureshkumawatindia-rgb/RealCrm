@@ -73,7 +73,8 @@ describe('WhatsApp codes for one\'s own number (Phase 10E)', () => {
       });
       expect((await verifyLink(someone.token, code, '9829077777')).status).toBe(200);
       ok = false;
-      expect((await requestLink(someone.token, '9829066666')).body.code).toBe('OTP_NOT_SENT');
+      // Meta's reason helps whoever sets the template up (outside production).
+      expect((await requestLink(someone.token, '9829066666')).body).toMatchObject({ code: 'OTP_NOT_SENT', message: expect.stringContaining('Template not approved') });
       env.otp.provider = 'off';
       expect((await requestLink(someone.token, '9829066666')).body.code).toBe('OTP_OFF');
     } finally {

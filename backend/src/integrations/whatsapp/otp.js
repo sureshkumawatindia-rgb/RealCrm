@@ -1,4 +1,5 @@
 const env = require('../../config/env');
+const logger = require('../../config/logger');
 const httpError = require('../../utils/httpError');
 
 // Sign-in codes on WhatsApp (Phase 10E) from the platform's own number, with an approved
@@ -34,9 +35,15 @@ async function sendCode({ phoneNumberId, accessToken, template, language }, phon
     throw httpError(502, 'OTP_NOT_SENT', 'Could not reach WhatsApp to send the code. Try again in a minute.');
   }
   if (!response.ok) {
+    // Meta's reason (e.g. "Template name does not exist in the translation") is what the person
+    // setting this up needs: always in the log, and on the screen outside production.
     const data = await response.json().catch(() => ({}));
-    const error = httpError(502, 'OTP_NOT_SENT', 'WhatsApp did not send the code. Try again, or sign in with Google.');
-    error.providerMessage = data.error?.message || String(response.status);
+    const reason = data.error?.error_data?.details || data.error?.message || `HTTP ${response.status}`;
+    logger.warn(`WhatsApp login code not sent: ${reason}`);
+    const error = httpError(502, 'OTP_NOT_SENT', env.isProduction
+      ? 'WhatsApp did not send the code. Try again in a minute.'
+      : `WhatsApp did not send the code: ${reason}`);
+    error.providerMessage = reason;
     throw error;
   }
 }

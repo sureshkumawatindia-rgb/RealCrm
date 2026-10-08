@@ -16,23 +16,19 @@
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
-    <!-- The phone side of "Scan to log in" (D58): scan the computer's QR code, then Allow. -->
-    <main class="wa-login-page">
-      <header class="wa-login-brand">
-        <img src="img/icons/icon-192.png" alt="" width="36" height="36" />
-        <span>YELLOW CRM</span>
-      </header>
-
-      <section class="wa-login-card link-device-card" aria-live="polite">
+    <!-- The phone side of "Log in with QR code" (D58): scan the computer's code, then Allow. -->
+    <main class="login-page">
+      <section class="login-card link-device-card" aria-live="polite">
         <!-- Scan -->
         <div class="link-step" id="scanStep" hidden>
+          <div class="login-mark">A</div>
           <h1>Log in on a computer</h1>
-          <p class="wa-login-sub">On the computer, open the CRM's login page and point this phone at the QR code.</p>
+          <p class="login-sub">On the computer, open the login page, choose "Log in with QR code" and point this phone at the code.</p>
           <div class="link-camera" id="cameraBox" hidden>
             <video id="cameraVideo" playsinline muted></video>
             <span class="link-camera-frame" aria-hidden="true"></span>
           </div>
-          <p class="wa-step-hint" id="scanHint"></p>
+          <p class="login-hint" id="scanHint"></p>
           <div class="link-actions">
             <button class="btn btn-primary" id="startCameraBtn" type="button"><i class="fa-solid fa-camera"></i> Open the camera</button>
           </div>
@@ -43,19 +39,19 @@
           <div class="link-icon"><i class="fa-solid fa-desktop"></i></div>
           <h1>Log in on this computer?</h1>
           <p class="link-computer" id="askComputer"></p>
-          <p class="wa-login-sub" id="askAccount"></p>
+          <p class="login-sub" id="askAccount"></p>
           <div class="link-actions">
             <button class="btn btn-primary" id="allowBtn" type="button"><i class="fa-solid fa-check"></i> Allow</button>
             <button class="btn btn-outline" id="denyBtn" type="button">Don't allow</button>
           </div>
-          <p class="wa-step-hint">Only allow a computer you are using right now.</p>
+          <p class="login-hint">Only allow a computer you are using right now.</p>
         </div>
 
         <!-- Done / something went wrong -->
         <div class="link-step" id="doneStep" hidden>
           <div class="link-icon" id="doneIcon"><i class="fa-solid fa-circle-check"></i></div>
           <h1 id="doneTitle"></h1>
-          <p class="wa-login-sub" id="doneText"></p>
+          <p class="login-sub" id="doneText"></p>
           <div class="link-actions">
             <button class="btn btn-outline" id="scanAgainBtn" type="button"><i class="fa-solid fa-qrcode"></i> Scan another code</button>
             <a class="btn btn-outline" href="Settings.html">Back to the CRM</a>

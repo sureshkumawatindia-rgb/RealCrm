@@ -1,9 +1,9 @@
 /**
- * login.js — signing in, like WhatsApp Web (D58).
- * - Scan to log in: the page shows a QR code; a phone where the person is signed in scans it
- *   (Settings → Your Profile → Log in on a computer) and taps Allow.
- * - Or all three: Google, then the mobile number, then a 6-digit code on WhatsApp.
- * "Stay logged in on this browser" skips the WhatsApp code here for 30 days.
+ * login.js — logging in (D58), one step at a time in one card:
+ *   1. Google  →  2. the mobile number  →  3. the 6-digit code sent on WhatsApp.
+ * All three are needed on a new browser. "Stay logged in on this browser" skips the code here
+ * for 30 days. Or "Log in with QR code": a phone where the person is signed in scans the code
+ * (Settings → Your Profile → Log in on a computer) and taps Allow.
  * The backend returns a short-lived access token (kept in localStorage) and sets the refresh
  * token as an httpOnly cookie. An invite link (login.html?invite=...) adds the user to the
  * inviting company.
@@ -15,6 +15,7 @@ const INVITE_KEY = "crm_pending_invite";
 const PENDING_LINK_KEY = "crm_pending_link"; // a computer's QR code scanned before signing in
 const QR_POLL_MS = 2000;
 const QR_AUTO_REFRESHES = 4; // then "Click to reload", like WhatsApp Web
+const RESEND_WAIT_S = 30;
 
 // Take the invite token out of the address bar right away, so it is not kept in history
 // or sent to the server as a Referer.
@@ -45,6 +46,7 @@ if (alreadySignedIn) {
 const $ = (id) => document.getElementById(id);
 const postJson = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const stayLoggedIn = () => Boolean($("stayLoggedIn")?.checked);
+const onPhone = navigator.userAgentData?.mobile ?? /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
 function setLoginNote(message) {
   const note = $("login-note");
@@ -109,30 +111,172 @@ async function completeSignIn(auth) {
 }
 
 // ---------------------------------------------------------------
-// The two views: "Scan to log in" and "Google + phone number"
+// The card: one step at a time
 // ---------------------------------------------------------------
-function showView(view) {
-  const steps = view === "steps";
-  $("qrView").hidden = steps;
-  $("stepsView").hidden = !steps;
-  $("toSteps").hidden = steps;
-  $("toQr").hidden = !steps;
-  if (steps) {
-    qrLogin.stop();
-    renderGoogleButton();
-  } else {
-    qrLogin.start();
+const STEPS = {
+  google: { panel: "googleStep", number: 1, sub: "Sign in with your Google account to continue" },
+  phone: { panel: "phoneStep", number: 2, sub: "Now your mobile number. A code comes on WhatsApp." },
+  code: { panel: "codeStep", number: 3, sub: "Enter the 6-digit code from WhatsApp." },
+  qr: { panel: "qrStep", number: 0, sub: "Scan this code with your phone to log in." },
+};
+const login = { challenge: "", phone: "" };
+let resendTimer = null;
+
+function showStep(name) {
+  const step = STEPS[name];
+  Object.values(STEPS).forEach(({ panel }) => {
+    $(panel).hidden = panel !== step.panel;
+  });
+  $("loginSub").textContent = step.sub;
+  $("loginProgress").hidden = !step.number;
+  $("progressLabel").textContent = `Step ${step.number} of 3`;
+  document.querySelectorAll(".login-progress-bars i").forEach((bar) => {
+    bar.classList.toggle("on", Number(bar.dataset.step) <= step.number);
+  });
+  $("stayRow").hidden = !["code", "qr"].includes(name);
+  $("toQr").hidden = name === "qr" || onPhone; // a phone has nothing to scan with
+  $("toGoogle").hidden = name !== "qr";
+  if (name === "qr") qrLogin.start();
+  else qrLogin.stop();
+  if (name === "google") renderGoogleButton();
+  if (name === "phone") $("loginPhone").focus();
+  if (name === "code") $("loginCode").focus();
+}
+
+function backToGoogle(message) {
+  login.challenge = "";
+  login.phone = "";
+  $("loginCode").value = "";
+  clearInterval(resendTimer);
+  if (message) setLoginNote(message);
+  showStep("google");
+}
+
+// Step 1 → 2
+async function handleGoogleCredentialResponse(response) {
+  const inviteToken = sessionStorage.getItem(INVITE_KEY) || "";
+  try {
+    const auth = await crmApi("/auth/google", postJson({ credential: response.credential, inviteToken }));
+    if (auth.step !== "whatsapp-code") {
+      await completeSignIn(auth); // a remembered browser, or codes are off for this CRM
+      return;
+    }
+    login.challenge = auth.challenge;
+    $("whoEmail").textContent = auth.user?.email || "Signed in with Google";
+    $("phoneHint").textContent = auth.phoneHint
+      ? `Use this account's number (${auth.phoneHint}).`
+      : "Your WhatsApp number. It is verified now and asked on every new browser.";
+    setLoginNote("");
+    showStep("phone");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Google sign-in failed. Please try again."), "error");
   }
 }
 
-// A phone (or an invite, or a phone allowing a computer) starts with the steps: nothing to scan with.
-function firstView() {
-  const onPhone = navigator.userAgentData?.mobile ?? /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  return onPhone || sessionStorage.getItem(INVITE_KEY) || sessionStorage.getItem(PENDING_LINK_KEY) ? "steps" : "qr";
+// "Send the code again" waits a little, so codes are not asked for by accident.
+function startResendWait() {
+  let left = RESEND_WAIT_S;
+  const button = $("resendBtn");
+  const tick = () => {
+    button.disabled = left > 0;
+    button.textContent = left > 0 ? `Send the code again (${left}s)` : "Send the code again";
+    if (left <= 0) clearInterval(resendTimer);
+    left -= 1;
+  };
+  clearInterval(resendTimer);
+  tick();
+  resendTimer = setInterval(tick, 1000);
+}
+
+// Step 2 → 3 (and "Send the code again")
+async function sendCode(phone) {
+  const sent = await crmApi("/auth/login/code", postJson({ challenge: login.challenge, phone }));
+  login.phone = phone;
+  $("codeHint").textContent = sent.devCode
+    ? `Sent to ${phone} on WhatsApp. (Development: the code is ${sent.devCode}.)`
+    : `Sent to ${phone} on WhatsApp. It works for ${Math.round((sent.expiresInSeconds || 300) / 60)} minutes.`;
+  startResendWait();
+}
+
+$("phoneForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!login.challenge) return backToGoogle("");
+  $("sendCodeBtn").disabled = true;
+  try {
+    await sendCode($("loginPhone").value.trim());
+    $("loginCode").value = "";
+    showStep("code");
+  } catch (error) {
+    if (error.code === "LOGIN_EXPIRED") return backToGoogle(error.message);
+    showToast(apiErrorMessage(error, "Could not send a code."), "error");
+  } finally {
+    $("sendCodeBtn").disabled = false;
+  }
+});
+
+$("resendBtn").addEventListener("click", async () => {
+  $("resendBtn").disabled = true;
+  try {
+    await sendCode(login.phone);
+    showToast("A new code is on its way.", "success");
+  } catch (error) {
+    if (error.code === "LOGIN_EXPIRED") return backToGoogle(error.message);
+    showToast(apiErrorMessage(error, "Could not send a code."), "error");
+    $("resendBtn").disabled = false;
+  }
+});
+
+$("loginCode").addEventListener("input", () => {
+  $("loginCode").value = $("loginCode").value.replace(/\D/g, "").slice(0, 6);
+});
+
+// Step 3 → signed in
+$("codeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!login.challenge || !login.phone) return backToGoogle("");
+  $("verifyBtn").disabled = true;
+  try {
+    await completeSignIn(await crmApi("/auth/login/verify", postJson({
+      challenge: login.challenge, phone: login.phone, code: $("loginCode").value.trim(), stayLoggedIn: stayLoggedIn(),
+    })));
+  } catch (error) {
+    $("verifyBtn").disabled = false;
+    if (error.code === "LOGIN_EXPIRED") return backToGoogle(error.message);
+    showToast(apiErrorMessage(error, "That code did not work."), "error");
+    $("loginCode").select();
+  }
+});
+
+$("changeGoogle").addEventListener("click", () => backToGoogle(""));
+$("changePhone").addEventListener("click", () => {
+  clearInterval(resendTimer);
+  showStep("phone");
+});
+
+let googleRendered = false;
+function renderGoogleButton() {
+  if (googleRendered) return;
+  if (typeof google === "undefined" || !google.accounts?.id) {
+    // GSI script not loaded yet (ad-blocker / offline) — retry shortly.
+    setTimeout(renderGoogleButton, 300);
+    return;
+  }
+  googleRendered = true;
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredentialResponse,
+  });
+  google.accounts.id.renderButton($("google-signin-slot"), {
+    theme: "outline",
+    size: "large",
+    shape: "pill",
+    text: "continue_with",
+    width: 300,
+  });
 }
 
 // ---------------------------------------------------------------
-// Scan to log in (QR)
+// Log in with QR code (the phone allows this computer)
 // ---------------------------------------------------------------
 const qrLogin = (() => {
   let current = null; // { id, secret, expiresAt }
@@ -229,145 +373,12 @@ const qrLogin = (() => {
   };
 })();
 
-// ---------------------------------------------------------------
-// Google → mobile number → WhatsApp code (all three)
-// ---------------------------------------------------------------
-const steps = { challenge: "", phone: "" };
-
-function markStep(number, state) {
-  const item = $(`step${number}`);
-  item.classList.toggle("active", state === "active");
-  item.classList.toggle("done", state === "done");
-}
-
-function resetSteps(message) {
-  steps.challenge = "";
-  steps.phone = "";
-  $("google-signin-slot").hidden = false;
-  $("googleDone").hidden = true;
-  ["loginPhone", "sendCodeBtn", "loginCode", "verifyBtn"].forEach((id) => {
-    $(id).disabled = true;
-  });
-  $("loginCode").value = "";
-  $("phoneHint").textContent = "";
-  $("codeHint").textContent = "";
-  $("sendCodeBtn").innerHTML = '<i class="fa-brands fa-whatsapp"></i> Get a code on WhatsApp';
-  markStep(1, "active");
-  markStep(2, "");
-  markStep(3, "");
-  if (message) setLoginNote(message);
-}
-
-async function handleGoogleCredentialResponse(response) {
-  const inviteToken = sessionStorage.getItem(INVITE_KEY) || "";
-  try {
-    const auth = await crmApi("/auth/google", postJson({ credential: response.credential, inviteToken }));
-    if (auth.step !== "whatsapp-code") {
-      await completeSignIn(auth); // a remembered browser, or codes are off for this CRM
-      return;
-    }
-    steps.challenge = auth.challenge;
-    $("google-signin-slot").hidden = true;
-    $("googleDone").hidden = false;
-    $("googleDone").innerHTML = `<i class="fa-solid fa-circle-check"></i> ${escapeHtml(auth.user?.email || "Signed in")} <button type="button" class="wa-link" id="googleChange">Change</button>`;
-    $("googleChange").addEventListener("click", () => resetSteps(""));
-    markStep(1, "done");
-    markStep(2, "active");
-    $("loginPhone").disabled = false;
-    $("sendCodeBtn").disabled = false;
-    $("phoneHint").textContent = auth.phoneHint
-      ? `Enter this account's number (${auth.phoneHint}).`
-      : "Your WhatsApp number. It is verified now and used for every new browser.";
-    $("loginPhone").focus();
-  } catch (error) {
-    showToast(apiErrorMessage(error, "Google sign-in failed. Please try again."), "error");
-  }
-}
-
-$("phoneForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!steps.challenge) return;
-  const phone = $("loginPhone").value.trim();
-  $("sendCodeBtn").disabled = true;
-  try {
-    const sent = await crmApi("/auth/login/code", postJson({ challenge: steps.challenge, phone }));
-    steps.phone = phone;
-    $("codeHint").textContent = sent.devCode ? `${sent.message} (Development: the code is ${sent.devCode}.)` : sent.message;
-    $("sendCodeBtn").innerHTML = '<i class="fa-brands fa-whatsapp"></i> Send again';
-    markStep(2, "done");
-    markStep(3, "active");
-    $("loginCode").disabled = false;
-    $("verifyBtn").disabled = false;
-    $("loginCode").focus();
-  } catch (error) {
-    if (error.code === "LOGIN_EXPIRED") return resetSteps(error.message);
-    showToast(apiErrorMessage(error, "Could not send a code."), "error");
-  } finally {
-    if (steps.challenge) $("sendCodeBtn").disabled = false;
-  }
-});
-
-// A changed number needs a new code.
-$("loginPhone").addEventListener("input", () => {
-  if (!steps.phone || $("loginPhone").value.trim() === steps.phone) return;
-  steps.phone = "";
-  $("loginCode").value = "";
-  $("loginCode").disabled = true;
-  $("verifyBtn").disabled = true;
-  $("codeHint").textContent = "";
-  $("sendCodeBtn").innerHTML = '<i class="fa-brands fa-whatsapp"></i> Get a code on WhatsApp';
-  markStep(2, "active");
-  markStep(3, "");
-});
-
-$("loginCode").addEventListener("input", () => {
-  $("loginCode").value = $("loginCode").value.replace(/\D/g, "").slice(0, 6);
-});
-
-$("codeForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!steps.challenge || !steps.phone) return;
-  $("verifyBtn").disabled = true;
-  try {
-    await completeSignIn(await crmApi("/auth/login/verify", postJson({
-      challenge: steps.challenge, phone: steps.phone, code: $("loginCode").value.trim(), stayLoggedIn: stayLoggedIn(),
-    })));
-  } catch (error) {
-    if (error.code === "LOGIN_EXPIRED") return resetSteps(error.message);
-    showToast(apiErrorMessage(error, "That code did not work."), "error");
-    $("loginCode").select();
-    $("verifyBtn").disabled = false;
-  }
-});
-
-let googleRendered = false;
-function renderGoogleButton() {
-  if (googleRendered) return;
-  if (typeof google === "undefined" || !google.accounts?.id) {
-    // GSI script not loaded yet (ad-blocker / offline) — retry shortly.
-    setTimeout(renderGoogleButton, 300);
-    return;
-  }
-  googleRendered = true;
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleGoogleCredentialResponse,
-  });
-  google.accounts.id.renderButton($("google-signin-slot"), {
-    theme: "outline",
-    size: "large",
-    shape: "pill",
-    text: "continue_with",
-    width: 260,
-  });
-}
-
-$("toSteps").addEventListener("click", () => showView("steps"));
-$("toQr").addEventListener("click", () => showView("qr"));
+$("toQr").addEventListener("click", () => showStep("qr"));
+$("toGoogle").addEventListener("click", () => showStep(login.challenge ? (login.phone ? "code" : "phone") : "google"));
 $("qrReload").addEventListener("click", () => qrLogin.reload());
 
 if (!alreadySignedIn) {
   if (sessionStorage.getItem(PENDING_LINK_KEY)) setLoginNote("Log in on this phone first. Then allow the computer.");
   showInviteDetails();
-  showView(firstView());
+  showStep("google");
 }
