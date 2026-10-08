@@ -64,11 +64,24 @@ The catalog comes with the Growth plan (the trial has it).
 
 Logging in on a new browser needs Google, the person's mobile number and a 6-digit code on WhatsApp (D58; or a QR code scanned with a phone that is already logged in). Until the codes can be sent, the CRM logs in with Google alone. The codes come from **one WhatsApp number of the platform** (yours, not a company's):
 
-1. In WhatsApp Manager, add a number for the platform (or reuse one) and note its **Phone number ID**; make a permanent System User token with `whatsapp_business_messaging`.
-2. Create a message template: category **Authentication**, a **Copy code** button, code expiry about 5 minutes; wait for approval. Meta writes the text ("<code> is your verification code").
-3. In `backend/.env`: `OTP_PROVIDER=whatsapp`, `WHATSAPP_OTP_PHONE_NUMBER_ID`, `WHATSAPP_OTP_ACCESS_TOKEN`, `WHATSAPP_OTP_TEMPLATE` (its name) and `WHATSAPP_OTP_LANGUAGE` (its language, e.g. `en`); restart.
+Only sending is needed (no webhook). Meta allows **Authentication** templates only to a **verified business** (checked 2026-10-08: Meta business verification, and a messaging limit that verification unlocks), so start with step 1 — it can take a few days.
 
-Codes last 5 minutes, work once, allow 5 tries, and at most 3 can be asked for a number in 15 minutes. In development (`OTP_PROVIDER=mock`, the default) nothing is sent and the code is shown on the screen. `LOGIN_WHATSAPP_CODE=off` makes Google alone enough again.
+1. **Verify the business.** [business.facebook.com](https://business.facebook.com) → create the business portfolio if there is none → Settings → **Business info** / Security centre → **Start verification**. Meta asks for the legal name, address, phone and a document such as the GST certificate or Udyam registration, and confirms by email, phone or a domain. Wait for "Verified".
+2. **The app and the number.** As in section 1 above: a Meta developer app (type Business) with the WhatsApp product. Under WhatsApp → API Setup → **Add phone number**: a number that is **not** on the WhatsApp or WhatsApp Business app (a new SIM is easiest), the display name (e.g. "YELLOW CRM") and the category; confirm with the SMS code. Note its **Phone number ID**. The free test number on that page is fine for a first try with up to 5 numbers you add under "To", but Meta may refuse an authentication template until the business is verified.
+3. **A permanent token.** Business Settings → Users → **System users** → add one (Admin) → *Add assets*: the app and the WhatsApp account (full control) → *Generate new token* for the app, expiry **Never**, permissions `whatsapp_business_messaging` and `whatsapp_business_management`. Copy it once and keep it private.
+4. **The template.** [WhatsApp Manager](https://business.facebook.com/wa/manage/message-templates/) → **Message templates** → *Create template* → category **Authentication** → name `crm_login_code`, language **English** → code delivery **Copy code** → optionally the security line and "expires in 5 minutes" → *Submit*. Meta writes the text itself ("<code> is your verification code."). Wait for **Active**.
+5. **Tell the CRM.** Add to `backend/.env` (and, on Render, under the service's *Environment*):
+   ```
+   OTP_PROVIDER=whatsapp
+   WHATSAPP_OTP_PHONE_NUMBER_ID=<the Phone number ID>
+   WHATSAPP_OTP_ACCESS_TOKEN=<the permanent token>
+   WHATSAPP_OTP_TEMPLATE=crm_login_code
+   WHATSAPP_OTP_LANGUAGE=en
+   ```
+   Restart the backend (stop-crm, then start-crm; or `rs` in its terminal).
+6. **Check.** Log out, open the login page: Google → your mobile number → *Get a code on WhatsApp*. The code arrives from the platform's number with a *Copy code* button. If it does not, the login page shows Meta's reason outside production, and the backend log always has it ("WhatsApp login code not sent: …"). Common ones: the template is not approved yet or its name/language differ; the token has expired or lacks `whatsapp_business_messaging`; on the test number the recipient is not in the "To" list.
+
+Meta charges a small fee for each authentication message (see Meta's pricing page for India). Codes last 5 minutes, work once, allow 5 tries, and at most 3 can be asked for a number in 15 minutes. In development (`OTP_PROVIDER=mock`, the default) nothing is sent and the code is shown on the screen. `LOGIN_WHATSAPP_CODE=off` makes Google alone enough again.
 
 ## Without a Meta account
 
