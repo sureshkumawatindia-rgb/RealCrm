@@ -2,6 +2,7 @@ jest.mock('../integrations/google/idToken', () => require('./helpers/fakeGoogle'
 
 const OtpChallenge = require('../models/OtpChallenge');
 const env = require('../config/env');
+const { codeFor } = require('../services/otpService');
 const { api, bearer, login } = require('./helpers/api');
 
 const PHONE = '98290 11111';
@@ -17,16 +18,17 @@ describe('WhatsApp codes for one\'s own number (Phase 10E)', () => {
   const verifyLink = (token, code, phone = PHONE) => api().post('/api/v1/auth/phone/verify').set(bearer(token)).send({ phone, code });
 
   it('verifies a member\'s own number with a code, once', async () => {
-    expect((await api().get('/api/v1/auth/phone').set(bearer(owner.token))).body.data).toEqual({ phone: '', verifiedAt: null, available: true });
+    expect((await api().get('/api/v1/auth/phone').set(bearer(owner.token))).body.data).toEqual({ phone: '', verifiedAt: null, available: true, twoStep: false, twoStepMode: 'off' });
     const sent = (await requestLink(owner.token)).body.data;
-    expect(sent).toMatchObject({ sent: true, expiresInSeconds: 300, devCode: expect.stringMatching(/^\d{6}$/) });
-    expect((await OtpChallenge.findOne()).codeHash).not.toContain(sent.devCode);
-    const wrong = sent.devCode === '000000' ? '111111' : '000000';
+    expect(sent).toEqual({ sent: true, message: expect.any(String), expiresInSeconds: 300 }); // the code is never in the answer (D60)
+    const devCode = codeFor('+919829011111');
+    expect((await OtpChallenge.findOne()).codeHash).not.toContain(devCode);
+    const wrong = devCode === '000000' ? '111111' : '000000';
     expect((await verifyLink(owner.token, wrong)).body.code).toBe('OTP_INVALID');
     expect((await verifyLink(owner.token, '12ab56')).status).toBe(400);
-    const ok = await verifyLink(owner.token, sent.devCode);
+    const ok = await verifyLink(owner.token, devCode);
     expect(ok.body.data).toMatchObject({ phone: '+919829011111', available: true });
-    expect((await verifyLink(owner.token, sent.devCode)).body.code).toBe('OTP_INVALID'); // one use
+    expect((await verifyLink(owner.token, devCode)).body.code).toBe('OTP_INVALID'); // one use
     const other = await login('otp-other@example.com');
     expect((await requestLink(other.token)).body.code).toBe('PHONE_IN_USE');
   });
@@ -35,11 +37,13 @@ describe('WhatsApp codes for one\'s own number (Phase 10E)', () => {
     const someone = await login('otp-limits@example.com');
     const phone = '9829099999';
     await OtpChallenge.deleteMany({});
-    const { devCode } = (await requestLink(someone.token, phone)).body.data;
+    await requestLink(someone.token, phone);
+    const devCode = codeFor('+919829099999');
     const wrong = devCode === '000000' ? '111111' : '000000';
     for (let i = 0; i < 5; i += 1) await verifyLink(someone.token, wrong, phone);
     expect((await verifyLink(someone.token, devCode, phone)).body.code).toBe('OTP_LOCKED');
-    const second = (await requestLink(someone.token, phone)).body.data.devCode;
+    await requestLink(someone.token, phone);
+    const second = codeFor('+919829099999');
     await OtpChallenge.updateMany({}, { $set: { expiresAt: new Date(Date.now() - 1000) } });
     expect((await verifyLink(someone.token, second, phone)).body.code).toBe('OTP_INVALID');
     await requestLink(someone.token, phone);

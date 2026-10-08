@@ -77,11 +77,13 @@ const schema = Joi.object({
   // assistant is not offered. Each company may spend up to AI_MONTHLY_BUDGET_USD a month.
   ANTHROPIC_API_KEY: Joi.string().allow('').default(''),
   // Phone sign-in with a WhatsApp code (Phase 10E) from the platform's own number and approved
-  // AUTHENTICATION template. mock = the code comes back in the answer (development only).
+  // AUTHENTICATION template. mock = development: nothing is sent, the code is in the server log
+  // (never on screen, D60).
   OTP_PROVIDER: Joi.string().valid('whatsapp', 'mock', 'off').default(process.env.NODE_ENV === 'production' ? 'off' : 'mock'),
-  // Signing in (2026-10-08): required = after Google, a code on WhatsApp to the person's mobile
-  // number is needed too (whenever OTP_PROVIDER can send codes); off = Google alone.
-  LOGIN_WHATSAPP_CODE: Joi.string().valid('required', 'off').default('required'),
+  // The WhatsApp code after Google (D58; whenever OTP_PROVIDER can send codes). Since D60:
+  // optional (default) = only people who switch on 2-step verification in Settings → Your
+  // Profile; required = everyone; off = Google alone for all.
+  LOGIN_WHATSAPP_CODE: Joi.string().valid('required', 'optional', 'off').default('optional'),
   WHATSAPP_OTP_PHONE_NUMBER_ID: Joi.string().allow('').default(''),
   WHATSAPP_OTP_ACCESS_TOKEN: Joi.string().allow('').default(''),
   WHATSAPP_OTP_TEMPLATE: Joi.string().allow('').default(''),

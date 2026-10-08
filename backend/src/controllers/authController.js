@@ -90,8 +90,12 @@ async function phoneVerify(req, res) {
 async function phoneUnlink(req, res) {
   res.json({ success: true, data: await otpService.unlink(req), message: 'Number removed' });
 }
+async function twoStep(req, res) {
+  const data = await otpService.setTwoStep(req, req.body);
+  res.json({ success: true, data, message: data.twoStep ? '2-step verification is on' : '2-step verification is off' });
+}
 
 module.exports = {
   google, refresh, logout, me, switchOrganization, loginCode, loginVerify, qrStart, qrPoll, qrPeek, qrApprove,
-  devices, deviceLogOut, devicesLogOutOthers, phoneStatus, phoneRequest, phoneVerify, phoneUnlink,
+  devices, deviceLogOut, devicesLogOutOthers, phoneStatus, phoneRequest, phoneVerify, phoneUnlink, twoStep,
 };

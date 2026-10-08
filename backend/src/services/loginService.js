@@ -11,19 +11,21 @@ const { signLoginChallenge, verifyLoginChallenge, randomToken, hashToken } = req
 const otpService = require('./otpService');
 const authService = require('./authService');
 
-// Signing in, like WhatsApp Web (2026-10-08, D58):
-// 1. Google, then 2. the mobile number, then 3. a 6-digit code on WhatsApp — all three, every
-//    time, on a new browser. A person without a verified number verifies it here (step 2 + 3).
-//    "Stay logged in on this browser" remembers the browser for 30 days (Google alone there).
-// Or: scan the login page's QR code with a phone where they are already signed in, and allow it.
-// The code can also come by SMS (the backup, SMS_PROVIDER), and a verified number is filled in.
-// When the CRM cannot send codes (OTP_PROVIDER off) or LOGIN_WHATSAPP_CODE=off, Google alone signs in.
+// Logging in (D58, changed by D60): Google; then, for people with 2-step verification on (or
+// everyone with LOGIN_WHATSAPP_CODE=required), their mobile number and a 6-digit code on WhatsApp
+// (or SMS, the backup) on a new browser. "Stay logged in on this browser" remembers the browser for
+// 30 days (Google alone there). Or: log in on another computer by scanning the code it shows
+// (login.html?with=phone) with a phone where the person is signed in. When the CRM cannot send codes
+// (OTP_PROVIDER off), Google alone logs in.
 const DEVICE_COOKIE = 'crm_device';
 const DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const QR_TTL_MS = 2 * 60 * 1000;
 const AUTH_COOKIE_PATH = '/api/v1/auth';
 
-const secondStepOn = () => env.login.whatsappCode === 'required' && otpService.available();
+// The WhatsApp code after Google (2-step verification): for everyone (required), for those who
+// switched it on with a verified number (optional, the default since D60), or for nobody (off).
+const secondStepOn = (user) => otpService.available() && (env.login.whatsappCode === 'required'
+  || (env.login.whatsappCode === 'optional' && Boolean(user?.twoStepEnabledAt && user.phoneE164 && user.phoneVerifiedAt)));
 const masked = (phoneE164) => (phoneE164 ? `${phoneE164.slice(0, 3)} ••••• ${phoneE164.slice(-4)}` : '');
 const shortAgent = (ua) => {
   const text = String(ua || '');
@@ -78,7 +80,7 @@ async function linkRememberedBrowser(req, user, familyId) {
 // Called by authService.loginWithGoogle. → null (sign in now) or what the login page needs for
 // steps 2 and 3.
 async function secondStepFor(req, user, { invitedOrganizationId, inviteError }) {
-  if (!secondStepOn() || await trustedFor(req, user)) return null;
+  if (!secondStepOn(user) || await trustedFor(req, user)) return null;
   const verified = user.phoneE164 && user.phoneVerifiedAt ? user.phoneE164 : '';
   return {
     step: 'whatsapp-code',
@@ -105,7 +107,7 @@ async function userOfChallenge(challenge) {
 // POST /auth/login/code { challenge, phone, channel } — step 2: the code goes to the person's
 // number on WhatsApp, or by SMS when they ask for the backup.
 async function sendCode(req, { challenge, phone, channel = 'whatsapp' }) {
-  if (!secondStepOn()) throw httpError(409, 'OTP_OFF', 'Codes on WhatsApp are not switched on for this CRM yet.');
+  if (!otpService.available()) throw httpError(409, 'OTP_OFF', 'Codes on WhatsApp are not switched on for this CRM yet.');
   if (channel === 'sms' && !otpService.smsAvailable()) throw httpError(409, 'SMS_OFF', 'Codes by SMS are not switched on for this CRM.');
   const { user } = await userOfChallenge(challenge);
   const phoneE164 = otpService.phoneOf(phone);
@@ -115,17 +117,17 @@ async function sendCode(req, { challenge, phone, channel = 'whatsapp' }) {
   if (await User.exists({ phoneE164, _id: { $ne: user._id } })) {
     throw httpError(409, 'PHONE_IN_USE', 'This number belongs to another account.', [{ field: 'phone', message: 'This number belongs to another account.' }]);
   }
-  const devCode = await otpService.issue(req, { phoneE164, purpose: 'login', userId: user._id, send: true, channel });
+  await otpService.issue(req, { phoneE164, purpose: 'login', userId: user._id, send: true, channel });
   return {
     sent: true, channel,
     message: channel === 'sms' ? 'A 6-digit code is on its way by SMS.' : 'A 6-digit code is on its way on WhatsApp.',
-    expiresInSeconds: otpService.CODE_TTL_MS / 1000, ...(devCode && { devCode }),
+    expiresInSeconds: otpService.CODE_TTL_MS / 1000,
   };
 }
 
 // POST /auth/login/verify { challenge, phone, code, stayLoggedIn } — step 3: signed in.
 async function verifyCode(req, { challenge, phone, code, stayLoggedIn }) {
-  if (!secondStepOn()) throw httpError(409, 'OTP_OFF', 'Codes on WhatsApp are not switched on for this CRM yet.');
+  if (!otpService.available()) throw httpError(409, 'OTP_OFF', 'Codes on WhatsApp are not switched on for this CRM yet.');
   const { user, claims } = await userOfChallenge(challenge);
   const phoneE164 = otpService.phoneOf(phone);
   const used = await otpService.check({ phoneE164, purpose: 'login', userId: user._id, code });

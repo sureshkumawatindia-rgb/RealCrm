@@ -30,5 +30,7 @@ router.get('/phone', authenticate, controller.phoneStatus);
 router.post('/phone/request', authLimiter, authenticate, validate({ body: schemas.otpRequest }), controller.phoneRequest);
 router.post('/phone/verify', authLimiter, authenticate, validate({ body: schemas.otpVerify }), controller.phoneVerify);
 router.delete('/phone', authenticate, controller.phoneUnlink);
+// 2-step verification: the WhatsApp code after Google on a new browser (optional, D60).
+router.put('/two-step', authenticate, validate({ body: schemas.twoStep }), controller.twoStep);
 
 module.exports = router;

@@ -5,6 +5,7 @@ const TrustedDevice = require('../models/TrustedDevice');
 const QrLogin = require('../models/QrLogin');
 const AuditLog = require('../models/AuditLog');
 const env = require('../config/env');
+const { codeFor } = require('../services/otpService');
 const { api, bearer, login } = require('./helpers/api');
 
 // Signing in like WhatsApp Web (D58): Google, then the mobile number, then a WhatsApp code —
@@ -35,10 +36,12 @@ describe('Signing in with Google, the mobile number and a WhatsApp code', () => 
     expect((await api().get('/api/v1/auth/me').set(bearer(challenge))).status).toBe(401);
 
     const sent = await api().post('/api/v1/auth/login/code').send({ challenge, phone: '98290 22222' });
-    expect(sent.body.data).toMatchObject({ sent: true, devCode: expect.stringMatching(/^\d{6}$/) });
-    const wrong = sent.body.data.devCode === '000000' ? '111111' : '000000';
+    expect(sent.body.data).toMatchObject({ sent: true });
+    expect(sent.body.data.devCode).toBeUndefined(); // never on screen (D60): in development the server log has it
+    const devCode = codeFor('+919829022222');
+    const wrong = devCode === '000000' ? '111111' : '000000';
     expect((await api().post('/api/v1/auth/login/verify').send({ challenge, phone: '9829022222', code: wrong })).body.code).toBe('OTP_INVALID');
-    const done = await api().post('/api/v1/auth/login/verify').send({ challenge, phone: '9829022222', code: sent.body.data.devCode, stayLoggedIn: true });
+    const done = await api().post('/api/v1/auth/login/verify').send({ challenge, phone: '9829022222', code: devCode, stayLoggedIn: true });
     expect(done.status).toBe(200);
     expect(done.body.data).toMatchObject({ token: expect.any(String), user: { email: 'two-step@example.com' }, member: { role: 'owner' } });
     expect(cookieOf(done, 'crm_refresh')).toBeTruthy();
@@ -68,7 +71,8 @@ describe('Signing in with Google, the mobile number and a WhatsApp code', () => 
     expect((await api().post('/api/v1/auth/login/code').send({ challenge: 'not-a-token', phone: '9829044444' })).body.code).toBe('LOGIN_EXPIRED');
     // A code sent for one person does not sign in another.
     const mine = (await google('third@example.com')).body.data;
-    const code = (await api().post('/api/v1/auth/login/code').send({ challenge: mine.challenge, phone: '9829055555' })).body.data.devCode;
+    await api().post('/api/v1/auth/login/code').send({ challenge: mine.challenge, phone: '9829055555' });
+    const code = codeFor('+919829055555');
     expect((await api().post('/api/v1/auth/login/verify').send({ challenge: other.challenge, phone: '9829055555', code })).body.code).toBe('OTP_INVALID');
   });
 
@@ -76,8 +80,8 @@ describe('Signing in with Google, the mobile number and a WhatsApp code', () => 
     const start = (await google('sms-user@example.com')).body.data;
     expect(start).toMatchObject({ smsBackup: true, phone: '' });
     const sent = await api().post('/api/v1/auth/login/code').send({ challenge: start.challenge, phone: '9829077770', channel: 'sms' });
-    expect(sent.body.data).toMatchObject({ sent: true, channel: 'sms', devCode: expect.stringMatching(/^\d{6}$/) });
-    expect((await api().post('/api/v1/auth/login/verify').send({ challenge: start.challenge, phone: '9829077770', code: sent.body.data.devCode })).status).toBe(200);
+    expect(sent.body.data).toMatchObject({ sent: true, channel: 'sms' });
+    expect((await api().post('/api/v1/auth/login/verify').send({ challenge: start.challenge, phone: '9829077770', code: codeFor('+919829077770') })).status).toBe(200);
     expect(await AuditLog.exists({ action: 'auth.login', 'changes.method': 'google+sms' })).toBeTruthy();
 
     const saved = { ...env.sms };
@@ -117,6 +121,47 @@ describe('Signing in with Google, the mobile number and a WhatsApp code', () => 
       expect((await google('no-codes@example.com')).body.data.token).toEqual(expect.any(String));
     } finally {
       env.otp.provider = saved;
+    }
+  });
+});
+
+describe('2-step verification is optional (D60)', () => {
+  beforeAll(() => {
+    env.login.whatsappCode = 'optional';
+  });
+  afterAll(() => {
+    env.login.whatsappCode = 'off';
+  });
+
+  it('asks for the code only when the person switched it on, with a verified number', async () => {
+    const first = await google('optional@example.com');
+    expect(first.body.data.token).toEqual(expect.any(String)); // Google alone by default
+    const { token } = first.body.data;
+    expect((await api().put('/api/v1/auth/two-step').set(bearer(token)).send({ enabled: true })).body.code).toBe('PHONE_REQUIRED');
+
+    await api().post('/api/v1/auth/phone/request').set(bearer(token)).send({ phone: '9829088880' });
+    await api().post('/api/v1/auth/phone/verify').set(bearer(token)).send({ phone: '9829088880', code: codeFor('+919829088880') });
+    const on = await api().put('/api/v1/auth/two-step').set(bearer(token)).send({ enabled: true });
+    expect(on.body.data).toMatchObject({ twoStep: true, twoStepMode: 'optional', phone: '+919829088880' });
+    expect(await AuditLog.exists({ action: 'auth.two_step_on' })).toBeTruthy();
+
+    const next = (await google('optional@example.com')).body.data;
+    expect(next).toMatchObject({ step: 'whatsapp-code', phone: '+919829088880' });
+    await api().post('/api/v1/auth/login/code').send({ challenge: next.challenge, phone: next.phone });
+    expect((await api().post('/api/v1/auth/login/verify').send({ challenge: next.challenge, phone: next.phone, code: codeFor('+919829088880') })).status).toBe(200);
+
+    // Removing the number switches it off again.
+    expect((await api().delete('/api/v1/auth/phone').set(bearer(token))).body.data).toMatchObject({ twoStep: false });
+    expect((await google('optional@example.com')).body.data.token).toEqual(expect.any(String));
+  });
+
+  it('cannot be changed per person when the CRM fixes it', async () => {
+    const someone = await login('fixed-two-step@example.com');
+    env.login.whatsappCode = 'off';
+    try {
+      expect((await api().put('/api/v1/auth/two-step').set(bearer(someone.token)).send({ enabled: true })).body.code).toBe('TWO_STEP_FIXED');
+    } finally {
+      env.login.whatsappCode = 'optional';
     }
   });
 });

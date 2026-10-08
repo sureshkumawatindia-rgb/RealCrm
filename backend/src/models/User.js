@@ -10,10 +10,12 @@ const userSchema = new mongoose.Schema(
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     lastLoginAt: { type: Date },
     disabledAt: { type: Date },
-    // A mobile number checked with a WhatsApp code (Phase 10E): the user can then also sign in
-    // with a code sent to it. One user per number.
+    // A mobile number checked with a WhatsApp code (Phase 10E). One user per number.
     phoneE164: { type: String },
     phoneVerifiedAt: { type: Date },
+    // 2-step verification (D60, Settings → Your Profile): on a new browser, a WhatsApp code to
+    // that number after Google. Off unless switched on.
+    twoStepEnabledAt: { type: Date },
   },
   { timestamps: true },
 );

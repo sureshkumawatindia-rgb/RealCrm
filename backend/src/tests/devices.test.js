@@ -3,6 +3,7 @@ jest.mock('../integrations/google/idToken', () => require('./helpers/fakeGoogle'
 const TrustedDevice = require('../models/TrustedDevice');
 const AuditLog = require('../models/AuditLog');
 const env = require('../config/env');
+const { codeFor } = require('../services/otpService');
 const { api, bearer, login, cookieValue } = require('./helpers/api');
 
 // Settings → Your Profile → "Where you're logged in" (2026-10-08), like WhatsApp's linked
@@ -60,8 +61,8 @@ describe('Where you\'re logged in', () => {
     env.login.whatsappCode = 'required';
     try {
       const { challenge } = (await googleOn('remember@example.com', CHROME)).body.data;
-      const { devCode } = (await api().post('/api/v1/auth/login/code').send({ challenge, phone: '9829066660' })).body.data;
-      const done = await api().post('/api/v1/auth/login/verify').set('User-Agent', CHROME).send({ challenge, phone: '9829066660', code: devCode, stayLoggedIn: true });
+      await api().post('/api/v1/auth/login/code').send({ challenge, phone: '9829066660' });
+      const done = await api().post('/api/v1/auth/login/verify').set('User-Agent', CHROME).send({ challenge, phone: '9829066660', code: codeFor('+919829066660'), stayLoggedIn: true });
       const deviceCookie = cookieValue(done.headers['set-cookie'].find((c) => c.startsWith('crm_device=')));
 
       // Google alone on the remembered browser: still one entry, now its new session.
@@ -71,10 +72,8 @@ describe('Where you\'re logged in', () => {
 
       const elsewhere = (await login('remember@example.com', { sub: 'sub-remember@example.com' }));
       expect(elsewhere.data.step).toBe('whatsapp-code'); // a new browser still needs the code
-      const other = await api().post('/api/v1/auth/login/verify').send({
-        challenge: elsewhere.data.challenge, phone: '9829066660',
-        code: (await api().post('/api/v1/auth/login/code').send({ challenge: elsewhere.data.challenge, phone: '9829066660' })).body.data.devCode,
-      });
+      await api().post('/api/v1/auth/login/code').send({ challenge: elsewhere.data.challenge, phone: '9829066660' });
+      const other = await api().post('/api/v1/auth/login/verify').send({ challenge: elsewhere.data.challenge, phone: '9829066660', code: codeFor('+919829066660') });
       await api().delete(`/api/v1/auth/devices/${entry.id}`).set(bearer(other.body.data.token));
       expect(await TrustedDevice.countDocuments({ familyId: entry.id })).toBe(0);
       expect((await googleOn('remember@example.com', CHROME).set('Cookie', deviceCookie)).body.data.step).toBe('whatsapp-code');

@@ -23,6 +23,7 @@ module.exports = {
   qrPoll: Joi.object({ secret, stayLoggedIn: Joi.boolean().default(false) }),
   qrSecret: Joi.object({ secret }),
   qrApprove: Joi.object({ secret, allow: Joi.boolean().default(true) }),
+  twoStep: Joi.object({ enabled: Joi.boolean().required() }),
   // "Where you're logged in": a session family id (a UUID).
   deviceParams: Joi.object({ id: Joi.string().guid().required() }),
 };
