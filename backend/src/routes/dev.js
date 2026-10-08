@@ -14,9 +14,10 @@ const mock = require('../integrations/whatsapp/mock');
 const leadIntake = require('../services/leadIntakeService');
 const leadSchemas = require('../validators/leadSources');
 
-// Development helpers. They do not exist in production (404).
+// Developer test tools. They do not exist in production, nor in development unless DEV_TOOLS is
+// on (404): the real product never shows simulated chats or leads.
 const router = express.Router();
-router.use((req, res, next) => next(env.isProduction ? httpError(404, 'NOT_FOUND', 'Resource not found') : undefined));
+router.use((req, res, next) => next(env.devTools ? undefined : httpError(404, 'NOT_FOUND', 'Resource not found')));
 router.use(authenticate, requireRole('owner', 'admin'));
 
 // The webhook message object for a simulated photo, document or voice note (test numbers:

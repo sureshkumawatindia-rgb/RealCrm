@@ -19,4 +19,6 @@ Object.assign(process.env, {
   RATE_LIMIT_FORM_PER_MINUTE: '30',
   // Most tests sign in with Google alone; tests/login.test.js switches the WhatsApp step on.
   LOGIN_WHATSAPP_CODE: 'off',
+  // Test numbers and the simulator (developer test tools) are what most WhatsApp tests use.
+  DEV_TOOLS: 'on',
 });

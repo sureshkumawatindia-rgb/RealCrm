@@ -33,6 +33,16 @@ const schema = Joi.object({
   // WhatsApp Cloud API (Meta Graph API). Keep the version current (developers.facebook.com/docs/graph-api/changelog).
   WHATSAPP_GRAPH_URL: Joi.string().uri({ scheme: ['http', 'https'] }).default('https://graph.facebook.com'),
   WHATSAPP_GRAPH_VERSION: Joi.string().pattern(/^v\d+\.\d+$/).default('v26.0'),
+  // "Connect WhatsApp" (Embedded Signup + WhatsApp Business app coexistence, D60): the
+  // platform's own Meta app as a Tech Provider. Without all of them the button says the
+  // connection is still being set up (docs/WHATSAPP_SETUP.md).
+  META_APP_ID: Joi.string().pattern(/^\d*$/).allow('').default(''),
+  META_APP_SECRET: Joi.string().allow('').default(''),
+  META_ES_CONFIG_ID: Joi.string().pattern(/^\d*$/).allow('').default(''),
+  META_WEBHOOK_VERIFY_TOKEN: Joi.string().allow('').default(''),
+  // Developer test tools (test numbers, the message simulator): never in production, and in
+  // development only when switched on.
+  DEV_TOOLS: Joi.boolean().truthy('on').falsy('off').default(false),
   // IndiaMART CRM Pull API v2 (changed only for tests).
   INDIAMART_PULL_URL: Joi.string().uri({ scheme: ['http', 'https'] }).default('https://mapi.indiamart.com/wservce/crm/crmListing/v2/'),
   RATE_LIMIT_API_PER_MINUTE: Joi.number().integer().min(1).default(300),
@@ -149,6 +159,13 @@ const env = {
     graphUrl: value.WHATSAPP_GRAPH_URL.replace(/\/+$/, ''),
     graphVersion: value.WHATSAPP_GRAPH_VERSION,
   },
+  meta: {
+    appId: value.META_APP_ID,
+    appSecret: value.META_APP_SECRET,
+    esConfigId: value.META_ES_CONFIG_ID,
+    webhookVerifyToken: value.META_WEBHOOK_VERIFY_TOKEN,
+  },
+  devTools: !isProduction && value.DEV_TOOLS,
   login: {
     whatsappCode: value.LOGIN_WHATSAPP_CODE,
   },

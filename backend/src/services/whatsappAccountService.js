@@ -88,8 +88,8 @@ async function list(req) {
 
 async function create(req, body) {
   const provider = body.provider || 'meta';
-  if (provider === 'mock' && env.isProduction) {
-    throw httpError(400, 'VALIDATION_ERROR', 'Test numbers are only available in development.');
+  if (provider === 'mock' && !env.devTools) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Test numbers are developer test tools (DEV_TOOLS=on, never in production).');
   }
   if (provider === 'meta' && (!body.phoneNumberId || !body.accessToken || !body.appSecret)) {
     throw httpError(400, 'VALIDATION_ERROR', 'Phone number ID, access token and app secret are required.');

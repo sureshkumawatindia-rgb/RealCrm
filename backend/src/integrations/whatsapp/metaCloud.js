@@ -170,3 +170,4 @@ module.exports = {
 };
 
 module.exports.normalizeTemplate = normalizeTemplate;
+module.exports.graph = graph; // integrations/whatsapp/embeddedSignup.js
