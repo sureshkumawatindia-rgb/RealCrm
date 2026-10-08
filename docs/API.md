@@ -30,8 +30,8 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 
 | Method | Route | Auth | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/auth/google` | none | Body `{ credential, inviteToken? }`. Verifies the Google ID token, creates the user on first sign-in, accepts pending invites for the verified email, creates an organization only if the user belongs to none. Returns `{ token, user, organizationId, member, memberships, inviteError? }` and sets the refresh cookie — or, on a browser that is not remembered (D58), `{ step: 'whatsapp-code', challenge, phoneHint, user { email, name, picture } }` and no session yet. Google alone signs in when `LOGIN_WHATSAPP_CODE=off` or the CRM cannot send codes (`OTP_PROVIDER=off`). |
-| `POST` | `/auth/login/code` | none | Step 2 (D58). `{ challenge, phone }` → a 6-digit code on WhatsApp: `{ sent, message, expiresInSeconds, devCode? (mock only) }`. The challenge lives 10 minutes (400 `LOGIN_EXPIRED`). A verified number must match (400 `PHONE_MISMATCH`); a number of another account: 409 `PHONE_IN_USE`. 429 `OTP_TOO_MANY`, 502 `OTP_NOT_SENT`. |
+| `POST` | `/auth/google` | none | Body `{ credential, inviteToken? }`. Verifies the Google ID token, creates the user on first sign-in, accepts pending invites for the verified email, creates an organization only if the user belongs to none. Returns `{ token, user, organizationId, member, memberships, inviteError? }` and sets the refresh cookie — or, on a browser that is not remembered (D58), `{ step: 'whatsapp-code', challenge, phone (the verified number, filled in on the page; '' if none), phoneHint (masked), smsBackup (can the code come by SMS), user { email, name, picture } }` and no session yet. Google alone signs in when `LOGIN_WHATSAPP_CODE=off` or the CRM cannot send codes (`OTP_PROVIDER=off`). |
+| `POST` | `/auth/login/code` | none | Step 2 (D58). `{ challenge, phone, channel? ('whatsapp' default, or 'sms' — the backup, docs/SMS_SETUP.md) }` → a 6-digit code: `{ sent, channel, message, expiresInSeconds, devCode? (mock only) }`; 409 `SMS_OFF` when SMS is not set up. The challenge lives 10 minutes (400 `LOGIN_EXPIRED`). A verified number must match (400 `PHONE_MISMATCH`); a number of another account: 409 `PHONE_IN_USE`. 429 `OTP_TOO_MANY`, 502 `OTP_NOT_SENT`. |
 | `POST` | `/auth/login/verify` | none | Step 3. `{ challenge, phone, code, stayLoggedIn? }` → the same as a signed-in `POST /auth/google`; the number is verified the first time. `stayLoggedIn` sets the `crm_device` cookie (httpOnly, SameSite=Strict, path `/api/v1/auth`, 30 days): Google alone on this browser until logout. 401 `OTP_INVALID` / `OTP_LOCKED`. |
 | `POST` | `/auth/qr` | none | "Scan to log in": `{ id, secret, image (PNG data URL of …/link-device.html#<id>.<secret>), expiresAt (2 min) }`. |
 | `POST` | `/auth/qr/:id/poll` | none | `{ secret, stayLoggedIn? }` → `{ status: pending \| declined \| expired }`, or once `{ status: 'approved', token, user, organizationId, member, memberships }` with the refresh (and device) cookie. 120 per minute per IP. |
@@ -43,6 +43,16 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 | `POST` | `/auth/switch-organization` | bearer | Body `{ organizationId }`. Returns a new access token for another organization the user belongs to. |
 
 `POST /auth/logout` also forgets the remembered browser (`crm_device`).
+
+**Where you're logged in** (Settings → Your Profile, 2026-10-08), like WhatsApp's linked devices:
+
+| Method | Route | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/auth/devices` | bearer | `{ devices: [{ id (session family), device ('Chrome on Windows'), method ('google+whatsapp' \| 'google+sms' \| 'qr' \| 'google'), loggedInAt, lastActiveAt, rememberedUntil (or null), current }] }` — this one first. |
+| `DELETE` | `/auth/devices/:id` | bearer | Logs that browser or phone out at once and forgets it if remembered → the list; 404 `DEVICE_NOT_FOUND`. Audit `auth.devices_logged_out`. |
+| `POST` | `/auth/devices/logout-others` | bearer | Everywhere except this browser → the list. |
+
+Every bearer request checks its session: after a logout (here, from the list, a reused refresh token or removal from the team) the access token is refused at once with 401 `SESSION_ENDED`, not when its 15 minutes run out.
 
 Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout`, `/auth/login/*`, `POST /auth/qr` and `/invites/lookup`: `RATE_LIMIT_AUTH_PER_MINUTE` (default 20) per IP. Everything else: `RATE_LIMIT_API_PER_MINUTE` (default 300).
 
@@ -70,7 +80,7 @@ Roles: `owner`, `admin`, `agent`, `viewer`. Agents and viewers only see the modu
 | `POST` | `/invites` | owner, admin | `{ email, role: admin\|agent\|viewer, modules?, permissions?, displayName?, mobile?, title? }` (name, mobile and title are copied to the membership when it is accepted). Inviting a pending email again replaces its access and link. Returns `{ invite, link }`; the link (valid 7 days) is only shown here. Only owners invite admins. Accepts `Idempotency-Key`. |
 | `POST` | `/invites/:id/resend` | owner, admin | New link; the old one stops working. |
 | `DELETE` | `/invites/:id` | owner, admin | Cancels the invite. |
-| `POST` | `/invites/lookup` | none | `{ token }` → `{ organizationName, email, role, expiresAt }` for the login page. POST keeps the token out of URL logs. |
+| `POST` | `/invites/lookup` | none | `{ token }` → `{ organizationName, logoUrl, email, role, expiresAt }` for the login page (which shows the company's logo and name). POST keeps the token out of URL logs. |
 
 ## Gmail OAuth
 

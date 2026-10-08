@@ -77,6 +77,7 @@ These are environment variables on Render (service → **Environment**). Saving 
 |---|---|---|
 | Plan billing | `BILLING_PROVIDER=razorpay`, `RAZORPAY_BILLING_*`, `BILLING_SELLER_*` | [BILLING_SETUP.md](BILLING_SETUP.md) |
 | Login codes on WhatsApp (Google + number + code, D58; Google alone until set) | `OTP_PROVIDER=whatsapp`, `WHATSAPP_OTP_*` | [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) |
+| Login codes by SMS (the backup) | `SMS_PROVIDER=msg91`, `MSG91_AUTH_KEY`, `MSG91_OTP_TEMPLATE_ID` | [SMS_SETUP.md](SMS_SETUP.md) |
 | AI assistant | `ANTHROPIC_API_KEY`, `AI_*` | [AI_ASSISTANT.md](AI_ASSISTANT.md) |
 | Web push (fixed keys) | `VAPID_SUBJECT=https://<your address>` | — (keys are made by themselves) |
 

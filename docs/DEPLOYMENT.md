@@ -80,6 +80,7 @@ Start from `backend/.env.example`.
 - AI assistant: `ANTHROPIC_API_KEY`, `AI_*`
 - Web push: `VAPID_*`
 - Login codes on WhatsApp (D58): `OTP_PROVIDER`, `WHATSAPP_OTP_*`, `LOGIN_WHATSAPP_CODE`
+- Login codes by SMS, the backup (D59): `SMS_PROVIDER`, `MSG91_*`
 - Rate limits: `RATE_LIMIT_*`
 - Company deletion: `ORG_DELETION_GRACE_DAYS`
 
