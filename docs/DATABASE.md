@@ -206,6 +206,21 @@ No new collections, no migration (all fields are additive; older documents read 
 - `inboundevents.kind` also `history` (one chunk), `echo`, `contact_sync`, `account_update`.
 - Job: `whatsapp.coexistence.sync` (asks Meta for the contacts, then the history; 5 tries).
 
+## 1s. Private numbers and the team's work (D61, 2026-10-09)
+
+No migration (all fields are additive).
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `privatenumbers` | `organizationId`, `phoneE164`, `note`, `addedById` | unique `(organizationId, phoneE164)` |
+| `chatresolutions` | `organizationId`, `conversationId`, `memberId` (the assignee when closed, else who closed it), `closedById`, `openedAt`, `closedAt`, `seconds` | `(organizationId, closedAt -1)` |
+
+- `contacts.private`, `leads.private`, `conversations.private`, `messages.private`: a private number's records (owners only, left out of reports).
+- `conversations.openedAt` (new, or reopened) and `conversations.lastMessageOrigin` (`history` while the newest message was imported — time-based automations skip it).
+- `organizationmembers.lastSeenAt`: the last API request (written at most once a minute) — "online" on Team live.
+- `organizations.teamSummarySentOn`: the India day the owners last got the evening summary.
+- Job: `reports.team-summary` (every 15 minutes; sends after 7 pm India time, once a day).
+
 ## 2. Data migrations
 
 | Migration | What it does |
