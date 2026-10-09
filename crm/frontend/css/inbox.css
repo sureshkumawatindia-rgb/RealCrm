@@ -1007,7 +1007,9 @@
 @media (max-width: 860px) {
   .inbox {
     grid-template-columns: minmax(0, 1fr);
-    height: calc(100vh - 62px - var(--plan-banner-h, 0px)); /* the plan banner (app.js) */
+    height: calc(100vh - 56px - var(--plan-banner-h, 0px)); /* the plan banner (app.js) */
+    /* A phone's browser bar comes and goes: the visible height keeps the message box on screen */
+    height: calc(100dvh - 56px - var(--plan-banner-h, 0px));
   }
   .inbox[data-pane="list"] .inbox-thread,
   .inbox[data-pane="thread"] .inbox-list {
@@ -1125,6 +1127,26 @@ a.ctx-link:hover {
 .thread-head {
   flex-wrap: wrap;
   row-gap: 6px;
+}
+/* Phones: the chat's header stays one line; the chips show only their icon (the title explains). */
+@media (max-width: 600px) {
+  .thread-head {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .thread-title {
+    min-width: 0;
+  }
+  .bot-chip,
+  .private-chip {
+    font-size: 0;
+    padding: 7px 9px;
+  }
+  .bot-chip i,
+  .private-chip i {
+    font-size: 12.5px;
+  }
 }
 
 /* Products from the WhatsApp catalog and carts sent back (Phase 8C) */

@@ -907,8 +907,9 @@ const crmBell = (() => {
         <div class="crm-bell__head"><strong>Notifications</strong><button type="button" class="crm-bell__readall" id="crmBellReadAll" hidden>Mark all read</button></div>
         <div class="crm-bell__list" id="crmBellList"></div>
       </div>`;
-    // Next to the page's own buttons on the right, if it has any.
-    const right = topbar.children.length > 1 ? topbar.lastElementChild : topbar;
+    // Next to the page's own buttons on the right, if it has any (never inside the page title).
+    const last = topbar.lastElementChild;
+    const right = topbar.children.length > 1 && !/^H\d$/.test(last.tagName) ? last : topbar;
     right.appendChild(bell);
 
     byId("crmBellBtn").addEventListener("click", (event) => {
@@ -1268,14 +1269,110 @@ function renderSidebarUser() {
 }
 
 // ---------------------------------------------------------------
-// Mobile sidebar toggle
+// Mobile sidebar: on phones and tablets the menu slides in over the page.
+// Page scripts call this too, so it only wires things up once.
 // ---------------------------------------------------------------
 function initSidebarToggle() {
-  const btn = document.getElementById("menu-toggle");
   const sidebar = document.querySelector(".sidebar");
-  if (btn && sidebar) {
-    btn.addEventListener("click", () => sidebar.classList.toggle("open"));
+  const topbar = document.querySelector(".topbar");
+  if (!sidebar || sidebar.dataset.toggleReady) return;
+  sidebar.dataset.toggleReady = "1";
+
+  let btn = document.getElementById("menu-toggle");
+  if (!btn && topbar) {
+    // A few pages have no menu button in their top bar: add one next to the title.
+    btn = document.createElement("button");
+    btn.id = "menu-toggle";
+    btn.className = "icon-btn";
+    btn.type = "button";
+    btn.style.display = "none";
+    btn.innerHTML = '<i class="fa-solid fa-bars"></i>';
+    const first = topbar.firstElementChild;
+    const title = topbar.querySelector(":scope > h2");
+    if (first && first.tagName === "DIV") {
+      first.prepend(btn);
+    } else if (title) {
+      const wrap = document.createElement("div");
+      wrap.className = "topbar-title";
+      title.replaceWith(wrap);
+      wrap.append(btn, title);
+    } else {
+      topbar.prepend(btn);
+    }
   }
+  if (!btn) return;
+  btn.setAttribute("aria-label", "Menu");
+  btn.setAttribute("aria-expanded", "false");
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "sidebar-backdrop";
+  document.body.appendChild(backdrop);
+
+  const setOpen = (open) => {
+    sidebar.classList.toggle("open", open);
+    backdrop.classList.toggle("show", open);
+    document.body.classList.toggle("nav-open", open);
+    btn.setAttribute("aria-expanded", String(open));
+  };
+  btn.addEventListener("click", () => setOpen(!sidebar.classList.contains("open")));
+  backdrop.addEventListener("click", () => setOpen(false));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && sidebar.classList.contains("open")) setOpen(false);
+  });
+  // Choosing a page closes the menu (the page changes anyway; "#" links stay on this one).
+  sidebar.addEventListener("click", (event) => {
+    if (event.target.closest("a.nav-item")) setOpen(false);
+  });
+  // Turning a tablet sideways to a wide screen: the menu is part of the page again.
+  window.matchMedia("(min-width: 861px)").addEventListener("change", (event) => {
+    if (event.matches) setOpen(false);
+  });
+}
+
+// ---------------------------------------------------------------
+// Phones: list tables turn into cards (style.css "m-cards"). Each cell gets its
+// column's name to show as a label; empty cells ("—") are left out of the card.
+// Pages draw their tables at any time, so new ones are labelled as they appear.
+// ---------------------------------------------------------------
+function labelTableCells() {
+  document.querySelectorAll(".main table:not([data-keep-table])").forEach((table) => {
+    const heads = table.querySelectorAll(":scope > thead > tr:last-child > th");
+    if (!heads.length) return;
+    const labels = [];
+    heads.forEach((th) => {
+      for (let i = 0; i < (th.colSpan || 1); i += 1) labels.push(th.textContent.trim());
+    });
+    // The card's title: the first named column (not a "#" rank or a tick box).
+    const titleColumn = Math.max(0, labels.findIndex((label) => label && label !== "#"));
+    table.classList.add("m-cards");
+    table.querySelectorAll(":scope > tbody > tr, :scope > tfoot > tr").forEach((row) => {
+      let column = 0;
+      for (const cell of row.children) {
+        if (!cell.hasAttribute("data-label")) cell.setAttribute("data-label", cell.colSpan > 1 ? "" : labels[column] || "");
+        cell.toggleAttribute("data-title", column === titleColumn && cell.colSpan === 1);
+        cell.toggleAttribute("data-rank", cell.getAttribute("data-label") === "#");
+        column += cell.colSpan || 1;
+        const text = cell.textContent.trim();
+        const blank = (text === "" || text === "—" || text === "-") && !cell.querySelector("img, input, select, button, a, i, svg");
+        cell.toggleAttribute("data-empty", blank);
+      }
+    });
+  });
+}
+function initTableCards() {
+  const main = document.querySelector(".main");
+  if (!main) return;
+  let queued = false;
+  const run = () => {
+    queued = false;
+    labelTableCells();
+  };
+  run();
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(run);
+  }).observe(main, { childList: true, subtree: true });
 }
 
 // ---------------------------------------------------------------
@@ -1504,6 +1601,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   initSidebarToggle();
   initNavGroups();
+  initTableCards();
 
   // Company profile modal (trigger sits next to the logout button)
   const companyTrigger = document.getElementById("company-info-trigger");

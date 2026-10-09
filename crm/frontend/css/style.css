@@ -2072,15 +2072,42 @@ tbody tr:hover {
    RESPONSIVE
    ============================================================ */
 @media (max-width: 860px) {
+  /* The menu slides in over the page (app.js initSidebarToggle) */
   .sidebar {
     position: fixed;
-    left: -260px;
+    top: 0;
+    left: 0;
     z-index: 90;
-    transition: left 0.3s var(--ease);
-    box-shadow: var(--shadow-pop);
+    width: min(280px, 84vw);
+    height: 100vh;
+    height: 100dvh;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform 0.28s var(--ease),
+      visibility 0s linear 0.28s;
   }
   .sidebar.open {
-    left: 0;
+    transform: none;
+    visibility: visible;
+    box-shadow: var(--shadow-pop);
+    transition: transform 0.28s var(--ease);
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 89;
+    background: rgba(29, 29, 31, 0.36);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s var(--ease);
+  }
+  .sidebar-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  body.nav-open {
+    overflow: hidden;
   }
   #menu-toggle {
     display: inline-flex !important;
@@ -2651,5 +2678,317 @@ body.crm-loading::before {
 @media (max-width: 600px) {
   .plan-banner {
     padding: 10px 16px;
+  }
+}
+
+/* ============================================================
+   PHONES AND TABLETS — for every app page. The menu itself is in
+   RESPONSIVE above. Rules start with ".main" or similar so they win
+   over a page's own stylesheet, which loads after this one.
+   ============================================================ */
+.sidebar-backdrop {
+  display: none;
+}
+/* A table wider than its card scrolls sideways inside the card instead of being cut off. */
+.panel:has(table) {
+  overflow-x: auto;
+}
+/* A button the page hides (hidden attribute) stays hidden: .btn's display would show it */
+.btn[hidden],
+.icon-btn[hidden],
+.link-clear[hidden] {
+  display: none;
+}
+/* "Clear filters" next to a toolbar's filters (pages with their own CSS restyle it) */
+.link-clear {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  cursor: pointer;
+  transition: color 0.16s var(--ease);
+}
+.link-clear:hover {
+  color: var(--danger);
+}
+/* The top bar's right side (the bell joins it): a row on every page */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+/* The title and menu button, when app.js adds the button (pages without one) */
+.topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(32px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (max-width: 860px) {
+  .sidebar-backdrop {
+    display: block;
+  }
+  .main .topbar {
+    gap: 10px;
+    height: 56px;
+    padding: 0 12px;
+  }
+  .main .topbar > div:first-child {
+    min-width: 0;
+  }
+  .main .topbar h2 {
+    min-width: 0;
+    font-size: 16.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .main .topbar-date {
+    display: none;
+  }
+  .main .panel table thead th {
+    white-space: nowrap;
+  }
+  /* Kanban boards: one column at a time, swiped sideways */
+  .main .kanban-board {
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  .main .kanban-col {
+    scroll-snap-align: start;
+    max-height: 75vh;
+    max-height: 75dvh;
+  }
+  /* Stage chips above a board and tab bars: one line that scrolls sideways */
+  .main .nav-bar-kanban-card:not([hidden]),
+  .main .mk-tabs:not([hidden]),
+  .main .report-tabs:not([hidden]),
+  .main .automation-tabs:not([hidden]),
+  .main .settings-tabs:not([hidden]),
+  .main .o-tabs:not([hidden]),
+  .main .c360-tabs:not([hidden]) {
+    display: flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .main .nav-bar-kanban-card::-webkit-scrollbar,
+  .main .mk-tabs::-webkit-scrollbar,
+  .main .report-tabs::-webkit-scrollbar,
+  .main .automation-tabs::-webkit-scrollbar,
+  .main .settings-tabs::-webkit-scrollbar,
+  .main .o-tabs::-webkit-scrollbar,
+  .main .c360-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .main .nav-bar-kanban-card > *,
+  .main .mk-tabs > *,
+  .main .report-tabs > *,
+  .main .automation-tabs > *,
+  .main .settings-tabs > *,
+  .main .o-tabs > *,
+  .main .c360-tabs > * {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .main .page {
+    padding: 14px 12px 28px;
+  }
+  /* Buttons in the top bar show only their icon */
+  .main .topbar .btn {
+    font-size: 0;
+    gap: 5px;
+    padding: 9px 11px;
+  }
+  .main .topbar .btn i {
+    font-size: 14px;
+  }
+  .main .stat-grid {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .main .stat-card {
+    padding: 14px;
+  }
+  .main .stat-card .label {
+    font-size: 10.5px;
+  }
+  .main .stat-card .value {
+    font-size: 22px;
+  }
+  .main .toolbar {
+    gap: 8px;
+  }
+  .main .toolbar .search-box {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .main .toolbar select.filter {
+    flex: 1 1 130px;
+    min-width: 0;
+  }
+  .main .toolbar > div:not(.search-box):not([class$="-tabs"]),
+  .main .filter-bar {
+    flex-wrap: wrap;
+  }
+  .main .filter-bar {
+    width: 100%;
+  }
+  .main .panel-head {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 16px;
+  }
+  .main thead th {
+    padding: 10px 14px;
+  }
+  .main tbody td {
+    padding: 11px 14px;
+  }
+  /* Popups open from the bottom, like a phone's own sheets */
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .modal-overlay > .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh;
+    max-height: 92dvh;
+    border-radius: 18px 18px 0 0;
+    animation: sheet-in 0.28s var(--ease);
+  }
+  .modal-overlay .modal-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 14px 16px;
+    background: var(--surface);
+  }
+  .modal-overlay .modal-body {
+    padding: 16px;
+  }
+  .modal-overlay .modal-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    flex-wrap: wrap;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--surface);
+  }
+  .modal-overlay .modal-foot .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* Phones: list tables become cards (app.js labelTableCells gives each cell its column's name) */
+@media (max-width: 600px) {
+  .main table.m-cards,
+  .main table.m-cards tbody,
+  .main table.m-cards tfoot {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .main table.m-cards thead {
+    display: none;
+  }
+  .main table.m-cards tr {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .main table.m-cards tbody tr:last-child {
+    border-bottom: none;
+  }
+  .main table.m-cards td {
+    display: block;
+    padding: 3px 0;
+    border: none;
+    text-align: right;
+    font-size: 13px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .main table.m-cards td::before {
+    content: attr(data-label);
+    float: left;
+    margin-right: 14px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    text-transform: none;
+  }
+  .main table.m-cards td::after {
+    content: "";
+    display: block;
+    clear: both;
+  }
+  /* The first named column is the card's title (app.js marks it) */
+  .main table.m-cards td[data-title] {
+    order: -1;
+    padding-bottom: 6px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .main table.m-cards td[data-title]::before,
+  .main table.m-cards td[data-label=""]::before {
+    content: none;
+  }
+  .main table.m-cards td[data-empty]:not([data-title]),
+  .main table.m-cards td[data-rank] {
+    display: none;
+  }
+  .main table.m-cards td[colspan] {
+    text-align: center;
+  }
+  /* Buttons (a column without a name) sit at the right of the card */
+  .main table.m-cards td[data-label=""]:not([data-title]):not([colspan]) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    padding-top: 6px;
+  }
+}
+
+@media (max-width: 600px) and (pointer: coarse) {
+  /* 16px text stops a phone zooming into a field when it is tapped */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  .icon-btn {
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
+@media (max-width: 360px) {
+  .main .stat-grid {
+    grid-template-columns: 1fr;
   }
 }

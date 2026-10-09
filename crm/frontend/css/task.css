@@ -84,6 +84,7 @@
   gap: 14px;
   align-items: flex-start;
   padding-bottom: 8px;
+  overflow-x: auto;
 }
 .kanban-col {
   background: var(--bg);

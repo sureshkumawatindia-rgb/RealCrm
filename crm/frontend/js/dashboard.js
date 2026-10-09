@@ -85,8 +85,10 @@ function readCampaigns() {
 function renderHeader() {
   const user = getCurrentUser();
   const firstName = (user?.name || "").split(" ")[0];
+  // A phone's top bar has room for a short greeting only.
+  const narrow = window.matchMedia("(max-width: 600px)").matches;
   document.getElementById("greetingHeading").textContent = firstName
-    ? `Welcome back, ${firstName}`
+    ? `${narrow ? "Hi" : "Welcome back"}, ${firstName}`
     : "Dashboard";
   document.getElementById("topbarDate").textContent =
     new Date().toLocaleDateString("en-IN", {
