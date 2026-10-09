@@ -63,11 +63,13 @@ Each address is shown in the CRM settings. Settings → WhatsApp and Settings �
 - **Each company's Razorpay or Cashfree:** the webhook address from Settings → Payments.
 - **Plan billing:** see [BILLING_SETUP.md](BILLING_SETUP.md).
 
-## Step 6 (optional): your own domain
+## Step 6: your own domain (needed for "Connect WhatsApp")
 
-1. Render → your service → **Settings** → **Custom Domains** → add `crm.yourcompany.in`.
-2. Add the DNS record Render shows at your domain seller. Render issues the HTTPS certificate itself.
-3. Change `PUBLIC_URL` to the new domain, and add it in Google (step 3) and the webhooks (step 5).
+Meta opens its "Connect WhatsApp" window only on a domain registered in the platform's Meta app, so give the CRM its own domain before setting that up.
+
+1. Render → your service → **Settings** → **Custom Domains** → add `app.yourcompany.in`.
+2. Add the DNS record Render shows (a CNAME) at your domain seller. Render issues the HTTPS certificate itself.
+3. Change `PUBLIC_URL` to `https://app.yourcompany.in`, and add it in Google (step 3) and the webhooks (step 5).
 
 ## Step 7: switch on the optional features
 
@@ -75,8 +77,10 @@ These are environment variables on Render (service → **Environment**). Saving 
 
 | Feature | Variables | Guide |
 |---|---|---|
+| **Connect WhatsApp** (companies connect their WhatsApp Business app number with Meta's window; D60) | `META_APP_ID`, `META_APP_SECRET`, `META_ES_CONFIG_ID`, `META_WEBHOOK_VERIFY_TOKEN` | [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) section A |
+| Who runs the CRM (invoices, Privacy Policy, Terms) | `BILLING_SELLER_NAME`, `BILLING_SELLER_EMAIL`, `BILLING_SELLER_ADDRESS`, `BILLING_SELLER_GSTIN` | [BILLING_SETUP.md](BILLING_SETUP.md) |
 | Plan billing | `BILLING_PROVIDER=razorpay`, `RAZORPAY_BILLING_*`, `BILLING_SELLER_*` | [BILLING_SETUP.md](BILLING_SETUP.md) |
-| Login codes on WhatsApp (Google + number + code, D58; Google alone until set) | `OTP_PROVIDER=whatsapp`, `WHATSAPP_OTP_*` | [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) |
+| 2-step verification codes on WhatsApp (optional per person, D60) | `OTP_PROVIDER=whatsapp`, `WHATSAPP_OTP_*` | [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) |
 | Login codes by SMS (the backup) | `SMS_PROVIDER=msg91`, `MSG91_AUTH_KEY`, `MSG91_OTP_TEMPLATE_ID` | [SMS_SETUP.md](SMS_SETUP.md) |
 | AI assistant | `ANTHROPIC_API_KEY`, `AI_*` | [AI_ASSISTANT.md](AI_ASSISTANT.md) |
 | Web push (fixed keys) | `VAPID_SUBJECT=https://<your address>` | — (keys are made by themselves) |

@@ -79,7 +79,8 @@ Start from `backend/.env.example`.
 - Plan billing: `BILLING_PROVIDER`, `RAZORPAY_BILLING_*`, `BILLING_SELLER_*`
 - AI assistant: `ANTHROPIC_API_KEY`, `AI_*`
 - Web push: `VAPID_*`
-- Login codes on WhatsApp (D58): `OTP_PROVIDER`, `WHATSAPP_OTP_*`, `LOGIN_WHATSAPP_CODE`
+- Connect WhatsApp (D60): `META_APP_ID`, `META_APP_SECRET`, `META_ES_CONFIG_ID`, `META_WEBHOOK_VERIFY_TOKEN` (docs/WHATSAPP_SETUP.md section A); never set `DEV_TOOLS` on a server
+- 2-step verification codes on WhatsApp (D58, optional since D60): `OTP_PROVIDER`, `WHATSAPP_OTP_*`, `LOGIN_WHATSAPP_CODE`
 - Login codes by SMS, the backup (D59): `SMS_PROVIDER`, `MSG91_*`
 - Rate limits: `RATE_LIMIT_*`
 - Company deletion: `ORG_DELETION_GRACE_DAYS`

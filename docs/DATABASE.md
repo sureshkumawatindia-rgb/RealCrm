@@ -196,6 +196,16 @@ Logging in like WhatsApp Web (D58, 2026-10-08):
 
 No new collections. `organizations.deletion` { requestedAt, scheduledFor, requestedById } while a deletion is pending. The purge deletes, in every collection whose model has an `organizationId` path (all model files are loaded first), the documents with that id — soft-deleted ones too — except `billinginvoices` (tax records) and `users` (whose `organizationId` "last used" pointer is cleared); then the organization; its `DOCUMENT_DIR/<id>/` folder and logo file are removed. Job: `organization.purge` (every 6 hours). The audit log uses the existing index `(organizationId, createdAt -1)`.
 
+## 1r. Connect WhatsApp and real chats (D60, 2026-10-09)
+
+No new collections, no migration (all fields are additive; older documents read as manual numbers, CRM-written messages and 2-step off).
+
+- `whatsappaccounts`: `connectionType` manual (default) / embedded / coexistence, `connectedAt`, `registrationPinEnc` (a new number's two-step PIN, secretBox), `sync` { `status` pending/importing/done/declined/failed, `requestedAt`, `contacts`, `chats`, `messages`, `phase`, `progress`, `error`, `finishedAt` }; `status` may be `disconnected` (the business removed the CRM in WhatsApp; `activePhoneNumberId` is cleared so it can be connected again); new index `wabaId` (the app-level webhook finds WABA-wide changes). The business token from Embedded Signup sits in `accessTokenEnc` like a pasted one.
+- `messages.origin`: `history` (imported from a WhatsApp Business app number, `createdAt` = Meta's timestamp) or `phone` (sent from the app on the phone, a `smb_message_echoes` webhook); unset for everything else.
+- `users.twoStepEnabledAt`: 2-step verification switched on (Settings → Your Profile).
+- `inboundevents.kind` also `history` (one chunk), `echo`, `contact_sync`, `account_update`.
+- Job: `whatsapp.coexistence.sync` (asks Meta for the contacts, then the history; 5 tries).
+
 ## 2. Data migrations
 
 | Migration | What it does |

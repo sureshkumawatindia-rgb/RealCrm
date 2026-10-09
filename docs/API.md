@@ -24,6 +24,7 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 
 | Method | Route | Auth | Purpose |
 | --- | --- | --- | --- |
+| `GET` | `/site` | none | Who runs this CRM, for the Privacy Policy and Terms pages (D60): `{ name, email, address, publicUrl }` from `BILLING_SELLER_*`. |
 | `GET` | `/health` | none | `{ status, dbState, timestamp }`. 200 when MongoDB is connected, 503 otherwise. `start-crm.vbs` looks for `"dbState"`. Not rate limited. |
 
 ## Auth
@@ -31,9 +32,9 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 | Method | Route | Auth | Purpose |
 | --- | --- | --- | --- |
 | `POST` | `/auth/google` | none | Body `{ credential, inviteToken? }`. Verifies the Google ID token, creates the user on first sign-in, accepts pending invites for the verified email, creates an organization only if the user belongs to none. Returns `{ token, user, organizationId, member, memberships, inviteError? }` and sets the refresh cookie — or, on a browser that is not remembered (D58), `{ step: 'whatsapp-code', challenge, phone (the verified number, filled in on the page; '' if none), phoneHint (masked), smsBackup (can the code come by SMS), user { email, name, picture } }` and no session yet. Google alone signs in when `LOGIN_WHATSAPP_CODE=off` or the CRM cannot send codes (`OTP_PROVIDER=off`). |
-| `POST` | `/auth/login/code` | none | Step 2 (D58). `{ challenge, phone, channel? ('whatsapp' default, or 'sms' — the backup, docs/SMS_SETUP.md) }` → a 6-digit code: `{ sent, channel, message, expiresInSeconds, devCode? (mock only) }`; 409 `SMS_OFF` when SMS is not set up. The challenge lives 10 minutes (400 `LOGIN_EXPIRED`). A verified number must match (400 `PHONE_MISMATCH`); a number of another account: 409 `PHONE_IN_USE`. 429 `OTP_TOO_MANY`, 502 `OTP_NOT_SENT`. |
+| `POST` | `/auth/login/code` | none | 2-step verification (D58; optional per person since D60, `LOGIN_WHATSAPP_CODE` optional/required/off). `{ challenge, phone, channel? ('whatsapp' default, or 'sms' — the backup, docs/SMS_SETUP.md) }` → a 6-digit code: `{ sent, channel, message, expiresInSeconds }` (the code is never in an answer; in development it is in the server log); 409 `SMS_OFF` when SMS is not set up. The challenge lives 10 minutes (400 `LOGIN_EXPIRED`). A verified number must match (400 `PHONE_MISMATCH`); a number of another account: 409 `PHONE_IN_USE`. 429 `OTP_TOO_MANY`, 502 `OTP_NOT_SENT`. |
 | `POST` | `/auth/login/verify` | none | Step 3. `{ challenge, phone, code, stayLoggedIn? }` → the same as a signed-in `POST /auth/google`; the number is verified the first time. `stayLoggedIn` sets the `crm_device` cookie (httpOnly, SameSite=Strict, path `/api/v1/auth`, 30 days): Google alone on this browser until logout. 401 `OTP_INVALID` / `OTP_LOCKED`. |
-| `POST` | `/auth/qr` | none | "Scan to log in": `{ id, secret, image (PNG data URL of …/link-device.html#<id>.<secret>), expiresAt (2 min) }`. |
+| `POST` | `/auth/qr` | none | A computer logged in from a phone (login.html?with=phone, D60; Settings → Your Profile → Log in on another computer): `{ id, secret, image (PNG data URL of …/link-device.html#<id>.<secret>), expiresAt (2 min) }`. |
 | `POST` | `/auth/qr/:id/poll` | none | `{ secret, stayLoggedIn? }` → `{ status: pending \| declined \| expired }`, or once `{ status: 'approved', token, user, organizationId, member, memberships }` with the refresh (and device) cookie. 120 per minute per IP. |
 | `POST` | `/auth/qr/:id/peek` | bearer | The phone: `{ secret }` → `{ computer ('Chrome on Windows'), askedAt, expiresAt }`; 404 `QR_NOT_FOUND`, 410 `QR_EXPIRED`. |
 | `POST` | `/auth/qr/:id/approve` | bearer | The phone: `{ secret, allow (default true) }` → `{ allowed, computer }`; the computer gets the phone user's session in the phone's organization. Audit `auth.computer_linked`. |
@@ -381,19 +382,24 @@ Setup steps for Meta: [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md). Module for the inb
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/whatsapp/accounts` | Connected numbers: `{ id, name, provider (meta/mock), phoneNumberId, wabaId, displayPhone, verifiedName, qualityRating, status (pending/connected/error), statusMessage, isDefault, lastWebhookAt, webhookPath, webhookUrl, verifyToken, accessToken: { configured, last4 }, appSecretConfigured }`. The access token and app secret are never returned. |
-| `POST` | `/whatsapp/accounts` | `{ name?, provider?, phoneNumberId, wabaId?, accessToken, appSecret }` (Meta) or `{ provider: "mock", name? }` (development only). The CRM asks Meta about the number (`GET /<version>/<phoneNumberId>`) and saves the result as `status`. A number connected anywhere else is 409 `NUMBER_IN_USE`. |
+| `GET` | `/whatsapp/connect` | "Connect WhatsApp" (D60): `{ available (the platform's Meta app is set up), appId, configId, graphVersion (for Meta's popup; not secrets), connected, accounts, devTools }`. |
+| `POST` | `/whatsapp/accounts/embedded-signup` | What Meta's Embedded Signup popup gave the page: `{ code (valid 30 s), wabaId, phoneNumberId?, mode: 'coexistence' (the WhatsApp Business app number, default) \| 'new' }` → 201 the account. The server exchanges the code for a business token (`GET /oauth/access_token`, server to server), reads the WABA's number (`GET /<waba>/phone_numbers`), subscribes the app (`POST /<waba>/subscribed_apps`), registers a new number with a PIN (`POST /<phone>/register`), and for an app number queues the contacts-then-history sync (`POST /<phone>/smb_app_data`, Meta allows it within 24 hours). Connecting this company's number again reconnects it. 409 `CONNECT_NOT_AVAILABLE`, 400 `WHATSAPP_CONNECT_FAILED` (e.g. an expired code), 409 `NUMBER_IN_USE` (another company), plan limit. |
+| `POST` | `/whatsapp/accounts/:id/sync` | Asks Meta again for the contacts and chats of a WhatsApp Business app number → the account with `sync.status: 'pending'`. |
+| `GET` | `/whatsapp/accounts` | Connected numbers: `{ id, name, provider (meta/mock), connectionType (manual/embedded/coexistence), connectedAt, sync ({ status pending/importing/done/declined/failed, contacts, chats, messages, phase, progress, error, finishedAt } or null), phoneNumberId, wabaId, displayPhone, verifiedName, qualityRating, messagingLimit, status (pending/connected/error/disconnected), statusMessage, isDefault, lastWebhookAt, webhookPath, webhookUrl, verifyToken (manual numbers only), accessToken: { configured, last4 }, appSecretConfigured }`. The access token and app secret are never returned. |
+| `POST` | `/whatsapp/accounts` | Advanced: `{ name?, provider?, phoneNumberId, wabaId?, accessToken, appSecret }` (a number on the company's own Meta app) or `{ provider: "mock", name? }` (developer test tools: `DEV_TOOLS=on`, never in production). The CRM asks Meta about the number (`GET /<version>/<phoneNumberId>`) and saves the result as `status`. A number connected anywhere else is 409 `NUMBER_IN_USE`. |
 | `PATCH` | `/whatsapp/accounts/:id` | `{ name?, wabaId?, accessToken?, appSecret?, isDefault: true? }`; a new token is checked again. |
 | `POST` | `/whatsapp/accounts/:id/test` | Asks Meta again and updates `status`. |
-| `DELETE` | `/whatsapp/accounts/:id` | Soft delete; chats stay, the number can be connected again. |
+| `DELETE` | `/whatsapp/accounts/:id` | Soft delete ("Disconnect"); chats stay, the number can be connected again. A "Connect WhatsApp" number also unsubscribes the platform's app from its WABA (best effort). |
 | `PUT` | `/whatsapp/accounts/:id/catalog` | Phase 8C: `{ catalogId, catalogVisible?, cartEnabled? }` — Meta is asked about the catalog with the number's token (`GET /<catalog>?fields=id,name,product_count`; 400 `CATALOG_REFUSED` when it cannot be opened); with the two flags also `POST /<phone number id>/whatsapp_commerce_settings` (shop button, cart). Then a `catalog.sync` job runs at once and daily. Numbers carry `catalog { catalogId, name, productCount, status, statusMessage, catalogVisible, cartEnabled, lastSyncAt, lastSync }` (or null). 403 `PLAN_LIMIT` below Growth. |
 | `DELETE` | `/whatsapp/accounts/:id/catalog` | Stops syncing and sending products (Meta keeps the catalog). |
 | `GET` | `/whatsapp/click-to-chat?accountId=&text=` | `{ accountId, phone, link, qrDataUrl }`: the `https://wa.me/<number>?text=<pre-filled message>` link of a number (default number if none given) and its QR code as an SVG data URL. 400 `NO_DISPLAY_PHONE` until the number was checked with Meta. |
 | `GET` | `/whatsapp/click-to-chat/qr.png?accountId=&text=` | The same QR code as an 800 px PNG download (`whatsapp-qr.png`). |
 
-### Webhook (public, called by Meta)
+### Webhooks (public, called by Meta)
 
-Each number has its own URL `/api/v1/webhooks/whatsapp/<webhookKey>` (not rate limited with the API; own limit `RATE_LIMIT_WEBHOOK_PER_MINUTE`).
+**The platform's app (D60):** `/api/v1/webhooks/meta` serves every number connected with "Connect WhatsApp". `GET`: handshake with `META_WEBHOOK_VERIFY_TOKEN` (else 403). `POST`: `X-Hub-Signature-256` = HMAC-SHA256 of the raw body (up to 16 MB) with `META_APP_SECRET` (else 401; 404 while the app is not set up). Each change goes to the company of the number in `metadata.phone_number_id` (or of the WABA `entry.id` for `account_update`); unknown numbers are skipped. Fields: `messages` (as below), `message_template_status_update`, `history` (chats of the last 6 months in chunks with `phase` 0–2 and `progress`; imported with their real times, chats of the last week open, older ones closed; error 2593109 = history sharing turned off → `sync.status: 'declined'`), `smb_message_echoes` (sent from the WhatsApp Business app: stored as outgoing with `origin: 'phone'`), `smb_app_state_sync` (contacts), `account_update` (`PARTNER_REMOVED` → `status: 'disconnected'`). History, echoes and contacts run no automation, bot, auto-reply, lead creation or notification. Messages carry `origin` (`history`, `phone` or null). Sync progress goes to owners and admins over Socket.IO as `whatsapp:sync` `{ accountId, sync }`.
+
+**A number on the company's own Meta app** has its own URL `/api/v1/webhooks/whatsapp/<webhookKey>` (not rate limited with the API; own limit `RATE_LIMIT_WEBHOOK_PER_MINUTE`).
 
 | Method | Purpose |
 | --- | --- |
@@ -628,10 +634,11 @@ The pages are an installable app (`crm/frontend/manifest.webmanifest`, service w
 | `POST` | `/push/subscriptions` | The browser's `PushSubscription.toJSON()` (`{ endpoint (https), keys { p256dh, auth } }`) → 201 `{ id, devices }`; at most 10 per member. |
 | `DELETE` | `/push/subscriptions` | `{ endpoint }` — this member's device only. |
 | `POST` | `/push/test` | A test notification to this member's devices → `{ sent, removed }`; 409 `NO_DEVICES`. |
-| `GET` | `/auth/phone` | Signed in: `{ phone, verifiedAt, available }`. |
+| `GET` | `/auth/phone` | Signed in: `{ phone, verifiedAt, available, twoStep, twoStepMode (optional/required/off) }`. |
 | `POST` | `/auth/phone/request` | `{ phone }` → a code to verify (or change) one's own number; 409 `PHONE_IN_USE`. |
 | `POST` | `/auth/phone/verify` | `{ phone, code }` → the number is verified for logging in. |
-| `DELETE` | `/auth/phone` | Removes it (the next new browser verifies one again). |
+| `DELETE` | `/auth/phone` | Removes it, and switches 2-step verification off. |
+| `PUT` | `/auth/two-step` | `{ enabled }` — 2-step verification for oneself (D60): on a new browser, a WhatsApp code after Google. Needs a verified number (400 `PHONE_REQUIRED`); 409 `TWO_STEP_FIXED` when `LOGIN_WHATSAPP_CODE` is required or off. Audit `auth.two_step_on` / `auth.two_step_off`. |
 
 The 2026-10-08 login (D58) replaced the Phase 10E `/auth/otp/available`, `/auth/otp/request` and `/auth/otp/verify` (a code alone no longer signs in): see `/auth/login/*` and `/auth/qr*` under Auth.
 

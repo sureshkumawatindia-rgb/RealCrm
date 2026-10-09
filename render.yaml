@@ -46,3 +46,9 @@ services:
       # https://yellow-crm.onrender.com (or your own domain), without a trailing slash.
       - key: PUBLIC_URL
         sync: false
+      # Added later in the service's Environment tab, when they are ready (not asked here, so
+      # the first deploy does not wait for them):
+      # - "Connect WhatsApp" (D60, docs/WHATSAPP_SETUP.md section 7): META_APP_ID,
+      #   META_APP_SECRET, META_ES_CONFIG_ID, META_WEBHOOK_VERIFY_TOKEN
+      # - Who runs the CRM, on invoices and the Privacy/Terms pages: BILLING_SELLER_NAME,
+      #   BILLING_SELLER_EMAIL, BILLING_SELLER_ADDRESS, BILLING_SELLER_GSTIN
