@@ -1,5 +1,6 @@
 const express = require('express');
 const healthRoutes = require('./health');
+const siteRoutes = require('./site');
 const authRoutes = require('./auth');
 const organizationRoutes = require('./organization');
 const memberRoutes = require('./members');
@@ -38,6 +39,7 @@ const { apiKeyRoutes, webhookRoutes: outboundWebhookRoutes, metaConversionsRoute
 const router = express.Router();
 
 router.use('/health', healthRoutes);
+router.use('/site', siteRoutes);
 router.use('/auth', authRoutes);
 router.use('/organization', organizationRoutes);
 router.use('/members', memberRoutes);

@@ -90,6 +90,9 @@ describe('The Meta app webhook (coexistence)', () => {
 
       await post('history', chunk(2, 100, []));
       expect((await WhatsAppAccount.findById(account._id)).sync).toMatchObject({ status: 'done', contacts: 2, chats: 2, messages: 3, phase: 2, progress: 100 });
+      // A late chunk of an earlier phase adds its chats but never moves the progress back.
+      await post('history', { history: [{ metadata: { phase: 0, chunk_order: 7, progress: 40 }, threads: [] }] });
+      expect((await WhatsAppAccount.findById(account._id)).sync).toMatchObject({ status: 'done', phase: 2, progress: 100 });
     } finally {
       emitted.mockRestore();
     }

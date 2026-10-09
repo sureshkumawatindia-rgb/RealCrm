@@ -411,12 +411,16 @@ async function handleHistory(account, { chunk, businessPhone }) {
   const meta = chunk?.metadata || {};
   const progress = Number(meta.progress);
   const phase = Number(meta.phase);
-  const done = phase >= 2 && progress >= 100;
+  // Chunks can arrive out of order: the progress only moves forward, and "done" stays done.
+  const before = (await WhatsAppAccount.findById(account._id).select('sync')).sync || {};
+  const ahead = Number.isFinite(phase) && Number.isFinite(progress)
+    && (phase * 1000 + progress) >= ((Number(before.phase) || 0) * 1000 + (Number(before.progress) || 0));
+  const done = before.status === 'done' || (ahead && phase >= 2 && progress >= 100);
   const updated = await WhatsAppAccount.findOneAndUpdate({ _id: account._id }, {
     $inc: { 'sync.messages': messages, 'sync.chats': chats },
     $set: {
-      'sync.status': done ? 'done' : 'importing', ...(Number.isFinite(phase) && { 'sync.phase': phase }),
-      ...(Number.isFinite(progress) && { 'sync.progress': progress }), ...(done && { 'sync.finishedAt': new Date() }),
+      'sync.status': done ? 'done' : 'importing', ...(ahead && { 'sync.phase': phase, 'sync.progress': progress }),
+      ...(done && before.status !== 'done' && { 'sync.finishedAt': new Date() }),
     },
   }, { returnDocument: 'after' });
   announceSync(updated);
