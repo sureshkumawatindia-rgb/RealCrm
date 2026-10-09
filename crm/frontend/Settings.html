@@ -109,6 +109,77 @@
         flex-wrap: wrap;
         gap: 10px;
       }
+      /* Settings → WhatsApp: Connect WhatsApp (D60), Advanced, developer test tools */
+      .wa-connect-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding: 16px 18px;
+        margin: 0 0 16px;
+        border: 1px solid #d6efdf;
+        border-radius: var(--radius, 10px);
+        background: #f4fbf6;
+      }
+      .wa-connect-card > .fa-whatsapp {
+        font-size: 30px;
+        color: #25d366;
+      }
+      .wa-connect-text {
+        flex: 1;
+        min-width: 220px;
+        display: grid;
+        gap: 2px;
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+      .wa-connect-text strong {
+        font-size: 14.5px;
+        color: var(--text);
+      }
+      .wa-advanced {
+        margin-top: 24px;
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+      }
+      .wa-advanced > summary {
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+      .wa-advanced[open] > summary {
+        margin-bottom: 12px;
+      }
+      .wa-devtools {
+        margin-top: 24px;
+        padding: 16px;
+        border: 1.5px dashed var(--border-strong);
+        border-radius: var(--radius, 10px);
+      }
+      .two-step-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 16px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm, 8px);
+        font-size: 13.5px;
+        cursor: pointer;
+      }
+      .two-step-row[hidden] {
+        display: none;
+      }
+      .two-step-row input {
+        width: 18px;
+        height: 18px;
+        margin-top: 2px;
+        accent-color: #25d366;
+      }
+      .two-step-row .settings-hint {
+        margin: 2px 0 0;
+      }
       /* Settings → Your Profile → Where you're logged in */
       .device-list {
         list-style: none;
@@ -808,8 +879,8 @@
                   </div>
                 </div>
                 <div class="settings-section" id="phoneSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Your mobile number for logging in</div>
-                  <p class="settings-hint" id="phoneHint">On a new browser you log in with Google, this number and a 6-digit code on WhatsApp.</p>
+                  <div class="settings-section-label">Mobile number and 2-step verification</div>
+                  <p class="settings-hint" id="phoneHint">Your mobile number, verified with a 6-digit code on WhatsApp.</p>
                   <form class="field-row" id="phoneForm" autocomplete="off">
                     <div class="field"><label for="phoneNumber">Mobile number</label><input type="tel" id="phoneNumber" inputmode="tel" maxlength="30" placeholder="98290 12345" /></div>
                     <div class="field" id="phoneCodeField" hidden><label for="phoneCode">Code from WhatsApp</label><input type="text" id="phoneCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" /></div>
@@ -819,10 +890,15 @@
                     <button class="btn btn-primary" id="phoneVerifyBtn" type="button" hidden>Verify</button>
                     <button class="btn btn-outline" id="phoneChangeBtn" type="button" hidden>Change number</button>
                   </div>
+                  <label class="two-step-row" id="twoStepRow" hidden>
+                    <input type="checkbox" id="twoStepToggle" />
+                    <span><strong>2-step verification</strong><br /><span class="settings-hint" id="twoStepHint">On a new browser, after Google, ask for a code sent on WhatsApp to this number.</span></span>
+                  </label>
                 </div>
                 <div class="settings-section" id="linkComputerSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Log in on a computer</div>
-                  <p class="settings-hint">On the computer, open the login page and choose “Log in with QR code”. Then tap below and point this phone at the code, like WhatsApp Web.</p>
+                  <div class="settings-section-label">Log in on another computer</div>
+                  <p class="settings-hint">On the computer, open this address. It shows a code: tap below on this phone and point it at the code.</p>
+                  <p class="settings-hint" style="display:flex; gap:8px; align-items:center"><code id="linkComputerUrl" style="word-break:break-all"></code><button class="btn btn-outline" type="button" id="linkComputerCopy" title="Copy the address"><i class="fa-solid fa-copy"></i></button></p>
                   <div class="data-actions">
                     <a class="btn btn-primary" href="link-device.html"><i class="fa-solid fa-qrcode"></i> Scan the computer's code</a>
                   </div>
@@ -1062,10 +1138,17 @@
               </div>
               <div style="padding: 20px">
                 <p class="settings-hint">
-                  Connect your WhatsApp Business number (WhatsApp Cloud API by Meta).
-                  Customers' messages then arrive in this CRM: new numbers become
-                  contacts and WhatsApp leads automatically.
+                  Your company's WhatsApp Business number, connected through Meta. Customers'
+                  messages arrive in the Inbox, and new numbers become contacts and leads.
                 </p>
+                <div class="wa-connect-card" id="waConnectCard" hidden>
+                  <i class="fa-brands fa-whatsapp"></i>
+                  <div class="wa-connect-text">
+                    <strong id="waConnectTitle">Connect WhatsApp</strong>
+                    <span id="waConnectText"></span>
+                  </div>
+                  <a class="btn btn-primary" id="waConnectLink" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> Connect WhatsApp</a>
+                </div>
                 <div id="waAccountList"></div>
 
                 <div class="settings-section wa-block" id="waTemplatesSection" hidden>
@@ -1175,9 +1258,11 @@
                   <p class="logo-upload-error" id="waLinkError" hidden></p>
                 </div>
 
-                <div class="settings-section" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Connect a number</div>
+                <details class="wa-advanced" id="waAdvanced">
+                  <summary>Advanced (developers): connect a number with your own Meta app</summary>
                   <p class="settings-hint">
+                    For a number that runs on your own Meta developer app (not the WhatsApp
+                    Business app). Most companies use Connect WhatsApp above instead.
                     From your Meta developer app: WhatsApp → API Setup gives the
                     Phone number ID and WhatsApp Business Account ID; use a permanent
                     System User access token (permissions whatsapp_business_messaging
@@ -1209,23 +1294,24 @@
                       <label for="waAccessToken">Access token</label>
                       <input type="password" id="waAccessToken" required />
                     </div>
-                    <div class="data-actions" style="justify-content: space-between">
-                      <button class="btn btn-outline" type="button" id="waAddMockBtn" title="For trying the CRM without a Meta account (not available on a live server)">
-                        <i class="fa-solid fa-flask"></i> Add a test number instead
-                      </button>
+                    <div class="data-actions" style="justify-content: flex-end">
                       <button class="btn btn-primary" type="submit" id="waConnectBtn">
                         <i class="fa-brands fa-whatsapp"></i> Connect Number
                       </button>
                     </div>
                   </form>
-                </div>
+                </details>
 
-                <div class="settings-section" id="waSimulateSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Try it: receive a test message</div>
+                <div class="settings-section wa-devtools" id="waDevTools" hidden>
+                  <div class="settings-section-label"><i class="fa-solid fa-flask"></i> Developer test tools</div>
                   <p class="settings-hint">
-                    Pretends a customer wrote to your default number (development only;
-                    nothing is sent to WhatsApp). Check Leads and Customers afterwards.
+                    Only on a development server with DEV_TOOLS=on — never on a live CRM. A test
+                    number reaches nobody on WhatsApp; the simulator pretends a customer wrote.
                   </p>
+                  <div class="data-actions" style="margin-bottom: 14px">
+                    <button class="btn btn-outline" type="button" id="waAddMockBtn"><i class="fa-solid fa-flask"></i> Add a test number</button>
+                  </div>
+                  <p class="settings-hint" id="waSimulateSection" hidden>Simulate a customer's message to your default number:</p>
                   <form id="waSimulateForm">
                     <div class="field-row">
                       <div class="field">

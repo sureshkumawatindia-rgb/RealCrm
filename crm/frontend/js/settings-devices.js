@@ -89,5 +89,17 @@
     }
   });
 
+  // "Log in on another computer": the login page that shows the code to scan.
+  const loginUrl = new URL("login.html?with=phone", window.location.href).toString();
+  $("linkComputerUrl").textContent = loginUrl;
+  $("linkComputerCopy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(loginUrl);
+      showToast("Address copied.", "success");
+    } catch {
+      showToast("Copy it by hand: select the address.", "info");
+    }
+  });
+
   load();
 })();

@@ -1,9 +1,11 @@
 /**
  * settings-whatsapp.js — Settings → WhatsApp (owners and admins)
- * Connects WhatsApp Cloud API numbers (/whatsapp/accounts), shows what to paste into the Meta
- * app (callback URL and verify token), manages message templates (/templates), makes the
- * click-to-chat link and QR code (/whatsapp/click-to-chat), and in development lets you
- * receive a test message, photo, document or voice note.
+ * The company's WhatsApp numbers (/whatsapp/accounts): "Connect WhatsApp" with Meta's popup
+ * (connect-whatsapp.html, D60) with quality, limit and the import of the chats; numbers on the
+ * company's own Meta app under "Advanced" (what to paste into that app: callback URL and verify
+ * token). Manages message templates (/templates), makes the click-to-chat link and QR code
+ * (/whatsapp/click-to-chat), and — developer test tools, DEV_TOOLS=on only — adds test numbers
+ * and simulates a customer's message, photo, document or voice note.
  * Runs after settings.js; everything stays inside this function so no names clash.
  */
 (function settingsWhatsApp() {
@@ -14,9 +16,58 @@
     connected: '<span class="badge badge-success">Connected</span>',
     pending: '<span class="badge badge-warning">Not checked</span>',
     error: '<span class="badge badge-danger">Problem</span>',
+    disconnected: '<span class="badge badge-danger">Disconnected</span>',
   };
+  const QUALITY = { GREEN: "High", YELLOW: "Medium", RED: "Low" };
+  const LIMIT = (tier) => (tier ? tier.replace(/^TIER_/, "").replace("UNLIMITED", "Unlimited").replace(/K$/, ",000").replace(/^(\d+)$/, "$1") : "");
   const listEl = document.getElementById("waAccountList");
   let accounts = [];
+  let connect = { available: false, devTools: false };
+
+  // "Connect WhatsApp" numbers (D60): how the import of the chats went.
+  function syncHtml(a) {
+    const s = a.sync;
+    if (a.connectionType !== "coexistence" || !s) return "";
+    const counts = `${s.chats.toLocaleString("en-IN")} chats, ${s.messages.toLocaleString("en-IN")} messages, ${s.contacts.toLocaleString("en-IN")} contacts`;
+    const text = {
+      pending: "Asking WhatsApp for the chats…",
+      importing: `Importing chats: ${counts} so far`,
+      done: `Chats imported: ${counts}${s.finishedAt ? ` · ${when(s.finishedAt)}` : ""}`,
+      declined: "Old chats were not shared (history sharing is off in the WhatsApp Business app). New chats come in.",
+      failed: `Importing chats stopped${s.error ? `: ${s.error}` : ""}`,
+    }[s.status] || "";
+    const retry = ["failed", "declined"].includes(s.status) ? ` <button class="btn btn-outline" type="button" data-wa-sync="${escapeHtml(a.id)}"><i class="fa-solid fa-rotate"></i> Import chats again</button>` : "";
+    return `<div class="sub" style="margin-top:6px">${escapeHtml(text)}${retry}</div>`;
+  }
+
+  function connectedHtml(a) {
+    const kind = a.connectionType === "coexistence" ? "WhatsApp Business app number (keeps working on the phone)" : "Cloud API number";
+    const details = [
+      kind,
+      a.qualityRating ? `quality ${QUALITY[a.qualityRating] || a.qualityRating}` : "",
+      a.messagingLimit ? `reaches up to ${LIMIT(a.messagingLimit)} people a day with templates` : "",
+      a.lastWebhookAt ? `last message ${when(a.lastWebhookAt)}` : "no message received yet",
+    ].filter(Boolean).join(" · ");
+    return `<div class="sub" style="margin-top:6px">${escapeHtml(details)}</div>${syncHtml(a)}`;
+  }
+
+  function renderConnectCard() {
+    const card = document.getElementById("waConnectCard");
+    const live = accounts.some((a) => a.status === "connected");
+    card.hidden = false;
+    const link = document.getElementById("waConnectLink");
+    link.hidden = !connect.available;
+    if (!connect.available) {
+      document.getElementById("waConnectTitle").textContent = "Connect WhatsApp";
+      document.getElementById("waConnectText").textContent = "Connecting your WhatsApp Business number is being set up by the YELLOW CRM team. It will appear here as soon as it is ready.";
+      return;
+    }
+    document.getElementById("waConnectTitle").textContent = live ? "Connect another number" : "Connect your WhatsApp Business number";
+    document.getElementById("waConnectText").textContent = live
+      ? "Add another WhatsApp number of your company, or reconnect one."
+      : "Opens Meta's secure window. Your WhatsApp Business app keeps working, and your chats come into the Inbox.";
+    link.innerHTML = `<i class="fa-brands fa-whatsapp"></i> ${live ? "Connect another number" : "Connect WhatsApp"}`;
+  }
 
   const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
   // Meta needs a public HTTPS address; 127.0.0.1 / localhost only works through a tunnel.
@@ -31,9 +82,10 @@
     const tunnelHint = isLocal(a.webhookUrl)
       ? `<div class="sub" style="margin-top:4px">Meta cannot reach ${escapeHtml(new URL(a.webhookUrl).host)}. Start a tunnel (for example <code>cloudflared tunnel --url http://127.0.0.1:3000</code>) and use <strong>https://&lt;tunnel address&gt;${escapeHtml(a.webhookPath)}</strong> as the callback URL.</div>`
       : "";
+    const viaMeta = a.connectionType === "embedded" || a.connectionType === "coexistence";
     const setup = a.provider === "mock"
-      ? `<div class="sub" style="margin-top:6px">Test number — nothing reaches WhatsApp. Use "Receive Test Message" below.</div>`
-      : `
+      ? `<div class="sub" style="margin-top:6px">Test number — nothing reaches WhatsApp. Use the developer test tools below.</div>`
+      : viaMeta ? connectedHtml(a) : `
         <div class="sub" style="margin-top:8px"><strong>In the Meta app → WhatsApp → Configuration → Webhook:</strong> paste these two values, then subscribe to the <strong>messages</strong> field.</div>
         <div style="display:flex; gap:8px; align-items:center; margin-top:6px; min-width:0">
           <span class="sub" style="flex-shrink:0; width:92px">Callback URL</span>
@@ -53,16 +105,19 @@
             ${STATUS_BADGE[a.status] || ""} ${a.isDefault ? '<span class="badge badge-brand">Default</span>' : ""}
             ${a.provider === "mock" ? '<span class="badge badge-neutral">Test number</span>' : ""}
           </div>
-          <div class="sub">Phone number ID ${escapeHtml(a.phoneNumberId)}${a.accessToken.configured ? ` · token …${escapeHtml(a.accessToken.last4)}` : ""} · ${a.lastWebhookAt ? `last message from WhatsApp ${escapeHtml(when(a.lastWebhookAt))}` : "no message received yet"}</div>
-          ${a.status === "error" && a.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(a.statusMessage)}</div>` : ""}
+          ${viaMeta ? "" : `<div class="sub">Phone number ID ${escapeHtml(a.phoneNumberId)}${a.accessToken.configured ? ` · token …${escapeHtml(a.accessToken.last4)}` : ""} · ${a.lastWebhookAt ? `last message from WhatsApp ${escapeHtml(when(a.lastWebhookAt))}` : "no message received yet"}</div>`}
+          ${["error", "disconnected"].includes(a.status) && a.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(a.statusMessage)}</div>` : ""}
           ${setup}
           ${catalogHtml(a)}
         </div>
-        <div style="display:flex; gap:8px; flex-shrink:0">
-          <button class="btn btn-outline" type="button" data-wa-test="${escapeHtml(a.id)}"><i class="fa-solid fa-plug-circle-check"></i> Test</button>
-          ${a.provider === "meta" ? `<button class="btn btn-outline" type="button" data-wa-token="${escapeHtml(a.id)}" title="Paste a new access token"><i class="fa-solid fa-key"></i></button>` : ""}
+        <div style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap">
+          ${viaMeta && a.status !== "connected" ? `<a class="btn btn-primary" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> Reconnect</a>` : ""}
+          <button class="btn btn-outline" type="button" data-wa-test="${escapeHtml(a.id)}"><i class="fa-solid fa-plug-circle-check"></i> ${viaMeta ? "Check" : "Test"}</button>
+          ${a.provider === "meta" && !viaMeta ? `<button class="btn btn-outline" type="button" data-wa-token="${escapeHtml(a.id)}" title="Paste a new access token"><i class="fa-solid fa-key"></i></button>` : ""}
           ${a.isDefault ? "" : `<button class="btn btn-outline" type="button" data-wa-default="${escapeHtml(a.id)}" title="Make default">Default</button>`}
-          <button class="icon-btn danger" type="button" data-wa-remove="${escapeHtml(a.id)}" title="Remove"><i class="fa-solid fa-trash"></i></button>
+          ${viaMeta
+            ? `<button class="btn btn-outline" type="button" data-wa-remove="${escapeHtml(a.id)}">Disconnect</button>`
+            : `<button class="icon-btn danger" type="button" data-wa-remove="${escapeHtml(a.id)}" title="Remove"><i class="fa-solid fa-trash"></i></button>`}
         </div>
       </div>`;
   }
@@ -95,15 +150,17 @@
 
   function render() {
     document.getElementById("waCount").textContent = accounts.length ? `${accounts.length} number${accounts.length === 1 ? "" : "s"}` : "";
-    listEl.innerHTML = accounts.length
-      ? accounts.map(accountHtml).join("")
-      : `<p class="settings-hint" style="margin:0">No WhatsApp number connected yet.</p>`;
+    listEl.innerHTML = accounts.length ? accounts.map(accountHtml).join("") : "";
+    renderConnectCard();
+    // Developer test tools: a development server with DEV_TOOLS=on only.
+    document.getElementById("waDevTools").hidden = !connect.devTools;
     document.getElementById("waSimulateSection").hidden = !accounts.length;
+    document.getElementById("waSimulateForm").hidden = !accounts.length;
   }
 
   async function load() {
     try {
-      accounts = await crmApi("/whatsapp/accounts");
+      [accounts, connect] = await Promise.all([crmApi("/whatsapp/accounts"), crmApi("/whatsapp/connect")]);
       render();
       refreshExtras();
     } catch (error) {
@@ -177,8 +234,10 @@
     } else if (makeDefault) {
       await run(() => crmApi(`/whatsapp/accounts/${makeDefault.dataset.waDefault}`, jsonRequest("PATCH", { isDefault: true })), "Default number changed.");
     } else if (remove) {
-      if (!confirm("Remove this WhatsApp number? Its chats stay in the CRM; new messages stop arriving.")) return;
-      await run(() => crmApi(`/whatsapp/accounts/${remove.dataset.waRemove}`, { method: "DELETE" }), "WhatsApp number removed.");
+      if (!confirm("Disconnect this WhatsApp number from the CRM? Its chats stay in the CRM; new messages stop arriving here. The WhatsApp Business app on the phone keeps working.")) return;
+      await run(() => crmApi(`/whatsapp/accounts/${remove.dataset.waRemove}`, { method: "DELETE" }), "WhatsApp number disconnected.");
+    } else if (e.target.closest("[data-wa-sync]")) {
+      await run(() => crmApi(`/whatsapp/accounts/${e.target.closest("[data-wa-sync]").dataset.waSync}/sync`, { method: "POST" }), "Asked WhatsApp for the chats again.");
     }
   });
 

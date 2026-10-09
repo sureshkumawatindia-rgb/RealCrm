@@ -1,10 +1,10 @@
 /**
- * login.js — logging in (D58), one step at a time in one card:
- *   1. Google  →  2. the mobile number (filled in when verified)  →  3. the 6-digit code sent on
- *   WhatsApp (or, as a backup, by SMS).
- * All three are needed on a new browser. "Stay logged in on this browser" skips the code here
- * for 30 days. Or "Log in with QR code": a phone where the person is signed in scans the code
- * (Settings → Your Profile → Log in on a computer) and taps Allow.
+ * login.js — logging in (D60): Google. People who switched on 2-step verification (Settings →
+ * Your Profile) then confirm a 6-digit code sent on WhatsApp (or by SMS) on a new browser; "Stay
+ * logged in on this browser" skips it there for 30 days. A computer can also be logged in from a
+ * phone where the person is signed in: login.html?with=phone shows the code to scan.
+ * After signing in, an owner or admin whose company has no WhatsApp yet is offered "Connect
+ * WhatsApp" (connect-whatsapp.html).
  * The page speaks English or Hindi (the choice is kept in crm_prefs). An invite link shows the
  * inviting company's logo and name.
  * The backend returns a short-lived access token (kept in localStorage) and sets the refresh
@@ -15,21 +15,23 @@
 const GOOGLE_CLIENT_ID =
   "910305219970-gimdha8ojccrddq4oocivgg8ha32kurl.apps.googleusercontent.com";
 const INVITE_KEY = "crm_pending_invite";
-const PENDING_LINK_KEY = "crm_pending_link"; // a computer's QR code scanned before signing in
+const PENDING_LINK_KEY = "crm_pending_link"; // a computer's code scanned before signing in
 const QR_POLL_MS = 2000;
-const QR_AUTO_REFRESHES = 4; // then "Click to reload", like WhatsApp Web
+const QR_AUTO_REFRESHES = 4; // then "Click to show a new code"
 const RESEND_WAIT_S = 30;
+const CONNECT_SKIP_DAYS = 7; // "Skip for now" on connect-whatsapp.html is asked again after this
 
-// Take the invite token out of the address bar right away, so it is not kept in history
-// or sent to the server as a Referer.
-(function captureInviteToken() {
+// Take the invite token (and ?with=phone) out of the address bar right away, so it is not kept
+// in history or sent to the server as a Referer.
+const withPhone = (function captureParams() {
   const params = new URLSearchParams(window.location.search);
   const invite = params.get("invite");
   if (invite) sessionStorage.setItem(INVITE_KEY, invite);
-  if (invite || params.has("expired")) {
-    if (params.has("expired")) sessionStorage.setItem("crm_session_expired", "1");
+  if (params.has("expired")) sessionStorage.setItem("crm_session_expired", "1");
+  if (invite || params.has("expired") || params.has("with")) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
+  return params.get("with") === "phone";
 })();
 
 // Where a phone goes after signing in to allow a computer.
@@ -49,19 +51,24 @@ if (alreadySignedIn) {
 const $ = (id) => document.getElementById(id);
 const postJson = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const stayLoggedIn = () => Boolean($("stayLoggedIn")?.checked);
-const onPhone = navigator.userAgentData?.mobile ?? /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
 // ---------------------------------------------------------------
 // English / Hindi
 // ---------------------------------------------------------------
 const TEXT = {
   en: {
-    subGoogle: "Sign in with your Google account to continue",
-    subPhone: "Now your mobile number. A code comes on WhatsApp.",
+    pitchTitle: "Every WhatsApp enquiry, one team inbox.",
+    pitchText: "Chats, leads, quotations, orders and payments of your business — in one place, for your whole team.",
+    point1: "Works with your WhatsApp Business app number",
+    point2: "Your team replies from one shared inbox",
+    point3: "GST quotations and payment links in the chat",
+    subGoogle: "Sign in to your workspace",
+    googleHint: "Use the Google account your company added you with.",
+    subPhone: "2-step verification is on for your account. We'll send a code on WhatsApp.",
     subCode: "Enter the 6-digit code from WhatsApp.",
     subCodeSms: "Enter the 6-digit code from the SMS.",
-    subQr: "Scan this code with your phone to log in.",
-    step: "Step {n} of 3",
+    subQr: "Scan this code with your phone to log in on this computer.",
+    signingIn: "Signing you in…",
     change: "Change",
     phonePlaceholder: "Your mobile number",
     getCode: "Get a code on WhatsApp",
@@ -73,20 +80,20 @@ const TEXT = {
     bySms: "Get the code by SMS instead",
     byWhatsapp: "Get the code on WhatsApp instead",
     stay: "Stay logged in on this browser",
-    stayInfo: "On this browser, the WhatsApp code is not asked again for 30 days. Logging out ends it. Don't tick it on a shared computer.",
-    foot: "By continuing you agree to YELLOW CRM's usage policy.",
-    toQr: "Log in with QR code",
-    toGoogle: "Log in with Google and phone number",
-    qrReload: "Click to reload the QR code",
+    stayInfo: "On this browser, the code is not asked again for 30 days. Logging out ends it. Don't tick it on a shared computer.",
+    toGoogle: "Log in with Google instead",
+    qrReload: "Click to show a new code",
     qr1: "Open <strong>YELLOW CRM</strong> on your phone, where you are signed in",
-    qr2: "Tap <strong>Settings → Your Profile → Log in on a computer</strong>",
+    qr2: "Tap <strong>Settings → Your Profile → Log in on another computer</strong>",
     qr3: "Point your phone at this code and tap <strong>Allow</strong>",
-    hintFilled: "This account's number is filled in. Tap “Get a code on WhatsApp”.",
-    hintNew: "Your WhatsApp number. It is verified now and asked on every new browser.",
-    sentWhatsapp: "Sent to {phone} on WhatsApp.",
-    sentSms: "Sent to {phone} by SMS.",
+    legal: 'By continuing you agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.',
+    privacy: "Privacy Policy",
+    terms: "Terms of Service",
+    hintFilled: "Your verified number is filled in.",
+    hintNew: "Your WhatsApp number. It is verified with the code.",
+    sentWhatsapp: "We sent a code to {phone} on WhatsApp.",
+    sentSms: "We sent a code to {phone} by SMS.",
     expires: "It works for {m} minutes.",
-    dev: "(Development: the code is {code}.)",
     newCode: "A new code is on its way.",
     signedInGoogle: "Signed in with Google",
     noteExpired: "Your session ended. Please log in again.",
@@ -98,12 +105,18 @@ const TEXT = {
     errCode: "That code did not work.",
   },
   hi: {
-    subGoogle: "आगे बढ़ने के लिए अपने Google खाते से साइन इन करें",
-    subPhone: "अब अपना मोबाइल नंबर डालें। WhatsApp पर एक कोड आएगा।",
+    pitchTitle: "हर WhatsApp पूछताछ, एक टीम इनबॉक्स में।",
+    pitchText: "आपके कारोबार की चैट, लीड, कोटेशन, ऑर्डर और पेमेंट — एक ही जगह, पूरी टीम के लिए।",
+    point1: "आपके WhatsApp Business ऐप वाले नंबर के साथ चलता है",
+    point2: "आपकी टीम एक साझा इनबॉक्स से जवाब देती है",
+    point3: "चैट में ही GST कोटेशन और पेमेंट लिंक",
+    subGoogle: "अपने वर्कस्पेस में साइन इन करें",
+    googleHint: "वही Google खाता इस्तेमाल करें जिससे आपकी कंपनी ने आपको जोड़ा है।",
+    subPhone: "आपके खाते पर 2-स्टेप वेरिफ़िकेशन चालू है। हम WhatsApp पर एक कोड भेजेंगे।",
     subCode: "WhatsApp पर आया 6 अंकों का कोड डालें।",
     subCodeSms: "SMS से आया 6 अंकों का कोड डालें।",
-    subQr: "लॉग इन करने के लिए यह कोड अपने फ़ोन से स्कैन करें।",
-    step: "चरण {n} / 3",
+    subQr: "इस कंप्यूटर पर लॉग इन करने के लिए यह कोड अपने फ़ोन से स्कैन करें।",
+    signingIn: "साइन इन हो रहा है…",
     change: "बदलें",
     phonePlaceholder: "आपका मोबाइल नंबर",
     getCode: "WhatsApp पर कोड पाएँ",
@@ -115,20 +128,20 @@ const TEXT = {
     bySms: "कोड SMS पर मँगाएँ",
     byWhatsapp: "कोड WhatsApp पर मँगाएँ",
     stay: "इस ब्राउज़र पर लॉग इन रहें",
-    stayInfo: "इस ब्राउज़र पर 30 दिन तक WhatsApp कोड दोबारा नहीं माँगा जाएगा। लॉग आउट करने पर यह ख़त्म हो जाता है। किसी साझा कंप्यूटर पर इसे न चुनें।",
-    foot: "आगे बढ़कर आप YELLOW CRM की उपयोग नीति से सहमत होते हैं।",
-    toQr: "QR कोड से लॉग इन करें",
-    toGoogle: "Google और फ़ोन नंबर से लॉग इन करें",
-    qrReload: "QR कोड फिर से लोड करने के लिए क्लिक करें",
+    stayInfo: "इस ब्राउज़र पर 30 दिन तक कोड दोबारा नहीं माँगा जाएगा। लॉग आउट करने पर यह ख़त्म हो जाता है। किसी साझा कंप्यूटर पर इसे न चुनें।",
+    toGoogle: "Google से लॉग इन करें",
+    qrReload: "नया कोड दिखाने के लिए क्लिक करें",
     qr1: "अपने फ़ोन पर <strong>YELLOW CRM</strong> खोलें, जहाँ आप साइन इन हैं",
-    qr2: "<strong>Settings → Your Profile → Log in on a computer</strong> पर टैप करें",
+    qr2: "<strong>Settings → Your Profile → Log in on another computer</strong> पर टैप करें",
     qr3: "फ़ोन को इस कोड की ओर करें और <strong>Allow</strong> पर टैप करें",
-    hintFilled: "इस खाते का नंबर भरा हुआ है। “WhatsApp पर कोड पाएँ” दबाएँ।",
-    hintNew: "आपका WhatsApp नंबर। यह अभी सत्यापित होगा और हर नए ब्राउज़र पर पूछा जाएगा।",
-    sentWhatsapp: "{phone} पर WhatsApp से भेजा गया।",
-    sentSms: "{phone} पर SMS से भेजा गया।",
+    legal: 'आगे बढ़कर आप <a href="terms.html">सेवा की शर्तों</a> और <a href="privacy.html">गोपनीयता नीति</a> से सहमत होते हैं।',
+    privacy: "गोपनीयता नीति",
+    terms: "सेवा की शर्तें",
+    hintFilled: "आपका सत्यापित नंबर भरा हुआ है।",
+    hintNew: "आपका WhatsApp नंबर। यह कोड से सत्यापित होगा।",
+    sentWhatsapp: "{phone} पर WhatsApp से कोड भेजा गया है।",
+    sentSms: "{phone} पर SMS से कोड भेजा गया है।",
     expires: "यह {m} मिनट तक चलेगा।",
-    dev: "(डेवलपमेंट: कोड {code} है।)",
     newCode: "नया कोड भेज दिया गया है।",
     signedInGoogle: "Google से साइन इन हो गया",
     noteExpired: "आपका सेशन ख़त्म हो गया। कृपया फिर से लॉग इन करें।",
@@ -207,18 +220,18 @@ function renderNote() {
 // An invite link: the inviting company's logo and name on the card.
 function showCompany(name, logoUrl) {
   $("loginTitle").textContent = name;
-  if (!logoUrl) {
+  const letter = () => {
     $("loginMark").textContent = (name || "A").trim().charAt(0).toUpperCase();
-    return;
-  }
+    $("loginMark").classList.add("is-letter");
+  };
+  if (!logoUrl) return letter();
   const img = document.createElement("img");
   img.src = logoUrl;
   img.alt = "";
-  img.addEventListener("error", () => {
-    $("loginMark").textContent = (name || "A").trim().charAt(0).toUpperCase();
-  });
+  img.addEventListener("error", letter);
   $("loginMark").replaceChildren(img);
   $("loginMark").classList.add("has-logo");
+  return undefined;
 }
 
 async function showInviteDetails() {
@@ -240,14 +253,28 @@ async function showInviteDetails() {
   }
 }
 
-// Where to go after sign-in: owners/admins set up an empty company profile first;
-// agents and viewers without the dashboard start on the first page they may open.
+// An owner or admin whose company has no WhatsApp yet is offered "Connect WhatsApp" — once the
+// platform has set it up, and not again for a week after "Skip for now".
+async function shouldConnectWhatsApp() {
+  try {
+    const status = await crmApi("/whatsapp/connect");
+    if (!status.available || status.connected) return false;
+    const skippedAt = Number(getPreference("whatsappConnectSkippedAt", 0)) || 0;
+    return Date.now() - skippedAt > CONNECT_SKIP_DAYS * 24 * 60 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+// Where to go after sign-in: owners/admins connect WhatsApp, then set up an empty company
+// profile; agents and viewers without the dashboard start on the first page they may open.
 async function nextPage(member) {
   const managers = ["owner", "admin"];
   if (!managers.includes(member?.role) && !(member?.modules || []).includes("dashboard")) {
     const first = Object.entries(PAGE_MODULES).find(([, module]) => [].concat(module).some((key) => (member?.modules || []).includes(key)));
     return first ? encodeURI(first[0]) : "Settings.html";
   }
+  if (managers.includes(member?.role) && await shouldConnectWhatsApp()) return "connect-whatsapp.html";
   try {
     const { company } = await loadCompanyProfile();
     return companyHasDetails(company) || !managers.includes(member?.role) ? "dashboard.html" : "company.html";
@@ -256,10 +283,10 @@ async function nextPage(member) {
   }
 }
 
-// Signed in (WhatsApp/SMS code, QR, or Google on a remembered browser): keep the session and
-// open the first allowed page.
+// Signed in (Google, the 2-step code, or the phone): keep the session and open the first page.
 async function completeSignIn(auth) {
   qrLogin.stop();
+  showStep("busy");
   // A different company than last time on this browser: drop the old company cache.
   const previousMember = getCurrentMember();
   if (previousMember && String(previousMember.organizationId) !== String(auth.organizationId)) {
@@ -281,10 +308,11 @@ async function completeSignIn(auth) {
 // The card: one step at a time
 // ---------------------------------------------------------------
 const STEPS = {
-  google: { panel: "googleStep", number: 1, sub: "subGoogle" },
-  phone: { panel: "phoneStep", number: 2, sub: "subPhone" },
-  code: { panel: "codeStep", number: 3, sub: "subCode" },
-  qr: { panel: "qrStep", number: 0, sub: "subQr" },
+  google: { panel: "googleStep", sub: "subGoogle" },
+  phone: { panel: "phoneStep", sub: "subPhone" },
+  code: { panel: "codeStep", sub: "subCode" },
+  qr: { panel: "qrStep", sub: "subQr" },
+  busy: { panel: "busyStep", sub: "subGoogle" },
 };
 const login = { challenge: "", phone: "", channel: "whatsapp", smsBackup: false, step: "google", sent: null, phoneHintKey: "" };
 let resendTimer = null;
@@ -293,13 +321,12 @@ let resendLeft = 0;
 function renderStepTexts() {
   const step = STEPS[login.step];
   $("loginSub").textContent = t(login.step === "code" && login.channel === "sms" ? "subCodeSms" : step.sub);
-  $("progressLabel").textContent = t("step", { n: step.number });
   $("smsBtn").textContent = t(login.channel === "sms" ? "byWhatsapp" : "bySms");
   if (login.sent) {
-    const { phone, channel, devCode, minutes } = login.sent;
-    $("codeHint").textContent = [t(channel === "sms" ? "sentSms" : "sentWhatsapp", { phone }), devCode ? t("dev", { code: devCode }) : t("expires", { m: minutes })].join(" ");
+    const { phone, channel, minutes } = login.sent;
+    $("codeHint").textContent = `${t(channel === "sms" ? "sentSms" : "sentWhatsapp", { phone })} ${t("expires", { m: minutes })}`;
   }
-  if (login.phoneHintKey) $("phoneHint").textContent = t(login.phoneHintKey);
+  $("phoneHint").textContent = login.phoneHintKey ? t(login.phoneHintKey) : "";
   renderResend();
 }
 
@@ -309,13 +336,8 @@ function showStep(name) {
   Object.values(STEPS).forEach(({ panel }) => {
     $(panel).hidden = panel !== step.panel;
   });
-  $("loginProgress").hidden = !step.number;
-  document.querySelectorAll(".login-progress-bars i").forEach((bar) => {
-    bar.classList.toggle("on", Number(bar.dataset.step) <= step.number);
-  });
   $("stayRow").hidden = !["code", "qr"].includes(name);
   $("smsRow").hidden = name !== "code" || !login.smsBackup;
-  $("toQr").hidden = name === "qr" || onPhone; // a phone has nothing to scan with
   $("toGoogle").hidden = name !== "qr";
   renderStepTexts();
   if (name === "qr") qrLogin.start();
@@ -340,13 +362,14 @@ function prettyPhone(e164) {
   return match ? `+91 ${match[1]} ${match[2]}` : e164 || "";
 }
 
-// Step 1 → 2
+// Google → signed in, or (2-step verification) the number and the code.
 async function handleGoogleCredentialResponse(response) {
   const inviteToken = sessionStorage.getItem(INVITE_KEY) || "";
+  showStep("busy");
   try {
     const auth = await crmApi("/auth/google", postJson({ credential: response.credential, inviteToken }));
     if (auth.step !== "whatsapp-code") {
-      await completeSignIn(auth); // a remembered browser, or codes are off for this CRM
+      await completeSignIn(auth);
       return;
     }
     Object.assign(login, { challenge: auth.challenge, smsBackup: Boolean(auth.smsBackup), channel: "whatsapp", sent: null });
@@ -356,6 +379,7 @@ async function handleGoogleCredentialResponse(response) {
     if (note.key !== "noteInvite") setLoginNote("");
     showStep("phone");
   } catch (error) {
+    showStep("google");
     showToast(errorText(error, "errGoogle"), "error");
   }
 }
@@ -377,12 +401,12 @@ function startResendWait() {
   }, 1000);
 }
 
-// Step 2 → 3 (and "Send the code again", and the SMS backup)
+// The number → the code (and "Send the code again", and the SMS backup).
 async function sendCode(phone, channel) {
   const sent = await crmApi("/auth/login/code", postJson({ challenge: login.challenge, phone, channel }));
   login.phone = phone;
   login.channel = channel;
-  login.sent = { phone, channel, devCode: sent.devCode, minutes: Math.round((sent.expiresInSeconds || 300) / 60) };
+  login.sent = { phone, channel, minutes: Math.round((sent.expiresInSeconds || 300) / 60) };
   startResendWait();
   renderStepTexts();
 }
@@ -424,7 +448,6 @@ $("loginCode").addEventListener("input", () => {
   $("loginCode").value = $("loginCode").value.replace(/\D/g, "").slice(0, 6);
 });
 
-// Step 3 → signed in
 $("codeForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!login.challenge || !login.phone) return backToGoogle("");
@@ -436,6 +459,7 @@ $("codeForm").addEventListener("submit", async (event) => {
   } catch (error) {
     $("verifyBtn").disabled = false;
     if (error.code === "LOGIN_EXPIRED") return backToGoogle(errorText(error));
+    showStep("code");
     showToast(errorText(error, "errCode"), "error");
     $("loginCode").select();
   }
@@ -447,7 +471,6 @@ $("changePhone").addEventListener("click", () => {
   resendLeft = 0;
   login.sent = null;
   login.phoneHintKey = "";
-  $("phoneHint").textContent = "";
   showStep("phone");
 });
 
@@ -490,7 +513,7 @@ $("langBtn").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------
-// Log in with QR code (the phone allows this computer)
+// A computer logged in from the phone (login.html?with=phone)
 // ---------------------------------------------------------------
 const qrLogin = (() => {
   let current = null; // { id, secret, expiresAt }
@@ -546,7 +569,6 @@ const qrLogin = (() => {
       const result = await crmApi(`/auth/qr/${current.id}/poll`, postJson({ secret: current.secret, stayLoggedIn: stayLoggedIn() }));
       if (result.status === "approved") {
         running = false;
-        showState("wait");
         await completeSignIn(result);
         return;
       }
@@ -587,7 +609,6 @@ const qrLogin = (() => {
   };
 })();
 
-$("toQr").addEventListener("click", () => showStep("qr"));
 $("toGoogle").addEventListener("click", () => showStep(login.challenge ? (login.sent ? "code" : "phone") : "google"));
 $("qrReload").addEventListener("click", () => qrLogin.reload());
 
@@ -595,5 +616,5 @@ if (!alreadySignedIn) {
   applyLanguage();
   if (sessionStorage.getItem(PENDING_LINK_KEY)) setLoginNoteText("notePendingLink");
   showInviteDetails();
-  showStep("google");
+  showStep(withPhone ? "qr" : "google");
 }

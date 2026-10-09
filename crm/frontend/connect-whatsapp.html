@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connect WhatsApp | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- "Connect WhatsApp" (D60): an owner or admin connects the company's WhatsApp Business app
+         number with Meta's own popup (Embedded Signup with coexistence). The QR code inside the
+         popup is Meta's; this page never draws one. Then the chats are imported (live). -->
+    <main class="cw-page">
+      <header class="cw-brand">
+        <span><img src="img/icons/icon-192.png" alt="" width="36" height="36" /> YELLOW CRM</span>
+        <a class="cw-link" href="#" id="skipBtn">Skip for now</a>
+      </header>
+
+      <section class="cw-card" aria-live="polite">
+        <!-- Loading -->
+        <div class="cw-view" id="loadingView">
+          <div class="cw-main"><p class="cw-lead"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</p></div>
+        </div>
+
+        <!-- Not set up by the platform yet -->
+        <div class="cw-view" id="notReadyView" hidden>
+          <div class="cw-main">
+            <h1>Connecting WhatsApp is almost ready</h1>
+            <p class="cw-lead">The YELLOW CRM team is finishing the WhatsApp connection with Meta. You can use the CRM meanwhile — this page will let you connect your number as soon as it is ready.</p>
+          </div>
+          <div class="cw-side">
+            <i class="fa-brands fa-whatsapp"></i>
+            <a class="btn btn-primary" href="#" data-continue>Continue to the CRM</a>
+          </div>
+        </div>
+
+        <!-- Connect -->
+        <div class="cw-view" id="connectView" hidden>
+          <div class="cw-main">
+            <h1>Connect your WhatsApp</h1>
+            <p class="cw-lead">Bring your WhatsApp Business number into YELLOW CRM. Your WhatsApp Business app keeps working on your phone, and your chats and contacts come into the CRM's Inbox for your team.</p>
+            <ol class="cw-steps">
+              <li><span class="cw-no">1</span><span>Keep <strong>WhatsApp Business</strong> open on your phone (version 2.24.17 or newer)</span></li>
+              <li><span class="cw-no">2</span><span>Click <strong>Connect WhatsApp</strong> and log in to Facebook in the window that opens</span></li>
+              <li><span class="cw-no">3</span><span>Choose <strong>connect your existing WhatsApp Business app</strong>, enter your number, and scan the QR code that <strong>Meta</strong> shows with your phone</span></li>
+              <li><span class="cw-no">4</span><span>Allow <strong>sharing your chat history</strong> to bring the last 6 months of chats</span></li>
+            </ol>
+          </div>
+          <div class="cw-side">
+            <i class="fa-brands fa-whatsapp"></i>
+            <button class="btn cw-connect" id="connectBtn" type="button"><i class="fa-brands fa-whatsapp"></i> Connect WhatsApp</button>
+            <p class="cw-small">Opens Meta's secure window. YELLOW CRM never sees your Facebook password.</p>
+            <p class="cw-error" id="connectError" hidden></p>
+            <button class="cw-link" id="newNumberBtn" type="button">I want to use a new number (not on the WhatsApp app)</button>
+          </div>
+        </div>
+
+        <!-- Connecting / importing -->
+        <div class="cw-view" id="progressView" hidden>
+          <div class="cw-main">
+            <h1 id="progressTitle">Connecting…</h1>
+            <p class="cw-lead" id="progressText">Setting up your number with Meta. This takes a few seconds.</p>
+            <div class="cw-progress" id="importBox" hidden>
+              <div class="cw-bar"><span id="importBar"></span></div>
+              <div class="cw-counts">
+                <div><strong id="countChats">0</strong><span>chats</span></div>
+                <div><strong id="countMessages">0</strong><span>messages</span></div>
+                <div><strong id="countContacts">0</strong><span>contacts</span></div>
+              </div>
+              <p class="cw-small" id="importNote">You can open the Inbox now: chats keep arriving while this runs.</p>
+            </div>
+          </div>
+          <div class="cw-side">
+            <i class="fa-brands fa-whatsapp"></i>
+            <strong id="numberName"></strong>
+            <span class="cw-small" id="numberPhone"></span>
+            <a class="btn btn-primary" href="Inbox.html" id="openInboxBtn" hidden><i class="fa-solid fa-comments"></i> Open the Inbox</a>
+            <button class="btn btn-outline" id="retrySyncBtn" type="button" hidden><i class="fa-solid fa-rotate"></i> Import chats again</button>
+          </div>
+        </div>
+
+        <footer class="cw-foot">
+          <span><i class="fa-solid fa-lock"></i> Connected through Meta's official WhatsApp Business Platform. Groups are not included.</span>
+          <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></span>
+        </footer>
+      </section>
+    </main>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="js/app.js"></script>
+    <script src="js/connect-whatsapp.js"></script>
+  </body>
+</html>

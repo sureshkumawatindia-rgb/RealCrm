@@ -108,26 +108,154 @@ button {
 }
 
 /* ============================================================
-   LOGIN (D58): one card, one step at a time — Google, the mobile
-   number, the WhatsApp code; or "Log in with QR code"
+   LOGIN (D60): Google — and, for people with 2-step verification,
+   a WhatsApp code; the product on the left on wide screens.
+   Also link-device.html, connect-whatsapp.html and the legal pages.
    ============================================================ */
-.login-page {
+.auth-page,
+.auth-page button,
+.auth-page input {
+  font-family: "Inter", "Noto Sans Devanagari", sans-serif;
+}
+.auth-page {
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  background: var(--bg);
+}
+/* The left half: what YELLOW CRM is */
+.auth-showcase {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  padding: 56px clamp(32px, 6vw, 88px);
+  background:
+    radial-gradient(520px 300px at 0% 0%, rgba(255, 255, 255, 0.55), transparent),
+    linear-gradient(160deg, var(--brand) 0%, #ffd23f 55%, var(--brand-dark) 100%);
+  color: #1f1a05;
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.2px;
+}
+.auth-brand img {
+  border-radius: 10px;
+  background: #fff;
+}
+.auth-showcase h2 {
+  margin: 0;
+  font-size: clamp(26px, 2.6vw, 36px);
+  line-height: 1.18;
+  letter-spacing: -0.8px;
+  max-width: 520px;
+}
+.auth-showcase > p {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+  max-width: 500px;
+  color: rgba(31, 26, 5, 0.78);
+}
+/* A drawn inbox (no names or messages: an illustration, not data) */
+.auth-illustration {
+  max-width: 520px;
+}
+.ai-window {
+  display: grid;
+  grid-template-columns: 38% 1fr;
+  height: 220px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 24px 50px rgba(80, 60, 0, 0.22);
+}
+.ai-list {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 12px 10px;
+  border-right: 1px solid #f0ead2;
+}
+.ai-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+}
+.ai-row.active {
+  background: #fff7d1;
+}
+.ai-row i {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e9e4cf;
+  flex-shrink: 0;
+}
+.ai-row b {
+  height: 8px;
+  border-radius: 4px;
+  background: #ece7d5;
+  flex: 1;
+}
+.ai-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: #f7f3e6;
+}
+.ai-bubble {
+  height: 22px;
+  width: 52%;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+}
+.ai-bubble.out {
+  align-self: flex-end;
+  background: #d9fdd3;
+}
+.ai-bubble.short {
+  width: 34%;
+}
+.ai-bubble.long {
+  width: 64%;
+}
+.ai-compose {
+  margin-top: auto;
+  height: 26px;
+  border-radius: 13px;
+  background: #fff;
+}
+.auth-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  font-size: 14.5px;
+  font-weight: 500;
+}
+.auth-points i {
+  width: 22px;
+  text-align: center;
+  margin-right: 6px;
+}
+/* The right half: the card */
+.auth-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: 24px 16px;
-  background:
-    radial-gradient(600px 320px at 12% 8%, var(--brand-light), transparent),
-    radial-gradient(520px 280px at 92% 92%, var(--brand-light), transparent),
-    var(--bg);
-}
-.login-page,
-.login-page button,
-.login-page input {
-  font-family: "Inter", "Noto Sans Devanagari", sans-serif;
+  gap: 20px;
+  padding: 40px 24px 28px;
 }
 .login-card {
   position: relative;
@@ -137,7 +265,7 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pop);
-  padding: 36px 32px 24px;
+  padding: 40px 32px 26px;
   text-align: center;
   animation: card-in 0.45s var(--ease-spring);
 }
@@ -155,32 +283,32 @@ button {
   display: none !important;
 }
 .login-mark {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 18px;
-  border-radius: 15px;
-  background: var(--brand);
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--pop-3);
+}
+.login-mark.is-letter {
+  background: var(--brand);
   color: var(--text);
   font-weight: 700;
-  font-size: 20px;
-  letter-spacing: -0.5px;
-  box-shadow: var(--pop-3);
-  overflow: hidden;
-}
-/* An invite link: the inviting company's logo */
-.login-mark.has-logo {
-  width: 64px;
-  height: 64px;
-  background: #fff;
+  font-size: 22px;
 }
 .login-mark img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+.login-mark.has-logo {
+  width: 64px;
+  height: 64px;
 }
 /* English / हिंदी */
 .login-lang {
@@ -212,7 +340,8 @@ button {
 .login-sub {
   color: var(--text-muted);
   font-size: 14px;
-  margin: 0 0 20px;
+  line-height: 1.45;
+  margin: 0 0 22px;
 }
 .login-card .login-note {
   margin: 0 0 18px;
@@ -222,33 +351,6 @@ button {
   color: var(--text);
   font-size: 13px;
   line-height: 1.45;
-}
-/* Step 1 of 3, with three bars */
-.login-progress {
-  display: grid;
-  gap: 8px;
-  margin: 0 0 20px;
-}
-.login-progress-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-.login-progress-bars {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-.login-progress-bars i {
-  height: 4px;
-  border-radius: 4px;
-  background: var(--border);
-  transition: background 0.25s;
-}
-.login-progress-bars i.on {
-  background: var(--brand-dark);
 }
 .login-step {
   display: grid;
@@ -329,6 +431,15 @@ button {
   cursor: default;
   color: var(--text-faint);
 }
+.login-busy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
 .login-stay {
   display: flex;
   align-items: center;
@@ -348,19 +459,13 @@ button {
   color: var(--text-faint);
   cursor: help;
 }
-.login-foot {
-  margin: 20px 0 0;
-  font-size: 12px;
-  color: var(--text-faint);
-  font-weight: 500;
-}
-/* Below the card: "Log in with QR code" */
 .login-alt {
+  margin-top: 14px;
   border: 0;
   background: none;
-  padding: 6px 10px;
+  padding: 4px 8px;
   font: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
@@ -372,10 +477,27 @@ button {
 .login-alt i {
   margin-right: 8px;
 }
-.login-alt[hidden] {
-  display: none;
+.login-legal {
+  margin: 22px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
 }
-/* The QR code, with the "A" mark in the middle (like WhatsApp's logo) */
+.login-legal a,
+.auth-foot a {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.auth-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+/* A computer logged in from the phone: the code to scan */
 .login-qr {
   position: relative;
   width: 220px;
@@ -392,27 +514,6 @@ button {
   width: 220px;
   height: 220px;
   image-rendering: pixelated;
-}
-.login-qr-logo {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  border: 3px solid #fff;
-  background: var(--brand);
-  color: var(--text);
-  font-weight: 700;
-  font-size: 16px;
-  pointer-events: none;
-}
-.login-qr #qrImage[hidden] ~ .login-qr-logo {
-  display: none;
 }
 .login-qr-wait {
   color: var(--text-muted);
@@ -458,7 +559,21 @@ button {
   color: var(--text);
   font-weight: 600;
 }
-/* The phone side: link-device.html */
+/* Pages with only the card (link-device.html) */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px 16px;
+  background:
+    radial-gradient(600px 320px at 12% 8%, var(--brand-light), transparent),
+    radial-gradient(520px 280px at 92% 92%, var(--brand-light), transparent),
+    var(--bg);
+  font-family: "Inter", "Noto Sans Devanagari", sans-serif;
+}
 .link-device-card {
   max-width: 440px;
 }
@@ -525,9 +640,290 @@ button {
   border-radius: 14px;
   box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35);
 }
+/* connect-whatsapp.html: like WhatsApp Web's "link a device" screen */
+.cw-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 16px 32px;
+  background:
+    linear-gradient(#e8f6ee, #e8f6ee) top / 100% 220px no-repeat,
+    var(--bg);
+  font-family: "Inter", "Noto Sans Devanagari", sans-serif;
+}
+.cw-brand {
+  width: 100%;
+  max-width: 980px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 24px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.cw-brand span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cw-brand img {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.cw-card {
+  width: 100%;
+  max-width: 980px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  padding: 44px 52px 0;
+}
+.cw-card [hidden] {
+  display: none !important;
+}
+.cw-view {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 48px;
+  min-height: 300px;
+}
+.cw-main {
+  flex: 1;
+  min-width: 0;
+}
+.cw-main h1 {
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+  margin: 0 0 10px;
+}
+.cw-lead {
+  margin: 0 0 26px;
+  color: var(--text-muted);
+  font-size: 14.5px;
+  line-height: 1.55;
+  max-width: 560px;
+}
+.cw-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.cw-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+.cw-steps .cw-no {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.cw-side {
+  flex-shrink: 0;
+  width: 300px;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
+  padding: 28px 22px;
+  border-radius: 16px;
+  background: #f4fbf6;
+  border: 1px solid #d6efdf;
+}
+.cw-side .fa-whatsapp {
+  font-size: 54px;
+  color: #25d366;
+}
+.cw-connect {
+  width: 100%;
+  justify-content: center;
+  padding: 13px 16px;
+  font-size: 15px;
+  background: #25d366;
+  border-color: #25d366;
+  color: #fff;
+}
+.cw-connect:hover {
+  background: #1ebe5a;
+  border-color: #1ebe5a;
+  color: #fff;
+}
+.cw-small {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.cw-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.cw-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #fdecec;
+  color: #a12a1f;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+}
+.cw-error details {
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+.cw-progress {
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+}
+.cw-bar {
+  height: 8px;
+  border-radius: 8px;
+  background: var(--border);
+  overflow: hidden;
+}
+.cw-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 8px;
+  background: #25d366;
+  transition: width 0.4s;
+}
+.cw-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.cw-counts div {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg);
+  text-align: center;
+}
+.cw-counts strong {
+  display: block;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.cw-counts span {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.cw-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 36px -52px 0;
+  padding: 20px 52px 26px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.cw-foot a {
+  color: var(--text-muted);
+}
+/* Privacy Policy and Terms of Service */
+.legal-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 32px 16px 48px;
+  font-family: "Inter", sans-serif;
+}
+.legal-doc {
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px clamp(20px, 5vw, 48px);
+  line-height: 1.65;
+  font-size: 15px;
+  color: var(--text);
+}
+.legal-doc h1 {
+  font-size: 28px;
+  letter-spacing: -0.6px;
+  margin: 12px 0 4px;
+}
+.legal-doc h2 {
+  font-size: 18px;
+  margin: 28px 0 8px;
+}
+.legal-doc .legal-updated {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+.legal-doc a {
+  color: inherit;
+}
+.legal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+@media (max-width: 900px) {
+  .auth-page {
+    grid-template-columns: 1fr;
+  }
+  .auth-showcase {
+    display: none;
+  }
+  .cw-card {
+    padding: 28px 20px 0;
+  }
+  .cw-view {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 28px;
+  }
+  .cw-side {
+    width: auto;
+  }
+  .cw-foot {
+    margin: 28px -20px 0;
+    padding: 18px 20px 22px;
+  }
+}
 @media (max-width: 480px) {
   .login-card {
-    padding: 28px 20px 20px;
+    padding: 32px 20px 22px;
+  }
+  .cw-counts {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -2035,6 +2431,15 @@ body.crm-loading::before {
 .plan-banner.locked {
   background: var(--danger-bg);
   border-bottom-color: rgba(255, 69, 58, 0.3);
+}
+/* "Connect WhatsApp" on the dashboard (D60) */
+.plan-banner.whatsapp-banner {
+  background: #ecf8f0;
+  border-bottom-color: #c9ebd6;
+}
+.whatsapp-banner .fa-whatsapp {
+  color: #25d366;
+  font-size: 16px;
 }
 .plan-banner-text {
   flex: 1 1 280px;

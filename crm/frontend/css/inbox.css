@@ -217,6 +217,27 @@
   color: var(--text-muted);
   font-size: 13px;
 }
+/* No WhatsApp number yet (D60): the next step */
+.inbox-connect {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.inbox-connect .fa-whatsapp {
+  font-size: 36px;
+  color: #25d366;
+}
+.inbox-connect strong {
+  color: var(--text);
+  font-size: 14px;
+}
+.inbox-connect .btn {
+  margin-top: 6px;
+}
+/* Sent from the WhatsApp Business app on the phone */
+.from-phone {
+  white-space: nowrap;
+}
 
 /* ---------- avatars ---------- */
 .thread-avatar,

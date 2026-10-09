@@ -1,14 +1,15 @@
 /**
- * settings-phone.js — Settings → Your Profile → Your mobile number for logging in (D58)
- * A new browser logs in with Google, this number and a 6-digit WhatsApp code; the number is
- * verified there the first time, or here. "Change number" verifies a new one with a code.
- * Hidden when the CRM has codes switched off.
+ * settings-phone.js — Settings → Your Profile → Mobile number and 2-step verification (D60)
+ * The member verifies their mobile number with a 6-digit WhatsApp code ("Change number" verifies
+ * a new one), and can switch on 2-step verification: on a new browser, after Google, a code on
+ * WhatsApp to this number. Off unless switched on (or fixed for everyone by the CRM).
+ * Hidden when the CRM has codes switched off. The code is never shown on screen.
  * Runs after settings.js; everything stays inside this function so no names clash.
  */
 (function settingsPhone() {
   const $ = (id) => document.getElementById(id);
   const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, ...(body && { body: JSON.stringify(body) }) });
-  const DEFAULT_HINT = "On a new browser you log in with Google, this number and a 6-digit code on WhatsApp.";
+  const DEFAULT_HINT = "Your mobile number, verified with a 6-digit code on WhatsApp.";
 
   function render(status) {
     $("phoneSection").hidden = !status.available && !status.phone;
@@ -19,9 +20,17 @@
     $("phoneSendBtn").hidden = verified || !status.available;
     $("phoneVerifyBtn").hidden = true;
     $("phoneChangeBtn").hidden = !verified || !status.available;
-    $("phoneHint").textContent = verified
-      ? `${status.phone} is verified. A new browser asks for it, with a code on WhatsApp.`
-      : DEFAULT_HINT;
+    $("phoneHint").textContent = verified ? `${status.phone} is verified.` : DEFAULT_HINT;
+
+    // 2-step verification: each person's choice (optional), or fixed by the CRM.
+    $("twoStepRow").hidden = status.twoStepMode === "off" || !status.available;
+    $("twoStepToggle").checked = Boolean(status.twoStep);
+    $("twoStepToggle").disabled = status.twoStepMode === "required" || (!verified && !status.twoStep);
+    $("twoStepHint").textContent = status.twoStepMode === "required"
+      ? "Always on for this CRM: a new browser asks for a code on WhatsApp after Google."
+      : verified
+        ? "On a new browser, after Google, ask for a code sent on WhatsApp to this number. A browser where you choose \"Stay logged in\" is not asked again for 30 days."
+        : "Verify your number above first.";
   }
 
   async function load() {
@@ -36,7 +45,7 @@
     $("phoneSendBtn").disabled = true;
     try {
       const sent = await crmApi("/auth/phone/request", json("POST", { phone: $("phoneNumber").value.trim() }));
-      $("phoneHint").textContent = sent.devCode ? `${sent.message} (Development: the code is ${sent.devCode}.)` : sent.message;
+      $("phoneHint").textContent = sent.message;
       $("phoneCodeField").hidden = false;
       $("phoneVerifyBtn").hidden = false;
       $("phoneCode").focus();
@@ -63,6 +72,18 @@
     $("phoneChangeBtn").hidden = true;
     $("phoneSendBtn").hidden = false;
     $("phoneHint").textContent = "Enter the new number. It replaces the old one once you enter the code from WhatsApp.";
+  });
+  $("twoStepToggle").addEventListener("change", async () => {
+    const enabled = $("twoStepToggle").checked;
+    $("twoStepToggle").disabled = true;
+    try {
+      render(await crmApi("/auth/two-step", json("PUT", { enabled })));
+      showToast(enabled ? "2-step verification is on." : "2-step verification is off.", "success");
+    } catch (error) {
+      $("twoStepToggle").checked = !enabled;
+      $("twoStepToggle").disabled = false;
+      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+    }
   });
 
   load();

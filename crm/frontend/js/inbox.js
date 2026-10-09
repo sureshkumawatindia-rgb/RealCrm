@@ -102,7 +102,7 @@
     if (!visibleToMe(c)) return false;
     if (state.view === "mine" && String(c.assigneeId) !== String(me.id)) return false;
     if (state.view === "unassigned" && c.assigneeId) return false;
-    if (state.status ? c.status !== state.status : c.status === "closed") return false;
+    if (state.status !== "any" && (state.status ? c.status !== state.status : c.status === "closed")) return false;
     if (state.q) {
       const q = state.q.toLowerCase();
       const hay = `${c.contact.name} ${c.contact.company} ${c.contact.phone}`.toLowerCase();
@@ -132,11 +132,19 @@
   function renderList() {
     const list = $("conversationList");
     if (!state.conversations.length) {
+      // No WhatsApp number yet: the next step, not an empty list (owners and admins connect it).
+      if (state.whatsappConnected === false && !state.q) {
+        list.innerHTML = isOrgManager()
+          ? '<div class="inbox-list-empty inbox-connect"><i class="fa-brands fa-whatsapp"></i><strong>Connect WhatsApp to see your chats here</strong><span>Your WhatsApp Business app keeps working, and its chats come in.</span><a class="btn btn-primary" href="connect-whatsapp.html?add=1">Connect WhatsApp</a></div>'
+          : '<div class="inbox-list-empty">WhatsApp is not connected yet. Ask an owner or admin to connect it.</div>';
+        $("conversationMore").hidden = true;
+        return;
+      }
       const empty = state.q
         ? "No chats match your search."
         : state.view === "mine"
           ? "No chats assigned to you. Pick one from the Queue."
-          : "No chats here yet. New WhatsApp messages appear as they arrive.";
+          : state.status === "" ? "No open chats. Older chats are under All chats." : "No chats here. New WhatsApp messages appear as they arrive.";
       list.innerHTML = `<div class="inbox-list-empty">${escapeHtml(empty)}</div>`;
     } else {
       list.innerHTML = state.conversations.map(conversationHtml).join("");
@@ -244,7 +252,9 @@
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
     const robot = m.automation ? ({ ai: "AI assistant · ", api: "API · ", "auto-reply": "Auto-reply · ", sequence: "Sequence · ", bot: "Bot · ", consent: "Opt-out reply · ", receipt: "Payment receipt · ", broadcast: "Broadcast · ", "catalog-order": "Order received · " }[m.automation.kind] || "Automation · ") : "";
-    const who = m.direction !== "out" ? "" : robot || (m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "");
+    // Sent from the WhatsApp Business app on the phone (a connected app number, D60).
+    const fromPhone = m.origin === "phone" ? '<span class="from-phone"><i class="fa-solid fa-mobile-screen"></i> Sent from phone</span> · ' : "";
+    const who = m.direction !== "out" ? "" : fromPhone || robot || (m.sentByMemberId ? `${escapeHtml(memberNameOf(m.sentByMemberId))} · ` : "");
     const time = new Date(m.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
     const replyButton = m.providerMessageId && m.direction === "in"
       ? `<button class="reply-btn" type="button" data-reply="${escapeHtml(m.id)}" title="Reply to this message"><i class="fa-solid fa-reply"></i></button>`
@@ -1509,6 +1519,16 @@
     socket.on("notification:new", (notification) => crmBell.push(notification));
     socket.on("message:status", onMessageStatus);
     socket.on("note:new", onNoteNew);
+    // Chats being imported from a WhatsApp Business app number (D60): refresh the list now and then.
+    let syncReload = null;
+    socket.on("whatsapp:sync", () => {
+      state.whatsappConnected = true;
+      if (syncReload) return;
+      syncReload = setTimeout(() => {
+        syncReload = null;
+        loadConversations();
+      }, 2000);
+    });
   }
 
   // Keep the reply-window chip current and mark the open chat read when the tab comes back.
@@ -1532,6 +1552,14 @@
       state.aiAvailable = Boolean(status?.available);
       if (state.current) renderThreadHead();
     }).catch(() => {});
+    // Owners and admins: is a WhatsApp number connected at all (D60)? Otherwise the empty list
+    // says how to connect one.
+    if (isOrgManager()) {
+      crmApi("/whatsapp/connect").then((status) => {
+        state.whatsappConnected = status.accounts.length > 0;
+        renderList();
+      }).catch(() => {});
+    }
     await Promise.all([loadConversations(), loadSummary(), loadQuickReplies()]);
     const deepLink = new URLSearchParams(window.location.search).get("c");
     if (deepLink) openConversation(deepLink, { fromList: false });

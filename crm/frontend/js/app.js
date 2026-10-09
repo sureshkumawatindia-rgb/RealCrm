@@ -104,7 +104,7 @@ async function crmDownload(path, fileName) {
 // ---------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------
-const PUBLIC_PAGES = new Set(["", "index.html", "login.html"]);
+const PUBLIC_PAGES = new Set(["", "index.html", "login.html", "privacy.html", "terms.html"]);
 
 function currentPageName() {
   return decodeURIComponent(window.location.pathname.split("/").pop()).toLowerCase();
@@ -1084,6 +1084,35 @@ const crmPlan = (() => {
   return { state, forget, mountBanner, nudge, isShowing };
 })();
 
+// "Connect WhatsApp" on the dashboard (D60): for owners and admins whose company has no WhatsApp
+// number yet, once the platform offers it (e.g. after "Skip for now"). × hides it for the day.
+async function mountWhatsAppReminder() {
+  const topbar = document.querySelector(".main > .topbar");
+  if (!topbar || currentPageName() !== "dashboard.html" || !isAuthenticated() || !isOrgManager()) return;
+  const today = new Date().toDateString();
+  if (getPreference("whatsappBannerHiddenOn", "") === today) return;
+  let status;
+  try {
+    status = await crmApi("/whatsapp/connect");
+  } catch {
+    return; // a reminder only
+  }
+  if (!status.available || status.connected) return;
+  const el = document.createElement("div");
+  el.id = "whatsappBanner";
+  el.className = "plan-banner whatsapp-banner";
+  el.setAttribute("role", "status");
+  el.innerHTML = `<i class="fa-brands fa-whatsapp"></i>
+    <span class="plan-banner-text">Connect your WhatsApp Business number to bring your chats into the Inbox. The app keeps working on your phone.</span>
+    <a class="btn btn-primary" href="connect-whatsapp.html?add=1">Connect WhatsApp</a>
+    <button class="plan-banner-close" type="button" aria-label="Hide until tomorrow">&times;</button>`;
+  el.querySelector(".plan-banner-close").addEventListener("click", () => {
+    setPreference("whatsappBannerHiddenOn", today);
+    el.remove();
+  });
+  (document.getElementById("planBanner") || topbar).insertAdjacentElement("afterend", el);
+}
+
 // ---------------------------------------------------------------
 // Installable app and web push (Phase 10E): every page links the manifest and registers the
 // service worker (sw.js: offline notice, push notifications). Browsers allow both only on
@@ -1363,6 +1392,7 @@ document.addEventListener("DOMContentLoaded", () => {
   hideUnavailableModules();
   crmBell.mount();
   crmPlan.mountBanner();
+  mountWhatsAppReminder();
   // The Inbox page keeps its own count up to date live.
   if (moduleForPage(currentPageName()) !== "inbox") refreshInboxNavBadge();
 
