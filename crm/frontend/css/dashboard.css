@@ -303,3 +303,103 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- "Get your CRM ready" (dashboard.js renderSetupChecklist) ---------- */
+.setup-card {
+  margin-bottom: 20px;
+  padding: 18px 20px 8px;
+}
+.setup-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.setup-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.setup-head p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.setup-progress {
+  height: 6px;
+  margin: 14px 0 6px;
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.setup-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand), var(--brand-darker));
+  transition: width 0.4s var(--ease);
+}
+.setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.setup-steps li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.setup-steps li:last-child {
+  border-bottom: none;
+}
+.setup-steps li > i {
+  font-size: 18px;
+  color: var(--border-strong);
+  flex-shrink: 0;
+}
+.setup-steps li.done > i {
+  color: var(--success);
+}
+.setup-step-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.setup-step-text strong {
+  font-size: 13.5px;
+}
+.setup-step-text span {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.setup-steps li.done .setup-step-text strong {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.setup-done {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--success);
+}
+.setup-steps .btn {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  font-size: 12.5px;
+}
+@media (max-width: 600px) {
+  .setup-card {
+    padding: 14px 14px 4px;
+  }
+  .setup-steps li {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+  .setup-steps .btn,
+  .setup-done {
+    margin-left: 30px;
+  }
+}

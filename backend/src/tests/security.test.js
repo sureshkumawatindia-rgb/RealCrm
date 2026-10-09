@@ -50,6 +50,16 @@ describe('Request hardening', () => {
     expect(res.headers['content-security-policy']).toBeUndefined();
   });
 
+  it('answers a missing CRM page with the "not found" page and /favicon.ico with the app icon', async () => {
+    const missing = await api().get('/crm/frontend/no-such-page.html');
+    expect(missing.status).toBe(404);
+    expect(missing.headers['content-type']).toMatch(/text\/html/);
+    expect(missing.text).toMatch(/This page doesn't exist/);
+    const icon = await api().get('/favicon.ico');
+    expect(icon.status).toBe(200);
+    expect(icon.headers['content-type']).toMatch(/image\/png/);
+  });
+
   it('hides unexpected error details behind a generic message', async () => {
     const app = express();
     app.get('/boom', () => { throw new Error('Mongo exploded with secrets'); });

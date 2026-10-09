@@ -25,6 +25,8 @@ const CRM_API_BASE =
 const NO_REFRESH_PATHS = new Set(["/auth/google", "/auth/refresh", "/auth/logout", "/auth/login/code", "/auth/login/verify", "/auth/qr"]);
 let refreshInFlight = null;
 let sessionEnded = false;
+// Set while a member is sent away from a page they cannot open: its script asks for nothing.
+let leavingPage = false;
 
 // Exchanges the httpOnly refresh cookie for a new access token. Tabs take turns (Web Locks),
 // so two tabs never present the same refresh token (the server treats that as theft).
@@ -57,6 +59,7 @@ function refreshAccessToken(staleToken) {
 // Returns the whole response body ({ data, pagination, ... }), or a Blob for { blob: true }
 // (file downloads); throws with status/code/errors.
 async function crmRequest(path, options = {}, { retried = false, blob = false } = {}) {
+  if (leavingPage) return new Promise(() => {}); // the browser is already on its way elsewhere
   const headers = new Headers(options.headers || {});
   const session = localStorage.getItem(KEYS.SESSION);
   if (session) headers.set("Authorization", `Bearer ${session}`);
@@ -404,6 +407,11 @@ async function crmLoad(names, { force = false } = {}) {
     names
       .filter((name) => force || !crmCache[name])
       .map(async (name) => {
+        // Pending invites are for owners and admins: nobody else needs to ask.
+        if (name === "invites" && !isOrgManager()) {
+          crmCache[name] = [];
+          return;
+        }
         try {
           crmCache[name] = await crmFetchAll(CRM_SOURCES[name]);
         } catch (error) {
@@ -1162,6 +1170,8 @@ function formatPhoneE164(phone) {
 async function mountWhatsAppReminder() {
   const topbar = document.querySelector(".main > .topbar");
   if (!topbar || currentPageName() !== "dashboard.html" || !isAuthenticated() || !isOrgManager()) return;
+  // The dashboard's "Get your CRM ready" list has this step, unless it was hidden.
+  if (!getPreference("setupChecklistHidden", false)) return;
   const today = new Date().toDateString();
   if (getPreference("whatsappBannerHiddenOn", "") === today) return;
   let status;
@@ -1201,6 +1211,7 @@ async function mountWhatsAppReminder() {
     head.appendChild(el);
   };
   add("link", { rel: "manifest", href: "manifest.webmanifest" });
+  add("link", { rel: "icon", type: "image/png", href: "img/icons/icon-192.png" });
   add("link", { rel: "apple-touch-icon", href: "img/icons/icon-192.png" });
   add("meta", { rel: "theme-color", name: "theme-color", content: "#ffde59" });
   if ("serviceWorker" in navigator && window.isSecureContext) {
@@ -1359,20 +1370,68 @@ function labelTableCells() {
     });
   });
 }
+// A button that is only an icon gets a name from its icon: read out by screen readers and
+// shown as a tooltip on hover ("Edit", "Delete", …). Buttons that have a name keep it.
+const ICON_NAMES = {
+  "fa-pen": "Edit",
+  "fa-pen-to-square": "Edit",
+  "fa-trash": "Delete",
+  "fa-trash-can": "Delete",
+  "fa-xmark": "Remove",
+  "fa-plus": "Add",
+  "fa-chevron-left": "Previous",
+  "fa-chevron-right": "Next",
+  "fa-eye": "View",
+  "fa-download": "Download",
+  "fa-copy": "Copy",
+};
+function nameIconButtons(root = document) {
+  root.querySelectorAll("button:not([aria-label]):not([title])").forEach((button) => {
+    if (button.textContent.trim() || button.children.length !== 1) return;
+    const icon = [...button.firstElementChild.classList].find((name) => ICON_NAMES[name]);
+    if (!icon) return;
+    button.setAttribute("aria-label", ICON_NAMES[icon]);
+    button.title = ICON_NAMES[icon];
+  });
+}
+
 function initTableCards() {
   const main = document.querySelector(".main");
+  nameIconButtons();
   if (!main) return;
-  let queued = false;
   const run = () => {
-    queued = false;
     labelTableCells();
+    nameIconButtons(main);
   };
   run();
-  new MutationObserver(() => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(run);
-  }).observe(main, { childList: true, subtree: true });
+  // One call per batch of changes; it only sets attributes, which this observer ignores.
+  new MutationObserver(run).observe(main, { childList: true, subtree: true });
+}
+
+// ---------------------------------------------------------------
+// Popups: Escape closes the one on top through its own × button (so the page's close
+// logic runs), and every × has a name for screen readers.
+// ---------------------------------------------------------------
+const POPUP_CLOSE = '.modal-head .icon-btn[id$="Close"], .modal-head .icon-btn[id$="close"]';
+function initPopupKeys() {
+  document.querySelectorAll(POPUP_CLOSE).forEach((button) => {
+    if (!button.getAttribute("aria-label")) button.setAttribute("aria-label", button.title || "Close");
+  });
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const open = [...document.querySelectorAll(".modal-overlay.open")];
+      if (!open.length) return;
+      const zIndex = (el) => Number(getComputedStyle(el).zIndex) || 0;
+      const top = open.reduce((best, el) => (zIndex(el) >= zIndex(best) ? el : best));
+      const close = top.querySelector(POPUP_CLOSE);
+      if (!close) return; // a popup without a × handles Escape itself
+      event.stopPropagation();
+      close.click();
+    },
+    true,
+  );
 }
 
 // ---------------------------------------------------------------
@@ -1477,21 +1536,104 @@ function moduleForPage(fileName) {
   return Object.entries(PAGE_MODULES).find(([page]) => page.toLowerCase() === lower)?.[1] || null;
 }
 
+// Owners and admins open every page; others only the pages of their modules (and pages
+// without a module, such as Settings or My performance).
+function canOpenPage(fileName, member = getCurrentMember()) {
+  if (!member || ["owner", "admin"].includes(member.role)) return true;
+  const module = moduleForPage(fileName);
+  return !module || [].concat(module).some((key) => (member.modules || []).includes(key));
+}
+// Where a member starts: the first page in sidebar order they may open.
+function firstAllowedPage(member = getCurrentMember()) {
+  const first = Object.keys(PAGE_MODULES).find((page) => canOpenPage(page, member));
+  return first ? encodeURI(first) : "Settings.html";
+}
+const PAGE_NAMES = { "al insights.html": "AI Insights", "customer-360.html": "Customer 360°" };
+function pageName(fileName) {
+  const name = PAGE_NAMES[String(fileName).toLowerCase()] || String(fileName).replace(/\.html$/i, "");
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+// A member who opens a page they have no access to (an old bookmark or link) goes to their
+// first page before this page's own script asks the server for anything; that page says why.
+const thisPageFile = () => decodeURIComponent(window.location.pathname.split("/").pop());
+function leaveIfNoAccess() {
+  if (!isAuthenticated() || canOpenPage(thisPageFile())) return false;
+  leavingPage = true;
+  document.documentElement.style.visibility = "hidden";
+  window.location.replace(`${firstAllowedPage()}?noaccess=${encodeURIComponent(thisPageFile())}`);
+  return true;
+}
+leaveIfNoAccess();
+function explainNoAccess() {
+  const params = new URLSearchParams(window.location.search);
+  const blocked = params.get("noaccess");
+  if (!blocked) return;
+  showToast(`You don't have access to ${pageName(blocked)}. Ask your company's owner or admin to give it to you.`, "error");
+  params.delete("noaccess");
+  const rest = params.toString();
+  history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
+}
+
 function hideUnavailableModules() {
   const member = getCurrentMember();
-  if (!member || isOrgManager()) return;
-  const allowed = new Set(member.modules || []);
+  if (!member) return;
   document.querySelectorAll(".sidebar .nav-item[href]").forEach((link) => {
-    const module = moduleForPage(decodeURIComponent(link.getAttribute("href")).replace(/^\.\//, ""));
-    if (module && ![].concat(module).some((key) => allowed.has(key))) link.style.display = "none";
+    const page = decodeURIComponent(link.getAttribute("href")).replace(/^\.\//, "");
+    link.style.display = canOpenPage(page, member) ? "" : "none";
   });
   document.querySelectorAll(".sidebar .nav-submenu").forEach((submenu) => {
     const visible = [...submenu.querySelectorAll(".nav-item")].some((item) => item.style.display !== "none");
-    if (visible) return;
-    submenu.style.display = "none";
+    submenu.style.display = visible ? "" : "none";
     const parent = document.querySelector(`.nav-parent[data-group="${submenu.dataset.submenu}"]`);
-    if (parent) parent.style.display = "none";
+    if (parent) parent.style.display = visible ? "" : "none";
   });
+}
+
+// The top of the sidebar shows the company's own name and logo (Settings → Your Profile) with
+// "YELLOW CRM" under it; a company without a name yet keeps the YELLOW CRM brand.
+function renderSidebarBrand(company = getCompanyInfo()) {
+  const brand = document.querySelector(".sidebar-brand");
+  const img = brand?.querySelector(".mark img");
+  const label = brand?.querySelector(":scope > span:last-child");
+  if (!brand || !label) return;
+  if (img) {
+    img.dataset.defaultSrc ||= img.getAttribute("src");
+    img.src = company?.logoUrl || img.dataset.defaultSrc;
+    img.alt = company?.name ? `${company.name} logo` : "logo";
+  }
+  if (!company?.name) return;
+  const name = document.createElement("strong");
+  name.textContent = company.name;
+  const product = document.createElement("small");
+  product.textContent = "YELLOW CRM";
+  label.className = "sidebar-brand__name";
+  label.title = company.name;
+  label.replaceChildren(name, product);
+}
+
+// The saved membership comes from sign-in; an owner may have changed the role or the modules
+// since. Each page checks it again and updates the sidebar (and leaves a page no longer open
+// to this member).
+async function syncMembership() {
+  try {
+    const me = await crmApi("/auth/me");
+    if (!me?.member) return;
+    const cached = getCompanyInfo() || {};
+    const { name = "", logoUrl = "" } = me.organization || {};
+    if (cached.name !== name || (cached.logoUrl || "") !== logoUrl) {
+      saveCompanyInfo({ ...cached, name, logoUrl });
+      renderSidebarBrand();
+    }
+    const before = localStorage.getItem(KEYS.MEMBER);
+    const after = JSON.stringify({ ...me.member, organizationId: me.organization?.id ?? getCurrentMember()?.organizationId });
+    if (before === after) return;
+    localStorage.setItem(KEYS.MEMBER, after);
+    if (leaveIfNoAccess()) return;
+    hideUnavailableModules();
+  } catch {
+    /* the saved membership stays; the server checks every request anyway */
+  }
 }
 
 // ---------------------------------------------------------------
@@ -1575,6 +1717,9 @@ function injectGlobalNavItems() {
 document.addEventListener("DOMContentLoaded", () => {
   injectGlobalNavItems();
   hideUnavailableModules();
+  renderSidebarBrand();
+  if (isAuthenticated() && document.querySelector(".sidebar")) syncMembership();
+  explainNoAccess();
   crmBell.mount();
   crmPlan.mountBanner();
   mountWhatsAppReminder();
@@ -1601,6 +1746,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   initSidebarToggle();
   initNavGroups();
+  initPopupKeys(); // before the icon names: a popup's × is "Close", not "Remove"
   initTableCards();
 
   // Company profile modal (trigger sits next to the logout button)

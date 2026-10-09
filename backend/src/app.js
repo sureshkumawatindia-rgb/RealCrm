@@ -25,7 +25,14 @@ app.use(requestId);
 // The CRM pages, so this one server runs the whole CRM (see start-crm.vbs).
 // Served before helmet: its headers would block the pages' inline scripts and Google sign-in.
 app.get('/', (req, res) => res.redirect('/crm/frontend/index.html'));
+// Browsers ask for /favicon.ico on every page that names no icon: the app's own icon.
+app.get('/favicon.ico', (req, res) => res.sendFile(path.join(frontendDir, 'img', 'icons', 'icon-192.png'), { maxAge: '7d' }));
 app.use('/crm/frontend', express.static(frontendDir));
+// An address under the CRM with no page: a page that says so (not the API's JSON answer).
+app.use('/crm/frontend', (req, res, next) => {
+  if (!['GET', 'HEAD'].includes(req.method)) return next();
+  res.status(404).sendFile(path.join(frontendDir, '404.html'));
+});
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },

@@ -270,10 +270,7 @@ async function shouldConnectWhatsApp() {
 // profile; agents and viewers without the dashboard start on the first page they may open.
 async function nextPage(member) {
   const managers = ["owner", "admin"];
-  if (!managers.includes(member?.role) && !(member?.modules || []).includes("dashboard")) {
-    const first = Object.entries(PAGE_MODULES).find(([, module]) => [].concat(module).some((key) => (member?.modules || []).includes(key)));
-    return first ? encodeURI(first[0]) : "Settings.html";
-  }
+  if (!managers.includes(member?.role) && !(member?.modules || []).includes("dashboard")) return firstAllowedPage(member);
   if (managers.includes(member?.role) && await shouldConnectWhatsApp()) return "connect-whatsapp.html";
   try {
     const { company } = await loadCompanyProfile();

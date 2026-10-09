@@ -982,6 +982,27 @@ button {
   letter-spacing: -0.3px;
   color: var(--text);
 }
+/* The company's own name over "YELLOW CRM" (app.js renderSidebarBrand) */
+.sidebar-brand .sidebar-brand__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.sidebar-brand__name strong {
+  font-size: 14.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-brand__name small {
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
 
 .nav-group {
   display: flex;
