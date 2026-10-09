@@ -1084,6 +1084,78 @@ const crmPlan = (() => {
   return { state, forget, mountBanner, nudge, isShowing };
 })();
 
+// Private numbers (D61): the popup that says plainly what making a number private — or showing
+// it to the team again — does, before an owner confirms. Used by the Inbox and Settings →
+// WhatsApp. open() resolves to { note } when confirmed, null when cancelled.
+const crmPrivacyDialog = (() => {
+  const POINTS = {
+    hide: [
+      ["fa-user-lock", "Only owners will see this chat.", "Admins and agents won't see it in the Inbox, Customers, Leads or reports."],
+      ["fa-bell-slash", "New messages stay private too.", "No automation, bot or auto-reply runs for this number, and no lead is created from it."],
+      ["fa-box-archive", "Nothing is deleted.", "The chat stays here for you, and in the WhatsApp Business app on your phone."],
+      ["fa-rotate-left", "You can undo it any time.", "Settings → WhatsApp → Private numbers → Show to team."],
+    ],
+    show: [
+      ["fa-users", "Your team will see this chat again.", "Admins and agents who see all chats will find it in the Inbox, Customers and Leads."],
+      ["fa-bolt", "New messages run your automations again.", "Assignment rules, auto-replies and the bot treat it like any customer."],
+      ["fa-clock-rotate-left", "Earlier messages stay as they are.", "Nothing that happened while it was private is sent or started now."],
+    ],
+  };
+
+  function open({ mode = "hide", name = "", phone = "" } = {}) {
+    return new Promise((resolve) => {
+      const hide = mode === "hide";
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay open privacy-dialog";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <h3><i class="fa-solid ${hide ? "fa-lock" : "fa-lock-open"}"></i> ${hide ? "Make this number private?" : "Show this number to the team?"}</h3>
+            <button class="icon-btn" type="button" data-cancel aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="modal-body">
+            <p class="privacy-who"><strong>${escapeHtml(name || formatPhoneE164(phone))}</strong>${name && phone ? ` <span>${escapeHtml(formatPhoneE164(phone))}</span>` : ""}</p>
+            <ul class="privacy-points">
+              ${POINTS[hide ? "hide" : "show"].map(([icon, title, text]) => `<li><i class="fa-solid ${icon}"></i><span><strong>${escapeHtml(title)}</strong> ${escapeHtml(text)}</span></li>`).join("")}
+            </ul>
+            ${hide ? '<div class="field"><label for="privacyNote">Label (optional, only you see it)</label><input type="text" id="privacyNote" maxlength="60" placeholder="e.g. Family" /></div>' : ""}
+            <div class="privacy-actions">
+              <button class="btn btn-outline" type="button" data-cancel>Cancel</button>
+              <button class="btn btn-primary" type="button" data-confirm><i class="fa-solid ${hide ? "fa-lock" : "fa-lock-open"}"></i> ${hide ? "Make private" : "Show to team"}</button>
+            </div>
+          </div>
+        </div>`;
+      const close = (result) => {
+        document.removeEventListener("keydown", onKey);
+        overlay.remove();
+        resolve(result);
+      };
+      const onKey = (event) => {
+        if (event.key === "Escape") close(null);
+      };
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay || event.target.closest("[data-cancel]")) close(null);
+        if (event.target.closest("[data-confirm]")) close({ note: overlay.querySelector("#privacyNote")?.value.trim() || "" });
+      });
+      document.addEventListener("keydown", onKey);
+      document.body.appendChild(overlay);
+      (overlay.querySelector("#privacyNote") || overlay.querySelector("[data-confirm]")).focus();
+    });
+  }
+
+  return { open };
+})();
+
+const isOrgOwner = () => getCurrentMember()?.role === "owner";
+
+// "+919829070001" → "+91 98290 70001" (how numbers are read in India); others unchanged.
+function formatPhoneE164(phone) {
+  const match = /^\+91(\d{5})(\d{5})$/.exec(String(phone || ""));
+  return match ? `+91 ${match[1]} ${match[2]}` : String(phone || "");
+}
+
 // "Connect WhatsApp" on the dashboard (D60): for owners and admins whose company has no WhatsApp
 // number yet, once the platform offers it (e.g. after "Skip for now"). × hides it for the day.
 async function mountWhatsAppReminder() {
@@ -1365,6 +1437,21 @@ function injectGlobalNavItems() {
       label: "Orders",
       afterHref: "Quotations.html",
     },
+    // The team's work (D61): everyone sees their own; owners and admins see the team live.
+    // Both go right after Reports & Analytics, in this order.
+    {
+      href: "my-performance.html",
+      icon: "fa-user-check",
+      label: "My performance",
+      afterHref: "Reports & Analytics.html",
+    },
+    {
+      href: "team-live.html",
+      icon: "fa-signal",
+      label: "Team live",
+      afterHref: "Reports & Analytics.html",
+      managersOnly: true,
+    },
   ];
   // Pages write the same link as "Deals.html" or "./Deals.html".
   const findLink = (href) => [...navGroup.querySelectorAll(".nav-item[href]")].find((link) => link.getAttribute("href").replace(/^\.\//, "") === href);
@@ -1372,6 +1459,7 @@ function injectGlobalNavItems() {
   GLOBAL_ITEMS.forEach((item) => {
     // Never insert twice, in case a page already has it hard-coded.
     if (findLink(item.href)) return;
+    if (item.managersOnly && !isOrgManager()) return;
 
     const anchor = findLink(item.afterHref);
     if (!anchor) return;

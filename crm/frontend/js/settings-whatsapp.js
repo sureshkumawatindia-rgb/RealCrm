@@ -158,7 +158,61 @@
     document.getElementById("waSimulateForm").hidden = !accounts.length;
   }
 
+  // --- private numbers (D61): owners only; the popup explains it before anything changes ---
+  async function loadPrivate() {
+    const section = document.getElementById("waPrivateSection");
+    section.hidden = !isOrgOwner();
+    if (section.hidden) return;
+    const list = document.getElementById("waPrivateList");
+    try {
+      const numbers = await crmApi("/privacy/numbers");
+      list.innerHTML = numbers.length
+        ? numbers.map((n) => `
+          <li>
+            <span class="device-icon"><i class="fa-solid fa-lock"></i></span>
+            <span class="device-text">
+              <span class="device-name">${escapeHtml(n.name || formatPhoneE164(n.phone))}</span>${n.note ? ` <span class="badge badge-neutral">${escapeHtml(n.note)}</span>` : ""}
+              <br /><span class="device-meta">${escapeHtml(formatPhoneE164(n.phone))} · ${n.chats} ${n.chats === 1 ? "chat" : "chats"} · private since ${escapeHtml(when(n.addedAt))}</span>
+            </span>
+            <button class="btn btn-outline" type="button" data-private-show="${escapeHtml(n.id)}" data-name="${escapeHtml(n.name)}" data-phone="${escapeHtml(n.phone)}">Show to team</button>
+          </li>`).join("")
+        : '<li class="device-empty">No private numbers. Make a personal chat private from the Inbox, or add a number below.</li>';
+    } catch (error) {
+      list.innerHTML = `<li class="device-empty">${escapeHtml(apiErrorMessage(error, "Couldn't load the private numbers."))}</li>`;
+    }
+  }
+
+  document.getElementById("waPrivateForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const phone = document.getElementById("waPrivatePhone").value.trim();
+    const choice = await crmPrivacyDialog.open({ mode: "hide", phone });
+    if (!choice) return;
+    try {
+      await crmApi("/privacy/numbers", jsonRequest("POST", { phone, note: choice.note || document.getElementById("waPrivateNote").value.trim() }));
+      e.target.reset();
+      showToast("Only owners see this number's chats now.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+    }
+    loadPrivate();
+  });
+
+  document.getElementById("waPrivateList").addEventListener("click", async (e) => {
+    const button = e.target.closest("[data-private-show]");
+    if (!button) return;
+    const choice = await crmPrivacyDialog.open({ mode: "show", name: button.dataset.name, phone: button.dataset.phone });
+    if (!choice) return;
+    try {
+      await crmApi(`/privacy/numbers/${button.dataset.privateShow}`, { method: "DELETE" });
+      showToast("Your team can see this number's chats again.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+    }
+    loadPrivate();
+  });
+
   async function load() {
+    loadPrivate();
     try {
       [accounts, connect] = await Promise.all([crmApi("/whatsapp/accounts"), crmApi("/whatsapp/connect")]);
       render();

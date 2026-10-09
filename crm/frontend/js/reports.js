@@ -286,16 +286,18 @@
       kpi("First reply", duration(t.firstResponseMedianSeconds), "median, new chats"),
       kpi("Reply time", duration(t.responseMedianSeconds), `median · average ${duration(t.responseAverageSeconds)}`),
       kpi("Chats answered", t.chatsHandled, `${t.replies} replies`),
+      kpi("Chats resolved", t.chatsResolved || 0, t.resolutionMedianSeconds != null ? `median ${duration(t.resolutionMedianSeconds)} to resolve` : "closed by the team"),
       kpi("Collected", rupees(t.collectedPaise), `${t.won} won`),
     ].join("");
     $("agentTable").innerHTML = a.items.length
-      ? table([["#"], ["Agent"], ["Chats", 1], ["First reply", 1], ["Reply time", 1], ["Open leads", 1], ["New leads", 1], ["Won", 1], ["Quotes", 1], ["Orders", 1], ["Collected", 1], ["Tasks", 1], ["Tickets", 1]],
+      ? table([["#"], ["Agent"], ["Chats", 1], ["First reply", 1], ["Reply time", 1], ["Resolved", 1], ["Open leads", 1], ["New leads", 1], ["Won", 1], ["Quotes", 1], ["Orders", 1], ["Collected", 1], ["Tasks", 1], ["Tickets", 1]],
         a.items.map((r, i) => {
           const open = ["New", "Contacted", "Quote Sent", "Negotiation"].reduce((s, stage) => s + (r.leadsByStage[stage] || 0), 0);
           return `<tr>
             <td><span class="rank-badge ${i === 0 && (r.collectedPaise || r.won) ? "top" : ""}">${i + 1}</span></td>
             <td><div class="leaderboard-agent"><span class="avatar">${escapeHtml(initials(r.name))}</span><div>${escapeHtml(r.name)}<span class="sub">${escapeHtml(r.role || "")}${r.active ? "" : " · no longer in the team"}</span></div></div></td>
             ${cell(r.chatsHandled, `${r.messagesSent} messages`)}${cell(duration(r.firstResponseMedianSeconds))}${cell(duration(r.responseMedianSeconds), r.replies ? `avg ${duration(r.responseAverageSeconds)}` : "")}
+            ${cell(r.chatsResolved || 0, r.chatsResolved ? `${pctText(r.resolutionRatePct)} · ${duration(r.resolutionMedianSeconds)}` : "")}
             ${cell(open, Object.entries(r.leadsByStage).filter(([stage, n]) => n && stage !== "Won" && stage !== "Lost").map(([stage, n]) => `${n} ${stage}`).join(", "))}
             ${cell(r.leadsCreated)}${cell(r.won, r.won || r.lost ? `win rate ${pctText(r.winRatePct)}` : "")}${cell(`${r.quotationsAccepted}/${r.quotationsSent}`, "won / sent")}
             ${cell(rupees(r.orderValuePaise), `${r.orders} order${r.orders === 1 ? "" : "s"}`)}${cell(rupees(r.collectedPaise))}${cell(r.tasksDone)}${cell(r.ticketsResolved)}

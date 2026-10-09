@@ -2432,6 +2432,57 @@ body.crm-loading::before {
   background: var(--danger-bg);
   border-bottom-color: rgba(255, 69, 58, 0.3);
 }
+/* Private numbers (D61): the popup */
+.privacy-dialog .modal-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.privacy-who {
+  margin: 0 0 14px;
+  font-size: 14.5px;
+}
+.privacy-who span {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-left: 6px;
+}
+.privacy-points {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.privacy-points li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.privacy-points li i {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-light);
+  color: var(--text);
+}
+.privacy-points strong {
+  color: var(--text);
+  display: block;
+}
+.privacy-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
 /* "Connect WhatsApp" on the dashboard (D60) */
 .plan-banner.whatsapp-banner {
   background: #ecf8f0;

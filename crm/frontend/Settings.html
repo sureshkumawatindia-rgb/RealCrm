@@ -151,6 +151,21 @@
       .wa-advanced[open] > summary {
         margin-bottom: 12px;
       }
+      .wa-private-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .wa-private-form input {
+        flex: 1 1 180px;
+        padding: 9px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm, 8px);
+        font: inherit;
+        font-size: 13.5px;
+        background: var(--surface);
+        color: var(--text);
+      }
       .wa-devtools {
         margin-top: 24px;
         padding: 16px;
@@ -1150,6 +1165,22 @@
                   <a class="btn btn-primary" id="waConnectLink" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> Connect WhatsApp</a>
                 </div>
                 <div id="waAccountList"></div>
+
+                <div class="settings-section wa-block" id="waPrivateSection" hidden>
+                  <div class="settings-section-label"><i class="fa-solid fa-lock"></i> Private numbers (only owners see this)</div>
+                  <p class="settings-hint">
+                    Personal chats — family, friends — that come in with your WhatsApp Business number.
+                    Only owners see them: admins and agents don't, reports leave them out, and no
+                    automation, bot or auto-reply runs for them. Nothing is deleted. You can also make
+                    a chat private from the Inbox (the "Make private" button in the chat).
+                  </p>
+                  <ul class="device-list" id="waPrivateList"></ul>
+                  <form class="wa-private-form" id="waPrivateForm" autocomplete="off">
+                    <input type="tel" id="waPrivatePhone" inputmode="tel" maxlength="30" placeholder="Mobile number, e.g. 98290 12345" aria-label="Mobile number" required />
+                    <input type="text" id="waPrivateNote" maxlength="60" placeholder="Label, e.g. Family" aria-label="Label" />
+                    <button class="btn btn-outline" type="submit"><i class="fa-solid fa-lock"></i> Make private</button>
+                  </form>
+                </div>
 
                 <div class="settings-section wa-block" id="waTemplatesSection" hidden>
                   <div class="settings-section-label">Message templates</div>

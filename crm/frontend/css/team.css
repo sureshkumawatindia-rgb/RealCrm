@@ -1,0 +1,84 @@
+/* Team live and My performance (D61) */
+.team-intro {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+.team-updated {
+  font-size: 12px;
+}
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: #e7f9ee;
+  color: #1a9e4b;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.live-pill .dot,
+.presence .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.live-pill.off {
+  background: var(--bg);
+  color: var(--text-muted);
+}
+.presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.presence.on {
+  color: #1a9e4b;
+  font-weight: 600;
+}
+.queue-row td {
+  background: var(--bg);
+}
+.waiting-long {
+  color: var(--danger, #c0392b);
+  font-weight: 600;
+}
+.leaderboard-agent .avatar .fa-inbox {
+  font-size: 12px;
+}
+/* My performance */
+.perf-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.perf-toolbar select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.perf-section {
+  margin: 8px 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.perf-empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--text-muted);
+}

@@ -119,7 +119,7 @@
       <button class="conv-item ${active ? "active" : ""} ${c.unreadCount ? "unread" : ""}" data-id="${escapeHtml(c.id)}" type="button">
         <span class="conv-avatar">${escapeHtml(initialsOf(c.contact.name))}</span>
         <span style="min-width:0">
-          <span class="name">${escapeHtml(c.contact.name || c.contact.phone)}</span>
+          <span class="name">${c.private ? '<i class="fa-solid fa-lock private-lock" title="Private: only owners see this chat"></i> ' : ""}${escapeHtml(c.contact.name || c.contact.phone)}</span>
           <span class="preview">${escapeHtml(preview)}</span>
         </span>
         <span class="conv-meta">
@@ -387,6 +387,12 @@
     chip.textContent = open ? `Reply window: ${left} left` : "Reply window closed";
     chip.className = `window-chip ${open ? "" : "closed"}`;
     renderBotChip(c);
+    // Private numbers (D61): owners only — make the chat's number private, or show it again.
+    const privateChip = $("threadPrivate");
+    privateChip.hidden = !isOrgOwner();
+    privateChip.className = `private-chip ${c.private ? "on" : ""}`;
+    privateChip.innerHTML = c.private ? '<i class="fa-solid fa-lock"></i> Private' : '<i class="fa-solid fa-lock-open"></i> Make private';
+    privateChip.title = c.private ? "Only owners see this chat. Click to show it to the team again." : "Hide this personal chat from admins and agents";
     $("composerClosed").hidden = open;
     $("composerText").disabled = !open;
     $("composerSend").disabled = !open;
@@ -1227,6 +1233,29 @@
   });
   // Closing (not just hiding) the chat, so new messages in it stay unread while the list is showing.
   $("threadBack").addEventListener("click", () => closeThread());
+
+  // Private numbers (D61): the popup explains it first; owners only (the server checks too).
+  $("threadPrivate").addEventListener("click", async () => {
+    const c = state.current;
+    if (!c || !isOrgOwner()) return;
+    const choice = await crmPrivacyDialog.open({ mode: c.private ? "show" : "hide", name: c.contact.name, phone: c.contact.phone });
+    if (!choice) return;
+    try {
+      if (c.private) {
+        const entry = (await crmApi("/privacy/numbers")).find((item) => item.phone === c.contact.phone);
+        if (entry) await crmApi(`/privacy/numbers/${entry.id}`, { method: "DELETE" });
+        showToast("Your team can see this chat again.", "success");
+      } else {
+        await crmApi(`/conversations/${c.id}/private`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: choice.note }) });
+        showToast("Only owners see this chat now.", "success");
+      }
+      state.current = await crmApi(`/conversations/${c.id}`);
+      renderThreadHead();
+      loadConversations();
+    } catch (error) {
+      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+    }
+  });
   $("threadInfo").addEventListener("click", () => {
     $("inbox").dataset.details = "open";
   });
@@ -1519,6 +1548,17 @@
     socket.on("notification:new", (notification) => crmBell.push(notification));
     socket.on("message:status", onMessageStatus);
     socket.on("note:new", onNoteNew);
+    // An owner made a number private (or visible again, D61): reload; a chat no longer visible closes.
+    socket.on("inbox:refresh", async () => {
+      loadConversations();
+      loadSummary();
+      if (!state.current || isOrgOwner()) return;
+      try {
+        await crmApi(`/conversations/${state.current.id}`);
+      } catch {
+        closeThread();
+      }
+    });
     // Chats being imported from a WhatsApp Business app number (D60): refresh the list now and then.
     let syncReload = null;
     socket.on("whatsapp:sync", () => {
