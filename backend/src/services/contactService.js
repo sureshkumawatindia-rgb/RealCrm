@@ -5,7 +5,7 @@ const { audit } = require('../utils/audit');
 const { normalizePhone } = require('../utils/phone');
 const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { searchFilter, sortSpec } = require('../utils/listQuery');
-const { visibilityFilter, resolveOwnerId, ownerPatch } = require('./access');
+const { visibilityFilter, privacyFilter, resolveOwnerId, ownerPatch } = require('./access');
 const planService = require('./planService');
 const automationEvents = require('./automation/events');
 
@@ -77,6 +77,7 @@ async function list(req, query) {
   const filter = {
     ...searchFilter(query.q, SEARCH_FIELDS),
     ...visibilityFilter(req, MODULE),
+    ...privacyFilter(req),
     ...(query.lifecycle && { lifecycle: query.lifecycle }),
     ...(query.status && { status: query.status }),
     ...(query.ownerId && { ownerId: query.ownerId }),
@@ -88,7 +89,7 @@ async function list(req, query) {
 }
 
 async function findVisible(req, id, session) {
-  const contact = await repo(req).findOne({ _id: id, ...visibilityFilter(req, MODULE) }).session(session || null);
+  const contact = await repo(req).findOne({ _id: id, ...visibilityFilter(req, MODULE), ...privacyFilter(req) }).session(session || null);
   if (!contact) throw httpError(404, 'NOT_FOUND', 'Contact not found');
   return contact;
 }

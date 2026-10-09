@@ -15,12 +15,14 @@ const { serializeConversation, serializeMessage, seesAll } = require('../service
 //   member:<id>          — the member: their assigned chats; dropped when their access changes
 //   org:<id>:inbox-all   — owners, admins and inbox:view_all: every chat
 //   org:<id>:inbox       — other inbox members: chats nobody has taken yet
+//   org:<id>:owners      — owners: the only ones who receive private numbers' chats (D61)
 // Server → browser events: conversation:updated, message:new, message:status, note:new,
-// notification:new.
+// notification:new, whatsapp:sync, inbox:refresh.
 const rooms = {
   member: (id) => `member:${id}`,
   all: (organizationId) => `org:${organizationId}:inbox-all`,
   queue: (organizationId) => `org:${organizationId}:inbox`,
+  owners: (organizationId) => `org:${organizationId}:owners`, // private chats (D61)
 };
 
 const POPULATE = [
@@ -48,6 +50,8 @@ async function authenticateSocket(socket, next) {
 // taken it, the inbox queue). previousAssigneeId: undefined = unchanged, null = was in the queue.
 function targetsFor(conversation, previousAssigneeId) {
   const organizationId = conversation.organizationId;
+  // A private number's chat (D61): owners only.
+  if (conversation.private) return [rooms.owners(organizationId)];
   const targets = new Set([rooms.all(organizationId)]);
   targets.add(conversation.assigneeId ? rooms.member(conversation.assigneeId) : rooms.queue(organizationId));
   if (previousAssigneeId === null) targets.add(rooms.queue(organizationId));
@@ -62,6 +66,7 @@ function attachRealtime(httpServer) {
     const { member } = socket.data;
     socket.join(rooms.member(member._id));
     socket.join(seesAll(member) ? rooms.all(member.organizationId) : rooms.queue(member.organizationId));
+    if (member.role === 'owner') socket.join(rooms.owners(member.organizationId));
   });
 
   const load = (id) => Conversation.findById(id).populate(POPULATE);
@@ -85,6 +90,10 @@ function attachRealtime(httpServer) {
     // owners and admins, who connect numbers.
     'whatsapp:sync': async ({ organizationId, accountId, sync }) => {
       io.to(rooms.all(organizationId)).emit('whatsapp:sync', { accountId, sync });
+    },
+    // A number was made private or visible again (D61): open Inbox pages reload their list.
+    'privacy:changed': async ({ organizationId }) => {
+      io.to([rooms.all(organizationId), rooms.queue(organizationId)]).emit('inbox:refresh');
     },
     // The bell (Phase 6): only to the member it is for.
     'notification:new': async ({ memberId, notification }) => {

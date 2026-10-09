@@ -10,6 +10,8 @@ const organizationMemberSchema = new mongoose.Schema(
     modules: { type: [{ type: String, enum: MODULES }], default: [] },
     permissions: { type: [String], default: [] },
     status: { type: String, enum: ['active', 'disabled'], default: 'active' },
+    // Last request to the API (written at most once a minute): "online" on the live team page (D61).
+    lastSeenAt: { type: Date },
     displayName: { type: String, trim: true, default: '' },
     mobile: { type: String, trim: true, default: '' },
     // What they do in the team ("Sales", "Support", ...), shown on Account Champions.

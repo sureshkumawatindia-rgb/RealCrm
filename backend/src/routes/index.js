@@ -1,6 +1,7 @@
 const express = require('express');
 const healthRoutes = require('./health');
 const siteRoutes = require('./site');
+const privacyRoutes = require('./privacy');
 const authRoutes = require('./auth');
 const organizationRoutes = require('./organization');
 const memberRoutes = require('./members');
@@ -40,6 +41,7 @@ const router = express.Router();
 
 router.use('/health', healthRoutes);
 router.use('/site', siteRoutes);
+router.use('/privacy', privacyRoutes);
 router.use('/auth', authRoutes);
 router.use('/organization', organizationRoutes);
 router.use('/members', memberRoutes);

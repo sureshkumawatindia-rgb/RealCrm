@@ -16,6 +16,7 @@ const ai = require('../services/aiService');
 const push = require('../services/pushService');
 const organizationDeletion = require('../services/organizationDeletionService');
 const whatsappConnect = require('../services/whatsappConnectService');
+const teamSummary = require('../services/teamSummaryService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
@@ -27,8 +28,8 @@ const whatsappConnect = require('../services/whatsappConnectService');
 // (webhooks, a check every 6 hours, trial reminders) and outbound webhooks send business events
 // to the companies' own systems, lead stages to Meta's Conversions API, and the AI assistant answers
 // customers when a company lets it (Phase 10); a WhatsApp Business app number connected with Meta's
-// popup asks Meta for its contacts and chats (D60).
-const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register, organizationDeletion.register, whatsappConnect.register];
+// popup asks Meta for its contacts and chats (D60); owners get the evening team summary (D61).
+const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register, organizationDeletion.register, whatsappConnect.register, teamSummary.register];
 
 function start(config) {
   definitions.forEach((register) => register(queue));

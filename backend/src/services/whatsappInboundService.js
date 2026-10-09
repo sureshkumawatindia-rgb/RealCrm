@@ -11,6 +11,7 @@ const bus = require('../realtime/bus');
 const automationEvents = require('./automation/events');
 const env = require('../config/env');
 const { appSecretOf, serializeSync } = require('./whatsappAccountService');
+const privateNumbers = require('./privateNumberService');
 const media = require('./whatsappMediaService');
 const templateService = require('./templateService');
 const { STAGE_PROBABILITY } = require('../constants/crm');
@@ -234,13 +235,13 @@ function phoneFromWaId(waId) {
   return /^[1-9]\d{7,14}$/.test(digits) ? `+${digits}` : null;
 }
 
-// quiet: imported from a WhatsApp Business app number (history, contacts, its own messages) —
-// no automation hears about it (D60).
-async function findOrCreateContact(organizationId, phoneE164, name, { quiet = false } = {}) {
+// quiet: imported from a WhatsApp Business app number (history, contacts, its own messages), or a
+// private number — no automation hears about it (D60, D61). private: the number is private (D61).
+async function findOrCreateContact(organizationId, phoneE164, name, { quiet = false, private: hidden = false } = {}) {
   const existing = await Contact.findOne({ organizationId, phoneE164 });
   if (existing) return { contact: existing, created: false };
   try {
-    const contact = await Contact.create({ organizationId, name, phone: phoneE164, phoneE164, source: 'WhatsApp', lifecycle: 'lead' });
+    const contact = await Contact.create({ organizationId, name, phone: phoneE164, phoneE164, source: 'WhatsApp', lifecycle: 'lead', ...(hidden && { private: true }) });
     if (!quiet) automationEvents.emit('contact.created', { organizationId, contactId: contact._id, source: 'WhatsApp', key: `contact.created:${contact._id}` });
     return { contact, created: true };
   } catch (error) {
@@ -274,21 +275,26 @@ async function handleMessage(account, { message, contact: profile }) {
   const at = unixTime(message.timestamp);
   const name = str(profile?.profile?.name, 200).trim() || phoneE164;
 
-  const { contact, created } = await findOrCreateContact(organizationId, phoneE164, name);
-  const newLead = created ? await createLead(contact, phoneE164) : null;
+  // A private number (D61): stored for the owners only, with no lead, automation or notification.
+  const privateNumber = await privateNumbers.isPrivate(organizationId, phoneE164);
+  const { contact, created } = await findOrCreateContact(organizationId, phoneE164, name, { quiet: privateNumber, private: privateNumber });
+  const hidden = privateNumber || Boolean(contact.private);
+  const newLead = created && !hidden ? await createLead(contact, phoneE164) : null;
 
   let conversation = await Conversation.findOneAndUpdate(
     { organizationId, contactId: contact._id, whatsappAccountId: account._id },
-    { $setOnInsert: { status: 'open' } },
+    { $setOnInsert: { status: 'open', openedAt: at, ...(hidden && { private: true }) } },
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
+  // A closed chat the customer writes in again starts a new round (resolution time, D61).
+  if (conversation.status === 'closed') await Conversation.updateOne({ _id: conversation._id, status: 'closed' }, { $set: { openedAt: at } });
 
   const fields = messageFields(message);
   let stored;
   try {
     stored = await Message.create({
       organizationId, conversationId: conversation._id, contactId: contact._id, whatsappAccountId: account._id,
-      direction: 'in', status: 'received', providerMessageId: str(message.id, 300), providerTimestamp: at, ...fields,
+      direction: 'in', status: 'received', providerMessageId: str(message.id, 300), providerTimestamp: at, ...(hidden && { private: true }), ...fields,
     });
   } catch (error) {
     if (error.code === 11000) return 'ignored'; // stored before (event log expired or replayed)
@@ -305,15 +311,17 @@ async function handleMessage(account, { message, contact: profile }) {
   if (conversation.lastMessageAt.getTime() === at.getTime()) {
     conversation = await Conversation.findOneAndUpdate(
       { _id: conversation._id },
-      { $set: { lastMessagePreview: previewOf(fields), lastMessageDirection: 'in' } },
+      { $set: { lastMessagePreview: previewOf(fields), lastMessageDirection: 'in', lastMessageOrigin: '' } },
       { returnDocument: 'after' },
     );
   }
 
-  bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created });
-  automationEvents.emit('message.received', {
-    organizationId, contactId: contact._id, conversationId: conversation._id, messageId: stored._id, text: stored.text || '', messageType: stored.type, replyId: stored.reply?.id || '', key: `message.received:${stored._id}`,
-  });
+  bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created && !hidden });
+  if (!hidden) {
+    automationEvents.emit('message.received', {
+      organizationId, contactId: contact._id, conversationId: conversation._id, messageId: stored._id, text: stored.text || '', messageType: stored.type, replyId: stored.reply?.id || '', key: `message.received:${stored._id}`,
+    });
+  }
   // A new WhatsApp lead goes through the assignment and auto-reply rules like any other source
   // (after its chat exists, so the chat is assigned together with the lead).
   if (newLead) {
@@ -334,25 +342,28 @@ const digitsOf = (value) => String(value || '').replace(/\D/g, '');
 const RECENT_CHAT_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function chatOf(account, phoneE164, name) {
-  const { contact, created } = await findOrCreateContact(account.organizationId, phoneE164, name, { quiet: true });
+  const privateNumber = await privateNumbers.isPrivate(account.organizationId, phoneE164);
+  const { contact, created } = await findOrCreateContact(account.organizationId, phoneE164, name, { quiet: true, private: privateNumber });
+  const hidden = privateNumber || Boolean(contact.private);
   const before = await Conversation.findOne({ organizationId: account.organizationId, contactId: contact._id, whatsappAccountId: account._id }).select('_id');
   // An imported chat starts closed (it needs no answer); the customer's next message opens it.
   const conversation = before || await Conversation.findOneAndUpdate(
     { organizationId: account.organizationId, contactId: contact._id, whatsappAccountId: account._id },
-    { $setOnInsert: { status: 'closed' } },
+    { $setOnInsert: { status: 'closed', ...(hidden && { private: true }) } },
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
-  return { contact, conversation, contactCreated: created, chatCreated: !before };
+  return { contact, conversation, contactCreated: created, chatCreated: !before, hidden };
 }
 
 // Moves the chat's last-message time forward, and sets the preview when this is the newest.
-async function touchChat(conversationId, { at, fields, direction }) {
+// origin 'history': an imported message (time-based automations skip such chats).
+async function touchChat(conversationId, { at, fields, direction, origin = '' }) {
   const set = { $max: { lastMessageAt: at, ...(direction === 'in' && { lastInboundAt: at }) } };
   let conversation = await Conversation.findOneAndUpdate({ _id: conversationId }, set, { returnDocument: 'after' });
   if (conversation.lastMessageAt.getTime() === at.getTime()) {
     conversation = await Conversation.findOneAndUpdate(
       { _id: conversationId },
-      { $set: { lastMessagePreview: previewOf(fields), lastMessageDirection: direction } },
+      { $set: { lastMessagePreview: previewOf(fields), lastMessageDirection: direction, lastMessageOrigin: origin === 'history' ? 'history' : '' } },
       { returnDocument: 'after' },
     );
   }
@@ -381,7 +392,7 @@ async function handleHistory(account, { chunk, businessPhone }) {
   for (const thread of Array.isArray(chunk?.threads) ? chunk.threads : []) {
     const phoneE164 = phoneFromWaId(thread?.id);
     if (!phoneE164) continue;
-    const { contact, conversation, chatCreated } = await chatOf(account, phoneE164, phoneE164);
+    const { contact, conversation, chatCreated, hidden } = await chatOf(account, phoneE164, phoneE164);
     if (chatCreated) chats += 1;
     const docs = (Array.isArray(thread.messages) ? thread.messages : []).filter((message) => message?.id).map((message) => {
       const fields = messageFields(message);
@@ -390,7 +401,7 @@ async function handleHistory(account, { chunk, businessPhone }) {
       return {
         organizationId: account.organizationId, conversationId: conversation._id, contactId: contact._id, whatsappAccountId: account._id,
         direction, status: direction === 'in' ? 'received' : HISTORY_STATUS[String(message.history_context?.status || '').toUpperCase()] || 'sent',
-        providerMessageId: str(message.id, 300), providerTimestamp: at, origin: 'history', createdAt: at, updatedAt: new Date(), ...fields,
+        providerMessageId: str(message.id, 300), providerTimestamp: at, origin: 'history', ...(hidden && { private: true }), createdAt: at, updatedAt: new Date(), ...fields,
       };
     });
     if (!docs.length) continue;
@@ -402,7 +413,7 @@ async function handleHistory(account, { chunk, businessPhone }) {
       messages += bulk.insertedDocs?.length || 0;
     }
     const newest = docs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
-    await touchChat(conversation._id, { at: newest.createdAt, fields: newest, direction: newest.direction });
+    await touchChat(conversation._id, { at: newest.createdAt, fields: newest, direction: newest.direction, origin: 'history' });
     // A chat of the last week shows in the Inbox right away; older ones are under "Closed".
     if (chatCreated && newest.createdAt > new Date(Date.now() - RECENT_CHAT_MS)) await Conversation.updateOne({ _id: conversation._id }, { $set: { status: 'open' } });
     const newestIn = docs.filter((doc) => doc.direction === 'in').reduce((a, b) => (!a || b.createdAt > a.createdAt ? b : a), null);
@@ -432,14 +443,14 @@ async function handleHistory(account, { chunk, businessPhone }) {
 async function handleEcho(account, { message }) {
   const phoneE164 = phoneFromWaId(message.to);
   if (!phoneE164) return 'ignored';
-  const { contact, conversation } = await chatOf(account, phoneE164, phoneE164);
+  const { contact, conversation, hidden } = await chatOf(account, phoneE164, phoneE164);
   const fields = messageFields(message);
   const at = unixTime(message.timestamp);
   let stored;
   try {
     stored = await Message.create({
       organizationId: account.organizationId, conversationId: conversation._id, contactId: contact._id, whatsappAccountId: account._id,
-      direction: 'out', status: 'sent', providerMessageId: str(message.id, 300), providerTimestamp: at, sentAt: at, origin: 'phone', ...fields,
+      direction: 'out', status: 'sent', providerMessageId: str(message.id, 300), providerTimestamp: at, sentAt: at, origin: 'phone', ...(hidden && { private: true }), ...fields,
     });
   } catch (error) {
     if (error.code === 11000) return 'ignored';
@@ -455,7 +466,8 @@ async function handleContactSync(account, { item }) {
   const phoneE164 = phoneFromWaId(item.contact?.phone_number);
   if (!phoneE164 || item.action === 'remove') return 'ignored';
   const name = str(item.contact.full_name || item.contact.first_name, 200).trim() || phoneE164;
-  const { contact, created } = await findOrCreateContact(account.organizationId, phoneE164, name, { quiet: true });
+  const privateNumber = await privateNumbers.isPrivate(account.organizationId, phoneE164);
+  const { contact, created } = await findOrCreateContact(account.organizationId, phoneE164, name, { quiet: true, private: privateNumber });
   // A chat imported before its contact got the number as its name; the real name replaces it.
   if (!created && contact.name === phoneE164 && name !== phoneE164) await Contact.updateOne({ _id: contact._id }, { $set: { name } });
   if (created) await WhatsAppAccount.updateOne({ _id: account._id }, { $inc: { 'sync.contacts': 1 } });

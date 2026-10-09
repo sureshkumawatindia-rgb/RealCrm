@@ -22,6 +22,8 @@ const contactSchema = new mongoose.Schema(
     sourceRef: { type: String },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
     lifecycle: { type: String, enum: CONTACT_LIFECYCLES, default: 'lead' },
+    // A private number (D61): only owners see it (and its leads and chats).
+    private: { type: Boolean },
     status: { type: String, enum: CONTACT_STATUSES, default: 'Active' },
     productIds: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }], default: [] },
     notes: { type: String, default: '' },

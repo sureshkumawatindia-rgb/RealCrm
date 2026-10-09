@@ -89,6 +89,8 @@ const messageSchema = new mongoose.Schema(
     // Not written in the CRM (a WhatsApp Business app number, D60): history = imported from the
     // last 6 months when the number was connected; phone = sent from the app on the phone.
     origin: { type: String, enum: ['history', 'phone'] },
+    // A message of a private number (D61): only owners see it; reports leave it out.
+    private: { type: Boolean },
     // Sent by the CRM itself (e.g. an auto-reply rule), not by a person.
     automation: {
       kind: { type: String },

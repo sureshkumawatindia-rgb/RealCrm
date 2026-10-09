@@ -15,7 +15,7 @@ const { audit } = require('../utils/audit');
 const { formatRupees } = require('../utils/money');
 const { PAYMENT_PROVIDERS, OPEN_LINK_STATUSES, MIN_LINK_PAISE } = require('../constants/payments');
 const { toPage, paginationMeta } = require('../utils/pagination');
-const { visibilityFilter } = require('./access');
+const { visibilityFilter, privacyFilter } = require('./access');
 const { gatewayFor } = require('../integrations/payments');
 const gateways = require('./paymentGatewayService');
 const leadService = require('./leadService');
@@ -112,7 +112,7 @@ async function subjectOf(req, body) {
       documentNumber: quotation.number, customerName: quotation.billTo?.name || '', description: label, filter: { quotationId: quotation._id },
     };
   }
-  const contact = await Contact.findOne({ _id: body.contactId, organizationId: req.tenant.organizationId, ...visibilityFilter(req, ['customers', 'leads', 'inbox']) });
+  const contact = await Contact.findOne({ _id: body.contactId, organizationId: req.tenant.organizationId, ...visibilityFilter(req, ['customers', 'leads', 'inbox']), ...privacyFilter(req) });
   if (!contact) throw httpError(404, 'NOT_FOUND', 'Customer not found');
   const lead = await leadOfContact(req.tenant.organizationId, contact._id);
   return {

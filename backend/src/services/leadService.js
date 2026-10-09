@@ -8,7 +8,7 @@ const { audit } = require('../utils/audit');
 const { toPage, paginationMeta } = require('../utils/pagination');
 const { searchFilter, sortSpec } = require('../utils/listQuery');
 const { STAGE_PROBABILITY } = require('../constants/crm');
-const { visibilityFilter, resolveOwnerId, ownerPatch } = require('./access');
+const { visibilityFilter, privacyFilter, resolveOwnerId, ownerPatch } = require('./access');
 const contactService = require('./contactService');
 const automationEvents = require('./automation/events');
 
@@ -51,7 +51,7 @@ function serializeLead(lead) {
   };
 }
 
-const scope = (req) => ({ organizationId: req.tenant.organizationId, ...visibilityFilter(req, MODULES) });
+const scope = (req) => ({ organizationId: req.tenant.organizationId, ...visibilityFilter(req, MODULES), ...privacyFilter(req) });
 
 async function findVisible(req, id, session) {
   const lead = await Lead.findOne({ _id: id, ...scope(req) }).session(session || null);

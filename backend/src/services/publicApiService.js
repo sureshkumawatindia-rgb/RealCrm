@@ -82,7 +82,8 @@ async function page(Model, filter, query, serialize, populate) {
 
 async function one(Model, req, id, serialize, populate) {
   if (!mongoose.isValidObjectId(id)) throw httpError(404, 'NOT_FOUND', 'Not found');
-  let query = Model.findOne({ _id: id, organizationId: req.tenant.organizationId });
+  // Private numbers (D61) are for the owners' eyes only, never for other software.
+  let query = Model.findOne({ _id: id, organizationId: req.tenant.organizationId, private: { $ne: true } });
   if (populate) query = query.populate(populate);
   const doc = await query;
   if (!doc) throw httpError(404, 'NOT_FOUND', 'Not found');
@@ -93,7 +94,7 @@ const CONTACT_FIELDS = 'name phoneE164 email company';
 const org = (req) => req.tenant.organizationId;
 
 function contactFilter(req, { search, phone, email }) {
-  const filter = { organizationId: org(req) };
+  const filter = { organizationId: org(req), private: { $ne: true } };
   if (phone) filter.phoneE164 = normalizePhone(phone) || '-';
   if (email) filter.email = String(email).toLowerCase();
   if (search) {
@@ -122,7 +123,7 @@ module.exports = {
     return one(Contact, req, id, publicContact);
   },
 
-  listLeads: (req, query) => page(Lead, { organizationId: org(req), ...(query.stage && { stage: query.stage }), ...(query.source && { source: query.source }) }, query, publicLead, { path: 'contactId', select: CONTACT_FIELDS }),
+  listLeads: (req, query) => page(Lead, { organizationId: org(req), private: { $ne: true }, ...(query.stage && { stage: query.stage }), ...(query.source && { source: query.source }) }, query, publicLead, { path: 'contactId', select: CONTACT_FIELDS }),
   getLead: (req, id) => one(Lead, req, id, publicLead, { path: 'contactId', select: CONTACT_FIELDS }),
 
   // POST /leads — an enquiry, like a lead source: the same customer's open lead gets it, else a
@@ -153,7 +154,7 @@ module.exports = {
   async sendTemplate(req, { contactId, phone, name, template: { name: templateName, language }, variables = {} }) {
     let contact;
     if (contactId) {
-      contact = mongoose.isValidObjectId(contactId) ? await Contact.findOne({ _id: contactId, organizationId: org(req) }) : null;
+      contact = mongoose.isValidObjectId(contactId) ? await Contact.findOne({ _id: contactId, organizationId: org(req), private: { $ne: true } }) : null;
       if (!contact) throw httpError(404, 'NOT_FOUND', 'Customer not found');
     } else {
       contact = await contactService.findOrCreate(req, { name: name || phone, phone, source: 'API' }, { source: 'API' });

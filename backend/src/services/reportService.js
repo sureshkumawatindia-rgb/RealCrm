@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Broadcast = require('../models/Broadcast');
+const ChatResolution = require('../models/ChatResolution');
 const Contact = require('../models/Contact');
 const Conversation = require('../models/Conversation');
 const Lead = require('../models/Lead');
@@ -22,6 +23,8 @@ const { statsOf } = require('./broadcastService');
 // their own leads, quotations, orders, chats and work (D45). Response times run from a customer's
 // first unanswered message to a teammate's reply; bot and automatic messages do not count (D46).
 const MAX_MESSAGES = 100000;
+// Private numbers' chats, leads and contacts (D61) are left out of every report.
+const PUBLIC = { private: { $ne: true } };
 const HOUR = 60 * 60 * 1000;
 const { ObjectId } = mongoose.Types;
 
@@ -94,7 +97,7 @@ async function duesNow(req, own) {
 async function responseTurns(req, range, own) {
   const scanStart = new Date(range.start.getTime() - 7 * DAY_MS);
   const messages = await Message.find({
-    organizationId: req.tenant.organizationId, createdAt: { $gte: scanStart, $lt: range.end },
+    organizationId: req.tenant.organizationId, createdAt: { $gte: scanStart, $lt: range.end }, ...PUBLIC,
   }).select('conversationId direction createdAt providerTimestamp sentByMemberId automation').sort({ conversationId: 1, createdAt: 1 }).limit(MAX_MESSAGES).lean();
   const turns = []; // { memberId, conversationId, seconds, first }
   const handled = new Map(); // member → Set(conversation)
@@ -148,7 +151,7 @@ async function overview(req, query) {
   const range = rangeOf(query);
   const organizationId = req.tenant.organizationId;
   const own = ownOnly(req, 'leads');
-  const owner = own ? { ownerId: own } : {};
+  const owner = { ...PUBLIC, ...(own ? { ownerId: own } : {}) };
   const [created, won, lost, quotesSent, quotesAccepted, orders, payments, newCustomers, openLeads, dues, newChats, inbound, response, ticketsCreated, ticketsResolved] = await Promise.all([
     Lead.countDocuments({ organizationId, createdAt: between(range), ...owner }),
     Lead.countDocuments({ organizationId, stage: 'Won', stageChangedAt: between(range), ...owner }),
@@ -160,8 +163,8 @@ async function overview(req, query) {
     Contact.countDocuments({ organizationId, becameCustomerAt: between(range), ...owner }),
     Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).select('expectedValuePaise stage'),
     duesNow(req, own),
-    Conversation.countDocuments({ organizationId, createdAt: between(range), ...(own && { assigneeId: own }) }),
-    own ? Promise.resolve(null) : Message.countDocuments({ organizationId, direction: 'in', createdAt: between(range) }),
+    Conversation.countDocuments({ organizationId, createdAt: between(range), ...PUBLIC, ...(own && { assigneeId: own }) }),
+    own ? Promise.resolve(null) : Message.countDocuments({ organizationId, direction: 'in', createdAt: between(range), ...PUBLIC }),
     responseTurns(req, range, own),
     Ticket.countDocuments({ organizationId, createdAt: between(range), ...(own && { assigneeId: own }) }),
     Ticket.countDocuments({ organizationId, resolvedAt: between(range), ...(own && { assigneeId: own }) }),
@@ -200,7 +203,7 @@ async function trend(req, query) {
   const range = rangeOf(query);
   const organizationId = req.tenant.organizationId;
   const own = ownOnly(req, 'leads');
-  const owner = own ? { ownerId: own } : {};
+  const owner = { ...PUBLIC, ...(own ? { ownerId: own } : {}) };
   const [leads, won, orders, payments] = await Promise.all([
     Lead.find({ organizationId, createdAt: between(range), ...owner }).select('createdAt').lean(),
     Lead.find({ organizationId, stage: 'Won', stageChangedAt: between(range), ...owner }).select('stageChangedAt').lean(),
@@ -224,13 +227,14 @@ async function trend(req, query) {
 }
 
 // --- agent performance -------------------------------------------------------------------
-async function agents(req, query) {
+// onlyMember: one member's own figures ("My performance", D61), whatever their permissions.
+async function agents(req, query, { onlyMember } = {}) {
   const range = rangeOf(query);
   const organizationId = req.tenant.organizationId;
-  const own = ownOnly(req, 'reports');
-  const match = (field) => ({ organizationId: orgId(req), deletedAt: null, ...(own && { [field]: own }) });
+  const own = onlyMember || ownOnly(req, 'reports');
+  const match = (field) => ({ organizationId: orgId(req), deletedAt: null, ...PUBLIC, ...(own && { [field]: own }) });
   const group = (Model, filter, idField, extra = {}) => Model.aggregate([{ $match: filter }, { $group: { _id: `$${idField}`, count: { $sum: 1 }, ...extra } }]);
-  const [names, response, leadStages, leadsCreated, leadsWon, leadsLost, quotesSent, quotesAccepted, orders, payments, tasksDone, ticketsResolved] = await Promise.all([
+  const [names, response, leadStages, leadsCreated, leadsWon, leadsLost, quotesSent, quotesAccepted, orders, payments, tasksDone, ticketsResolved, resolutions] = await Promise.all([
     memberNames(organizationId),
     responseTurns(req, range, own),
     Lead.aggregate([{ $match: { ...match('ownerId') } }, { $group: { _id: { owner: '$ownerId', stage: '$stage' }, count: { $sum: 1 } } }]),
@@ -243,6 +247,8 @@ async function agents(req, query) {
     paymentsIn(req, range, own),
     group(Task, { ...match('assigneeId'), status: 'Done', completedAt: between(range) }, 'assigneeId'),
     group(Ticket, { ...match('assigneeId'), resolvedAt: between(range) }, 'assigneeId'),
+    // Chats resolved (closed) in the range, with how long each took (D61).
+    group(ChatResolution, { ...match('memberId'), closedAt: between(range) }, 'memberId', { seconds: { $push: '$seconds' } }),
   ]);
   const rows = new Map();
   const row = (id) => {
@@ -254,6 +260,7 @@ async function agents(req, query) {
         chatsHandled: 0, messagesSent: 0, replies: 0, firstResponseMedianSeconds: null, responseMedianSeconds: null, responseAverageSeconds: null,
         leadsByStage: Object.fromEntries(LEAD_STAGES.map((s) => [s, 0])), leadsCreated: 0, won: 0, lost: 0, winRatePct: 0,
         quotationsSent: 0, quotationsAccepted: 0, orders: 0, orderValuePaise: 0, collectedPaise: 0, tasksDone: 0, ticketsResolved: 0,
+        chatsResolved: 0, resolutionRatePct: 0, resolutionMedianSeconds: null,
       });
     }
     return rows.get(key);
@@ -273,6 +280,11 @@ async function agents(req, query) {
   into(ticketsResolved, 'ticketsResolved');
   for (const p of payments) if (p.ownerId) row(p.ownerId).collectedPaise += p.amountPaise || 0;
   for (const [member, chats] of response.handled) row(member).chatsHandled = chats.size;
+  for (const r of resolutions) {
+    if (!r._id) continue;
+    row(r._id).chatsResolved = r.count;
+    row(r._id).resolutionMedianSeconds = median((r.seconds || []).filter((value) => Number.isFinite(value)));
+  }
   for (const [member, count] of response.sent) row(member).messagesSent = count;
   const byMember = new Map();
   for (const t of response.turns) {
@@ -288,7 +300,7 @@ async function agents(req, query) {
     r.firstResponseMedianSeconds = median(turns.filter((t) => t.first).map((t) => t.seconds));
   }
   const items = [...rows.values()]
-    .map((r) => ({ ...r, winRatePct: pct(r.won, r.won + r.lost) }))
+    .map((r) => ({ ...r, winRatePct: pct(r.won, r.won + r.lost), resolutionRatePct: Math.min(100, pct(r.chatsResolved, Math.max(r.chatsHandled, r.chatsResolved))) }))
     .filter((r) => !own || r.memberId === String(own))
     .sort((a, b) => b.collectedPaise - a.collectedPaise || b.won - a.won || a.name.localeCompare(b.name));
   const seconds = response.turns.map((t) => t.seconds);
@@ -305,6 +317,8 @@ async function agents(req, query) {
       won: sum(items, 'won'),
       orderValuePaise: sum(items, 'orderValuePaise'),
       collectedPaise: sum(items, 'collectedPaise'),
+      chatsResolved: sum(items, 'chatsResolved'),
+      resolutionMedianSeconds: median(resolutions.flatMap((r) => (r.seconds || []).filter((value) => Number.isFinite(value)))),
     },
     truncated: response.truncated,
   };
@@ -316,7 +330,7 @@ async function sources(req, query) {
   const own = ownOnly(req, 'leads');
   const [stages, enquiries] = await Promise.all([
     Lead.aggregate([
-      { $match: { organizationId: orgId(req), deletedAt: null, createdAt: between(range), ...(own && { ownerId: own }) } },
+      { $match: { organizationId: orgId(req), deletedAt: null, createdAt: between(range), ...PUBLIC, ...(own && { ownerId: own }) } },
       { $group: { _id: { source: '$source', stage: '$stage' }, count: { $sum: 1 } } },
     ]),
     own ? [] : LeadIntake.aggregate([
@@ -427,7 +441,7 @@ async function payments(req, query) {
   const range = rangeOf(query);
   const organizationId = req.tenant.organizationId;
   const own = ownOnly(req, 'leads');
-  const owner = own ? { ownerId: own } : {};
+  const owner = { ...PUBLIC, ...(own ? { ownerId: own } : {}) };
   const [received, linksMade, linksPaid, paidOrders, dues] = await Promise.all([
     paymentsIn(req, range, own),
     PaymentLink.countDocuments({ organizationId, createdAt: between(range), ...owner }),
@@ -481,7 +495,7 @@ async function payments(req, query) {
 async function dashboard(req) {
   const organizationId = req.tenant.organizationId;
   const own = ownOnly(req, 'leads');
-  const owner = own ? { ownerId: own } : {};
+  const owner = { ...PUBLIC, ...(own ? { ownerId: own } : {}) };
   const today = indiaDate(0);
   const todayRange = { start: dayStart(today), end: new Date(dayStart(today).getTime() + DAY_MS) };
   const month = { start: dayStart(`${today.slice(0, 7)}-01`), end: todayRange.end };
@@ -490,8 +504,8 @@ async function dashboard(req) {
     Lead.countDocuments({ organizationId, createdAt: between(todayRange), ...owner }),
     Lead.countDocuments({ organizationId, createdAt: between(month), ...owner }),
     Lead.countDocuments({ organizationId, stage: 'Won', stageChangedAt: between(month), ...owner }),
-    Conversation.find({ organizationId, status: { $ne: 'closed' }, lastMessageDirection: 'in', ...chatScope }).select('lastInboundAt').lean(),
-    Conversation.countDocuments({ organizationId, status: { $ne: 'closed' }, assigneeId: null }),
+    Conversation.find({ organizationId, status: { $ne: 'closed' }, lastMessageDirection: 'in', ...PUBLIC, ...chatScope }).select('lastInboundAt').lean(),
+    Conversation.countDocuments({ organizationId, status: { $ne: 'closed' }, assigneeId: null, ...PUBLIC }),
     Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).select('expectedValuePaise stage'),
     paymentsIn(req, month, own),
     duesNow(req, own),
@@ -520,13 +534,13 @@ const NEXT_STEP = {
 async function insights(req) {
   const organizationId = req.tenant.organizationId;
   const own = ownOnly(req, 'leads');
-  const owner = own ? { ownerId: own } : {};
+  const owner = { ...PUBLIC, ...(own ? { ownerId: own } : {}) };
   const now = Date.now();
   const [names, open, closed90, slowChats, dues, overview90] = await Promise.all([
     memberNames(organizationId),
     Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).populate('contactId', 'name company').select('title stage source ownerId expectedValuePaise lastActivityAt createdAt contactId lastQuoteSentAt lastCustomerReplyAt').lean(),
     Lead.find({ organizationId, stage: { $in: ['Won', 'Lost'] }, stageChangedAt: { $gte: new Date(now - 90 * DAY_MS) }, ...owner }).select('stage').lean(),
-    Conversation.find({ organizationId, status: { $ne: 'closed' }, lastMessageDirection: 'in', lastInboundAt: { $lte: new Date(now - 2 * HOUR) }, ...(own && { $or: [{ assigneeId: own }, { assigneeId: null }] }) })
+    Conversation.find({ organizationId, status: { $ne: 'closed' }, lastMessageDirection: 'in', lastInboundAt: { $lte: new Date(now - 2 * HOUR) }, ...PUBLIC, ...(own && { $or: [{ assigneeId: own }, { assigneeId: null }] }) })
       .populate('contactId', 'name').select('lastInboundAt assigneeId contactId').sort({ lastInboundAt: 1 }).limit(20).lean(),
     duesNow(req, own),
     overview(req, { from: indiaDate(-89), to: indiaDate(0) }),
@@ -576,8 +590,8 @@ async function exportCsv(req, query) {
   let lines;
   if (type === 'agents') {
     const data = await agents(req, query);
-    header = ['Member', 'Chats handled', 'Messages sent', 'Replies', 'First response (median, min)', 'Response (median, min)', 'Response (average, min)', 'Leads created', ...LEAD_STAGES.map((s) => `Leads now at ${s}`), 'Won', 'Lost', 'Win rate %', 'Quotations sent', 'Quotations accepted', 'Orders', 'Order value (Rs)', 'Collected (Rs)', 'Tasks done', 'Tickets resolved'];
-    lines = data.items.map((r) => [r.name, r.chatsHandled, r.messagesSent, r.replies, minutes(r.firstResponseMedianSeconds), minutes(r.responseMedianSeconds), minutes(r.responseAverageSeconds), r.leadsCreated, ...LEAD_STAGES.map((s) => r.leadsByStage[s]), r.won, r.lost, r.winRatePct, r.quotationsSent, r.quotationsAccepted, r.orders, rupees(r.orderValuePaise), rupees(r.collectedPaise), r.tasksDone, r.ticketsResolved]);
+    header = ['Member', 'Chats handled', 'Messages sent', 'Replies', 'First response (median, min)', 'Response (median, min)', 'Response (average, min)', 'Leads created', ...LEAD_STAGES.map((s) => `Leads now at ${s}`), 'Won', 'Lost', 'Win rate %', 'Quotations sent', 'Quotations accepted', 'Orders', 'Order value (Rs)', 'Collected (Rs)', 'Tasks done', 'Tickets resolved', 'Chats resolved', 'Resolution rate %', 'Resolution time (median, min)'];
+    lines = data.items.map((r) => [r.name, r.chatsHandled, r.messagesSent, r.replies, minutes(r.firstResponseMedianSeconds), minutes(r.responseMedianSeconds), minutes(r.responseAverageSeconds), r.leadsCreated, ...LEAD_STAGES.map((s) => r.leadsByStage[s]), r.won, r.lost, r.winRatePct, r.quotationsSent, r.quotationsAccepted, r.orders, rupees(r.orderValuePaise), rupees(r.collectedPaise), r.tasksDone, r.ticketsResolved, r.chatsResolved, r.resolutionRatePct, minutes(r.resolutionMedianSeconds)]);
   } else if (type === 'sources') {
     const data = await sources(req, query);
     header = ['Source', 'Enquiries', 'Repeat enquiries', 'Rejected', 'Leads', 'Contacted or further', 'Quoted or further', 'Won', 'Lost', 'Conversion %'];
@@ -616,6 +630,97 @@ async function exportCsv(req, query) {
   return { fileName: `report-${type || 'overview'}-${range.from}-to-${range.to}.csv`, csv: `﻿${csv}\r\n` };
 }
 
+// --- the live team page (D61) -----------------------------------------------------------------
+// Right now: who is online (used the CRM in the last 5 minutes), each member's open chats and the
+// ones waiting for an answer (the customer wrote last), and today's replies and resolved chats;
+// plus the chats nobody has taken. Private numbers' chats are left out.
+const ONLINE_MS = 5 * 60 * 1000;
+
+async function teamLive(req) {
+  const organizationId = req.tenant.organizationId;
+  const today = rangeOf({ from: indiaDate(0), to: indiaDate(0) });
+  const [names, members, open, resolved, response] = await Promise.all([
+    memberNames(organizationId),
+    OrganizationMember.find({ organizationId, status: 'active' }).select('lastSeenAt role modules').lean(),
+    Conversation.find({ organizationId, status: { $in: ['open', 'pending'] }, ...PUBLIC }).select('assigneeId lastMessageDirection lastInboundAt').lean(),
+    ChatResolution.aggregate([{ $match: { organizationId: orgId(req), closedAt: between(today), ...PUBLIC } }, { $group: { _id: '$memberId', count: { $sum: 1 } } }]),
+    responseTurns(req, today, null),
+  ]);
+  const now = Date.now();
+  const rows = new Map(members.map((m) => [String(m._id), {
+    memberId: String(m._id), name: names.get(String(m._id))?.name || 'Member', role: m.role,
+    online: Boolean(m.lastSeenAt && now - new Date(m.lastSeenAt).getTime() < ONLINE_MS), lastSeenAt: m.lastSeenAt || null,
+    openChats: 0, waitingChats: 0, oldestWaitingSince: null, repliesToday: 0, resolvedToday: 0, firstResponseMedianSeconds: null,
+  }]));
+  const queue = { openChats: 0, waitingChats: 0, oldestWaitingSince: null };
+  const older = (a, b) => (!a || (b && b < a) ? b : a);
+  for (const chat of open) {
+    const target = chat.assigneeId ? rows.get(String(chat.assigneeId)) : queue;
+    if (!target) continue; // assigned to someone who left
+    target.openChats += 1;
+    if (chat.lastMessageDirection === 'in') {
+      target.waitingChats += 1;
+      target.oldestWaitingSince = older(target.oldestWaitingSince, chat.lastInboundAt || null);
+    }
+  }
+  for (const r of resolved) if (r._id && rows.has(String(r._id))) rows.get(String(r._id)).resolvedToday = r.count;
+  const turnsBy = new Map();
+  for (const t of response.turns) {
+    if (!turnsBy.has(t.memberId)) turnsBy.set(t.memberId, []);
+    turnsBy.get(t.memberId).push(t);
+  }
+  for (const [member, turns] of turnsBy) {
+    const row = rows.get(String(member));
+    if (!row) continue;
+    row.repliesToday = turns.length;
+    row.firstResponseMedianSeconds = median(turns.filter((t) => t.first).map((t) => t.seconds));
+  }
+  const items = [...rows.values()].sort((a, b) => Number(b.online) - Number(a.online) || b.waitingChats - a.waitingChats || a.name.localeCompare(b.name));
+  return {
+    at: new Date(),
+    items,
+    queue,
+    today: {
+      replies: response.turns.length,
+      resolved: sum(items, 'resolvedToday'),
+      waiting: sum(items, 'waitingChats') + queue.waitingChats,
+      online: items.filter((r) => r.online).length,
+      firstResponseMedianSeconds: median(response.turns.filter((t) => t.first).map((t) => t.seconds)),
+    },
+  };
+}
+
+// --- "My performance" (D61): one member's own figures, for any member -------------------------
+async function myPerformance(req, query) {
+  const report = await agents(req, query, { onlyMember: req.member._id });
+  return { range: report.range, me: report.items.find((r) => r.memberId === String(req.member._id)) || null };
+}
+
+// --- the evening summary for the owners (D61) ------------------------------------------------------
+// Today's team in one line, or null when nothing happened.
+async function todaySummary(organizationId) {
+  const asOwner = { tenant: { organizationId }, member: { role: 'owner', modules: [], permissions: [] } };
+  const day = indiaDate(0);
+  const report = await agents(asOwner, { from: day, to: day });
+  const t = report.team;
+  const leads = sum(report.items, 'leadsCreated');
+  if (!t.replies && !t.chatsResolved && !leads && !t.collectedPaise && !t.won) return null;
+  const top = [...report.items].sort((a, b) => b.replies - a.replies)[0];
+  const parts = [
+    `${t.replies} ${t.replies === 1 ? 'reply' : 'replies'}`,
+    `${t.chatsResolved} chats resolved`,
+    `${leads} new ${leads === 1 ? 'lead' : 'leads'}`,
+    ...(t.won ? [`${t.won} won`] : []),
+    ...(t.collectedPaise ? [`₹${(t.collectedPaise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })} collected`] : []),
+  ];
+  return {
+    day,
+    title: "Today's team summary",
+    body: `${parts.join(' · ')}.${top?.replies ? ` Most replies: ${top.name} (${top.replies}).` : ''}`,
+  };
+}
+
 module.exports = {
   overview, trend, agents, sources, quotations, broadcasts, payments, dashboard, insights, exportCsv, responseTurns, csvCell, seesAll,
+  teamLive, myPerformance, todaySummary,
 };

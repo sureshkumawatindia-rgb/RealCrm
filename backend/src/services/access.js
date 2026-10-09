@@ -4,6 +4,12 @@ const { isManager, canViewAll } = require('../constants/permissions');
 
 const asList = (modules) => (Array.isArray(modules) ? modules : [modules]);
 
+// Private numbers (D61): contacts, leads and chats of numbers an owner made private are seen by
+// owners only — not by admins, agents or viewers. Added next to visibilityFilter where those
+// three are read (visibilityFilter itself stays "empty = sees everything").
+const isOwner = (req) => req.member?.role === 'owner';
+const privacyFilter = (req) => (isOwner(req) ? {} : { private: { $ne: true } });
+
 // Record scope (D17): agents and viewers see only records they own, unless they have
 // "<module>:view_all" for one of the modules.
 function visibilityFilter(req, modules, ownerField = 'ownerId') {
@@ -45,4 +51,4 @@ async function ownerPatch(req, patch) {
   return { ownerId: await resolveOwnerId(req, patch.ownerId) };
 }
 
-module.exports = { visibilityFilter, resolveOwnerId, ownerPatch, assignedOrCreatedFilter, resolveAssigneeId };
+module.exports = { visibilityFilter, privacyFilter, isOwner, resolveOwnerId, ownerPatch, assignedOrCreatedFilter, resolveAssigneeId };

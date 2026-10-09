@@ -211,8 +211,10 @@ async function candidatesFor(workflow) {
   const now = Date.now();
   if (workflow.trigger.type === 'lead.no_reply') {
     const hours = Math.min(Math.max(Number(p.hours) || 24, 1), 720);
+    // Not chats whose newest message was imported (D60), nor private numbers' chats (D61).
     const chats = await Conversation.find({
       organizationId, lastMessageDirection: 'out', lastMessageAt: { $lte: new Date(now - hours * HOUR), $gte: new Date(now - hours * HOUR - 7 * DAY) },
+      lastMessageOrigin: { $ne: 'history' }, private: { $ne: true },
     }).limit(200);
     const out = [];
     for (const chat of chats) {

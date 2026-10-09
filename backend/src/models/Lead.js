@@ -32,6 +32,8 @@ const leadSchema = new mongoose.Schema(
       default: [],
     },
     stageChangedAt: { type: Date },
+    // A private number (D61): only owners see it (and its leads and chats).
+    private: { type: Boolean },
     convertedAt: { type: Date },
     lastActivityAt: { type: Date },
     lastQuoteSentAt: { type: Date },

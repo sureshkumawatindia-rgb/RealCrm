@@ -28,6 +28,7 @@ async function contactFilter(organizationId, filters = {}, { withConsent = true 
   if (f.sources?.length) and.push({ source: { $in: f.sources } });
   if (f.lifecycles?.length) and.push({ lifecycle: { $in: f.lifecycles } });
   if (f.ownerIds?.length) and.push({ ownerId: { $in: ids(f.ownerIds) } });
+  and.push({ private: { $ne: true } }); // never a private number (D61)
   if (f.productIds?.length || f.productCategories?.length) {
     const productIds = [
       ...ids(f.productIds || []),

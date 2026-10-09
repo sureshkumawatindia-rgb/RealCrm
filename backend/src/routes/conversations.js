@@ -6,7 +6,9 @@ const aiService = require('../services/aiService');
 const httpError = require('../utils/httpError');
 const { MEDIA_MAX_BYTES } = require('../constants/whatsapp');
 const { authenticate } = require('../middleware/auth');
-const { requirePermission } = require('../middleware/permissions');
+const Joi = require('joi');
+const privateNumbers = require('../services/privateNumberService');
+const { requirePermission, requireRole } = require('../middleware/permissions');
 const idempotency = require('../middleware/idempotency');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
@@ -64,6 +66,11 @@ router.post('/:id/ai/suggest', can('edit'), byId, async (req, res) => {
   const conversation = await conversationService.findVisible(req, req.valid.params.id);
   res.json({ success: true, data: await aiService.suggest(req, conversation) });
 });
+// "Make private" (D61, owners only): the chat's number becomes private — see privateNumberService.
+router.post('/:id/private', requireRole('owner'), byId, validate({ body: Joi.object({ note: Joi.string().trim().max(60).allow('') }) }), async (req, res) => {
+  res.status(201).json({ success: true, data: await privateNumbers.addFromConversation(req, req.valid.params.id, req.body), message: 'Chat made private' });
+});
+
 router.post('/:id/read', can('view'), byId, async (req, res) => {
   res.json({ success: true, data: await conversationService.markRead(req, req.valid.params.id) });
 });

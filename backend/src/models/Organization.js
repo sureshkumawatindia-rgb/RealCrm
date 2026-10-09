@@ -62,6 +62,8 @@ const organizationSchema = new mongoose.Schema(
     },
     // An owner asked to delete the company (Phase 10F): it keeps working until scheduledFor, then
     // a job removes all its data. Cancelled by an owner before then.
+    // The day (India time, YYYY-MM-DD) the owners last got the evening team summary (D61).
+    teamSummarySentOn: { type: String },
     deletion: {
       requestedAt: Date,
       scheduledFor: Date,

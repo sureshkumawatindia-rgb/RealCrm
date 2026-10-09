@@ -369,7 +369,7 @@ function register(queue) {
   queue.define(JOBS.ORDER, orderFromMessage, { maxAttempts: 5 });
   if (listener) bus.off('message:new', listener);
   listener = ({ message }) => {
-    if (message?.type !== 'order' || message.direction !== 'in') return;
+    if (message?.type !== 'order' || message.direction !== 'in' || message.private) return; // not private numbers (D61)
     queue.enqueue(JOBS.ORDER, { messageId: String(message._id) }, { uniqueKey: `catalog-order:${message._id}`, organizationId: message.organizationId })
       .catch((error) => logger.error(`Catalog order for message ${message._id} could not be queued: ${error.message}`));
   };

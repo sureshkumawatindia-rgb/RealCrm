@@ -1,7 +1,7 @@
 const express = require('express');
 const reports = require('../services/reportService');
 const { authenticate } = require('../middleware/auth');
-const { requirePermission } = require('../middleware/permissions');
+const { requirePermission, requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
 const schemas = require('../validators/reports');
 
@@ -26,6 +26,15 @@ router.get('/export', can('reports'), validate({ query: schemas.export }), async
   res.type('text/csv; charset=utf-8');
   res.setHeader('Cache-Control', 'private, no-store');
   res.send(csv);
+});
+
+// The live team page (D61): owners and admins.
+router.get('/team-live', requireRole('owner', 'admin'), async (req, res) => {
+  res.json({ success: true, data: await reports.teamLive(req) });
+});
+// "My performance" (D61): every member, their own figures only.
+router.get('/me', byRange, async (req, res) => {
+  res.json({ success: true, data: await reports.myPerformance(req, req.valid.query) });
 });
 
 router.get('/dashboard', can('dashboard'), async (req, res) => {

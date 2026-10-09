@@ -5,6 +5,7 @@ const { verifyAccessToken } = require('../utils/tokens');
 const httpError = require('../utils/httpError');
 
 const ENDED = new Set(['logout', 'reuse', 'removed']);
+const SEEN_EVERY_MS = 60 * 1000;
 
 function bearerToken(req) {
   const header = req.get('authorization') || '';
@@ -37,6 +38,10 @@ async function authenticate(req, res, next) {
     // the 15-minute token runs out. A rotated session is fine — its newer token is in this tab.
     if (!session || ENDED.has(session.revokedReason)) throw httpError(401, 'SESSION_ENDED', 'You were logged out on this device. Please log in again.');
 
+    // "Online" on the live team page (D61): written at most once a minute, never waited for.
+    if (!member.lastSeenAt || Date.now() - member.lastSeenAt.getTime() > SEEN_EVERY_MS) {
+      OrganizationMember.updateOne({ _id: member._id }, { $set: { lastSeenAt: new Date() } }).catch(() => {});
+    }
     req.user = user;
     req.member = member;
     req.sessionId = payload.sid;

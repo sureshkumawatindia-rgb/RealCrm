@@ -1,5 +1,6 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const ChatResolution = require('../models/ChatResolution');
 const Contact = require('../models/Contact');
 const Lead = require('../models/Lead');
 const WhatsAppAccount = require('../models/WhatsAppAccount');
@@ -18,7 +19,7 @@ const noteService = require('./noteService');
 const templateService = require('./templateService');
 const mediaService = require('./whatsappMediaService');
 const { previewOf } = require('./whatsappInboundService');
-const { visibilityFilter } = require('./access');
+const { visibilityFilter, privacyFilter } = require('./access');
 const { documentStorage } = require('../storage');
 
 // The shared WhatsApp inbox. Who sees which chat (D24): owners, admins and members with
@@ -27,7 +28,8 @@ const { documentStorage } = require('../storage');
 const MESSAGE_PAGE = 50;
 
 const seesAll = (member) => isManager(member) || canViewAll(member, 'inbox');
-const scopeFilter = (req) => (seesAll(req.member) ? {} : { $or: [{ assigneeId: req.member._id }, { assigneeId: null }] });
+// Chats of private numbers (D61) only for owners.
+const scopeFilter = (req) => ({ ...(seesAll(req.member) ? {} : { $or: [{ assigneeId: req.member._id }, { assigneeId: null }] }), ...privacyFilter(req) });
 
 // Free-form messages are only allowed within 24 hours of the customer's last message.
 function serviceWindow(conversation, now = Date.now()) {
@@ -58,6 +60,7 @@ function serializeConversation(conversation) {
     tags: conversation.tags,
     // The FAQ bot (Phase 6C): handedOffAt = it waits for a person in this chat.
     bot: { handedOffAt: conversation.bot?.handedOffAt || null, handoffReason: conversation.bot?.handoffReason || '' },
+    private: Boolean(conversation.private), // only owners ever receive a private chat (D61)
     createdAt: conversation.createdAt,
   };
 }
@@ -165,7 +168,7 @@ async function list(req, query) {
 
 // Counts for the inbox tabs (open and pending chats) and the unread badge.
 async function summary(req) {
-  const base = { organizationId: req.tenant.organizationId, status: { $in: ['open', 'pending'] } };
+  const base = { organizationId: req.tenant.organizationId, status: { $in: ['open', 'pending'] }, ...privacyFilter(req) };
   const scope = scopeFilter(req);
   const visible = Object.keys(scope).length ? { $and: [base, scope] } : base;
   const [mine, unassigned, all, unread] = await Promise.all([
@@ -199,11 +202,23 @@ async function update(req, id, body) {
       conversation.assigneeId = null;
     }
   }
+  const wasClosed = conversation.status === 'closed';
   if ('status' in body) conversation.status = body.status;
+  // Opened again by a teammate: a new round for the resolution time (D61).
+  if (wasClosed && body.status && body.status !== 'closed') conversation.openedAt = new Date();
   // A closed chat starts afresh: the FAQ bot may answer the customer's next message again.
   if (body.status === 'closed' && conversation.bot?.handedOffAt) conversation.set({ 'bot.handedOffAt': undefined, 'bot.handoffReason': undefined });
   if ('tags' in body) conversation.tags = [...new Set(body.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 20);
   await conversation.save();
+  // Resolved (D61): counted for the chat's assignee (else whoever closed it), not for private chats.
+  if (body.status === 'closed' && !wasClosed && !conversation.private) {
+    const closedAt = new Date();
+    const openedAt = conversation.openedAt || conversation.createdAt;
+    await ChatResolution.create({
+      organizationId: conversation.organizationId, conversationId: conversation._id, memberId: conversation.assigneeId || req.member._id,
+      closedById: req.member._id, openedAt, closedAt, seconds: openedAt ? Math.max(0, Math.round((closedAt - openedAt) / 1000)) : undefined,
+    });
+  }
   if (conversation.assigneeId && String(conversation.assigneeId) !== String(previousAssigneeId)) await claimCustomer(conversation, conversation.assigneeId);
   await audit(req, { action: 'conversation.updated', entityType: 'Conversation', entityId: conversation._id, changes: Object.keys(body) });
   announce('conversation:updated', conversation, { previousAssigneeId });
@@ -270,7 +285,8 @@ const AS_SYSTEM = Object.freeze({ memberId: null, takesChat: false });
 async function deliver(sender, { conversation, account, contact }, fields, buildBody) {
   const message = await Message.create({
     organizationId: conversation.organizationId, conversationId: conversation._id, contactId: contact._id,
-    whatsappAccountId: account._id, direction: 'out', status: 'queued', ...(sender.memberId && { sentByMemberId: sender.memberId }), ...fields,
+    whatsappAccountId: account._id, direction: 'out', status: 'queued', ...(sender.memberId && { sentByMemberId: sender.memberId }),
+    ...(conversation.private && { private: true }), ...fields,
   });
   try {
     const body = await buildBody(message);
@@ -287,7 +303,7 @@ async function deliver(sender, { conversation, account, contact }, fields, build
   await message.save();
 
   // The first reply takes an unassigned chat; a reply reopens a closed one.
-  const set = { lastMessageAt: message.createdAt, lastMessagePreview: previewOf(fields), lastMessageDirection: 'out', status: 'open' };
+  const set = { lastMessageAt: message.createdAt, lastMessagePreview: previewOf(fields), lastMessageDirection: 'out', lastMessageOrigin: '', status: 'open' };
   const takes = sender.takesChat && !conversation.assigneeId;
   if (takes) set.assigneeId = sender.memberId;
   const updated = await Conversation.findOneAndUpdate({ _id: conversation._id }, { $set: set }, { returnDocument: 'after' });
@@ -394,7 +410,7 @@ async function sendGeneratedDocument(req, id, { buffer, fileName, caption = '', 
 async function ensureConversation({ organizationId, contactId, accountId, assigneeId = null }) {
   let conversation = await Conversation.findOneAndUpdate(
     { organizationId, contactId, whatsappAccountId: accountId },
-    { $setOnInsert: { status: 'open', assigneeId } },
+    { $setOnInsert: { status: 'open', assigneeId, openedAt: new Date() } },
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
   if (assigneeId && !conversation.assigneeId) {
@@ -517,7 +533,7 @@ async function openMedia(req, id, messageId) {
 // a template to a lead who has not written yet. A new chat is assigned to the person who opens it.
 async function start(req, { contactId, accountId }) {
   const organizationId = req.tenant.organizationId;
-  const contact = await Contact.findOne({ _id: contactId, organizationId, ...visibilityFilter(req, ['customers', 'leads', 'inbox']) });
+  const contact = await Contact.findOne({ _id: contactId, organizationId, ...visibilityFilter(req, ['customers', 'leads', 'inbox']), ...privacyFilter(req) });
   if (!contact) throw httpError(404, 'NOT_FOUND', 'Contact not found');
   if (!contact.phoneE164) throw httpError(400, 'NO_PHONE', 'Add a mobile number to this contact first.');
   const account = accountId
@@ -534,7 +550,7 @@ async function start(req, { contactId, accountId }) {
   }
   const conversation = await Conversation.findOneAndUpdate(
     { organizationId, contactId: contact._id, whatsappAccountId: account._id },
-    { $setOnInsert: { status: 'open', assigneeId: req.member._id } },
+    { $setOnInsert: { status: 'open', assigneeId: req.member._id, openedAt: new Date() } },
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
   await claimCustomer(conversation, conversation.assigneeId);
