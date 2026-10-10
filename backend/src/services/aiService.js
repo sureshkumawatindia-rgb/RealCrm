@@ -14,6 +14,7 @@ const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { AI_MODELS, AI_PRICES, CACHE_WRITE_FACTOR } = require('../constants/ai');
+const { planOf } = require('../constants/plans');
 const planService = require('./planService');
 const notificationService = require('./notificationService');
 
@@ -89,7 +90,9 @@ async function spentThisMonth(organizationId) {
   return row || { costMicros: 0, calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, sent: 0, handoffs: 0, suggested: 0 };
 }
 
-const budgetMicros = () => Math.round(env.ai.monthlyBudgetUsd * 1e6);
+// Each plan gets its share of AI_MONTHLY_BUDGET_USD (constants/plans.js, D67).
+const budgetUsd = (organization) => Math.round(env.ai.monthlyBudgetUsd * (planOf(organization).aiBudgetShare ?? 1) * 100) / 100;
+const budgetMicros = (organization) => Math.round(budgetUsd(organization) * 1e6);
 
 async function log(entry) {
   try {
@@ -104,7 +107,7 @@ async function blockOf(organization) {
   if (!configured()) return 'The AI assistant is not set up on this CRM yet (the platform needs a Claude API key).';
   if (!organization.ai?.enabled) return 'The AI assistant is switched off. An owner or admin can switch it on in Settings → AI assistant.';
   if (planService.subscriptionOf(organization).locked) return 'Your plan is not active, so the AI assistant is paused. Choose a plan in Settings → Plan & usage.';
-  if ((await spentThisMonth(organization._id)).costMicros >= budgetMicros()) return 'This month\'s AI budget is used up; the assistant is back on the 1st.';
+  if ((await spentThisMonth(organization._id)).costMicros >= budgetMicros(organization)) return 'This month\'s AI budget is used up; the assistant is back on the 1st.';
   return '';
 }
 
@@ -320,7 +323,7 @@ async function settings(req) {
     month: {
       calls: used.calls, suggested: used.suggested, sent: used.sent, handoffs: used.handoffs,
       inputTokens: used.inputTokens, outputTokens: used.outputTokens, cacheReadTokens: used.cacheReadTokens,
-      costUsd: Math.round(used.costMicros / 100) / 10000, budgetUsd: env.ai.monthlyBudgetUsd,
+      costUsd: Math.round(used.costMicros / 100) / 10000, budgetUsd: budgetUsd(organization),
     },
   };
 }
@@ -340,7 +343,7 @@ async function test(req, { message }) {
   const organization = await Organization.findById(req.tenant.organizationId);
   if (!configured()) throw httpError(409, 'AI_UNAVAILABLE', 'The AI assistant is not set up on this CRM yet (the platform needs a Claude API key).');
   const used = await spentThisMonth(organization._id);
-  if (used.costMicros >= budgetMicros()) throw httpError(409, 'AI_UNAVAILABLE', 'This month\'s AI budget is used up; the assistant is back on the 1st.');
+  if (used.costMicros >= budgetMicros(organization)) throw httpError(409, 'AI_UNAVAILABLE', 'This month\'s AI budget is used up; the assistant is back on the 1st.');
   const started = Date.now();
   const base = { organizationId: organization._id, feature: 'test', memberId: req.member._id };
   let result;

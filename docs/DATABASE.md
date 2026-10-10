@@ -232,6 +232,13 @@ No migration (additive; a missing setting reads as on).
 - `organizations.settings.hidePhonesFromAgents` (default true, D65): agents and viewers get customers' numbers masked. Read at most every 30 seconds per company (`services/phoneVisibility.js`).
 - `organizations.onboarding.teamStepAt` (D64): "Invite your team" done or skipped.
 
+## 1v. Cheaper plans and agents' own numbers (D67, 2026-10-10)
+
+No migration (a missing field means a shared number).
+
+- `whatsappaccounts.agentMemberId` (an `organizationmembers` id, default null): the number is that agent's own. A new chat on it gets `assigneeId` = the agent, a new WhatsApp lead `ownerId` = the agent (so the assignment rules leave it alone), a new contact `ownerId` = the agent; an unassigned chat on it is given to them. An agent who is disabled, removed or without the Inbox page counts as none (the number is shared until reassigned). A member starting a chat without naming a number uses their own, else a shared one.
+- The plans (`constants/plans.js`) carry `aiBudgetShare`: Starter 0.25, Pro 0.5, Growth 1, Scale 2 times `AI_MONTHLY_BUDGET_USD`.
+
 ## 1u. Company login (D66, 2026-10-10)
 
 - `organizations.slug`: the workspace code typed on the login page (`sharma-traders`). Partial unique index `{ slug: 1 }` on string values only, so organizations from before migration 006 (no code yet) do not collide. A new organization gets the first free code from its name when it is saved (`models/Organization.js` pre-validate, `utils/workspaceCode.js`): `sharma-traders`, then `sharma-traders-2` …; a name without Latin letters or digits gets `company` (`company-2` …). A code made from the name follows a rename; one an owner chose stays.

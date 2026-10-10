@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const WhatsAppAccount = require('../models/WhatsAppAccount');
+const OrganizationMember = require('../models/OrganizationMember');
 const env = require('../config/env');
 const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
@@ -8,6 +9,7 @@ const { encrypt, decrypt } = require('../utils/secretBox');
 const { providerFor } = require('../integrations/whatsapp');
 const embeddedSignup = require('../integrations/whatsapp/embeddedSignup');
 const planService = require('./planService');
+const { isManager } = require('../constants/permissions');
 
 // Settings → WhatsApp: the organization's connected numbers. Owners and admins only.
 const webhookPath = (account) => `/api/v1/webhooks/whatsapp/${account.webhookKey}`;
@@ -50,6 +52,7 @@ function serializeAccount(account) {
     status: account.status,
     statusMessage: account.statusMessage,
     isDefault: account.isDefault,
+    agentMemberId: account.agentMemberId || null, // an agent's own number (D67)
     lastWebhookAt: account.lastWebhookAt || null,
     // What to paste into the Meta app (Webhooks → Callback URL / Verify token) — a manual number
     // only; "Connect WhatsApp" numbers use the platform's app-level webhook.
@@ -139,8 +142,23 @@ async function create(req, body) {
   return serializeAccount(account);
 }
 
+// Someone who can work in the Inbox: an active owner or admin, or a member with the Inbox page.
+const canTakeChats = (member) => Boolean(member) && member.status === 'active' && (isManager(member) || member.modules?.includes('inbox'));
+
 async function update(req, id, body) {
   const account = await findInOrg(req, id);
+  if ('agentMemberId' in body) {
+    if (body.agentMemberId) {
+      await planService.assertFeature(req.tenant.organizationId, 'agentNumbers');
+      const member = await OrganizationMember.findOne({ _id: body.agentMemberId, organizationId: req.tenant.organizationId });
+      if (!canTakeChats(member)) {
+        throw httpError(400, 'VALIDATION_ERROR', 'Pick an active teammate who can open the Inbox.', [{ field: 'agentMemberId', message: 'Pick an active teammate who can open the Inbox.' }]);
+      }
+      account.agentMemberId = member._id;
+    } else {
+      account.agentMemberId = null;
+    }
+  }
   if ('name' in body) account.name = body.name;
   if ('wabaId' in body) account.wabaId = body.wabaId;
   setSecrets(account, body);
@@ -205,7 +223,23 @@ async function defaultAccount(organizationId) {
   return WhatsAppAccount.findOne({ organizationId }).sort({ isDefault: -1, createdAt: 1 });
 }
 
+// The member a number's new chats go to (D67), or null: the company's shared number, or an agent
+// who left, was disabled or lost the Inbox page (their number is shared again until reassigned).
+async function agentOf(account) {
+  if (!account?.agentMemberId) return null;
+  const member = await OrganizationMember.findOne({ _id: account.agentMemberId, organizationId: account.organizationId });
+  return canTakeChats(member) ? member : null;
+}
+
+// The number a member starts a new chat from (D67): their own, else a shared number (the
+// default first), never another agent's own number unless there is nothing else.
+async function numberFor(member, organizationId) {
+  const order = { isDefault: -1, createdAt: 1 };
+  const own = member ? await WhatsAppAccount.findOne({ organizationId, agentMemberId: member._id }).sort(order) : null;
+  return own || (await WhatsAppAccount.findOne({ organizationId, agentMemberId: null }).sort(order)) || defaultAccount(organizationId);
+}
+
 module.exports = {
   list, create, update, test, remove, findInOrg, findByWebhookKey, verifyTokenOf, appSecretOf, credentials,
-  defaultAccount, serializeAccount, serializeCatalog, serializeSync,
+  defaultAccount, agentOf, numberFor, canTakeChats, serializeAccount, serializeCatalog, serializeSync,
 };

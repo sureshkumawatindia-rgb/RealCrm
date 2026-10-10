@@ -445,13 +445,14 @@ describe('Payment links', () => {
     expect(await PaymentLink.exists({ 'payments.providerPaymentId': 'pay_Forged' })).toBeNull();
 
     const org = await Organization.findOne({ name: 'Yellow Traders' });
-    await Organization.updateOne({ _id: org._id }, { $set: { plan: 'starter' } });
+    const status = org.subscription?.status;
+    await Organization.updateOne({ _id: org._id }, { $set: { plan: 'starter', 'subscription.status': 'halted' } });
     const chat = await chatWith('98290 70005', 'Small Shop');
     const contactId = (await Conversation.findById(chat.conversationId)).contactId;
     const refused = await post(owner, '/payment-links', { contactId, amountPaise: 10000 });
     expect(refused.status).toBe(403);
-    expect(refused.body.code).toBe('PLAN_LIMIT');
-    await Organization.updateOne({ _id: org._id }, { $set: { plan: 'growth' } });
+    expect(refused.body.code).toBe('SUBSCRIPTION_INACTIVE');
+    await Organization.updateOne({ _id: org._id }, { $set: { plan: 'growth', 'subscription.status': status } });
   });
 
   // The newest open Razorpay link of this company.

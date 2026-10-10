@@ -29,6 +29,9 @@ const whatsappAccountSchema = new mongoose.Schema(
     statusMessage: { type: String, default: '' },
     lastWebhookAt: { type: Date },
     isDefault: { type: Boolean, default: false },
+    // An agent's own number (D67, Pro plan and above): its new chats and new WhatsApp leads go
+    // straight to this member. Empty = the company's shared number.
+    agentMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember', default: null },
     // How the number was connected (D60): manual = the IDs and token pasted in Settings (its own
     // Meta app and webhook URL); embedded = "Connect WhatsApp" with a new number; coexistence =
     // "Connect WhatsApp" with the WhatsApp Business app number (the app keeps working, chats sync).

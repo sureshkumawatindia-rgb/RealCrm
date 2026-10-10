@@ -302,14 +302,16 @@ All tenant collections have `organizationId`, `createdAt`, `updatedAt`, `deleted
 | apikeys | prefix, hash, scopes[], lastUsedAt, revokedAt | prefix unique global |
 | webhooksubscriptions / webhookdeliveries | url, events[], encrypted secret / attempts, status, responseCode | (org, active) / (org, subscriptionId, createdAt -1) |
 
-Plan limits live in `src/config/plans.js` (data, not logic):
+Plan limits live in `backend/src/constants/plans.js` (data, not logic). Since D67 (2026-10-10; the brief had BizNuma's own ₹999 / 2,999 / 5,999 / 9,999 with 2 / 5 / 10 / 15 users):
 
-| Plan | Price/mo (+GST) | Users | WA numbers | Contacts | Broadcasts/mo | Extras |
-|---|---|---|---|---|---|---|
-| starter | ₹999 | 2 | 1 | 3,000 | 10 | 50 templates, FAQ auto-reply, marketplace integrations |
-| pro | ₹2,999 | 5 | 2 | 10,000 | 100 | + payment links, Meta Conversions API |
-| growth | ₹5,999 | 10 | 2 | 40,000 | 500 | + catalog, advanced automation, API, 10,000 quotes |
-| scale | ₹9,999 | 15 | 3 | 1,00,000 | 1,000 | + 25,000 quotes |
+| Plan | Price/mo (+GST) | Users | WA numbers | Contacts | Broadcasts/mo | Quotations/mo | Extras |
+|---|---|---|---|---|---|---|---|
+| starter | ₹799 | 3 | 1 | 5,000 | 20 | 1,000 | 100 templates, payment links |
+| pro | ₹2,499 | 8 | 3 | 15,000 | 200 | 3,000 | + unlimited templates, Meta Conversions API, catalog, an agent's own number |
+| growth | ₹4,999 | 15 | 5 | 50,000 | 750 | 12,000 | + automation workflows, public API and webhooks |
+| scale | ₹8,499 | 25 | 10 | 1,50,000 | 1,500 | 30,000 | everything |
+
+Every plan: WhatsApp for every user (shared inbox), unlimited chats and full history, the AI assistant (its monthly budget grows with the plan), lead sources, GST quotations, orders, follow-ups, the FAQ bot, reports, the phone app, no markup on Meta's charges. Meta lets a new business connect 2 numbers, up to 20 once it is verified.
 
 ### 5.7 Relationships
 
@@ -519,6 +521,7 @@ Re-check each page again right before writing that integration (rule from the br
 | D64 | Invite your team after sign-up | Owners and admins of a new company get "Invite your team" after Connect WhatsApp: emails, role (agent, viewer; admin for owners) and the pages each may open, through the same invites and seat limit as Settings; the links are shown to send on WhatsApp or copy (the CRM does not email). Skip ends the step for good; companies with teammates or invites never see it. The dashboard checklist's team step opens it. | Decided 2026-10-10 (polish plan) |
 | D65 | Hide customers' numbers from agents | A company setting (Settings → Team & Access → Customer privacy), on by default: agents and viewers see +91 98••• ••210 in every answer, live event, search result, PDF they download and export; they still reply, send quotations and payment links, and search by number. Masking is on the server; masked values sent back are ignored. Separate from D61 private numbers, which still hide whole chats. | Decided 2026-10-10 (user: default ON) |
 | D66 | Log in to your company | The user asked for a "Company name" field above Google on the login page. The company is typed first and checked before Google (as it is typed, rate-limited, exact matches only): its workspace code (`sharma-traders`, made from the name, changeable by owners and admins in Settings → Company) or its exact name, letter case and extra spaces ignored; two companies with one name need the code. After Google only that company's members, or people it invited by that email, get in, into that company; anyone else sees "This Google account hasn't been added to [Company]. Ask your admin to add you." and nothing is created. New companies sign up through a separate link under the card ("Create your company": Google alone, as before). Google's button cannot be disabled, so a look-alike stands in until the company is found. The last company is remembered on the browser. Texts in English and Hindi (the Hindi label, placeholder and help given by the user). | Decided 2026-10-10 (user: code and name, checked before Google, sign-up by a separate link) |
+| D67 | Cheaper than BizNuma, WhatsApp for every agent | The user asked to beat BizNuma: cheaper, more features, more users and WhatsApp for every agent. BizNuma's pricing page (checked 2026-10-10): ₹999 / 2,999 / 5,999 / 9,999 + GST, 2 / 5 / 10 / 15 team members, 1 / 2 / 2 / 3 numbers, 30-day chat history, the AI assistant as a paid add-on, a trial on Starter only, prepaid for 3, 6 or 12 months. Ours: ₹799 / 2,499 / 4,999 / 8,499 + GST, 3 / 8 / 15 / 25 users, 1 / 3 / 5 / 10 numbers, more contacts, broadcasts and quotations, payment links from Starter, catalog and Meta Conversions API from Pro, monthly with a 30-day Growth trial; the AI budget per plan (Starter ¼, Pro ½, Growth all, Scale twice `AI_MONTHLY_BUDGET_USD`) so a cheap plan cannot cost more than it brings. "WhatsApp for every agent" = every user replies from the shared number (all plans) and, from Pro, a number can be an agent's own: its new chats and new WhatsApp leads go to that agent and other agents do not see them (Meta allows 2 numbers per business until it is verified, then 20; each needs its own phone number). No paying companies yet, so no price change for existing subscriptions. | Decided 2026-10-10 (user: cheaper than BizNuma, shared + own number) |
 | D19 | Atlas tier | Free tier is fine for development; production messaging volume needs a paid tier (storage and ops limits). | Before launch |
 
 The remaining items in `docs/DECISIONS_REQUIRED.md` are answered by D1–D17 (Account → D3, pricing/tax → D1/D2, inventory → D7, org fields → D14, email uniqueness → phone is the unique key per D3, pipeline → D4/D13, quotation lifecycle → D6, ticket SLA → basic CRUD for now, document storage → local now / S3-R2 later, permissions → D17, duplicates → phone + source ref, simulated features → real in Phase 6, AI → Phase 10 add-on). Phase 1 updates that file.
@@ -605,6 +608,8 @@ Rough engineering days (AI-assisted), plus the number of working sessions. Exter
 ---
 
 ## 14. Changelog
+
+- **2026-10-10 — Cheaper plans, WhatsApp for every agent (D67).** New prices, below BizNuma's at every level: **Starter ₹799** (3 users, 1 WhatsApp number, 5,000 contacts, 20 broadcasts and 1,000 quotations a month, payment links), **Pro ₹2,499** (8 users, 3 numbers, catalog, Meta Conversions API), **Growth ₹4,999** (15 users, 5 numbers, automation, the API) and **Scale ₹8,499** (25 users, 10 numbers), plus 18% GST. Settings → Plan & usage now lists what every plan has: WhatsApp for every user, unlimited chats and full history, the AI assistant, all lead sources, quotations and orders, reports and the phone app, no markup on Meta's charges. On Pro and above, **Settings → WhatsApp → New chats go to** can make a number an agent's own: new chats and new WhatsApp leads on it go straight to that agent, other agents don't see them, and the agent's new chats start from it. Meta lets a new business connect 2 numbers, and up to 20 once Meta has verified the business.
 
 - **2026-10-10 — Log in to your company (D66).** The login card now asks for the **company name** first ("e.g. Sharma Traders"; in Hindi "कंपनी का नाम"). It is checked as you type, with a spinner; "Continue with Google" works once the company is found, and the card then shows that company's logo and name. Case and extra spaces don't matter, but it must be the whole name — or the company's **workspace code**, which owners and admins find (and can change) in **Settings → Company → Login**, together with a login link to share. Two companies with the same name need the code. After Google, only people on that company's team (or invited to it) get in; anyone else sees "This Google account hasn't been added to Sharma Traders. Ask your admin to add you." and no account or company is made. The browser remembers the last company. A new business clicks **Create your company** under the card (the old sign-up). Invite links fill in the company by themselves. Existing companies got their code automatically (migration 006).
 

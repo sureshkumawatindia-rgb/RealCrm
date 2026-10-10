@@ -14,7 +14,7 @@ const { isManager, canViewAll } = require('../constants/permissions');
 const { SERVICE_WINDOW_MS } = require('../constants/whatsapp');
 const { OPEN_STAGES } = require('../constants/crm');
 const { providerFor } = require('../integrations/whatsapp');
-const { credentials } = require('./whatsappAccountService');
+const { credentials, numberFor } = require('./whatsappAccountService');
 const noteService = require('./noteService');
 const templateService = require('./templateService');
 const mediaService = require('./whatsappMediaService');
@@ -536,9 +536,10 @@ async function start(req, { contactId, accountId }) {
   const contact = await Contact.findOne({ _id: contactId, organizationId, ...visibilityFilter(req, ['customers', 'leads', 'inbox']), ...privacyFilter(req) });
   if (!contact) throw httpError(404, 'NOT_FOUND', 'Contact not found');
   if (!contact.phoneE164) throw httpError(400, 'NO_PHONE', 'Add a mobile number to this contact first.');
+  // No number named: the member's own number (D67), else the company's default.
   const account = accountId
     ? await WhatsAppAccount.findOne({ _id: accountId, organizationId })
-    : await WhatsAppAccount.findOne({ organizationId }).sort({ isDefault: -1, createdAt: 1 });
+    : await numberFor(req.member, organizationId);
   if (!account) throw httpError(400, 'NO_WHATSAPP_NUMBER', 'Add a WhatsApp number in Settings → WhatsApp first.');
 
   const existing = await Conversation.findOne({ organizationId, contactId: contact._id, whatsappAccountId: account._id });

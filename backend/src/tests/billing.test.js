@@ -65,9 +65,9 @@ describe('Paying for the plan (Phase 10B)', () => {
     await press(checkoutUrl, 'charge');
     const invoices = (await api().get('/api/v1/billing/invoices').set(bearer(owner.token))).body.data;
     expect(invoices).toHaveLength(1);
-    expect(invoices[0]).toMatchObject({ number: 'YC/2026-27/0001', planName: 'Pro', totalPaise: 353882, taxablePaise: 299900, gstPaise: 53982 });
+    expect(invoices[0]).toMatchObject({ number: 'YC/2026-27/0001', planName: 'Pro', totalPaise: 294882, taxablePaise: 249900, gstPaise: 44982 });
     const stored = await BillingInvoice.findById(invoices[0].id);
-    expect(stored).toMatchObject({ cgstPaise: 26991, sgstPaise: 26991, igstPaise: 0, placeOfSupplyCode: '08', sac: '998315' });
+    expect(stored).toMatchObject({ cgstPaise: 22491, sgstPaise: 22491, igstPaise: 0, placeOfSupplyCode: '08', sac: '998315' });
     expect(stored.buyer).toMatchObject({ name: 'Yellow Traders', gstin: '08AAACY1234C1Z5', stateCode: '08' });
     expect(stored.seller).toMatchObject({ name: 'Yellow Software Pvt Ltd', stateCode: '08' });
     const pdf = await api().get(`/api/v1/billing/invoices/${invoices[0].id}/pdf`).set(bearer(owner.token)).buffer(true);
@@ -76,7 +76,7 @@ describe('Paying for the plan (Phase 10B)', () => {
     expect(pdf.body.subarray(0, 4).toString()).toBe('%PDF');
     expect((await api().get('/api/v1/billing/invoices').set(bearer(agent.token))).status).toBe(403);
     const org = await orgOf(owner);
-    expect(await notes(org._id)).toEqual(expect.arrayContaining(['Your Pro plan is active', 'Payment received: ₹3,538.82']));
+    expect(await notes(org._id)).toEqual(expect.arrayContaining(['Your Pro plan is active', 'Payment received: ₹2,948.82']));
     // The same payment reported again (webhook + check) makes no second invoice.
     await billing.syncOrganization(org._id);
     expect(await BillingInvoice.countDocuments({ organizationId: org._id })).toBe(1);
@@ -155,7 +155,7 @@ describe('Paying for the plan (Phase 10B)', () => {
     const saved = { provider: env.billing.provider, ...env.billing.razorpay };
     Object.assign(env.billing, { provider: 'razorpay' });
     Object.assign(env.billing.razorpay, { keyId: 'rzp_test_platform', keySecret: 'platform-secret', webhookSecret: 'platform-webhook-secret' });
-    await BillingPlan.create({ provider: 'razorpay', keyId: 'rzp_test_platform', planKey: 'growth', amountPaise: 707882, providerPlanId: 'plan_growth1' });
+    await BillingPlan.create({ provider: 'razorpay', keyId: 'rzp_test_platform', planKey: 'growth', amountPaise: 589882, providerPlanId: 'plan_growth1' });
     await Organization.updateOne({ _id: org._id }, { $set: { 'subscription.provider': 'razorpay', 'subscription.providerSubscriptionId': 'sub_rzp1', 'subscription.gatewayStatus': 'created', 'subscription.pendingPlan': 'growth' } });
     const now = Math.floor(Date.now() / 1000);
     const entity = { id: 'sub_rzp1', entity: 'subscription', plan_id: 'plan_growth1', status: 'active', current_start: now, current_end: now + 30 * 86400, notes: { organizationId: String(org._id) } };
@@ -166,7 +166,7 @@ describe('Paying for the plan (Phase 10B)', () => {
     try {
       const raw = JSON.stringify({
         entity: 'event', event: 'subscription.charged',
-        payload: { subscription: { entity }, payment: { entity: { id: 'pay_rzp1', amount: 707882, status: 'captured', method: 'upi', created_at: now } } },
+        payload: { subscription: { entity }, payment: { entity: { id: 'pay_rzp1', amount: 589882, status: 'captured', method: 'upi', created_at: now } } },
       });
       const sign = (body, secret = 'platform-webhook-secret') => crypto.createHmac('sha256', secret).update(body).digest('hex');
       const post = (body, signature, eventId = 'evt_1') => api().post('/api/v1/webhooks/billing/razorpay').set('Content-Type', 'application/json')
@@ -179,7 +179,7 @@ describe('Paying for the plan (Phase 10B)', () => {
       const after = await Organization.findById(org._id);
       expect(after.toObject()).toMatchObject({ plan: 'growth', subscription: { status: 'active', gatewayStatus: 'active' } });
       const invoice = await BillingInvoice.findOne({ organizationId: org._id });
-      expect(invoice).toMatchObject({ planName: 'Growth', totalPaise: 707882, taxablePaise: 599900, igstPaise: 107982, cgstPaise: 0, placeOfSupplyCode: '27', providerPaymentId: 'pay_rzp1' });
+      expect(invoice).toMatchObject({ planName: 'Growth', totalPaise: 589882, taxablePaise: 499900, igstPaise: 89982, cgstPaise: 0, placeOfSupplyCode: '27', providerPaymentId: 'pay_rzp1' });
       expect(invoice.number).toMatch(/^YC\/2026-27\/\d{4}$/);
     } finally {
       fetchSpy.mockRestore();

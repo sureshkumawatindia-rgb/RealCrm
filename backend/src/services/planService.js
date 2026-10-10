@@ -8,7 +8,7 @@ const Broadcast = require('../models/Broadcast');
 const Quotation = require('../models/Quotation');
 const MessageTemplate = require('../models/MessageTemplate');
 const httpError = require('../utils/httpError');
-const { PLANS, PLAN_KEYS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, FEATURES, planOf } = require('../constants/plans');
+const { PLANS, PLAN_KEYS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, FEATURES, INCLUDED, planOf } = require('../constants/plans');
 
 // The SaaS plan of an organization (Phase 10): its subscription state, its limits and what has
 // been used, and the checks the services call before adding something the plan counts.
@@ -78,7 +78,7 @@ function cheapestPlanWith(feature) {
 
 function featureBlock(organization, feature) {
   const plan = planOf(organization);
-  if (subscriptionOf(organization).locked) return lockedMessage(organization, `use ${FEATURES[feature].replace(/^(The|Payment|Automation)\b/, (word) => word.toLowerCase())}`);
+  if (subscriptionOf(organization).locked) return lockedMessage(organization, `use ${FEATURES[feature].replace(/^(The|Payment|Automation|An)\b/, (word) => word.toLowerCase())}`);
   if (plan[feature]) return '';
   const needed = cheapestPlanWith(feature);
   return `${FEATURES[feature]} ${/s$/.test(FEATURES[feature]) ? 'come' : 'comes'} with the ${needed?.name || 'higher'} plan and above (you are on ${plan.name}). ${UPGRADE_HINT}`;
@@ -182,6 +182,7 @@ function plans() {
     plans: PLAN_KEYS.map(serializePlan),
     limits: Object.entries(LIMITS).map(([metric, { label, monthly }]) => ({ metric, label: label.replace(/ this month$/, ' a month'), monthly: Boolean(monthly) })),
     features: Object.entries(FEATURES).map(([feature, label]) => ({ feature, label })),
+    included: INCLUDED, // what every plan has (D67)
     gstPct: PLAN_GST_PCT,
     trialDays: TRIAL_DAYS,
   };

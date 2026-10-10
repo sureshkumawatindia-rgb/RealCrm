@@ -209,7 +209,7 @@ describe('WhatsApp catalog', () => {
     expect((await api().put(`/api/v1/whatsapp/accounts/${account.id}/catalog`).set(as(stranger)).send({ catalogId: CATALOG_ID })).status).toBe(404);
     expect((await get(stranger, '/products/whatsapp-catalog')).body.data).toMatchObject({ catalogs: [], products: { included: 0 } });
     const org = await Organization.findOne({ name: 'Yellow Traders' });
-    await Organization.updateOne({ _id: org._id }, { $set: { plan: 'pro' } });
+    await Organization.updateOne({ _id: org._id }, { $set: { plan: 'starter' } });
     const refused = await post(owner, '/products/whatsapp-catalog/sync', {});
     expect(refused.status).toBe(403);
     expect(refused.body.code).toBe('PLAN_LIMIT');

@@ -23,6 +23,8 @@
   const listEl = document.getElementById("waAccountList");
   let accounts = [];
   let connect = { available: false, devTools: false };
+  let team = []; // who can take a number's chats (D67)
+  let agentNumbersOn = false; // the plan has "An agent's own WhatsApp number"
 
   // "Connect WhatsApp" numbers (D60): how the import of the chats went.
   function syncHtml(a) {
@@ -77,6 +79,31 @@
     return `<button class="btn btn-outline" type="button" data-copy="${escapeHtml(value)}" title="Copy ${escapeHtml(label)}"><i class="fa-solid fa-copy"></i></button>`;
   }
 
+  // An agent's own number (D67): its new chats and new WhatsApp leads go to that agent.
+  const memberName = (m) => m.name || m.email || "Teammate";
+  function agentHtml(a) {
+    const takers = team.filter((m) => m.status === "active" && (["owner", "admin"].includes(m.role) || (m.modules || []).includes("inbox")));
+    const chosen = a.agentMemberId ? String(a.agentMemberId) : "";
+    const gone = chosen && !takers.some((m) => String(m.id) === chosen);
+    const locked = !agentNumbersOn && !chosen;
+    const options = takers.map((m) => `<option value="${escapeHtml(m.id)}" ${String(m.id) === chosen ? "selected" : ""}>${escapeHtml(memberName(m))}'s own number</option>`).join("");
+    const note = gone
+      ? "The agent of this number left or cannot open the Inbox, so its new chats go to the whole team. Pick someone else, or keep it shared."
+      : locked
+        ? 'An agent\'s own number comes with the Pro plan and above (<a href="Settings.html?tab=plan">Plan & usage</a>).'
+        : chosen ? "New chats and new WhatsApp leads on this number go straight to this agent; other agents don't see them. Owners and admins see everything." : "Everyone in the Inbox sees the new chats on this number.";
+    return `
+      <div class="sub wa-agent" style="margin-top:8px">
+        <label style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0">
+          <strong>New chats go to</strong>
+          <select data-wa-agent="${escapeHtml(a.id)}" style="flex:1 1 200px; max-width:280px; min-width:0" ${locked ? "disabled" : ""}>
+            <option value="" ${chosen && !gone ? "" : "selected"}>The whole team (shared number)</option>${options}
+          </select>
+        </label>
+        <div style="margin-top:4px">${note}</div>
+      </div>`;
+  }
+
   function accountHtml(a) {
     const title = a.verifiedName || a.name || "WhatsApp number";
     const tunnelHint = isLocal(a.webhookUrl)
@@ -98,7 +125,7 @@
         ${tunnelHint}`;
     return `
       <div class="settings-summary-row" style="align-items:flex-start; flex-wrap:wrap">
-        <div class="info" style="min-width:0; flex:1">
+        <div class="info" style="min-width:0; flex:1 1 240px">
           <div class="name">
             <i class="fa-brands fa-whatsapp" style="color:#25d366"></i> ${escapeHtml(title)}
             ${a.displayPhone ? `<span class="text-muted" style="font-weight:500">· ${escapeHtml(a.displayPhone)}</span>` : ""}
@@ -108,6 +135,7 @@
           ${viaMeta ? "" : `<div class="sub">Phone number ID ${escapeHtml(a.phoneNumberId)}${a.accessToken.configured ? ` · token …${escapeHtml(a.accessToken.last4)}` : ""} · ${a.lastWebhookAt ? `last message from WhatsApp ${escapeHtml(when(a.lastWebhookAt))}` : "no message received yet"}</div>`}
           ${["error", "disconnected"].includes(a.status) && a.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(a.statusMessage)}</div>` : ""}
           ${setup}
+          ${agentHtml(a)}
           ${catalogHtml(a)}
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap">
@@ -215,6 +243,10 @@
     loadPrivate();
     try {
       [accounts, connect] = await Promise.all([crmApi("/whatsapp/accounts"), crmApi("/whatsapp/connect")]);
+      // The team and the plan only decide the "New chats go to" choice; without them it stays shared.
+      const [members, billing] = await Promise.allSettled([crmApi("/members?limit=100"), crmApi("/billing/subscription")]);
+      team = members.status === "fulfilled" ? members.value : [];
+      agentNumbersOn = billing.status === "fulfilled" && Boolean(billing.value.plan?.features?.agentNumbers);
       render();
       refreshExtras();
     } catch (error) {
@@ -231,6 +263,16 @@
     }
     await load();
   }
+
+  listEl.addEventListener("change", async (e) => {
+    const select = e.target.closest("[data-wa-agent]");
+    if (!select) return;
+    const agentMemberId = select.value || null;
+    const name = select.selectedOptions[0]?.textContent.replace(/'s own number$/, "") || "";
+    select.disabled = true;
+    await run(() => crmApi(`/whatsapp/accounts/${select.dataset.waAgent}`, jsonRequest("PATCH", { agentMemberId })),
+      agentMemberId ? `New chats on this number now go to ${name}.` : "This number is shared by the whole team again.");
+  });
 
   listEl.addEventListener("submit", async (e) => {
     const form = e.target.closest("[data-wa-catalog-form]");

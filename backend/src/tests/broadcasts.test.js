@@ -97,7 +97,7 @@ describe('WhatsApp broadcasts', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('saves drafts for owners and admins with a sendable template, filled in completely', async () => {
-    expect((await api().get('/api/v1/broadcasts/quota').set(auth())).body.data).toEqual({ plan: 'Growth', limit: 500, used: 0, left: 500 });
+    expect((await api().get('/api/v1/broadcasts/quota').set(auth())).body.data).toEqual({ plan: 'Growth', limit: 750, used: 0, left: 750 });
     const codes = async (body) => (await post('/broadcasts', { name: 'x', segmentId: segment.id, ...body })).body.errors?.[0]?.code;
     expect(await codes({ templateId: templates.diwali_offer.id })).toBe('TEMPLATE_NOT_SENDABLE');
     expect(await codes({ templateId: templates.quotation_pdf.id })).toBe('TEMPLATE_NOT_SENDABLE');
@@ -115,7 +115,7 @@ describe('WhatsApp broadcasts', () => {
     expect(estimate).toMatchObject({
       recipients: 25, // not the opted-out one, not the one without a mobile, not Gujarat
       cost: { perMessagePaise: 11.5, paise: 288, gstPaise: 52, currency: 'INR' },
-      quota: { limit: 500, used: 0 }, dailyLimit: { limit: 250, tier: 'TIER_250', usedToday: 0, leftToday: 250 },
+      quota: { limit: 750, used: 0 }, dailyLimit: { limit: 250, tier: 'TIER_250', usedToday: 0, leftToday: 250 },
     });
     expect((await api().get(`/api/v1/broadcasts/${draft.body.data.id}`).set(bearer(stranger.token))).status).toBe(404);
   });
@@ -212,12 +212,12 @@ describe('WhatsApp broadcasts', () => {
     await api().post(`/api/v1/broadcasts/${later.id}/cancel`).set(auth());
     expect((await api().delete(`/api/v1/broadcasts/${later.id}`).set(auth())).status).toBe(200);
 
-    // The Starter plan allows 10 a month.
+    // The Starter plan allows 20 a month.
     await Organization.updateOne({ _id: account.organizationId }, { $set: { plan: 'starter' } });
-    await Broadcast.insertMany(Array.from({ length: 9 }, (_, i) => ({ organizationId: account.organizationId, name: `Old ${i}`, status: 'completed', templateId: templates.order_update.id, segmentId: segment.id, startedAt: new Date() })));
+    await Broadcast.insertMany(Array.from({ length: 19 }, (_, i) => ({ organizationId: account.organizationId, name: `Old ${i}`, status: 'completed', templateId: templates.order_update.id, segmentId: segment.id, startedAt: new Date() })));
     const over = (await post('/broadcasts', { name: 'One too many', templateId: templates.order_update.id, variables: welcome, segmentId: segment.id })).body.data;
     const refused = await api().post(`/api/v1/broadcasts/${over.id}/send`).set(auth()).send({});
-    expect(refused.body).toMatchObject({ code: 'QUOTA_REACHED', message: 'Your Starter plan allows 10 broadcasts a month; this month\'s are used up.' });
+    expect(refused.body).toMatchObject({ code: 'QUOTA_REACHED', message: 'Your Starter plan allows 20 broadcasts a month; this month\'s are used up.' });
     expect((await api().get('/api/v1/broadcasts?limit=50').set(auth())).body.data.map((b) => b.name)).toContain('One too many');
   });
 });

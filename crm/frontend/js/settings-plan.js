@@ -120,6 +120,9 @@
 
   function renderPlans() {
     $("planGrid").innerHTML = catalog.plans.map(planCard).join("");
+    const included = catalog.included || [];
+    $("planIncluded").hidden = !included.length;
+    $("planIncludedList").innerHTML = included.map((text) => `<li><i class="fa-solid fa-check"></i><span>${escapeHtml(text)}</span></li>`).join("");
     const billing = current.billing || {};
     $("planGridHint").textContent = billing.enabled
       ? `Prices are per month, plus 18% GST. You pay on Razorpay's secure page (card, UPI or netbanking); it charges each month until you cancel, and a GST invoice appears below.${paying() ? " An upgrade starts now; a smaller plan starts with the next month." : ""}`

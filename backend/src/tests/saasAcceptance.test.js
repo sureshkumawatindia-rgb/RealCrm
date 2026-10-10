@@ -77,7 +77,7 @@ describe('Phase 10 acceptance: the SaaS life of a company', () => {
     await until(async () => (await Organization.findById(orgId)).plan === 'pro', 'the Pro plan');
     const invoice = await until(() => BillingInvoice.findOne({ organizationId: orgId }), 'the GST invoice');
     // No platform GSTIN in this test, so the seller's state is unknown: IGST.
-    expect(invoice.toObject()).toMatchObject({ totalPaise: 353882, taxablePaise: 299900, igstPaise: 53982, buyer: { gstin: '08AAACS1234C1Z5' } });
+    expect(invoice.toObject()).toMatchObject({ totalPaise: 294882, taxablePaise: 249900, igstPaise: 44982, buyer: { gstin: '08AAACS1234C1Z5' } });
 
     // --- 3. The API needs Growth: upgrade (at once) ----------------------------------------------------
     expect((await post(owner, '/api-keys', { name: 'ERP', scopes: ['leads:write', 'contacts:read'] })).body.code).toBe('PLAN_LIMIT');

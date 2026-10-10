@@ -10,7 +10,7 @@ const logger = require('../config/logger');
 const bus = require('../realtime/bus');
 const automationEvents = require('./automation/events');
 const env = require('../config/env');
-const { appSecretOf, serializeSync } = require('./whatsappAccountService');
+const { appSecretOf, serializeSync, agentOf } = require('./whatsappAccountService');
 const privateNumbers = require('./privateNumberService');
 const media = require('./whatsappMediaService');
 const templateService = require('./templateService');
@@ -251,10 +251,10 @@ async function findOrCreateContact(organizationId, phoneE164, name, { quiet = fa
 }
 
 // A new number becomes a lead (source WhatsApp); sourceRef keeps it to one lead per number.
-async function createLead(contact, phoneE164) {
+async function createLead(contact, phoneE164, ownerId = null) {
   try {
     const lead = await Lead.create({
-      organizationId: contact.organizationId, contactId: contact._id, stage: 'New', probability: STAGE_PROBABILITY.New,
+      organizationId: contact.organizationId, contactId: contact._id, stage: 'New', probability: STAGE_PROBABILITY.New, ownerId,
       source: 'WhatsApp', sourceRef: `whatsapp:${phoneE164.slice(1)}`, stageChangedAt: new Date(), lastActivityAt: new Date(),
     });
     await LeadActivity.create({
@@ -279,13 +279,21 @@ async function handleMessage(account, { message, contact: profile }) {
   const privateNumber = await privateNumbers.isPrivate(organizationId, phoneE164);
   const { contact, created } = await findOrCreateContact(organizationId, phoneE164, name, { quiet: privateNumber, private: privateNumber });
   const hidden = privateNumber || Boolean(contact.private);
-  const newLead = created && !hidden ? await createLead(contact, phoneE164) : null;
+  // An agent's own number (D67): the chat, a new lead and an unowned customer are theirs. The
+  // assignment rules then leave the lead alone (it has an owner).
+  const agent = hidden ? null : await agentOf(account);
+  if (agent && created) await Contact.updateOne({ _id: contact._id, ownerId: null }, { $set: { ownerId: agent._id } });
+  const newLead = created && !hidden ? await createLead(contact, phoneE164, agent?._id || null) : null;
 
   let conversation = await Conversation.findOneAndUpdate(
     { organizationId, contactId: contact._id, whatsappAccountId: account._id },
-    { $setOnInsert: { status: 'open', openedAt: at, ...(hidden && { private: true }) } },
+    { $setOnInsert: { status: 'open', openedAt: at, ...(agent && { assigneeId: agent._id }), ...(hidden && { private: true }) } },
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
+  // A chat nobody had taken (say, imported from the phone) on an agent's number becomes theirs.
+  if (agent && !conversation.assigneeId) {
+    conversation = await Conversation.findOneAndUpdate({ _id: conversation._id, assigneeId: null }, { $set: { assigneeId: agent._id } }, { returnDocument: 'after' }) || conversation;
+  }
   // A closed chat the customer writes in again starts a new round (resolution time, D61).
   if (conversation.status === 'closed') await Conversation.updateOne({ _id: conversation._id, status: 'closed' }, { $set: { openedAt: at } });
 

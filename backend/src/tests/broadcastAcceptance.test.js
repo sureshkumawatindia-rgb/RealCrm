@@ -104,7 +104,7 @@ describe('Phase 7 acceptance: a WhatsApp broadcast to "Tier A – Rajasthan" wit
       variables: { body: { 1: 'contact.name', 2: 'org.name', 3: 'text:all spices' } },
     })).body.data;
     const estimate = (await api().get(`/api/v1/broadcasts/${draft.id}/estimate`).set(as(owner))).body.data;
-    expect(estimate).toMatchObject({ recipients: 3, cost: { perMessagePaise: 86.31, paise: 259 }, dailyLimit: { limit: 2000, tier: 'TIER_2K' }, quota: { plan: 'Growth', left: 500 } });
+    expect(estimate).toMatchObject({ recipients: 3, cost: { perMessagePaise: 86.31, paise: 259 }, dailyLimit: { limit: 2000, tier: 'TIER_2K' }, quota: { plan: 'Growth', left: 750 } });
     expect((await api().post(`/api/v1/broadcasts/${draft.id}/send`).set(as(owner)).set('Idempotency-Key', 'p7-send-0001').send({})).status).toBe(200);
 
     // --- 5. It goes out: two accepted by WhatsApp, Meena's number refused --------------------
@@ -131,7 +131,7 @@ describe('Phase 7 acceptance: a WhatsApp broadcast to "Tier A – Rajasthan" wit
     expect(result).toMatchObject({ status: 'completed', stats: { total: 3, sent: 2, delivered: 2, read: 1, replied: 1, failed: 1, skipped: 0 } });
     const failed = (await api().get(`/api/v1/broadcasts/${draft.id}/recipients?status=failed`).set(as(owner))).body.data;
     expect(failed).toMatchObject([{ name: 'Meena Spices', reason: expect.stringMatching(/undeliverable/) }]);
-    expect((await api().get('/api/v1/broadcasts/quota').set(as(owner))).body.data).toMatchObject({ used: 1, left: 499 });
+    expect((await api().get('/api/v1/broadcasts/quota').set(as(owner))).body.data).toMatchObject({ used: 1, left: 749 });
     // The reply is in the inbox like any message; the broadcast is in Ravi's chat.
     const raviChat = (await BroadcastRecipient.findOne({ broadcastId: draft.id, phoneE164: '+919829081001' })).conversationId;
     const chat = (await api().get(`/api/v1/conversations/${raviChat}/messages`).set(as(owner))).body.data;

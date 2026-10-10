@@ -30,6 +30,8 @@ module.exports = {
     accessToken: secret,
     appSecret: Joi.string().trim().min(16).max(200),
     isDefault: Joi.boolean().valid(true),
+    // An agent's own number (D67); null or '' = shared by the team.
+    agentMemberId: objectId.allow(null, ''),
   }).min(1),
   // A made-up incoming text, or (test numbers only) a photo, document or voice note with an
   // optional caption.
