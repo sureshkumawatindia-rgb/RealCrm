@@ -68,6 +68,29 @@
         margin: -6px 0 16px;
         line-height: 1.5;
       }
+      /* Settings → Company: the workspace code for the login page (D66) */
+      .workspace-code-row {
+        flex-wrap: wrap;
+      }
+      .workspace-code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: var(--brand-light);
+        overflow-wrap: anywhere;
+      }
+      .workspace-code-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .workspace-code-form {
+        margin-top: 14px;
+      }
+      .workspace-code-form[hidden] {
+        display: none;
+      }
       /* A row the page hides (the invite link before one is made) stays hidden */
       .settings-summary-row[hidden] {
         display: none;
@@ -948,6 +971,35 @@
               </div>
               <div style="padding: 20px">
                 <p class="settings-hint" id="companyFormNote" hidden></p>
+                <div class="settings-section" id="workspaceCodeSection">
+                  <div class="settings-section-label">Login</div>
+                  <p class="settings-hint">On the login page your team types the company name or this workspace code, then continues with Google.</p>
+                  <div class="settings-summary-row workspace-code-row">
+                    <div class="info" style="min-width: 0">
+                      <div class="name">Workspace code: <code class="workspace-code" id="workspaceCode">—</code></div>
+                      <div class="sub" id="loginLinkText" style="word-break: break-all"></div>
+                    </div>
+                    <div class="workspace-code-actions">
+                      <button class="btn btn-outline" type="button" id="copyLoginLinkBtn" disabled>
+                        <i class="fa-solid fa-copy"></i> Copy login link
+                      </button>
+                      <button class="btn btn-outline" type="button" id="editWorkspaceCodeBtn" hidden>
+                        <i class="fa-solid fa-pen"></i> Change
+                      </button>
+                    </div>
+                  </div>
+                  <form class="workspace-code-form" id="workspaceCodeForm" hidden novalidate>
+                    <div class="field">
+                      <label for="workspaceCodeInput">New workspace code</label>
+                      <input type="text" id="workspaceCodeInput" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. sharma-traders" aria-describedby="workspaceCodeRule" />
+                    </div>
+                    <p class="settings-hint" id="workspaceCodeRule">2 to 40 small letters, numbers and hyphens. The old code stops working; the company name keeps working.</p>
+                    <div class="data-actions">
+                      <button class="btn btn-primary" type="submit" id="saveWorkspaceCodeBtn">Save code</button>
+                      <button class="btn btn-outline" type="button" id="cancelWorkspaceCodeBtn">Cancel</button>
+                    </div>
+                  </form>
+                </div>
                 <form id="companyForm">
                   <div class="settings-section-label">Basics</div>
                   <div class="field">

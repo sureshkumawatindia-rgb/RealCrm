@@ -117,7 +117,8 @@ async function lookup(token) {
   }
   const organization = await Organization.findById(invite.organizationId);
   // The logo (a public /uploads file) shows on the login card in place of the CRM's mark.
-  return { organizationName: organization?.name || 'an organization', logoUrl: organization?.logoUrl || '', email: invite.email, role: invite.role, expiresAt: invite.expiresAt };
+  // The workspace code fills in the company on the login card (D66).
+  return { organizationName: organization?.name || 'an organization', logoUrl: organization?.logoUrl || '', workspace: organization?.slug || '', email: invite.email, role: invite.role, expiresAt: invite.expiresAt };
 }
 
 async function accept(invite, user) {
@@ -140,6 +141,9 @@ async function accept(invite, user) {
 
 // Called at Google sign-in with the verified email. Accepts every pending invite for that email.
 // A bad invite link never blocks the login; the problem is returned for the UI to show.
+// Whether this email has an invite waiting from this organization (login with a company typed, D66).
+const hasPendingInvite = (organizationId, email) => Invite.exists({ organizationId, email, status: 'pending', expiresAt: { $gt: new Date() } });
+
 async function acceptPendingInvites(user, email, inviteToken) {
   let invitedOrganizationId = null;
   let inviteError = null;
@@ -160,4 +164,4 @@ async function acceptPendingInvites(user, email, inviteToken) {
   return { invitedOrganizationId, inviteError };
 }
 
-module.exports = { create, list, resend, revoke, lookup, acceptPendingInvites, serializeInvite, INCLUDING_REMOVED, INVITE_TTL_MS };
+module.exports = { create, list, resend, revoke, lookup, acceptPendingInvites, hasPendingInvite, serializeInvite, INCLUDING_REMOVED, INVITE_TTL_MS };

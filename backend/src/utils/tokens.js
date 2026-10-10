@@ -21,9 +21,14 @@ function verifyAccessToken(token) {
 // Between the Google step and the WhatsApp code step of signing in: who passed Google (and the
 // invite's organization), for 10 minutes. Its own audience, so it never works as an access token.
 const LOGIN_AUDIENCE = 'yellow-crm-login';
-function signLoginChallenge({ userId, invitedOrganizationId, inviteError }) {
+// ws: the company typed on the login page (D66), checked again when the code is right.
+function signLoginChallenge({ userId, invitedOrganizationId, inviteError, workspaceId = null }) {
   return jwt.sign(
-    { inv: invitedOrganizationId ? String(invitedOrganizationId) : null, err: inviteError ? { code: inviteError.code, message: inviteError.message } : null },
+    {
+      inv: invitedOrganizationId ? String(invitedOrganizationId) : null,
+      err: inviteError ? { code: inviteError.code, message: inviteError.message } : null,
+      ...(workspaceId && { ws: String(workspaceId) }),
+    },
     env.jwtSecret,
     { subject: String(userId), expiresIn: '10m', issuer: ISSUER, audience: LOGIN_AUDIENCE, algorithm: 'HS256' },
   );

@@ -12,6 +12,7 @@ const sessionService = require('./sessionService');
 const inviteService = require('./inviteService');
 const planService = require('./planService');
 const loginAlertService = require('./loginAlertService');
+const workspaceService = require('./workspaceService');
 
 function safeGoogleAuthMessage(error) {
   const message = String(error.message || '');
@@ -54,11 +55,19 @@ async function describeMemberships(userId) {
     .map((member) => ({ organizationId: member.organizationId._id, organizationName: member.organizationId.name, role: member.role }));
 }
 
+// A company typed on the login page (D66) lets in its active members and people it has invited
+// (by this email), and an owner from before memberships existed. Nobody else, and no new company.
+async function mayEnterWorkspace(user, organization, email) {
+  if (user && await OrganizationMember.exists({ organizationId: organization._id, userId: user._id, status: 'active' })) return true;
+  if (await inviteService.hasPendingInvite(organization._id, email)) return true;
+  return Boolean(user && String(user.organizationId) === String(organization._id) && await adoptLegacyOrganization(user));
+}
+
 function memberSummary(member) {
   return { id: member._id, role: member.role, modules: member.modules, permissions: member.permissions };
 }
 
-async function loginWithGoogle(req, { credential, inviteToken }) {
+async function loginWithGoogle(req, { credential, inviteToken, workspace }) {
   let payload;
   try {
     payload = await verifyGoogleIdToken(credential);
@@ -70,8 +79,15 @@ async function loginWithGoogle(req, { credential, inviteToken }) {
   if (!payload?.sub || !payload.email) throw httpError(401, 'INVALID_GOOGLE_CREDENTIAL', 'Google did not return an email address.');
   if (payload.email_verified === false) throw httpError(401, 'INVALID_GOOGLE_CREDENTIAL', 'Verify your Google email address first.');
   const email = payload.email.toLowerCase();
+  const workspaceOrganization = workspace ? await workspaceService.byCode(workspace) : null;
 
   let user = await User.findOne({ googleId: payload.sub });
+  if (user?.disabledAt) throw httpError(403, 'FORBIDDEN', 'This account is disabled.');
+  // Refused before anything is saved: no new account, no invite accepted, no company made.
+  if (workspaceOrganization && !(await mayEnterWorkspace(user, workspaceOrganization, email))) {
+    throw workspaceService.notInWorkspace(workspaceOrganization);
+  }
+  const workspaceId = workspaceOrganization?._id || null;
   if (!user) {
     user = await User.create({ googleId: payload.sub, email, name: payload.name || email, picture: payload.picture || '' });
   } else {
@@ -79,32 +95,36 @@ async function loginWithGoogle(req, { credential, inviteToken }) {
     user.name = payload.name || user.name;
     user.picture = payload.picture || user.picture;
   }
-  if (user.disabledAt) throw httpError(403, 'FORBIDDEN', 'This account is disabled.');
 
   const { invitedOrganizationId, inviteError } = await inviteService.acceptPendingInvites(user, email, inviteToken);
   // Unless this browser is remembered, the mobile number and a WhatsApp code come next (D58):
   // no session yet, only what the login page needs for those steps.
   await user.save();
   const loginService = require('./loginService'); // eslint-disable-line global-require
-  const pending = await loginService.secondStepFor(req, user, { invitedOrganizationId, inviteError });
+  const pending = await loginService.secondStepFor(req, user, { invitedOrganizationId, inviteError, workspaceId });
   if (pending) return { refreshToken: null, data: pending };
-  const session = await startSession(req, user, { invitedOrganizationId, inviteError, method: 'google' });
+  const session = await startSession(req, user, { invitedOrganizationId, inviteError, workspaceId, method: 'google' });
   await loginService.linkRememberedBrowser(req, user, session.familyId);
   return session;
 }
 
 // After a sign-in (Google, or a WhatsApp code to a verified phone, Phase 10E): picks the
-// organization (an invite's first, then the last one used), opens a session, and answers like
-// POST /auth/google.
-async function startSession(req, user, { invitedOrganizationId = null, inviteError = null, method = 'google' } = {}) {
+// organization (the company typed on the login page, else an invite's, else the last one used),
+// opens a session, and answers like POST /auth/google. With a company typed (workspaceId, D66)
+// the person must still be its member and no organization is ever made.
+async function startSession(req, user, { invitedOrganizationId = null, inviteError = null, workspaceId = null, method = 'google' } = {}) {
   let memberships = await activeMemberships(user._id);
-  if (!memberships.length) {
+  if (workspaceId) {
+    if (!memberships.some((member) => String(member.organizationId) === String(workspaceId))) {
+      throw workspaceService.notInWorkspace((await Organization.findById(workspaceId, { name: 1 })) || { name: 'this company' });
+    }
+  } else if (!memberships.length) {
     if (!(await adoptLegacyOrganization(user))) await createOrganizationFor(user);
     memberships = await activeMemberships(user._id);
   }
 
   const memberOf = memberships.map((member) => String(member.organizationId));
-  const preferred = [invitedOrganizationId, user.organizationId].filter(Boolean).map(String);
+  const preferred = [workspaceId, invitedOrganizationId, user.organizationId].filter(Boolean).map(String);
   const organizationId = preferred.find((id) => memberOf.includes(id)) || memberOf[0];
   const member = memberships.find((item) => String(item.organizationId) === organizationId);
 

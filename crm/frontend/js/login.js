@@ -7,6 +7,9 @@
  * WhatsApp" (connect-whatsapp.html).
  * The page speaks English or Hindi (the choice is kept in crm_prefs). An invite link shows the
  * inviting company's logo and name.
+ * The company comes first (D66): its name or workspace code is checked before Google, and only
+ * that company's team gets in. "Create your company" is the sign-up: Google alone, and a new
+ * company for someone who has none. The last company is remembered on this browser (crm_prefs).
  * The backend returns a short-lived access token (kept in localStorage) and sets the refresh
  * token as an httpOnly cookie. An invite link (login.html?invite=...) adds the user to the
  * inviting company.
@@ -20,6 +23,10 @@ const QR_POLL_MS = 2000;
 const QR_AUTO_REFRESHES = 4; // then "Click to show a new code"
 const RESEND_WAIT_S = 30;
 const CONNECT_SKIP_DAYS = 7; // "Skip for now" on connect-whatsapp.html is asked again after this
+const COMPANY_PREF = "loginCompany"; // the company last signed in to on this browser
+const COMPANY_CHECK_MS = 600; // the company is checked once typing pauses this long
+// login.html?company=sharma-traders (a link an admin shares) fills in the company.
+const companyFromLink = new URLSearchParams(window.location.search).get("company") || "";
 
 // Take the invite token (and ?with=phone) out of the address bar right away, so it is not kept
 // in history or sent to the server as a Referer.
@@ -67,7 +74,24 @@ const TEXT = {
     point2: "Your team replies from one shared inbox",
     point3: "GST quotations and payment links in the chat",
     subGoogle: "Sign in to your workspace",
+    subSignup: "Create your company's workspace",
     googleHint: "Use the Google account your company added you with.",
+    signupHint: "Sign in with Google. Your company is set up next, then you can add your team.",
+    companyLabel: "Company name",
+    companyPlaceholder: "e.g. Sharma Traders",
+    companyHelp: "Enter the name your company registered with Yellow CRM.",
+    companyFound: "{name} found. Continue with Google.",
+    companyFirst: "Enter your company name first.",
+    continueGoogle: "Continue with Google",
+    newHere: "New to Yellow CRM?",
+    createCompany: "Create your company",
+    haveCompany: "Already on Yellow CRM?",
+    logInCompany: "Log in to your company",
+    errCompanyNotFound: "We couldn't find this company. Check the name or ask your admin.",
+    errCompanyAmbiguous: "More than one company has this name. Enter your workspace code instead. Your admin finds it in Settings → Company.",
+    errNotInWorkspace: "This Google account hasn't been added to {company}. Ask your admin to add you.",
+    errTooMany: "Too many tries. Wait a minute and try again.",
+    errCompanyCheck: "Could not check the company. Check your internet and try again.",
     subPhone: "2-step verification is on for your account. We'll send a code on WhatsApp.",
     subCode: "Enter the 6-digit code from WhatsApp.",
     subCodeSms: "Enter the 6-digit code from the SMS.",
@@ -115,7 +139,24 @@ const TEXT = {
     point2: "आपकी टीम एक साझा इनबॉक्स से जवाब देती है",
     point3: "चैट में ही GST कोटेशन और पेमेंट लिंक",
     subGoogle: "अपने वर्कस्पेस में साइन इन करें",
+    subSignup: "अपनी कंपनी का वर्कस्पेस बनाएँ",
     googleHint: "वही Google खाता इस्तेमाल करें जिससे आपकी कंपनी ने आपको जोड़ा है।",
+    signupHint: "Google से साइन इन करें। फिर आपकी कंपनी बनेगी और आप अपनी टीम को जोड़ सकेंगे।",
+    companyLabel: "कंपनी का नाम",
+    companyPlaceholder: "जैसे शर्मा ट्रेडर्स",
+    companyHelp: "अपनी कंपनी का नाम दर्ज करें जो Yellow CRM में रजिस्टर है।",
+    companyFound: "{name} मिल गई। Google से आगे बढ़ें।",
+    companyFirst: "पहले अपनी कंपनी का नाम डालें।",
+    continueGoogle: "Google के साथ जारी रखें",
+    newHere: "Yellow CRM पर नए हैं?",
+    createCompany: "अपनी कंपनी बनाएँ",
+    haveCompany: "पहले से Yellow CRM पर हैं?",
+    logInCompany: "अपनी कंपनी में लॉग इन करें",
+    errCompanyNotFound: "यह कंपनी नहीं मिली। नाम जाँचें या अपने एडमिन से पूछें।",
+    errCompanyAmbiguous: "इस नाम की एक से ज़्यादा कंपनियाँ हैं। अपना वर्कस्पेस कोड डालें। यह आपके एडमिन को Settings → Company में मिलेगा।",
+    errNotInWorkspace: "यह Google खाता {company} में नहीं जोड़ा गया है। अपने एडमिन से आपको जोड़ने के लिए कहें।",
+    errTooMany: "बहुत बार कोशिश हुई। एक मिनट रुककर फिर कोशिश करें।",
+    errCompanyCheck: "कंपनी की जाँच नहीं हो सकी। इंटरनेट देखें और फिर कोशिश करें।",
     subPhone: "आपके खाते पर 2-स्टेप वेरिफ़िकेशन चालू है। हम WhatsApp पर एक कोड भेजेंगे।",
     subCode: "WhatsApp पर आया 6 अंकों का कोड डालें।",
     subCodeSms: "SMS से आया 6 अंकों का कोड डालें।",
@@ -251,9 +292,12 @@ async function showInviteDetails() {
     const invite = await crmApi("/invites/lookup", postJson({ token }));
     showCompany(invite.organizationName, invite.logoUrl);
     setLoginNoteText("noteInvite", { org: invite.organizationName, role: invite.role, email: invite.email });
+    if (invite.workspace) useCompany({ name: invite.organizationName, logoUrl: invite.logoUrl, slug: invite.workspace });
+    else fillCompany(invite.organizationName);
   } catch (error) {
     sessionStorage.removeItem(INVITE_KEY);
     setLoginNote(error.message || "This invite link is no longer valid. Ask for a new one.");
+    fillCompany(companyFromLink || getPreference(COMPANY_PREF, ""));
   }
 }
 
@@ -317,7 +361,8 @@ let resendLeft = 0;
 
 function renderStepTexts() {
   const step = STEPS[login.step];
-  $("loginSub").textContent = t(login.step === "code" && login.channel === "sms" ? "subCodeSms" : step.sub);
+  const signingUp = ["google", "busy"].includes(login.step) && company.mode === "signup";
+  $("loginSub").textContent = t(signingUp ? "subSignup" : login.step === "code" && login.channel === "sms" ? "subCodeSms" : step.sub);
   $("smsBtn").textContent = t(login.channel === "sms" ? "byWhatsapp" : "bySms");
   if (login.sent) {
     const { phone, channel, minutes } = login.sent;
@@ -339,7 +384,7 @@ function showStep(name) {
   renderStepTexts();
   if (name === "qr") qrLogin.start();
   else qrLogin.stop();
-  if (name === "google") renderGoogleButton();
+  if (name === "google") renderCompany();
   if (name === "phone") ($("loginPhone").value ? $("sendCodeBtn") : $("loginPhone")).focus();
   if (name === "code") $("loginCode").focus();
 }
@@ -362,10 +407,14 @@ function prettyPhone(e164) {
 // Google → signed in, or (2-step verification) the number and the code.
 async function handleGoogleCredentialResponse(response) {
   const inviteToken = sessionStorage.getItem(INVITE_KEY) || "";
+  const workspace = company.mode === "login" ? company.found?.slug || "" : "";
+  if (company.mode === "login" && !workspace) return showStep("google"); // the company was changed meanwhile
+  company.googleError = null;
   showStep("busy");
   try {
-    const auth = await crmApi("/auth/google", postJson({ credential: response.credential, inviteToken }));
+    const auth = await crmApi("/auth/google", postJson({ credential: response.credential, inviteToken, workspace }));
     if (auth.step !== "whatsapp-code") {
+      rememberCompany();
       await completeSignIn(auth);
       return;
     }
@@ -377,7 +426,7 @@ async function handleGoogleCredentialResponse(response) {
     showStep("phone");
   } catch (error) {
     showStep("google");
-    showToast(errorText(error, "errGoogle"), "error");
+    if (!companyRefused(error)) showToast(errorText(error, "errGoogle"), "error");
   }
 }
 
@@ -450,12 +499,18 @@ $("codeForm").addEventListener("submit", async (event) => {
   if (!login.challenge || !login.phone) return backToGoogle("");
   $("verifyBtn").disabled = true;
   try {
-    await completeSignIn(await crmApi("/auth/login/verify", postJson({
+    const auth = await crmApi("/auth/login/verify", postJson({
       challenge: login.challenge, phone: login.phone, code: $("loginCode").value.trim(), stayLoggedIn: stayLoggedIn(),
-    })));
+    }));
+    rememberCompany();
+    await completeSignIn(auth);
   } catch (error) {
     $("verifyBtn").disabled = false;
     if (error.code === "LOGIN_EXPIRED") return backToGoogle(errorText(error));
+    if (["NOT_IN_WORKSPACE", "WORKSPACE_NOT_FOUND"].includes(error.code)) {
+      backToGoogle("");
+      return companyRefused(error);
+    }
     showStep("code");
     showToast(errorText(error, "errCode"), "error");
     $("loginCode").select();
@@ -469,6 +524,169 @@ $("changePhone").addEventListener("click", () => {
   login.sent = null;
   login.phoneHintKey = "";
   showStep("phone");
+});
+
+// ---------------------------------------------------------------
+// The company (D66): checked as it is typed, before Google. Google's button cannot be switched
+// off, so a plain look-alike (#googleWait) stands in until the company is found.
+// ---------------------------------------------------------------
+const company = {
+  mode: "login", // or "signup": "Create your company" (Google alone, the old way)
+  found: null, // { name, logoUrl, slug } from POST /auth/workspace (or the invite)
+  typed: "", // what was found, as typed
+  state: "", // "checking" | "found" | "error"
+  error: null, // why the company was not found
+  googleError: null, // Google's account is not on that company's team
+  seq: 0, // only the answer to the latest check counts
+  timer: null,
+};
+const defaultMark = { title: $("loginTitle").textContent, mark: $("loginMark").innerHTML };
+const tidyCompany = (text) => String(text || "").trim().replace(/\s+/g, " ");
+
+// The found company's logo and name on the card; back to YELLOW CRM when it is cleared.
+function setFound(found) {
+  company.found = found;
+  if (found) {
+    showCompany(found.name, found.logoUrl);
+    return;
+  }
+  $("loginTitle").textContent = defaultMark.title;
+  $("loginMark").className = "login-mark";
+  $("loginMark").innerHTML = defaultMark.mark; // the CRM's own icon from the page
+}
+
+function companyErrorText() {
+  const code = company.error?.code;
+  if (!code && !company.error) return "";
+  if (code === "COMPANY_EMPTY") return t("companyFirst");
+  if (code === "WORKSPACE_NOT_FOUND") return t("errCompanyNotFound");
+  if (code === "WORKSPACE_AMBIGUOUS") return t("errCompanyAmbiguous");
+  if (code === "RATE_LIMITED") return t("errTooMany");
+  return company.error.status ? errorText(company.error) : t("errCompanyCheck"); // no answer: offline
+}
+
+function renderCompany() {
+  const signup = company.mode === "signup";
+  const ready = signup || Boolean(company.found);
+  const input = $("loginCompany");
+  $("companyForm").hidden = signup;
+  input.placeholder = t("companyPlaceholder");
+  input.setAttribute("aria-invalid", String(company.state === "error"));
+  input.setAttribute("aria-busy", String(company.state === "checking"));
+  $("companyField").className = `login-company-field${company.state ? ` is-${company.state}` : ""}`;
+  const icon = { checking: "fa-spinner fa-spin", found: "fa-circle-check" }[company.state];
+  $("companyState").innerHTML = icon ? `<i class="fa-solid ${icon}"></i>` : "";
+  $("companyHelp").textContent = company.found ? t("companyFound", { name: company.found.name }) : t("companyHelp");
+  const error = companyErrorText();
+  $("companyError").textContent = error;
+  $("companyError").hidden = !error;
+  const refused = company.googleError ? t("errNotInWorkspace", { company: company.googleError.company }) : "";
+  $("googleError").textContent = refused;
+  $("googleError").hidden = !refused;
+  $("googleWait").hidden = ready;
+  $("googleWait").title = ready ? "" : t("companyFirst");
+  $("google-signin-slot").hidden = !ready;
+  $("googleHint").textContent = t(signup ? "signupHint" : "googleHint");
+  $("signupAsk").textContent = t(signup ? "haveCompany" : "newHere");
+  $("signupLink").textContent = t(signup ? "logInCompany" : "createCompany");
+  if (ready && login.step === "google") renderGoogleButton();
+}
+
+async function checkCompany(typed) {
+  clearTimeout(company.timer);
+  company.timer = null;
+  company.seq += 1;
+  const seq = company.seq;
+  Object.assign(company, { state: "checking", error: null, googleError: null });
+  renderCompany();
+  let found = null;
+  let failure = null;
+  try {
+    found = await crmApi("/auth/workspace", postJson({ company: typed }));
+  } catch (error) {
+    failure = { code: error.code, status: error.status, message: error.message, errors: error.errors };
+  }
+  if (seq !== company.seq) return; // typed on since: a newer check is coming
+  Object.assign(company, { typed, state: found ? "found" : "error", error: failure });
+  setFound(found);
+  renderCompany();
+}
+
+// The company as typed (the last one, or from a link): checked straight away.
+function fillCompany(text) {
+  const typed = tidyCompany(text);
+  if (!typed) return;
+  $("loginCompany").value = typed;
+  checkCompany(typed);
+}
+
+// An invite link knows its company already.
+function useCompany(found) {
+  company.seq += 1; // any check on the way is for something else
+  clearTimeout(company.timer);
+  $("loginCompany").value = found.name;
+  Object.assign(company, { typed: found.name, state: "found", error: null, googleError: null });
+  setFound(found);
+  renderCompany();
+}
+
+// Signed in through the company: it is filled in next time on this browser.
+function rememberCompany() {
+  if (company.mode === "login" && company.found) setPreference(COMPANY_PREF, company.typed);
+}
+
+// Google's answer refused for this company → true when it was shown here.
+function companyRefused(error) {
+  if (error.code === "NOT_IN_WORKSPACE") {
+    company.googleError = { company: company.found?.name || tidyCompany($("loginCompany").value) };
+  } else if (error.code === "WORKSPACE_NOT_FOUND") {
+    Object.assign(company, { state: "error", error: { code: error.code, status: error.status } });
+    setFound(null);
+  } else {
+    return false;
+  }
+  renderCompany();
+  return true;
+}
+
+$("loginCompany").addEventListener("input", () => {
+  const typed = tidyCompany($("loginCompany").value);
+  if (company.found && typed.toLowerCase() === company.typed.toLowerCase()) return;
+  clearTimeout(company.timer);
+  company.seq += 1;
+  Object.assign(company, { state: typed.length >= 2 ? "checking" : "", error: null, googleError: null });
+  setFound(null);
+  renderCompany();
+  if (typed.length >= 2) company.timer = setTimeout(() => checkCompany(typed), COMPANY_CHECK_MS);
+});
+// Leaving the field or pressing Enter checks it now.
+$("loginCompany").addEventListener("blur", () => {
+  if (company.timer) checkCompany(tidyCompany($("loginCompany").value));
+});
+$("companyForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const typed = tidyCompany($("loginCompany").value);
+  if (!typed) {
+    Object.assign(company, { state: "error", error: { code: "COMPANY_EMPTY" } });
+    renderCompany();
+  } else if (company.timer || (!company.found && company.state !== "checking")) {
+    checkCompany(typed);
+  }
+});
+// The stand-in button says what is missing.
+$("googleWait").addEventListener("click", () => {
+  if (!tidyCompany($("loginCompany").value)) {
+    Object.assign(company, { state: "error", error: { code: "COMPANY_EMPTY" } });
+    renderCompany();
+  }
+  $("loginCompany").focus();
+});
+$("signupLink").addEventListener("click", () => {
+  company.mode = company.mode === "signup" ? "login" : "signup";
+  company.googleError = null;
+  renderStepTexts();
+  renderCompany();
+  if (company.mode === "login") $("loginCompany").focus();
 });
 
 // The Google button follows the page's language and fits the card: Google draws it at a fixed
@@ -494,6 +712,7 @@ function renderGoogleButton() {
     });
     googleReady = true;
   }
+  if ($("google-signin-slot").hidden) return; // drawn when the company is found (or for a sign-up)
   // The room comes from the card (its grid column never grows with the button, style.css).
   const width = googleButtonWidth();
   if (googleLang === lang && Math.abs(googleWidth - width) < 8) return;
@@ -523,7 +742,7 @@ $("langBtn").addEventListener("click", () => {
   applyLanguage();
   renderStepTexts();
   renderNote();
-  if (login.step === "google") renderGoogleButton();
+  if (login.step === "google") renderCompany();
 });
 
 // ---------------------------------------------------------------
@@ -629,6 +848,9 @@ $("qrReload").addEventListener("click", () => qrLogin.reload());
 if (!alreadySignedIn) {
   applyLanguage();
   if (sessionStorage.getItem(PENDING_LINK_KEY)) setLoginNoteText("notePendingLink");
+  // With an invite, its company is filled in once the invite is looked up.
+  if (!sessionStorage.getItem(INVITE_KEY)) fillCompany(companyFromLink || getPreference(COMPANY_PREF, ""));
   showInviteDetails();
   showStep(withPhone ? "qr" : "google");
+  if (!$("loginCompany").value && !withPhone && window.matchMedia("(pointer: fine)").matches) $("loginCompany").focus();
 }

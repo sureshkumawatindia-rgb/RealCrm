@@ -80,12 +80,12 @@ async function linkRememberedBrowser(req, user, familyId) {
 // --- after Google -------------------------------------------------------------------------------------
 // Called by authService.loginWithGoogle. → null (sign in now) or what the login page needs for
 // steps 2 and 3.
-async function secondStepFor(req, user, { invitedOrganizationId, inviteError }) {
+async function secondStepFor(req, user, { invitedOrganizationId, inviteError, workspaceId = null }) {
   if (!secondStepOn(user) || await trustedFor(req, user)) return null;
   const verified = user.phoneE164 && user.phoneVerifiedAt ? user.phoneE164 : '';
   return {
     step: 'whatsapp-code',
-    challenge: signLoginChallenge({ userId: user._id, invitedOrganizationId, inviteError }),
+    challenge: signLoginChallenge({ userId: user._id, invitedOrganizationId, inviteError, workspaceId }),
     phone: verified, // filled in for them (they have just proved the Google account)
     phoneHint: masked(verified),
     smsBackup: otpService.smsAvailable(),
@@ -141,7 +141,7 @@ async function verifyCode(req, { challenge, phone, code, stayLoggedIn }) {
     }
   }
   const session = await authService.startSession(req, await User.findById(user._id), {
-    invitedOrganizationId: claims.inv, inviteError: claims.err || null, method: `google+${used.channel || 'whatsapp'}`,
+    invitedOrganizationId: claims.inv, inviteError: claims.err || null, workspaceId: claims.ws || null, method: `google+${used.channel || 'whatsapp'}`,
   });
   return { ...session, device: stayLoggedIn ? await rememberDevice(req, user._id, session.familyId) : null };
 }

@@ -333,10 +333,12 @@ async function loadCompanyForm() {
   try {
     const { company, localOnly } = await loadCompanyProfile();
     fillCompanyForm(company);
+    renderWorkspaceCode(company?.slug);
     savedLabel.textContent = localOnly ? "Only in this browser" : companyHasDetails(company) ? "Saved" : "Not set up yet";
     if (localOnly) setCompanyNote("These details are only saved in this browser. Click Save Company Profile to share them with your team.");
   } catch (error) {
     fillCompanyForm(getCompanyInfo());
+    renderWorkspaceCode(getCompanyInfo()?.slug);
     savedLabel.textContent = "";
     setCompanyNote(apiErrorMessage(error, "Couldn't load the company profile."));
   }
@@ -355,7 +357,8 @@ document.getElementById("companyForm").addEventListener("submit", async (e) => {
     return;
   }
   try {
-    await saveCompanyProfile(data);
+    const organization = await saveCompanyProfile(data);
+    renderWorkspaceCode(organization.slug); // a code made from the name follows a new name
     document.getElementById("companyLastSaved").textContent = "Saved";
     setCompanyNote("");
     renderCompanyDashboardCard(); // no-op unless this ran on dashboard.html
@@ -363,6 +366,68 @@ document.getElementById("companyForm").addEventListener("submit", async (e) => {
   } catch (error) {
     showToast(apiErrorMessage(error, "Couldn't save the company profile."), "error");
   }
+});
+
+// ---------------------------------------------------------------
+// Company → Login: the workspace code typed on the login page (D66). Everyone sees it and can
+// copy the login link (login.html?company=…); owners and admins can change it.
+// ---------------------------------------------------------------
+const loginLinkFor = (code) => `${new URL("login.html", window.location.href).href}?company=${encodeURIComponent(code)}`;
+
+function renderWorkspaceCode(code) {
+  document.getElementById("workspaceCode").textContent = code || "—";
+  document.getElementById("loginLinkText").textContent = code ? loginLinkFor(code) : "";
+  document.getElementById("copyLoginLinkBtn").disabled = !code;
+  document.getElementById("editWorkspaceCodeBtn").hidden = !code || !isOrgManager();
+}
+
+function closeWorkspaceCodeForm() {
+  document.getElementById("workspaceCodeForm").hidden = true;
+  document.getElementById("editWorkspaceCodeBtn").focus();
+}
+
+document.getElementById("copyLoginLinkBtn").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById("loginLinkText").textContent);
+    showToast("Login link copied.", "success");
+  } catch {
+    showToast("Copy failed — select the link and copy it by hand.", "error");
+  }
+});
+
+document.getElementById("editWorkspaceCodeBtn").addEventListener("click", () => {
+  const input = document.getElementById("workspaceCodeInput");
+  input.value = document.getElementById("workspaceCode").textContent;
+  document.getElementById("workspaceCodeForm").hidden = false;
+  input.focus();
+  input.select();
+});
+document.getElementById("cancelWorkspaceCodeBtn").addEventListener("click", closeWorkspaceCodeForm);
+
+// Spaces become hyphens and letters small as it is typed, like the code will be.
+document.getElementById("workspaceCodeInput").addEventListener("input", (event) => {
+  const tidy = event.target.value.toLowerCase().replace(/[\s_]+/g, "-");
+  if (tidy !== event.target.value) event.target.value = tidy;
+});
+
+document.getElementById("workspaceCodeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const slug = document.getElementById("workspaceCodeInput").value.trim().replace(/^-+|-+$/g, "");
+  if (slug === document.getElementById("workspaceCode").textContent) return closeWorkspaceCodeForm();
+  const button = document.getElementById("saveWorkspaceCodeBtn");
+  button.disabled = true;
+  try {
+    const organization = await saveCompanyProfile({ slug });
+    renderWorkspaceCode(organization.slug);
+    closeWorkspaceCodeForm();
+    showToast("Workspace code saved. Tell your team the new code.", "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, "Couldn't save the workspace code."), "error");
+    document.getElementById("workspaceCodeInput").focus();
+  } finally {
+    button.disabled = false;
+  }
+  return undefined;
 });
 
 // ---------------------------------------------------------------

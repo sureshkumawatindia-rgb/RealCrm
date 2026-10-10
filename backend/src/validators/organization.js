@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { GSTIN_PATTERN } = require('../utils/gstin');
+const { CODE_PATTERN } = require('../utils/workspaceCode');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
 
@@ -20,6 +21,9 @@ module.exports = {
     country: text(100),
     postalCode: text(12),
     description: text(2000),
+    // The workspace code the team types on the login page (D66).
+    slug: Joi.string().trim().lowercase().pattern(CODE_PATTERN)
+      .messages({ 'string.pattern.base': 'Use 2 to 40 small letters, numbers and hyphens, for example sharma-traders' }),
   }).min(1),
 
   // Settings → Billing (Phase 5): what quotations show and how documents are numbered.

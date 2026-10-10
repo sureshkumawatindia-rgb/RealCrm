@@ -2,6 +2,7 @@ const authService = require('../services/authService');
 const otpService = require('../services/otpService');
 const loginService = require('../services/loginService');
 const deviceService = require('../services/deviceService');
+const workspaceService = require('../services/workspaceService');
 const { REFRESH_COOKIE, readCookie, setRefreshCookie, clearRefreshCookie } = require('../utils/cookies');
 
 // A finished sign-in: the refresh cookie, and the remembered-browser cookie when asked for.
@@ -15,6 +16,10 @@ function finishSignIn(req, res, { refreshToken, data, device, browser }) {
 // POST /auth/google → signed in, or { step: 'whatsapp-code', challenge, phoneHint } (D58).
 async function google(req, res) {
   finishSignIn(req, res, await authService.loginWithGoogle(req, req.body));
+}
+
+async function workspace(req, res) {
+  res.json({ success: true, data: await workspaceService.lookup(req.body.company) });
 }
 
 async function refresh(req, res) {
@@ -97,6 +102,6 @@ async function twoStep(req, res) {
 }
 
 module.exports = {
-  google, refresh, logout, me, switchOrganization, loginCode, loginVerify, qrStart, qrPoll, qrPeek, qrApprove,
+  google, workspace, refresh, logout, me, switchOrganization, loginCode, loginVerify, qrStart, qrPoll, qrPeek, qrApprove,
   devices, deviceLogOut, devicesLogOutOthers, phoneStatus, phoneRequest, phoneVerify, phoneUnlink, twoStep,
 };

@@ -1,13 +1,15 @@
 const express = require('express');
 const controller = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
-const { authLimiter, qrPollLimiter } = require('../middleware/rateLimit');
+const { authLimiter, qrPollLimiter, workspaceLimiter } = require('../middleware/rateLimit');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/auth');
 
 const router = express.Router();
 
+// The company typed on the login card, checked before Google (D66).
+router.post('/workspace', workspaceLimiter, validate({ body: schemas.workspaceLookup }), controller.workspace);
 router.post('/google', authLimiter, validate({ body: schemas.googleLogin }), controller.google);
 router.post('/refresh', authLimiter, controller.refresh);
 router.post('/logout', authLimiter, controller.logout);

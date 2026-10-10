@@ -50,6 +50,8 @@ const schema = Joi.object({
   RATE_LIMIT_WEBHOOK_PER_MINUTE: Joi.number().integer().min(1).default(1200),
   // Enquiries per minute from one address to the public website forms.
   RATE_LIMIT_FORM_PER_MINUTE: Joi.number().integer().min(1).default(10),
+  // Company checks per minute from one address on the login page (D66).
+  RATE_LIMIT_WORKSPACE_PER_MINUTE: Joi.number().integer().min(1).default(30),
   // Public API requests per minute per API key (Phase 10C).
   RATE_LIMIT_PUBLIC_API_PER_MINUTE: Joi.number().integer().min(1).default(120),
   JWT_EXPIRES_IN: Joi.string().allow(''),
@@ -153,6 +155,7 @@ const env = {
     webhookPerMinute: value.RATE_LIMIT_WEBHOOK_PER_MINUTE,
     formPerMinute: value.RATE_LIMIT_FORM_PER_MINUTE,
     publicApiPerMinute: value.RATE_LIMIT_PUBLIC_API_PER_MINUTE,
+    workspacePerMinute: value.RATE_LIMIT_WORKSPACE_PER_MINUTE,
   },
   leadSources: {
     indiamartUrl: value.INDIAMART_PULL_URL,

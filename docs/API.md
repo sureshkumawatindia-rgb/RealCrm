@@ -31,7 +31,8 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 
 | Method | Route | Auth | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/auth/google` | none | Body `{ credential, inviteToken? }`. Verifies the Google ID token, creates the user on first sign-in, accepts pending invites for the verified email, creates an organization only if the user belongs to none. Returns `{ token, user, organizationId, member, memberships, inviteError? }` and sets the refresh cookie — or, on a browser that is not remembered (D58), `{ step: 'whatsapp-code', challenge, phone (the verified number, filled in on the page; '' if none), phoneHint (masked), smsBackup (can the code come by SMS), user { email, name, picture } }` and no session yet. Google alone signs in when `LOGIN_WHATSAPP_CODE=off` or the CRM cannot send codes (`OTP_PROVIDER=off`). |
+| `POST` | `/auth/workspace` | none | The company typed on the login page (D66): `{ company }` (1-200 characters) → `{ name, logoUrl, slug }` (never an id). Matches the workspace code exactly (`slug`, letter case ignored), else the exact name with letter case and extra spaces ignored — never part of a name. 404 `WORKSPACE_NOT_FOUND` ("We couldn't find this company. Check the name or ask your admin."), 409 `WORKSPACE_AMBIGUOUS` when two companies have that name (the code is then needed). |
+| `POST` | `/auth/google` | none | Body `{ credential, inviteToken?, workspace? }`. Verifies the Google ID token, creates the user on first sign-in, accepts pending invites for the verified email, creates an organization only if the user belongs to none. Returns `{ token, user, organizationId, member, memberships, inviteError? }` and sets the refresh cookie — or, on a browser that is not remembered (D58), `{ step: 'whatsapp-code', challenge, phone (the verified number, filled in on the page; '' if none), phoneHint (masked), smsBackup (can the code come by SMS), user { email, name, picture } }` and no session yet. Google alone signs in when `LOGIN_WHATSAPP_CODE=off` or the CRM cannot send codes (`OTP_PROVIDER=off`). |
 | `POST` | `/auth/login/code` | none | 2-step verification (D58; optional per person since D60, `LOGIN_WHATSAPP_CODE` optional/required/off). `{ challenge, phone, channel? ('whatsapp' default, or 'sms' — the backup, docs/SMS_SETUP.md) }` → a 6-digit code: `{ sent, channel, message, expiresInSeconds }` (the code is never in an answer; in development it is in the server log); 409 `SMS_OFF` when SMS is not set up. The challenge lives 10 minutes (400 `LOGIN_EXPIRED`). A verified number must match (400 `PHONE_MISMATCH`); a number of another account: 409 `PHONE_IN_USE`. 429 `OTP_TOO_MANY`, 502 `OTP_NOT_SENT`. |
 | `POST` | `/auth/login/verify` | none | Step 3. `{ challenge, phone, code, stayLoggedIn? }` → the same as a signed-in `POST /auth/google`; the number is verified the first time. `stayLoggedIn` sets the `crm_device` cookie (httpOnly, SameSite=Strict, path `/api/v1/auth`, 30 days): Google alone on this browser until logout. 401 `OTP_INVALID` / `OTP_LOCKED`. |
 | `POST` | `/auth/qr` | none | A computer logged in from a phone (login.html?with=phone, D60; Settings → Your Profile → Log in on another computer): `{ id, secret, image (PNG data URL of …/link-device.html#<id>.<secret>), expiresAt (2 min) }`. |
@@ -45,6 +46,8 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 
 `POST /auth/logout` also forgets the remembered browser (`crm_device`).
 
+**Logging in to a company (D66).** `workspace` is the `slug` that `POST /auth/workspace` answered. With it, only that company's active members, people it invited by this email (the invite is accepted) and an owner from before memberships existed get in, and the session opens in that company even when another one was used last; anyone else gets 403 `NOT_IN_WORKSPACE` ("This Google account hasn't been added to Sharma Traders. Ask your admin to add you.") before anything is saved: no new account, no invite accepted, no company made. The 2-step challenge carries the company, and `POST /auth/login/verify` checks the membership again (someone removed meanwhile gets the same 403). An unknown code is 404 `WORKSPACE_NOT_FOUND`. Without `workspace` (the login page's "Create your company") it is the sign-up as before: a new company for someone who belongs to none.
+
 **Where you're logged in** (Settings → Your Profile, 2026-10-08), like WhatsApp's linked devices:
 
 | Method | Route | Auth | Purpose |
@@ -57,14 +60,14 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 
 Every bearer request checks its session: after a logout (here, from the list, a reused refresh token or removal from the team) the access token is refused at once with 401 `SESSION_ENDED`, not when its 15 minutes run out.
 
-Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout`, `/auth/login/*`, `POST /auth/qr` and `/invites/lookup`: `RATE_LIMIT_AUTH_PER_MINUTE` (default 20) per IP. Everything else: `RATE_LIMIT_API_PER_MINUTE` (default 300).
+Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout`, `/auth/login/*`, `POST /auth/qr` and `/invites/lookup`: `RATE_LIMIT_AUTH_PER_MINUTE` (default 20) per IP. `POST /auth/workspace` (checked as the company is typed): `RATE_LIMIT_WORKSPACE_PER_MINUTE` (default 30) per IP. Everything else: `RATE_LIMIT_API_PER_MINUTE` (default 300).
 
 ## Organization
 
 | Method | Route | Role | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/organization` | any member | Company profile: `name, industry, size, foundedYear, website, email, phone, gstin, stateCode, address, city, state, country, postalCode, description, logoUrl`. |
-| `PATCH` | `/organization` | owner, admin | Any of the fields above except `stateCode` and `logoUrl`. `gstin` must be a valid 15-character GSTIN or empty; `stateCode` is derived from it. |
+| `GET` | `/organization` | any member | Company profile: `name, slug, industry, size, foundedYear, website, email, phone, gstin, stateCode, address, city, state, country, postalCode, description, logoUrl`. `slug` is the workspace code for the login page (D66). |
+| `PATCH` | `/organization` | owner, admin | Any of the fields above except `stateCode` and `logoUrl`. `gstin` must be a valid 15-character GSTIN or empty; `stateCode` is derived from it. `slug`: 2-40 small letters, digits and single hyphens (trimmed, lowercased); 409 `WORKSPACE_CODE_TAKEN` when another company has it. A code still made from the name (`sharma-traders`, `sharma-traders-2`) follows a new `name`; a chosen one stays. |
 | `POST` | `/organization/logo` | owner, admin | Multipart field `logo`: PNG, JPG, SVG or WebP up to 2 MB, content checked against the extension. |
 | `DELETE` | `/organization/logo` | owner, admin | Removes the logo. |
 | `GET` | `/organization/settings` | any member | `{ hidePhonesFromAgents }` (D65, default true). |
@@ -91,7 +94,7 @@ Roles: `owner`, `admin`, `agent`, `viewer`. Agents and viewers only see the modu
 | `POST` | `/invites` | owner, admin | `{ email, role: admin\|agent\|viewer, modules?, permissions?, displayName?, mobile?, title? }` (name, mobile and title are copied to the membership when it is accepted). Inviting a pending email again replaces its access and link. Returns `{ invite, link }`; the link (valid 7 days) is only shown here. Only owners invite admins. Accepts `Idempotency-Key`. |
 | `POST` | `/invites/:id/resend` | owner, admin | New link; the old one stops working. |
 | `DELETE` | `/invites/:id` | owner, admin | Cancels the invite. |
-| `POST` | `/invites/lookup` | none | `{ token }` → `{ organizationName, logoUrl, email, role, expiresAt }` for the login page (which shows the company's logo and name). POST keeps the token out of URL logs. |
+| `POST` | `/invites/lookup` | none | `{ token }` → `{ organizationName, logoUrl, workspace (the company's code, D66), email, role, expiresAt }` for the login page (which shows the company's logo and name). POST keeps the token out of URL logs. |
 
 ## Gmail OAuth
 

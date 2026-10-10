@@ -32,6 +32,7 @@
   --warning-bg: #fff4e5;
   --danger: #ff453a;
   --danger-bg: #ffeceb;
+  --danger-text: #c42b21; /* red text on white that is easy to read (--danger is for fills) */
   --info: #4a6cf7;
   --info-bg: #eef1ff;
 
@@ -363,6 +364,107 @@ button {
   display: flex;
   justify-content: center;
   min-height: 44px;
+}
+/* The company, before Google (D66) */
+.login-company {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 4px;
+  text-align: left;
+}
+.login-company label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.login-company-field {
+  position: relative;
+  min-width: 0;
+}
+.login-company-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 40px 11px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 15px;
+  background: var(--surface);
+  color: var(--text);
+}
+.login-company-field input:focus {
+  outline: none;
+  border-color: var(--brand-darker);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.login-company-field.is-error input {
+  border-color: var(--danger);
+}
+.login-company-field.is-error input:focus {
+  box-shadow: 0 0 0 3px var(--danger-bg);
+}
+.login-company-state {
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  transform: translateY(-50%);
+  display: flex;
+  font-size: 16px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.login-company-field.is-found .login-company-state {
+  color: var(--success);
+}
+.login-field-help {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.login-error {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--danger-text);
+  overflow-wrap: anywhere;
+}
+/* Google's button (#google-signin-slot), or the plain stand-in while there is no company */
+.login-google {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+}
+.login-google-wait {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 400px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(31, 31, 31, 0.12);
+  border-radius: 999px;
+  background: #fff;
+  color: rgba(31, 31, 31, 0.38);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.25px;
+  cursor: not-allowed;
+}
+.login-google-wait .login-g {
+  flex-shrink: 0;
+  opacity: 0.38;
+}
+.login-signup {
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 4px;
 }
 .login-who {
   margin: 0 0 4px;

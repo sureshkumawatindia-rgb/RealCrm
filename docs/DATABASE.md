@@ -232,10 +232,15 @@ No migration (additive; a missing setting reads as on).
 - `organizations.settings.hidePhonesFromAgents` (default true, D65): agents and viewers get customers' numbers masked. Read at most every 30 seconds per company (`services/phoneVisibility.js`).
 - `organizations.onboarding.teamStepAt` (D64): "Invite your team" done or skipped.
 
+## 1u. Company login (D66, 2026-10-10)
+
+- `organizations.slug`: the workspace code typed on the login page (`sharma-traders`). Partial unique index `{ slug: 1 }` on string values only, so organizations from before migration 006 (no code yet) do not collide. A new organization gets the first free code from its name when it is saved (`models/Organization.js` pre-validate, `utils/workspaceCode.js`): `sharma-traders`, then `sharma-traders-2` …; a name without Latin letters or digits gets `company` (`company-2` …). A code made from the name follows a rename; one an owner chose stays.
+
 ## 2. Data migrations
 
 | Migration | What it does |
 |---|---|
+| `006-organization-slugs` | Every organization without a `slug` gets one from its name (D66), oldest first, so the oldest of two same-named companies keeps the plain code. Idempotent: only organizations without a code are touched, each written only while it still has none; a code taken by a sign-up at that moment is retried with the next number. |
 | `005-subscriptions` | Organizations without `subscription.status` become `comped` (`since` = now): they keep their plan, no trial, no end (D48). New organizations start a trial at sign-up instead. |
 | `001-organization-field-names` | `gst → gstin` (uppercased), `pincode → postalCode`, `founded → foundedYear` (only real years; other text stays in `founded`), derives `stateCode` from the GSTIN. |
 | `004-sequences-v2` | Phase 2 sequences get the Phase 6B shape (`automation/legacy.js`): Call and Task steps → `task.create` on the same day (title from the note, due that day, the lead's owner), Email steps → `notes` (the CRM sends WhatsApp), Wait steps dropped (the days are the waits), `targetType` dropped; Active ones become Paused (D32); `enrolledCount` → `stats.enrolled`. Only documents without `schemaVersion: 2`. |

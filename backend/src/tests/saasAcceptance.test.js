@@ -129,7 +129,7 @@ describe('Phase 10 acceptance: the SaaS life of a company', () => {
     expect(backup.body.planInvoices).toHaveLength(1);
     const text = JSON.stringify(backup.body);
     expect(text).not.toContain(hook.secret);
-    expect(text).not.toContain(key.split('_')[2]);
+    expect(text).not.toContain(key.split('_').slice(2).join('_')); // the secret may hold '_' too
     expect((await get(owner, '/audit-logs?action=apikey')).body.data.map((e) => e.action)).toEqual(['apikey.created']);
 
     // --- 9. The company leaves: 7 days, then everything goes (the invoice stays) ------------------------

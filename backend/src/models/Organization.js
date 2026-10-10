@@ -1,9 +1,13 @@
 const mongoose = require('mongoose');
 const { PLAN_KEYS, TRIAL_PLAN, SUBSCRIPTION_STATUSES } = require('../constants/plans');
+const { codeFromName, uniqueCode } = require('../utils/workspaceCode');
 
 const organizationSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    // The workspace code its team types on the login page (D66), made from the name; owners and
+    // admins can change it in Settings → Company. Unique (index below).
+    slug: { type: String, trim: true, lowercase: true },
     logoUrl: { type: String, default: '' },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     industry: { type: String, trim: true },
@@ -97,5 +101,14 @@ const organizationSchema = new mongoose.Schema(
   // strict:false keeps fields written by older versions until a migration moves them.
   { timestamps: true, strict: false },
 );
+
+// Organizations from before D66 get their code from migration 006; until then they have none.
+organizationSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { slug: { $type: 'string' } } });
+
+// A new organization (or one saved before migration 006 ran) gets the first free code from its name.
+organizationSchema.pre('validate', async function assignWorkspaceCode() {
+  if (this.slug || !this.name) return;
+  this.slug = await uniqueCode(this.constructor, codeFromName(this.name), { session: this.$session(), organizationId: this._id });
+});
 
 module.exports = mongoose.model('Organization', organizationSchema);

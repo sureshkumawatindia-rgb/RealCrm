@@ -8,6 +8,7 @@ const { audit } = require('../utils/audit');
 const { validateLogoFile } = require('../utils/logoFile');
 const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { stateCodeFor, stateName } = require('../constants/gst');
+const { codeFromName, uniqueCode, followsName } = require('../utils/workspaceCode');
 
 const PROFILE_FIELDS = [
   'name', 'industry', 'size', 'foundedYear', 'website', 'email', 'phone', 'gstin',
@@ -21,6 +22,7 @@ function serializeOrganization(organization) {
   return {
     id: organization._id,
     logoUrl: organization.logoUrl || '',
+    slug: organization.slug || '', // the workspace code for the login page (D66)
     ...Object.fromEntries(PROFILE_FIELDS.map((field) => [field, read(field) ?? ''])),
     stateCode: organization.stateCode || stateCodeFromGstin(read('gstin')),
   };
@@ -36,8 +38,11 @@ async function get(req) {
   return serializeOrganization(await loadOrganization(req));
 }
 
+const codeTaken = () => httpError(409, 'WORKSPACE_CODE_TAKEN', 'Another company has this code. Try a different one.', [{ field: 'slug', message: 'Another company has this code.' }]);
+
 async function update(req, patch) {
   const organization = await loadOrganization(req);
+  const oldName = organization.name;
   const changed = {};
   for (const field of PROFILE_FIELDS) {
     if (!(field in patch)) continue;
@@ -49,7 +54,24 @@ async function update(req, patch) {
     if (LEGACY_FIELDS[field]) organization.set(LEGACY_FIELDS[field], undefined);
   }
   if ('gstin' in changed) organization.stateCode = stateCodeFromGstin(changed.gstin);
-  await organization.save();
+  // The workspace code (D66): the one chosen, else a code made from the name follows a new name.
+  if ('slug' in patch && patch.slug !== organization.slug) {
+    if (await Organization.exists({ slug: patch.slug, _id: { $ne: organization._id } })) throw codeTaken();
+    organization.slug = patch.slug;
+    changed.slug = patch.slug;
+  } else if (!('slug' in patch) && 'name' in changed && organization.slug && followsName(organization.slug, oldName)) {
+    const code = await uniqueCode(Organization, codeFromName(changed.name), { organizationId: organization._id });
+    if (code !== organization.slug) {
+      organization.slug = code;
+      changed.slug = code;
+    }
+  }
+  try {
+    await organization.save();
+  } catch (error) {
+    if (error.code === 11000 && error.keyPattern?.slug) throw codeTaken();
+    throw error;
+  }
   await audit(req, { action: 'organization.updated', entityType: 'Organization', entityId: organization._id, changes: changed });
   return serializeOrganization(organization);
 }

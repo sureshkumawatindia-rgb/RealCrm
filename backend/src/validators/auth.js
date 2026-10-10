@@ -10,6 +10,12 @@ module.exports = {
   googleLogin: Joi.object({
     credential: Joi.string().max(8192).required(),
     inviteToken: Joi.string().max(200).allow(''),
+    // The workspace code POST /auth/workspace answered (D66); empty when signing up a new company.
+    workspace: Joi.string().trim().lowercase().max(40).allow(''),
+  }),
+  // The company typed on the login page: its workspace code or its exact name (D66).
+  workspaceLookup: Joi.object({
+    company: Joi.string().trim().min(1).max(200).required(),
   }),
   switchOrganization: Joi.object({
     organizationId: objectId.required(),

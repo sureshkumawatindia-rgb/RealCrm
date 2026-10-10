@@ -25,10 +25,14 @@ const linkLimiter = perMinute(60, {
   handler: (req, res) => res.status(429).type('text').send('Too many requests. Please wait a minute and try again.'),
 });
 
+// The login page checks the company as it is typed (D66); more than this from one address is
+// someone guessing company names.
+const workspaceLimiter = perMinute(env.rateLimit.workspacePerMinute);
+
 // The login page asks every 2 seconds whether its QR code was allowed (D58).
 const qrPollLimiter = perMinute(120);
 
 // The public API (Phase 10C): per API key, after the key is checked.
 const publicApiLimiter = perMinute(env.rateLimit.publicApiPerMinute, { keyGenerator: (req) => `key:${req.apiKey.prefix}` });
 
-module.exports = { apiLimiter, authLimiter, webhookLimiter, formLimiter, linkLimiter, publicApiLimiter, qrPollLimiter };
+module.exports = { apiLimiter, authLimiter, webhookLimiter, formLimiter, linkLimiter, publicApiLimiter, qrPollLimiter, workspaceLimiter };
