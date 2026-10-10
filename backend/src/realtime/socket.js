@@ -8,6 +8,8 @@ const bus = require('./bus');
 const { verifyAccessToken } = require('../utils/tokens');
 const { isManager } = require('../constants/permissions');
 const { serializeConversation, serializeMessage, seesAll } = require('../services/conversationService');
+const phoneVisibility = require('../services/phoneVisibility');
+const { maskPhonesIn } = require('../utils/phoneMask');
 
 // Live inbox updates over Socket.IO (same port as the API, path /socket.io).
 // The browser connects with its access token (auth: { token }). Each socket joins rooms by what
@@ -18,6 +20,7 @@ const { serializeConversation, serializeMessage, seesAll } = require('../service
 //   org:<id>:owners      — owners: the only ones who receive private numbers' chats (D61)
 // Server → browser events: conversation:updated, message:new, message:status, note:new,
 // notification:new, whatsapp:sync, inbox:refresh.
+// Agents and viewers whose company hides customers' numbers (D65) get every event masked.
 const rooms = {
   member: (id) => `member:${id}`,
   all: (organizationId) => `org:${organizationId}:inbox-all`,
@@ -40,6 +43,7 @@ async function authenticateSocket(socket, next) {
     if (!user || user.disabledAt || !member) return next(new Error('UNAUTHORIZED'));
     if (!isManager(member) && !member.modules.includes('inbox')) return next(new Error('FORBIDDEN'));
     socket.data.member = member;
+    socket.data.maskPhones = await phoneVisibility.hidesPhonesFor(member);
     return next();
   } catch {
     return next(new Error('UNAUTHORIZED'));
@@ -69,22 +73,37 @@ function attachRealtime(httpServer) {
     if (member.role === 'owner') socket.join(rooms.owners(member.organizationId));
   });
 
+  // Each browser gets the event as its member may see it: masked numbers for agents and viewers
+  // of a company that hides them (D65), the real ones for everyone else.
+  async function emitTo(targets, event, payload) {
+    const sockets = await io.in(targets).fetchSockets();
+    if (!sockets.some((socket) => socket.data.maskPhones)) {
+      io.to(targets).emit(event, payload);
+      return;
+    }
+    let masked;
+    for (const socket of sockets) {
+      if (socket.data.maskPhones) masked = masked || maskPhonesIn(payload);
+      socket.emit(event, socket.data.maskPhones ? masked : payload);
+    }
+  }
+
   const load = (id) => Conversation.findById(id).populate(POPULATE);
   const handlers = {
     'conversation:updated': async ({ conversation, previousAssigneeId }) => {
       const full = await load(conversation._id);
-      if (full) io.to(targetsFor(full, previousAssigneeId)).emit('conversation:updated', serializeConversation(full));
+      if (full) await emitTo(targetsFor(full, previousAssigneeId), 'conversation:updated', serializeConversation(full));
     },
     'message:new': async ({ conversation, message }) => {
       const full = await load(conversation._id);
-      if (full) io.to(targetsFor(full)).emit('message:new', { conversation: serializeConversation(full), message: serializeMessage(message) });
+      if (full) await emitTo(targetsFor(full), 'message:new', { conversation: serializeConversation(full), message: serializeMessage(message) });
     },
     'message:status': async ({ message }) => {
       const conversation = await Conversation.findById(message.conversationId);
-      if (conversation) io.to(targetsFor(conversation)).emit('message:status', serializeMessage(message));
+      if (conversation) await emitTo(targetsFor(conversation), 'message:status', serializeMessage(message));
     },
     'note:new': async ({ conversation, note }) => {
-      io.to(targetsFor(conversation)).emit('note:new', { conversationId: conversation._id, note });
+      await emitTo(targetsFor(conversation), 'note:new', { conversationId: conversation._id, note });
     },
     // Importing a connected WhatsApp Business app number's contacts and chats (D60): to the
     // owners and admins, who connect numbers.
@@ -95,9 +114,17 @@ function attachRealtime(httpServer) {
     'privacy:changed': async ({ organizationId }) => {
       io.to([rooms.all(organizationId), rooms.queue(organizationId)]).emit('inbox:refresh');
     },
+    // "Hide customer phone numbers from agents" was switched (D65): open browsers follow at once.
+    'privacy:phones-changed': async ({ organizationId, hidePhonesFromAgents }) => {
+      const targets = [rooms.all(organizationId), rooms.queue(organizationId)];
+      for (const socket of await io.in(targets).fetchSockets()) {
+        socket.data.maskPhones = Boolean(hidePhonesFromAgents) && !isManager(socket.data.member);
+      }
+      io.to(targets).emit('inbox:refresh');
+    },
     // The bell (Phase 6): only to the member it is for.
     'notification:new': async ({ memberId, notification }) => {
-      io.to(rooms.member(memberId)).emit('notification:new', notification);
+      await emitTo(rooms.member(memberId), 'notification:new', notification);
     },
     // Role, pages or status changed, or the member was removed: drop their sockets. The browser
     // reconnects and gets the rooms that match the new access (or is refused).

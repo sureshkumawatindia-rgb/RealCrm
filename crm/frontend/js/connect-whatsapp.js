@@ -32,15 +32,8 @@
   let session = {};
   let watching = null;
 
-  // After this page: an empty company profile first, else the dashboard.
-  async function afterPage() {
-    try {
-      const { company } = await loadCompanyProfile();
-      return companyHasDetails(company) ? "dashboard.html" : "company.html";
-    } catch {
-      return "dashboard.html";
-    }
-  }
+  // After this page: Invite your team (once), then an empty company profile, else the dashboard.
+  const afterPage = () => onboardingNextPage();
   async function continueToCrm(event) {
     event?.preventDefault();
     window.location.href = await afterPage();

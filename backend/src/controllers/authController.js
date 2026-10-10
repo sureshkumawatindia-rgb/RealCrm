@@ -5,9 +5,10 @@ const deviceService = require('../services/deviceService');
 const { REFRESH_COOKIE, readCookie, setRefreshCookie, clearRefreshCookie } = require('../utils/cookies');
 
 // A finished sign-in: the refresh cookie, and the remembered-browser cookie when asked for.
-function finishSignIn(req, res, { refreshToken, data, device }) {
+function finishSignIn(req, res, { refreshToken, data, device, browser }) {
   if (refreshToken) setRefreshCookie(req, res, refreshToken);
   if (device) res.cookie(device.name, device.value, device.options);
+  if (browser) res.cookie(browser.name, browser.value, browser.options);
   res.json({ success: true, data });
 }
 
@@ -57,7 +58,7 @@ async function qrStart(req, res) {
 async function qrPoll(req, res) {
   const result = await loginService.pollQr(req, { ...req.body, id: req.valid.params.id });
   if (result.status !== 'approved') return res.json({ success: true, data: { status: result.status } });
-  return finishSignIn(req, res, { refreshToken: result.refreshToken, device: result.device, data: { status: 'approved', ...result.data } });
+  return finishSignIn(req, res, { refreshToken: result.refreshToken, device: result.device, browser: result.browser, data: { status: 'approved', ...result.data } });
 }
 async function qrPeek(req, res) {
   res.json({ success: true, data: await loginService.peekQr(req, { ...req.body, id: req.valid.params.id }) });

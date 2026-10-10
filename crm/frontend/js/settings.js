@@ -425,7 +425,41 @@ async function loadTeam() {
   }
   document.getElementById("inviteSection").hidden = !isOrgManager();
   if (isOrgManager()) loadInvites();
+  loadPhonePrivacy();
 }
+
+// "Hide customer phone numbers from agents" (D65): owners and admins switch it; agents and
+// viewers see a line saying it is on.
+async function loadPhonePrivacy() {
+  const section = document.getElementById("phonePrivacySection");
+  try {
+    const { hidePhonesFromAgents } = await crmApi("/organization/settings");
+    document.getElementById("hidePhonesToggle").checked = hidePhonesFromAgents;
+    document.getElementById("hidePhonesRow").hidden = !isOrgManager();
+    document.getElementById("hidePhonesInfo").hidden = isOrgManager() || !hidePhonesFromAgents;
+    section.hidden = !isOrgManager() && !hidePhonesFromAgents;
+  } catch {
+    section.hidden = true;
+  }
+}
+document.getElementById("hidePhonesToggle").addEventListener("change", async (event) => {
+  const toggle = event.target;
+  toggle.disabled = true;
+  try {
+    const { hidePhonesFromAgents } = await crmApi("/organization/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hidePhonesFromAgents: toggle.checked }),
+    });
+    toggle.checked = hidePhonesFromAgents;
+    showToast(hidePhonesFromAgents ? "Agents now see customers' numbers masked." : "Agents now see customers' full numbers.", "success");
+  } catch (error) {
+    toggle.checked = !toggle.checked;
+    showToast(apiErrorMessage(error, "Couldn't save the setting."), "error");
+  } finally {
+    toggle.disabled = false;
+  }
+});
 
 document.getElementById("teamMemberList").addEventListener("change", async (e) => {
   const select = e.target.closest("[data-member-role]");

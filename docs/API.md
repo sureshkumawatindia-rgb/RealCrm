@@ -53,6 +53,8 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 | `DELETE` | `/auth/devices/:id` | bearer | Logs that browser or phone out at once and forgets it if remembered → the list; 404 `DEVICE_NOT_FOUND`. Audit `auth.devices_logged_out`. |
 | `POST` | `/auth/devices/logout-others` | bearer | Everywhere except this browser → the list. |
 
+**New login alerts (D63).** Every sign-in (Google, a WhatsApp/SMS code or the QR code) sets an httpOnly `crm_browser` cookie (path `/api/v1/auth`, SameSite Strict, 400 days). A sign-in from a browser without that person's cookie puts a note in their bell (`source: 'login-alert'`, also web push): title `New login: Chrome on Windows, 10:42 AM`, body `Not you? Log out that device.`, link `Settings.html?tab=profile#devicesSection`; audit `auth.new_browser`. No alert for a person's very first login, nor — once, the first login after the update — from the same browser (user agent) as one of their earlier sessions.
+
 Every bearer request checks its session: after a logout (here, from the list, a reused refresh token or removal from the team) the access token is refused at once with 401 `SESSION_ENDED`, not when its 15 minutes run out.
 
 Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout`, `/auth/login/*`, `POST /auth/qr` and `/invites/lookup`: `RATE_LIMIT_AUTH_PER_MINUTE` (default 20) per IP. Everything else: `RATE_LIMIT_API_PER_MINUTE` (default 300).
@@ -65,8 +67,16 @@ Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout`, `/auth/login/*`,
 | `PATCH` | `/organization` | owner, admin | Any of the fields above except `stateCode` and `logoUrl`. `gstin` must be a valid 15-character GSTIN or empty; `stateCode` is derived from it. |
 | `POST` | `/organization/logo` | owner, admin | Multipart field `logo`: PNG, JPG, SVG or WebP up to 2 MB, content checked against the extension. |
 | `DELETE` | `/organization/logo` | owner, admin | Removes the logo. |
+| `GET` | `/organization/settings` | any member | `{ hidePhonesFromAgents }` (D65, default true). |
+| `PATCH` | `/organization/settings` | owner, admin | `{ hidePhonesFromAgents: boolean }` → the settings; audit `organization.settings_updated`; open Inbox pages get `inbox:refresh`. |
+| `GET` | `/organization/onboarding` | owner, admin | `{ teamStep }` (D64): true while "Invite your team" should still come after sign-in — never done or skipped, and nobody else in the company and no invite yet. |
+| `POST` | `/organization/onboarding/team` | owner, admin | `{ skipped?: boolean }` → `{ teamStep: false }`, for good; audit `onboarding.team_done` or `onboarding.team_skipped` (once). |
 
 Uploaded files are served from `/uploads/` with `Content-Security-Policy: sandbox`.
+
+### Customers' numbers for agents (D65)
+
+While `hidePhonesFromAgents` is on, every JSON answer of `/api/v1` to an agent or viewer has customers' numbers masked (`+919876543210` → `+91 98••• ••210`): phone fields (`phone`, `phoneE164`, `mobile`, `waId`, `from`, `to`, `customerPhone` …), names that are the number itself (an unnamed WhatsApp contact), and numbers written with a `+` inside text (a message, a notification). The search masks its subtitles; Socket.IO events are masked per browser; a quotation PDF an agent downloads shows the masked number (the copy sent to the customer never does). Not masked: the member's own sign-in (`/auth`), the company's details (`/organization`, `/members`, `/invites`, `/billing`, `/whatsapp/accounts`), its WhatsApp number (`displayPhone`) and the seller on documents. Searching by number still works. A masked value sent back in a request body (an agent saving a form) is dropped before validation, so the stored number never changes. Owners and admins always get the real numbers.
 
 ## Team
 

@@ -13,6 +13,7 @@ const httpError = require('../utils/httpError');
 const logger = require('../config/logger');
 const env = require('../config/env');
 const signedLink = require('../utils/signedLink');
+const { maskPhone } = require('../utils/phoneMask');
 const { renderQuotationPdf, fileNameOf } = require('./quotationPdf');
 const { audit } = require('../utils/audit');
 const { nextSequence } = require('../utils/counter');
@@ -471,15 +472,18 @@ function register(queue) {
 }
 
 // --- the PDF and the customer's link -------------------------------------------------------
-async function pdfFor(quotation) {
+async function pdfFor(quotation, { maskPhones = false } = {}) {
   const organization = await Organization.findById(quotation.organizationId);
+  // An agent or viewer downloading it sees the customer's number masked (D65); the copy sent
+  // to the customer always has it.
+  if (maskPhones && quotation.billTo?.phone) quotation.billTo.phone = maskPhone(quotation.billTo.phone);
   const buffer = await renderQuotationPdf({ quotation, organization, shareUrl: shareUrlOf(quotation) });
   return { buffer, fileName: fileNameOf(quotation) };
 }
 
 // GET /quotations/:id/pdf (signed-in members who may see it).
 async function pdf(req, id) {
-  return pdfFor(await findVisible(req, id));
+  return pdfFor(await findVisible(req, id), { maskPhones: req.maskPhones });
 }
 
 // A customer opened the link: count it; the first view of a sent quotation makes it Viewed

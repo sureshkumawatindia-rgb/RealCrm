@@ -1415,6 +1415,44 @@ function openFromAddress(openRecord) {
   if (openRecord(id) === false) showToast("That record is no longer here. It may have been deleted.", "error");
 }
 
+// The first steps after sign-in for owners and admins (D64): Connect WhatsApp (its page decides)
+// → Invite your team (once, for a company with nobody else yet) → company details → dashboard.
+// after: the step just finished ("team").
+async function onboardingNextPage({ after = "" } = {}) {
+  if (!isOrgManager()) return "dashboard.html";
+  if (after !== "team") {
+    try {
+      if ((await crmApi("/organization/onboarding")).teamStep) return "invite-team.html";
+    } catch {
+      /* a first step is never in the way of the CRM */
+    }
+  }
+  try {
+    const { company } = await loadCompanyProfile();
+    return companyHasDetails(company) ? "dashboard.html" : "company.html";
+  } catch {
+    return "dashboard.html";
+  }
+}
+
+// A customer's number the company hides from agents (D65) shows in forms as +91 98••• ••210: it can
+// be seen, not edited (the server ignores it if sent back). The same field is typable again for a
+// new customer.
+document.addEventListener("focusin", (event) => {
+  const field = event.target;
+  if (!(field instanceof HTMLInputElement)) return;
+  const masked = field.value.includes("•");
+  if (masked && !field.readOnly) {
+    field.readOnly = true;
+    field.dataset.maskedNumber = "1";
+    field.title = "Hidden by your company's settings";
+  } else if (!masked && field.dataset.maskedNumber) {
+    field.readOnly = false;
+    delete field.dataset.maskedNumber;
+    field.removeAttribute("title");
+  }
+});
+
 // "Show all" in the search opens a list page with "?q=<words>": they go into its search box.
 function fillSearchFromAddress() {
   const q = new URLSearchParams(window.location.search).get("q");

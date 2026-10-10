@@ -221,6 +221,17 @@ No migration (all fields are additive).
 - `organizations.teamSummarySentOn`: the India day the owners last got the evening summary.
 - Job: `reports.team-summary` (every 15 minutes; sends after 7 pm India time, once a day).
 
+## 1t. Security and the team (D63–D65, 2026-10-10)
+
+No migration (additive; a missing setting reads as on).
+
+| Collection | Key fields | Indexes |
+|---|---|---|
+| `knownbrowsers` | `userId`, `tokenHash` (SHA-256 of the `crm_browser` cookie), `userAgent`, `lastLoginAt`, `expiresAt` (400 days, renewed at each login) | unique `tokenHash`; `userId`; TTL `expiresAt` |
+
+- `organizations.settings.hidePhonesFromAgents` (default true, D65): agents and viewers get customers' numbers masked. Read at most every 30 seconds per company (`services/phoneVisibility.js`).
+- `organizations.onboarding.teamStepAt` (D64): "Invite your team" done or skipped.
+
 ## 2. Data migrations
 
 | Migration | What it does |

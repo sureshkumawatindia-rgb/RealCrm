@@ -9,6 +9,7 @@ const routingSchemas = require('../validators/routing');
 const assignment = require('../services/assignmentService');
 const organizationService = require('../services/organizationService');
 const deletion = require('../services/organizationDeletionService');
+const teamSettings = require('../services/teamSettingsService');
 const Organization = require('../models/Organization');
 const Joi = require('joi');
 
@@ -46,6 +47,20 @@ router.put('/billing', requireRole('owner', 'admin'), validate({ body: billingSc
   res.json({ success: true, data: await organizationService.setBilling(req, req.body), message: 'Billing settings saved' });
 });
 router.patch('/', requireRole('owner', 'admin'), validate({ body: organizationPatch }), controller.update);
+// Company-wide team choices (D65: hide customers' numbers from agents); everyone reads them.
+router.get('/settings', async (req, res) => {
+  res.json({ success: true, data: await teamSettings.getSettings(req) });
+});
+router.patch('/settings', requireRole('owner', 'admin'), validate({ body: Joi.object({ hidePhonesFromAgents: Joi.boolean() }).min(1) }), async (req, res) => {
+  res.json({ success: true, data: await teamSettings.updateSettings(req, req.body), message: 'Settings saved' });
+});
+// First steps after sign-up (D64): "Invite your team".
+router.get('/onboarding', requireRole('owner', 'admin'), async (req, res) => {
+  res.json({ success: true, data: await teamSettings.onboarding(req) });
+});
+router.post('/onboarding/team', requireRole('owner', 'admin'), validate({ body: Joi.object({ skipped: Joi.boolean().default(false) }) }), async (req, res) => {
+  res.json({ success: true, data: await teamSettings.finishTeamStep(req, req.body) });
+});
 router.post('/logo', requireRole('owner', 'admin'), uploadLogo, controller.uploadLogo);
 router.delete('/logo', requireRole('owner', 'admin'), controller.deleteLogo);
 

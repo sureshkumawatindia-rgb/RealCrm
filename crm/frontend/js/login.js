@@ -45,7 +45,11 @@ function pendingLinkPage() {
 // Already signed in (and no invite to accept)? Skip straight to the right place.
 const alreadySignedIn = isAuthenticated() && !sessionStorage.getItem(INVITE_KEY);
 if (alreadySignedIn) {
-  window.location.replace(pendingLinkPage() || (hasCompanyInfo() ? "dashboard.html" : "company.html"));
+  // The same next page as after signing in (an agent never lands on the company setup); run once
+  // this whole script has loaded.
+  Promise.resolve()
+    .then(async () => window.location.replace(pendingLinkPage() || (await nextPage(getCurrentMember()))))
+    .catch(() => window.location.replace("dashboard.html"));
 }
 
 const $ = (id) => document.getElementById(id);
@@ -271,13 +275,9 @@ async function shouldConnectWhatsApp() {
 async function nextPage(member) {
   const managers = ["owner", "admin"];
   if (!managers.includes(member?.role) && !(member?.modules || []).includes("dashboard")) return firstAllowedPage(member);
-  if (managers.includes(member?.role) && await shouldConnectWhatsApp()) return "connect-whatsapp.html";
-  try {
-    const { company } = await loadCompanyProfile();
-    return companyHasDetails(company) || !managers.includes(member?.role) ? "dashboard.html" : "company.html";
-  } catch {
-    return "dashboard.html";
-  }
+  if (!managers.includes(member?.role)) return "dashboard.html";
+  if (await shouldConnectWhatsApp()) return "connect-whatsapp.html";
+  return onboardingNextPage(); // Invite your team, then company details (D64)
 }
 
 // Signed in (Google, the 2-step code, or the phone): keep the session and open the first page.

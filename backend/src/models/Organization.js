@@ -64,6 +64,15 @@ const organizationSchema = new mongoose.Schema(
     // a job removes all its data. Cancelled by an owner before then.
     // The day (India time, YYYY-MM-DD) the owners last got the evening team summary (D61).
     teamSummarySentOn: { type: String },
+    // Company-wide choices for the team (Settings → Team & Access). hidePhonesFromAgents (D65):
+    // agents and viewers see customers' numbers masked; missing counts as on.
+    settings: {
+      hidePhonesFromAgents: { type: Boolean, default: true },
+    },
+    // First steps after sign-up (D64): when an owner or admin finished or skipped "Invite your team".
+    onboarding: {
+      teamStepAt: Date,
+    },
     deletion: {
       requestedAt: Date,
       scheduledFor: Date,

@@ -541,7 +541,7 @@ async function renderSetupChecklist() {
     { done: whatsapp, title: "Connect your WhatsApp number", text: "Your customers' chats come into the Inbox; the app keeps working on your phone.", href: "connect-whatsapp.html?add=1", action: "Connect" },
     { done: Boolean(organization.gstin || organization.address), title: "Add your business and GST details", text: "They appear on every quotation, order and invoice.", href: "Settings.html?tab=company", action: "Add details" },
     { done: getProducts().length > 0, title: "Add your products", text: "With prices and GST, ready for quotations and your WhatsApp catalog.", href: "Products.html", action: "Add products" },
-    { done: invited, title: "Invite your team", text: "Each person signs in with Google and sees only what you allow.", href: "Settings.html?tab=team", action: "Invite" },
+    { done: invited, title: "Invite your team", text: "Each person signs in with Google and sees only what you allow.", href: "invite-team.html", action: "Invite" },
     { done: leadSources, title: "Bring in leads automatically", text: "IndiaMART, Facebook, your website and more go straight into Leads.", href: "Settings.html?tab=leadsources", action: "Connect" },
     { done: quotation, title: "Send your first quotation", text: "GST worked out for you, sent as a PDF on WhatsApp.", href: "Quotations.html?new=1", action: "Create" },
   ];

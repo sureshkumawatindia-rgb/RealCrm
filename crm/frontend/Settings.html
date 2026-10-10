@@ -68,6 +68,10 @@
         margin: -6px 0 16px;
         line-height: 1.5;
       }
+      /* A row the page hides (the invite link before one is made) stays hidden */
+      .settings-summary-row[hidden] {
+        display: none;
+      }
       .settings-summary-row {
         display: flex;
         align-items: center;
@@ -1098,6 +1102,16 @@
                   company's CRM. Owners and admins manage roles and invites.
                 </p>
                 <div id="teamMemberList"></div>
+
+                <!-- D65: customers' numbers for agents and viewers -->
+                <div class="settings-section" id="phonePrivacySection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label">Customer privacy</div>
+                  <label class="two-step-row" id="hidePhonesRow">
+                    <input type="checkbox" id="hidePhonesToggle" />
+                    <span><strong>Hide customer phone numbers from agents</strong><br /><span class="settings-hint">Agents and viewers see numbers like +91 98••• ••210 everywhere: chats, customers, leads, quotations, orders, search and exports. They can still reply, send quotations and payment links, and find a customer by number. Owners and admins always see the full number.</span></span>
+                  </label>
+                  <p class="settings-hint" id="hidePhonesInfo" hidden>Your company hides customers' phone numbers from agents. You can still reply, send quotations and payment links, and search by number.</p>
+                </div>
 
                 <div class="settings-section" id="inviteSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
                   <div class="settings-section-label">Invite a teammate</div>

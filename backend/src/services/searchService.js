@@ -8,6 +8,7 @@ const orderService = require('./orderService');
 const productService = require('./productService');
 const taskService = require('./taskService');
 const ticketService = require('./ticketService');
+const { maskPhone } = require('../utils/phoneMask');
 
 // One search box for the whole CRM (top bar, Ctrl+K). Each group searches through its own
 // module's list, so a member finds exactly what that page would show them: their own records
@@ -16,6 +17,8 @@ const ticketService = require('./ticketService');
 
 const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const join = (...parts) => parts.filter(Boolean).join(' · ');
+// Agents and viewers see customers' numbers masked (D65); a subtitle is text, so it is masked here.
+const phone = (req, value) => (value && req.maskPhones ? maskPhone(value) : value);
 
 const GROUPS = [
   {
@@ -26,10 +29,10 @@ const GROUPS = [
     // Like the Customers page: people who buy. Leads' contacts are found under Leads, WhatsApp
     // contacts under their chats.
     search: (req, query) => contactService.list(req, { ...query, lifecycle: 'customer' }),
-    item: (contact) => ({
+    item: (contact, req) => ({
       id: contact.id,
       title: contact.name,
-      subtitle: join(contact.company, contact.phone || contact.phoneE164, contact.email),
+      subtitle: join(contact.company, phone(req, contact.phone || contact.phoneE164), contact.email),
       url: `customer-360.html?id=${contact.id}`,
     }),
   },
@@ -43,7 +46,7 @@ const GROUPS = [
     item: (lead, req) => ({
       id: lead.id,
       title: lead.contact?.name || lead.title,
-      subtitle: join(lead.stage, lead.title !== lead.contact?.name && lead.title, lead.contact?.company, lead.contact?.phone),
+      subtitle: join(lead.stage, lead.title !== lead.contact?.name && lead.title, lead.contact?.company, phone(req, lead.contact?.phone)),
       url: `${GROUP_PAGE.leads(req)}?open=${lead.id}`,
     }),
   },
@@ -53,10 +56,10 @@ const GROUPS = [
     modules: ['inbox'],
     page: () => 'Inbox.html',
     search: (req, query) => conversationService.list(req, { ...query, status: 'any' }),
-    item: (chat) => ({
+    item: (chat, req) => ({
       id: chat.id,
-      title: chat.contact.name || chat.contact.phone || 'WhatsApp chat',
-      subtitle: join(chat.contact.name && chat.contact.phone, chat.lastMessagePreview),
+      title: chat.contact.name || phone(req, chat.contact.phone) || 'WhatsApp chat',
+      subtitle: join(chat.contact.name && phone(req, chat.contact.phone), chat.lastMessagePreview),
       url: `Inbox.html?c=${chat.id}`,
     }),
   },

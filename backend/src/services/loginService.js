@@ -30,7 +30,8 @@ const masked = (phoneE164) => (phoneE164 ? `${phoneE164.slice(0, 3)} •••�
 const shortAgent = (ua) => {
   const text = String(ua || '');
   const browser = /Edg\//.test(text) ? 'Edge' : /OPR\//.test(text) ? 'Opera' : /Firefox\//.test(text) ? 'Firefox' : /Chrome\//.test(text) ? 'Chrome' : /Safari\//.test(text) ? 'Safari' : 'A browser';
-  const system = /Windows/.test(text) ? 'Windows' : /Mac OS X/.test(text) ? 'Mac' : /Android/.test(text) ? 'Android' : /iPhone|iPad/.test(text) ? 'iPhone' : /Linux/.test(text) ? 'Linux' : '';
+  // iPhones and iPads say "like Mac OS X", and Android says "Linux": those come first.
+  const system = /iPhone/.test(text) ? 'iPhone' : /iPad/.test(text) ? 'iPad' : /Android/.test(text) ? 'Android' : /Windows/.test(text) ? 'Windows' : /Mac OS X/.test(text) ? 'Mac' : /Linux/.test(text) ? 'Linux' : '';
   return system ? `${browser} on ${system}` : browser;
 };
 

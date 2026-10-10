@@ -11,6 +11,7 @@ const { verifyGoogleIdToken } = require('../integrations/google/idToken');
 const sessionService = require('./sessionService');
 const inviteService = require('./inviteService');
 const planService = require('./planService');
+const loginAlertService = require('./loginAlertService');
 
 function safeGoogleAuthMessage(error) {
   const message = String(error.message || '');
@@ -111,15 +112,22 @@ async function startSession(req, user, { invitedOrganizationId = null, inviteErr
   user.lastLoginAt = new Date();
   await user.save();
 
+  // A browser this person never logged in from gets them a "New login" alert (D63).
+  const browser = await loginAlertService.recognize(req, user);
   const { session, refreshToken } = await sessionService.createSession({
     userId: user._id, organizationId, userAgent: req.get('user-agent'), ip: req.ip, loginMethod: method,
   });
   const token = signAccessToken({ userId: user._id, organizationId, sessionId: session._id });
   req.user = user; // the audit log shows who signed in
   await audit(req, { organizationId, action: 'auth.login', entityType: 'User', entityId: user._id, ...(method !== 'google' && { changes: { method } }) });
+  if (!browser.known) {
+    const { shortAgent } = require('./loginService'); // eslint-disable-line global-require
+    await loginAlertService.alertNewLogin(req, { user, member, device: shortAgent(req.get('user-agent')) });
+  }
 
   return {
     refreshToken,
+    browser: browser.cookie, // the cookie that makes this browser known next time (D63)
     familyId: session.familyId, // the browser's entry under "Where you're logged in"
     data: {
       token,

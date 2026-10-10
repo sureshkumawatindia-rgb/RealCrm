@@ -45,7 +45,9 @@ describe('Inbox: who sees which chat, and assigning', () => {
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0]).toMatchObject({
       id: chat.conversationId, status: 'open', unreadCount: 1, lastMessagePreview: 'Price of cumin?', assigneeId: null,
-      contact: { name: 'Sunita', phone: '+919811100011' }, account: { verifiedName: 'Test Business (mock)' }, window: { open: true },
+      // Agents see customers' numbers masked unless the company turns it off (D65); searching by
+      // number still works (below).
+      contact: { name: 'Sunita', phone: '+91 98••• ••011' }, account: { verifiedName: 'Test Business (mock)' }, window: { open: true },
     });
     expect(await listIds(agentB)).toEqual([chat.conversationId]);
     expect((await api().get('/api/v1/conversations').set(bearer(noInbox.token))).status).toBe(403);

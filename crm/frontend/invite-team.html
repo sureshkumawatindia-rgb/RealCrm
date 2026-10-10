@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invite your team | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="icon" type="image/png" href="./img/icons/icon-192.png" />
+    <link rel="stylesheet" href="css/style.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) window.location.replace("login.html");
+    </script>
+    <style>
+      /* "Invite your team" (D64): the step after Connect WhatsApp; reuses style.css tokens */
+      .onboard-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 20px;
+        background:
+          radial-gradient(500px 260px at 12% 8%, var(--brand-light), transparent),
+          radial-gradient(420px 220px at 92% 92%, var(--brand-light), transparent),
+          var(--bg);
+      }
+      .onboard-card {
+        width: 100%;
+        max-width: 720px;
+        overflow: hidden;
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-pop);
+      }
+      .onboard-head {
+        padding: 30px 32px 18px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .onboard-head .badge-brand {
+        display: inline-block;
+        margin-bottom: 10px;
+      }
+      .onboard-head h1 {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+      }
+      .onboard-head p {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 13.5px;
+        line-height: 1.5;
+      }
+      .onboard-body {
+        padding: 22px 32px 6px;
+      }
+      .invite-row {
+        padding: 14px 16px;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-md);
+        background: var(--bg);
+      }
+      .invite-row-main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 150px 36px;
+        gap: 10px;
+        align-items: end;
+      }
+      .invite-row .field {
+        margin: 0;
+      }
+      .invite-pages {
+        margin-top: 10px;
+      }
+      .invite-pages summary {
+        cursor: pointer;
+        color: var(--brand-darker);
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .invite-pages-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 6px 12px;
+        margin-top: 10px;
+      }
+      .invite-pages-grid label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .invite-admin-note {
+        margin: 10px 0 0;
+        color: var(--text-muted);
+        font-size: 12.5px;
+      }
+      .invite-add {
+        border: none;
+        background: none;
+        color: var(--brand-darker);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 4px 0;
+      }
+      .invite-error {
+        margin: 6px 0 12px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        background: var(--danger-bg);
+        color: var(--danger);
+        font-size: 13px;
+      }
+      .invite-error[hidden],
+      [data-view][hidden] {
+        display: none;
+      }
+      .invite-done li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-soft);
+        list-style: none;
+      }
+      .invite-done ul {
+        margin: 0;
+        padding: 0;
+      }
+      .invite-done li:last-child {
+        border-bottom: none;
+      }
+      .invite-done .who {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .invite-done .who strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 13.5px;
+      }
+      .invite-done .who span {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+      .invite-done .actions {
+        display: flex;
+        gap: 8px;
+      }
+      .invite-done .btn {
+        padding: 7px 12px;
+        font-size: 12.5px;
+      }
+      .onboard-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 18px 32px 28px;
+      }
+      .onboard-skip {
+        padding: 8px 4px;
+        border: none;
+        background: none;
+        color: var(--text-faint);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .onboard-skip:hover {
+        color: var(--text);
+        text-decoration: underline;
+      }
+      @media (max-width: 640px) {
+        .onboard-head,
+        .onboard-body,
+        .onboard-foot {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+        .invite-row-main {
+          grid-template-columns: minmax(0, 1fr) 36px;
+        }
+        .invite-row-main .role-field {
+          grid-column: 1 / -1;
+          grid-row: 2;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="onboard-page">
+      <div class="onboard-card">
+        <div class="onboard-head">
+          <span class="badge badge-brand">Almost there</span>
+          <h1>Invite your team</h1>
+          <p>
+            Add the people who will answer chats and handle leads. Each person signs in with their own Google account and
+            sees only the pages you choose. You can add or change people any time in Settings → Team &amp; Access.
+          </p>
+        </div>
+
+        <!-- Who to invite -->
+        <form id="inviteForm" data-view="form" novalidate>
+          <div class="onboard-body">
+            <div class="invite-error" id="inviteError" role="alert" hidden></div>
+            <div id="inviteRows"></div>
+            <button type="button" class="invite-add" id="addRowBtn"><i class="fa-solid fa-plus"></i> Add another person</button>
+          </div>
+          <div class="onboard-foot">
+            <button type="button" class="onboard-skip" id="skipBtn">Skip for now</button>
+            <button type="submit" class="btn btn-primary" id="sendBtn"><i class="fa-solid fa-paper-plane"></i> Send invites</button>
+          </div>
+        </form>
+
+        <!-- The links to send -->
+        <div data-view="done" hidden>
+          <div class="onboard-body invite-done">
+            <p class="invite-admin-note" style="margin: 0 0 8px">
+              Send each person their link (on WhatsApp or any way you like). The link works for 7 days; they open it and sign
+              in with Google using the same email.
+            </p>
+            <div class="invite-error" id="inviteDoneError" role="alert" hidden></div>
+            <ul id="inviteLinks"></ul>
+          </div>
+          <div class="onboard-foot">
+            <span></span>
+            <button type="button" class="btn btn-primary" id="continueBtn">Continue <i class="fa-solid fa-arrow-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="js/app.js"></script>
+    <script src="js/invite-team.js"></script>
+  </body>
+</html>

@@ -3,6 +3,7 @@ const OrganizationMember = require('../models/OrganizationMember');
 const Session = require('../models/Session');
 const { verifyAccessToken } = require('../utils/tokens');
 const httpError = require('../utils/httpError');
+const phoneVisibility = require('../services/phoneVisibility');
 
 const ENDED = new Set(['logout', 'reuse', 'removed']);
 const SEEN_EVERY_MS = 60 * 1000;
@@ -46,6 +47,8 @@ async function authenticate(req, res, next) {
     req.member = member;
     req.sessionId = payload.sid;
     req.tenant = { organizationId: member.organizationId, memberId: member._id, userId: user._id, role: member.role };
+    // Agents and viewers get customers' numbers masked in every answer (D65, app.js).
+    req.maskPhones = await phoneVisibility.hidesPhonesFor(member);
     next();
   } catch (error) {
     next(error);

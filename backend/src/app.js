@@ -6,6 +6,7 @@ const requestId = require('./middleware/requestId');
 const rejectUnsafeKeys = require('./middleware/sanitize');
 const { apiLimiter } = require('./middleware/rateLimit');
 const errorHandler = require('./middleware/errorHandler');
+const phoneMasking = require('./middleware/phoneMasking');
 const routes = require('./routes');
 const webhookRoutes = require('./routes/webhooks');
 const publicRoutes = require('./routes/public');
@@ -72,7 +73,8 @@ app.use('/api/v1/public', publicRoutes);
 app.use('/q', quotationLinkRoutes);
 // The public REST API for the companies' own systems, Zapier and Make (API keys, Phase 10C).
 app.use('/api/public/v1', publicApiRoutes);
-app.use('/api/v1', apiLimiter, routes);
+// Agents and viewers never get customers' full numbers (D65).
+app.use('/api/v1', apiLimiter, phoneMasking, routes);
 
 // 404 handler
 app.use((req, res, next) => {
