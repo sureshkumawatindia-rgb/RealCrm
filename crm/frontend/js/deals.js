@@ -661,7 +661,13 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebarUser();
   initSidebarToggle();
 
-  crmReady(["leads", "members", "contacts", "tasks"], renderAll);
+  crmReady(["leads", "members", "contacts", "tasks"], () => {
+    renderAll();
+    openFromAddress((id) => {
+      if (!getDeals().some((d) => d.id === id)) return false;
+      openModal(id);
+    });
+  });
   initKanbanStageButtons();
 
   // Search & filters

@@ -1197,6 +1197,234 @@ async function mountWhatsAppReminder() {
 }
 
 // ---------------------------------------------------------------
+// Search the whole CRM (top bar; Ctrl+K or "/" anywhere): customers, leads, chats, quotations,
+// orders, products, tasks and tickets in one list (GET /search; the server keeps each module's
+// own rules). ↑ ↓ move, Enter opens, Esc closes.
+// ---------------------------------------------------------------
+const crmSearch = (() => {
+  const ICONS = {
+    customers: "fa-solid fa-user",
+    leads: "fa-solid fa-bullseye",
+    chats: "fa-brands fa-whatsapp",
+    quotations: "fa-solid fa-file-invoice",
+    orders: "fa-solid fa-truck-fast",
+    products: "fa-solid fa-box-open",
+    tasks: "fa-solid fa-list-check",
+    tickets: "fa-solid fa-headset",
+  };
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  let overlay;
+  let input;
+  let results;
+  let opener = null;
+  let timer = null;
+  let asked = 0;
+
+  // The words typed, marked in a result (the text is escaped first).
+  function mark(text, q) {
+    const safe = escapeHtml(text || "");
+    const words = q.trim().split(/\s+/).filter((word) => word.length > 1).map((word) => escapeHtml(word).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    return words.length ? safe.replace(new RegExp(`(${words.join("|")})`, "gi"), "<mark>$1</mark>") : safe;
+  }
+
+  function show(html) {
+    results.innerHTML = html;
+    const items = results.querySelectorAll(".search-item");
+    items.forEach((item, index) => item.addEventListener("mouseenter", () => setActive(index)));
+    setActive(items.length ? 0 : -1);
+  }
+  function message(icon, text) {
+    show(`<div class="search-message"><i class="${icon}"></i><p>${text}</p></div>`);
+  }
+  function setActive(index) {
+    const items = [...results.querySelectorAll(".search-item")];
+    items.forEach((item, i) => {
+      item.classList.toggle("active", i === index);
+      item.setAttribute("aria-selected", String(i === index));
+    });
+    const active = items[index];
+    input.setAttribute("aria-activedescendant", active ? active.id : "");
+    active?.scrollIntoView({ block: "nearest" });
+  }
+  function move(step) {
+    const items = [...results.querySelectorAll(".search-item")];
+    if (!items.length) return;
+    const current = items.findIndex((item) => item.classList.contains("active"));
+    setActive((current + step + items.length) % items.length);
+  }
+
+  function render(data, q) {
+    if (!data.groups.length) {
+      message("fa-regular fa-face-meh", `Nothing found for “${escapeHtml(q)}”. Try a name, phone number, or a quotation or order number.`);
+      return;
+    }
+    let n = 0;
+    show(
+      data.groups
+        .map(
+          (group) => `
+        <section class="search-group" aria-label="${escapeHtml(group.label)}">
+          <div class="search-group-head">
+            <span>${escapeHtml(group.label)}</span>
+            ${group.total > group.items.length ? `<a href="${escapeHtml(group.allUrl)}">Show all ${group.total}</a>` : ""}
+          </div>
+          ${group.items
+            .map(
+              (item) => `
+            <a class="search-item" id="crmSearchItem${n++}" role="option" href="${escapeHtml(item.url)}">
+              <span class="search-item-icon search-${escapeHtml(item.type)}"><i class="${ICONS[item.type] || "fa-solid fa-circle"}"></i></span>
+              <span class="search-item-text">
+                <strong>${mark(item.title, q)}</strong>
+                ${item.subtitle ? `<span>${mark(item.subtitle, q)}</span>` : ""}
+              </span>
+              <i class="fa-solid fa-arrow-turn-down search-item-go" aria-hidden="true"></i>
+            </a>`,
+            )
+            .join("")}
+        </section>`,
+        )
+        .join(""),
+    );
+  }
+
+  async function run() {
+    const q = input.value.trim();
+    const ticket = ++asked;
+    if (q.length < 2) {
+      message("fa-solid fa-magnifying-glass", "Type a name, phone number, company, quotation or order number…");
+      return;
+    }
+    results.setAttribute("aria-busy", "true");
+    if (!results.querySelector(".search-item")) message("fa-solid fa-spinner fa-spin", "Searching…");
+    try {
+      const data = await crmApi(`/search?q=${encodeURIComponent(q)}&limit=5`);
+      if (ticket === asked) render(data, q);
+    } catch (error) {
+      if (ticket === asked) message("fa-solid fa-triangle-exclamation", escapeHtml(apiErrorMessage(error, "Couldn't search right now. Try again.")));
+    } finally {
+      if (ticket === asked) results.removeAttribute("aria-busy");
+    }
+  }
+
+  function build() {
+    overlay = document.createElement("div");
+    overlay.className = "search-overlay";
+    overlay.id = "crmSearch";
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search the CRM">
+        <div class="search-field">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="crmSearchInput" placeholder="Search customers, leads, chats, orders…" autocomplete="off" spellcheck="false"
+            role="combobox" aria-expanded="true" aria-controls="crmSearchResults" aria-autocomplete="list" />
+          <button type="button" class="search-esc" aria-label="Close search">Esc</button>
+        </div>
+        <div class="search-results" id="crmSearchResults" role="listbox" aria-label="Results"></div>
+        <div class="search-foot" aria-hidden="true">
+          <span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    input = overlay.querySelector("#crmSearchInput");
+    results = overlay.querySelector("#crmSearchResults");
+    overlay.addEventListener("mousedown", (event) => {
+      if (event.target === overlay) close();
+    });
+    overlay.querySelector(".search-esc").addEventListener("click", close);
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(run, 250);
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        move(event.key === "ArrowDown" ? 1 : -1);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        clearTimeout(timer);
+        const active = results.querySelector(".search-item.active");
+        if (active) window.location.href = active.getAttribute("href");
+        else run();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+      }
+    });
+  }
+
+  function open() {
+    if (!overlay) build();
+    if (!overlay.hidden) return input.focus();
+    opener = document.activeElement;
+    overlay.hidden = false;
+    document.body.classList.add("search-open");
+    input.select();
+    input.focus();
+    if (!input.value.trim()) run();
+  }
+  function close() {
+    if (!overlay || overlay.hidden) return;
+    overlay.hidden = true;
+    document.body.classList.remove("search-open");
+    opener?.focus?.();
+  }
+
+  // The box in the top bar, next to the bell; the keyboard shortcuts on every page.
+  function mount() {
+    const topbar = document.querySelector(".main > .topbar");
+    if (!topbar || !isAuthenticated() || document.getElementById("crmSearchBtn")) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "topbar-search";
+    button.id = "crmSearchBtn";
+    button.setAttribute("aria-label", `Search the CRM (${isMac ? "⌘" : "Ctrl"}+K)`);
+    button.innerHTML = `<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search…</span><kbd>${isMac ? "⌘" : "Ctrl"} K</kbd>`;
+    button.addEventListener("click", open);
+    const bell = document.getElementById("crmBell");
+    if (bell) bell.before(button);
+    else topbar.appendChild(button);
+
+    document.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        open();
+        return;
+      }
+      const typing = event.target.closest?.("input, textarea, select, [contenteditable='true']");
+      if (event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !document.querySelector(".modal-overlay.open")) {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
+
+  return { mount, open, close };
+})();
+
+// A link from the search (or elsewhere) can open one record: "?open=<id>" on Leads, Deals,
+// Products, Tasks and Support. Pages call this once their data has loaded; the address is
+// cleaned so a refresh does not open it again.
+function openFromAddress(openRecord) {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("open");
+  if (!id) return;
+  params.delete("open");
+  const rest = params.toString();
+  history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
+  if (openRecord(id) === false) showToast("That record is no longer here. It may have been deleted.", "error");
+}
+
+// "Show all" in the search opens a list page with "?q=<words>": they go into its search box.
+function fillSearchFromAddress() {
+  const q = new URLSearchParams(window.location.search).get("q");
+  const box = document.querySelector("#searchInput, #qSearch, #oSearch, #inboxSearch");
+  if (!q || !box) return;
+  box.value = q;
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+// ---------------------------------------------------------------
 // Installable app and web push (Phase 10E): every page links the manifest and registers the
 // service worker (sw.js: offline notice, push notifications). Browsers allow both only on
 // https or this computer (127.0.0.1 / localhost).
@@ -1421,6 +1649,7 @@ function initPopupKeys() {
     "keydown",
     (event) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.body.classList.contains("search-open")) return; // the search closes first
       const open = [...document.querySelectorAll(".modal-overlay.open")];
       if (!open.length) return;
       const zIndex = (el) => Number(getComputedStyle(el).zIndex) || 0;
@@ -1721,6 +1950,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (isAuthenticated() && document.querySelector(".sidebar")) syncMembership();
   explainNoAccess();
   crmBell.mount();
+  crmSearch.mount();
+  fillSearchFromAddress();
   crmPlan.mountBanner();
   mountWhatsAppReminder();
   // The Inbox page keeps its own count up to date live.

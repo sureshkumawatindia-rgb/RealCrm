@@ -667,7 +667,13 @@ function renderAll() {
 // Init
 // ---------------------------------------------------------------
 initSidebarToggle();
-crmReady(["tickets", "contacts", "members"], renderAll);
+crmReady(["tickets", "contacts", "members"], () => {
+  renderAll();
+  openFromAddress((id) => {
+    if (!getTickets().some((t) => t.id === id)) return false;
+    openModal(id);
+  });
+});
 initKanbanStageButtons();
 
 // Search & filters

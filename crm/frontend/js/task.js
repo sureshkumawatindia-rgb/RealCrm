@@ -478,6 +478,10 @@ initSidebarToggle();
 crmReady(["tasks", "leads", "contacts", "members"], () => {
   renderAll();
   handleQuickAddDeepLink();
+  openFromAddress((id) => {
+    if (!getTasks().some((t) => t.id === id)) return false;
+    openModal(id);
+  });
 });
 
 // Search & filters

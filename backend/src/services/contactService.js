@@ -10,7 +10,7 @@ const planService = require('./planService');
 const automationEvents = require('./automation/events');
 
 const MODULE = 'customers';
-const SEARCH_FIELDS = ['name', 'email', 'phone', 'company', 'city'];
+const SEARCH_FIELDS = ['name', 'email', 'phone', 'phoneE164', 'company', 'city'];
 const SORTS = ['name', 'createdAt', 'updatedAt', 'company'];
 const EDITABLE = ['name', 'email', 'phone', 'company', 'gstin', 'state', 'city', 'address', 'tags', 'source', 'lifecycle', 'status', 'productIds', 'notes'];
 

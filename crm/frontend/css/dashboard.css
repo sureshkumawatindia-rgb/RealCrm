@@ -100,6 +100,10 @@
   #quickDealBtn {
     padding: 9px 12px;
   }
+  /* The top bar also has the search now: "+ New" → Deal does the same */
+  #quickDealBtn {
+    display: none;
+  }
   .pipeline-wrap {
     padding: 14px 16px 16px;
   }

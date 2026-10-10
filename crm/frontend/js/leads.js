@@ -796,4 +796,9 @@ crmReady(["leads", "products", "members"], () => {
   renderProductOptions();
   renderProductsPanel();
   renderTable();
+  openFromAddress((id) => {
+    const lead = getLeads().find((l) => l.id === id);
+    if (!lead) return false;
+    openModal(lead);
+  });
 });

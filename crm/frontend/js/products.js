@@ -366,6 +366,10 @@ function renderAll() {
 crmReady(["products", "leads", "members"], () => {
   renderAll();
   loadCatalogBar();
+  openFromAddress((id) => {
+    if (!getProducts().some((p) => p.id === id)) return false;
+    openModal(id);
+  });
 });
 
 document.getElementById("searchInput").addEventListener("input", renderTable);

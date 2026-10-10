@@ -664,6 +664,12 @@ After the date a job (`organization.purge`, every 6 hours) removes every record 
 
 `POST` endpoints that accept `Idempotency-Key` (8–128 characters) return the stored response for a repeated key with the same body (header `Idempotent-Replayed: true`), `422 IDEMPOTENCY_KEY_REUSED` for a different body, and `409 IDEMPOTENCY_IN_PROGRESS` while the first request is still running. Records expire after 24 hours.
 
+## Search (D62)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/search?q=&limit=` | Any member. `q` 2–100 characters, `limit` 1–10 per group (default 5). `{ q, groups [{ type, label, total, allUrl, items [{ type, id, title, subtitle, url }] }] }`; only groups with results, in this order: `customers` (contacts that are customers, like the Customers page), `leads`, `chats`, `quotations`, `orders`, `products`, `tasks`, `tickets`. Each group searches through its module's own list, so a member sees only what that page would show them (their own records unless they have view_all, no private numbers unless they are an owner, no group for a module they cannot open — leads also need Leads or Deals, tasks need Tasks, tickets need Support). A phone number typed with spaces, dashes or +91 is searched as its digits. `url` opens the record (`customer-360.html?id=`, `leads.html?open=` or `Deals.html?open=` for members without Leads, `Inbox.html?c=`, `Quotations.html?id=`, `Orders.html?id=`, `Products.html?open=`, `Tasks.html?open=`, `Support.html?open=`); `allUrl` is the module's page with `?q=`. |
+
 ## Private numbers (D61, owners only)
 
 Personal chats (family, friends) that come in on the company's WhatsApp Business number. Making a number private marks its contact, leads, chats and messages `private`: only owners see them (lists, single reads — 404 for everyone else —, inbox counts, the owners' Socket.IO room); the public API, segments and broadcasts, reports and the "no reply" automation leave them out; new messages from the number (live, history, phone echoes) stay private and start no automation, bot, auto-reply, lead, catalog order or notification. Nothing is deleted. The audit log keeps the number masked (`privacy.number_private`, `privacy.number_visible`).

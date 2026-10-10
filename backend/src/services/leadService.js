@@ -123,7 +123,7 @@ async function list(req, query) {
     filter.followUpAt = { ...(query.followUpFrom && { $gte: query.followUpFrom }), ...(query.followUpTo && { $lte: query.followUpTo }) };
   }
   if (query.q) {
-    const contacts = await Contact.find({ organizationId, ...searchFilter(query.q, ['name', 'email', 'phone', 'company']) }).select('_id').limit(1000);
+    const contacts = await Contact.find({ organizationId, ...searchFilter(query.q, ['name', 'email', 'phone', 'phoneE164', 'company']) }).select('_id').limit(1000);
     const text = searchFilter(query.q, ['title', 'notes']).$or;
     filter.$or = [...text, { contactId: { $in: contacts.map((contact) => contact._id) } }];
   }
