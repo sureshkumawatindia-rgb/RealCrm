@@ -65,6 +65,11 @@ async function update(req, id, patch) {
   if (losesOwner) await assertAnotherOwner(req, member);
   // Turning a disabled member back on takes a seat of the plan.
   if (patch.status === 'active' && member.status !== 'active') await planService.assertRoom(req.tenant.organizationId, 'users', { action: 'turn members back on' });
+  // Someone becoming an active agent takes an agent seat (D68).
+  const activeAfter = (patch.status || member.status) === 'active';
+  const agentAfter = (patch.role || member.role) === 'agent';
+  const wasActiveAgent = member.status === 'active' && member.role === 'agent';
+  if (activeAfter && agentAfter && !wasActiveAgent) await planService.assertRoom(req.tenant.organizationId, 'agents', { action: 'add agents' });
 
   const before = { role: member.role, modules: member.modules, permissions: member.permissions, status: member.status };
   Object.assign(member, patch);

@@ -21,17 +21,23 @@ describe('Plans, limits and the trial (Phase 10A)', () => {
     expect(mine.plan).toMatchObject({ key: 'growth', name: 'Growth', pricePaise: 499900, gstPaise: 89982, totalPaise: 589882 });
     expect(mine.subscription).toMatchObject({ status: 'trialing', locked: false, daysLeft: 30 });
     const usage = Object.fromEntries(mine.usage.map((meter) => [meter.metric, meter]));
-    expect(usage.users).toMatchObject({ used: 2, limit: 15, left: 13 });
+    expect(usage.users).toMatchObject({ used: 2, limit: 30, left: 28 });
+    expect(usage.agents).toMatchObject({ used: 1, limit: 20, left: 19 });
     expect(usage.templates).toMatchObject({ limit: null, left: null });
     const theirs = (await api().get('/api/v1/billing/subscription').set(bearer(agent.token))).body.data;
     expect(theirs.subscription.status).toBe('trialing');
     expect(theirs.usage).toBeUndefined();
 
     const catalog = (await api().get('/api/v1/billing/plans').set(bearer(agent.token))).body.data;
-    expect(catalog.plans.map((p) => p.key)).toEqual(['starter', 'pro', 'growth', 'scale']);
-    expect(catalog.plans[0]).toMatchObject({ limits: { users: 3, templates: 100, quotesPerMonth: 1000 }, features: { paymentLinks: true, agentNumbers: false, api: false } });
-    expect(catalog.plans.map((p) => p.pricePaise)).toEqual([79900, 249900, 499900, 849900]);
-    expect(catalog.plans.map((p) => p.limits.users)).toEqual([3, 8, 15, 25]);
+    expect(catalog.plans.map((p) => p.key)).toEqual(['starter', 'pro', 'growth', 'scale', 'infinite']);
+    expect(catalog.plans[0]).toMatchObject({ limits: { users: 8, agents: 8, templates: 100, quotesPerMonth: 1000 }, features: { paymentLinks: true, agentNumbers: false, api: false } });
+    expect(catalog.plans.map((p) => p.pricePaise)).toEqual([79900, 249900, 499900, 849900, 1499900]);
+    expect(catalog.plans.map((p) => p.limits.users)).toEqual([8, 16, 30, 50, null]);
+    expect(catalog.plans.map((p) => p.limits.agents)).toEqual([8, 12, 20, 40, null]);
+    // A number per agent, up to Meta's 20 for one business.
+    expect(catalog.plans.map((p) => p.limits.whatsappNumbers)).toEqual([8, 12, 20, 20, 20]);
+    expect(catalog.plans[4]).toMatchObject({ name: 'Infinite', limits: { contacts: null, broadcastsPerMonth: null, quotesPerMonth: null, templates: null }, features: { api: true, agentNumbers: true } });
+    expect(catalog.limits.map((l) => l.metric)).toContain('agents');
     expect(catalog.included).toContain('WhatsApp for every user: the whole team replies from the shared inbox');
     expect(catalog).toMatchObject({ gstPct: 18, trialDays: 30 });
   });
@@ -42,20 +48,21 @@ describe('Plans, limits and the trial (Phase 10A)', () => {
     await setPlan(org, 'starter');
     const invite = (email) => api().post('/api/v1/invites').set(bearer(owner.token)).send({ email, role: 'agent' });
 
-    // Users: the owner + two more (a pending invite holds the seat; sending it again is fine).
-    const first = await invite('s-one@example.com');
+    // Users: the owner + seven more (a pending invite holds the seat; sending it again is fine).
+    const first = await invite('s-1@example.com');
     expect(first.status).toBe(201);
-    expect((await invite('s-one@example.com')).status).toBe(201);
-    expect((await invite('s-two@example.com')).status).toBe(201);
-    const refused = await invite('s-three@example.com');
+    expect((await invite('s-1@example.com')).status).toBe(201);
+    for (let i = 2; i <= 7; i += 1) expect((await invite(`s-${i}@example.com`)).status).toBe(201);
+    const refused = await invite('s-8@example.com');
     expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({ code: 'PLAN_LIMIT', message: 'The Starter plan allows 3 users, and you have 3. Upgrade in Settings → Plan & usage.' });
+    expect(refused.body).toMatchObject({ code: 'PLAN_LIMIT', message: 'The Starter plan allows 8 users, and you have 8. Upgrade in Settings → Plan & usage.' });
     await api().delete(`/api/v1/invites/${first.body.data.invite.id}`).set(bearer(owner.token));
-    expect((await invite('s-three@example.com')).status).toBe(201);
+    expect((await invite('s-8@example.com')).status).toBe(201);
 
-    // One WhatsApp number, shared by the team (an agent's own number needs Pro).
+    // A WhatsApp number per agent: 8 (an agent's own number needs Pro).
     const number = await api().post('/api/v1/whatsapp/accounts').set(bearer(owner.token)).send({ provider: 'mock' });
     expect(number.status).toBe(201);
+    for (let i = 2; i <= 8; i += 1) expect((await api().post('/api/v1/whatsapp/accounts').set(bearer(owner.token)).send({ provider: 'mock' })).status).toBe(201);
     expect((await api().post('/api/v1/whatsapp/accounts').set(bearer(owner.token)).send({ provider: 'mock' })).body.code).toBe('PLAN_LIMIT');
     const own = await api().patch(`/api/v1/whatsapp/accounts/${number.body.data.id}`).set(bearer(owner.token)).send({ agentMemberId: owner.data.member.id });
     expect(own.body).toMatchObject({ code: 'PLAN_LIMIT', message: "An agent's own WhatsApp number comes with the Pro plan and above (you are on Starter). Upgrade in Settings → Plan & usage." });
@@ -83,7 +90,7 @@ describe('Plans, limits and the trial (Phase 10A)', () => {
 
     // The meters say the same.
     const usage = Object.fromEntries((await api().get('/api/v1/billing/subscription').set(bearer(owner.token))).body.data.usage.map((m) => [m.metric, m]));
-    expect(usage).toMatchObject({ users: { used: 3, limit: 3, left: 0 }, whatsappNumbers: { used: 1, limit: 1 }, templates: { used: 100, limit: 100 }, quotesPerMonth: { used: 1000, limit: 1000, left: 0 }, contacts: { used: 1, limit: 5000 } });
+    expect(usage).toMatchObject({ users: { used: 8, limit: 8, left: 0 }, agents: { used: 7, limit: 8, left: 1 }, whatsappNumbers: { used: 8, limit: 8 }, templates: { used: 100, limit: 100 }, quotesPerMonth: { used: 1000, limit: 1000, left: 0 }, contacts: { used: 1, limit: 5000 } });
   }, 60000);
 
   it('stops contacts by hand and imports at the limit, never WhatsApp messages', async () => {
@@ -137,6 +144,30 @@ describe('Plans, limits and the trial (Phase 10A)', () => {
     expect((await api().post('/api/v1/contacts').set(bearer(owner.token)).send({ name: 'New' })).status).toBe(201);
   }, 60000);
 
+  it('counts agents inside the users: an agent seat for each agent, viewers only need a user seat (D68)', async () => {
+    const owner = await login('agents-owner@example.com', { name: 'Kavita' });
+    const org = await orgOf(owner);
+    await setPlan(org, 'pro'); // 16 users, 12 agents
+    const invite = (email, role) => api().post('/api/v1/invites').set(bearer(owner.token)).send({ email, role });
+    for (let i = 1; i <= 12; i += 1) expect((await invite(`agent-${i}@example.com`, 'agent')).status).toBe(201);
+    const thirteenth = await invite('agent-13@example.com', 'agent');
+    expect(thirteenth.status).toBe(403);
+    expect(thirteenth.body).toMatchObject({ code: 'PLAN_LIMIT', message: 'The Pro plan allows 12 agents, and you have 12. Upgrade in Settings → Plan & usage.' });
+    // A viewer still fits (13 of 16 users), and a pending agent invite sent again keeps its seat.
+    const viewer = await inviteAndJoin(owner.token, 'pro-viewer@example.com', { role: 'viewer' });
+    expect((await invite('agent-1@example.com', 'agent')).status).toBe(201);
+    // Making someone an agent takes an agent seat too.
+    const promote = await api().patch(`/api/v1/members/${viewer.data.member.id}`).set(bearer(owner.token)).send({ role: 'agent' });
+    expect(promote.body).toMatchObject({ code: 'PLAN_LIMIT', message: 'The Pro plan allows 12 agents, and you have 12. Upgrade in Settings → Plan & usage.' });
+
+    // Infinite: no limit on users, agents, contacts, broadcasts, quotations or templates; 20 numbers.
+    await setPlan(org, 'infinite');
+    expect((await invite('agent-13@example.com', 'agent')).status).toBe(201);
+    expect((await api().patch(`/api/v1/members/${viewer.data.member.id}`).set(bearer(owner.token)).send({ role: 'agent' })).status).toBe(200);
+    const usage = Object.fromEntries((await api().get('/api/v1/billing/subscription').set(bearer(owner.token))).body.data.usage.map((m) => [m.metric, m]));
+    expect(usage).toMatchObject({ users: { limit: null }, agents: { used: 14, limit: null }, whatsappNumbers: { limit: 20 }, contacts: { limit: null } });
+  }, 60000);
+
   it('turning a disabled member back on needs a free seat', async () => {
     const owner = await login('seat-owner@example.com', { name: 'Gita' });
     const agent = await inviteAndJoin(owner.token, 'seat-agent@example.com', { role: 'agent' });
@@ -144,8 +175,9 @@ describe('Plans, limits and the trial (Phase 10A)', () => {
     const member = await OrganizationMember.findById(agent.data.member.id);
     await api().patch(`/api/v1/members/${member._id}`).set(bearer(owner.token)).send({ status: 'disabled' });
     await setPlan(org, 'starter');
-    for (const email of ['seat-new@example.com', 'seat-new2@example.com']) {
-      expect((await api().post('/api/v1/invites').set(bearer(owner.token)).send({ email, role: 'agent' })).status).toBe(201);
+    // The owner + 7 invites fill Starter's 8 seats.
+    for (let i = 1; i <= 7; i += 1) {
+      expect((await api().post('/api/v1/invites').set(bearer(owner.token)).send({ email: `seat-new${i}@example.com`, role: 'viewer' })).status).toBe(201);
     }
     const back = await api().patch(`/api/v1/members/${member._id}`).set(bearer(owner.token)).send({ status: 'active' });
     expect(back.body.code).toBe('PLAN_LIMIT');
