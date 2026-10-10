@@ -575,6 +575,7 @@
 }
 .composer-row textarea {
   flex: 1;
+  min-width: 0; /* a flex item never shrinks below its content without it */
   resize: none;
   overflow-y: hidden;
   max-height: 140px;
@@ -984,19 +985,28 @@
   .inbox {
     grid-template-columns: 300px minmax(0, 1fr);
   }
+  /* A sheet over the chat. Closed, it is off the screen, hidden and inert (inbox.js): no focus,
+     no screen reader, no shadow peeking in at the edge. */
   .inbox-details {
     position: fixed;
     top: 0;
-    right: -340px;
+    right: 0;
     width: 320px;
     height: 100vh;
+    height: 100dvh;
     background: var(--surface);
-    box-shadow: var(--shadow-pop);
     z-index: 80;
-    transition: right 0.25s var(--ease);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition:
+      transform 0.25s var(--ease),
+      visibility 0s linear 0.25s;
   }
   .inbox[data-details="open"] .inbox-details {
-    right: 0;
+    transform: none;
+    visibility: visible;
+    box-shadow: var(--shadow-pop);
+    transition: transform 0.25s var(--ease);
   }
   .thread-info,
   .details-close {
@@ -1020,7 +1030,6 @@
   }
   .inbox-details {
     width: 100%;
-    right: -100%;
   }
   .window-chip {
     display: none;

@@ -1675,6 +1675,39 @@ function initTableCards() {
 }
 
 // ---------------------------------------------------------------
+// Tab bars and stage chips scroll sideways when there is no room (style.css); the side with more
+// tabs fades (data-scroll: left | right | both), so it is clear there is more to swipe to.
+// ---------------------------------------------------------------
+const TAB_BARS = ".nav-bar-kanban-card, .mk-tabs, .report-tabs, .automation-tabs, .settings-tabs, .o-tabs, .c360-tabs";
+function watchTabBars() {
+  const update = (bar) => {
+    const max = bar.scrollWidth - bar.clientWidth;
+    const left = bar.scrollLeft > 2;
+    const right = bar.scrollLeft < max - 2;
+    const state = max <= 2 ? "" : left && right ? "both" : left ? "left" : right ? "right" : "";
+    if (state) bar.dataset.scroll = state;
+    else delete bar.dataset.scroll;
+  };
+  // Tabs that appear later (a page shows the ones the member may open) change the room too.
+  const sizes = typeof ResizeObserver === "function"
+    ? new ResizeObserver((entries) => entries.forEach((entry) => {
+        const bar = entry.target.matches(TAB_BARS) ? entry.target : entry.target.parentElement;
+        if (bar) update(bar);
+      }))
+    : null;
+  document.querySelectorAll(TAB_BARS).forEach((bar) => {
+    update(bar);
+    bar.addEventListener("scroll", () => update(bar), { passive: true });
+    if (sizes) [bar, ...bar.children].forEach((element) => sizes.observe(element));
+    // Pages that draw their tabs later (Orders' stages with counts).
+    new MutationObserver(() => {
+      if (sizes) [...bar.children].forEach((element) => sizes.observe(element));
+      update(bar);
+    }).observe(bar, { childList: true });
+  });
+}
+
+// ---------------------------------------------------------------
 // Popups: Escape closes the one on top through its own × button (so the page's close
 // logic runs), and every × has a name for screen readers.
 // ---------------------------------------------------------------
@@ -2017,6 +2050,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initNavGroups();
   initPopupKeys(); // before the icon names: a popup's × is "Close", not "Remove"
   initTableCards();
+  watchTabBars();
 
   // Company profile modal (trigger sits next to the logout button)
   const companyTrigger = document.getElementById("company-info-trigger");

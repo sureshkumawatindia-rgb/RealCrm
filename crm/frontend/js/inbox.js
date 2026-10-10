@@ -521,6 +521,8 @@
     $("threadEmpty").hidden = false;
     $("inbox").dataset.pane = "list";
     delete $("inbox").dataset.details;
+    detailsInHistory = false;
+    syncDetailsSheet();
     const history = new URL(window.location.href);
     history.searchParams.delete("c");
     window.history.replaceState(null, "", history);
@@ -1256,12 +1258,47 @@
       showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
     }
   });
-  $("threadInfo").addEventListener("click", () => {
+  // The contact details: a column on wide screens, a sheet over the chat up to 1200px. The closed
+  // sheet is inert (no focus, no screen reader); Escape and the phone's back button close it.
+  const detailsAsSheet = window.matchMedia("(max-width: 1200px)");
+  let detailsInHistory = false;
+  function syncDetailsSheet() {
+    const panel = document.querySelector(".inbox-details");
+    if (panel) panel.inert = detailsAsSheet.matches && $("inbox").dataset.details !== "open";
+  }
+  function openDetails() {
     $("inbox").dataset.details = "open";
-  });
-  $("detailsClose").addEventListener("click", () => {
+    if (detailsAsSheet.matches && !detailsInHistory) {
+      history.pushState({ inboxDetails: true }, "");
+      detailsInHistory = true;
+    }
+    syncDetailsSheet();
+    if (detailsAsSheet.matches) $("detailsClose").focus();
+  }
+  function closeDetails() {
+    if (detailsInHistory) {
+      history.back(); // popstate closes it, so Back and the × do the same
+      return;
+    }
     delete $("inbox").dataset.details;
+    syncDetailsSheet();
+  }
+  window.addEventListener("popstate", () => {
+    if (!detailsInHistory) return;
+    detailsInHistory = false;
+    delete $("inbox").dataset.details;
+    syncDetailsSheet();
+    $("threadInfo").focus();
   });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || $("inbox").dataset.details !== "open" || !detailsAsSheet.matches) return;
+    if (document.querySelector(".modal-overlay.open")) return; // the popup on top closes first
+    closeDetails();
+  });
+  detailsAsSheet.addEventListener("change", syncDetailsSheet);
+  syncDetailsSheet();
+  $("threadInfo").addEventListener("click", openDetails);
+  $("detailsClose").addEventListener("click", closeDetails);
 
   // --- list controls --------------------------------------------------------
   $("conversationList").addEventListener("click", (e) => {

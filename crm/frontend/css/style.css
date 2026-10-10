@@ -119,6 +119,7 @@ button {
 }
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   background: var(--bg);
@@ -354,6 +355,8 @@ button {
 }
 .login-step {
   display: grid;
+  /* minmax(0, …): the Google button (a fixed-width frame) never makes the card wider */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 #google-signin-slot {
@@ -897,7 +900,7 @@ button {
 }
 @media (max-width: 900px) {
   .auth-page {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .auth-showcase {
     display: none;
@@ -919,8 +922,11 @@ button {
   }
 }
 @media (max-width: 480px) {
+  .auth-panel {
+    padding: 28px 14px 20px;
+  }
   .login-card {
-    padding: 32px 20px 22px;
+    padding: 28px 16px 20px;
   }
   .cw-counts {
     grid-template-columns: 1fr;
@@ -2748,6 +2754,50 @@ body.crm-loading::before {
   gap: 12px;
   min-width: 0;
 }
+/* Tab bars and stage chips: one line at every width; it scrolls sideways when there is no room,
+   and fades on the side that has more tabs (app.js watchTabBars sets data-scroll). */
+.main .nav-bar-kanban-card:not([hidden]),
+.main .mk-tabs:not([hidden]),
+.main .report-tabs:not([hidden]),
+.main .automation-tabs:not([hidden]),
+.main .o-tabs:not([hidden]),
+.main .c360-tabs:not([hidden]) {
+  flex-wrap: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.main .nav-bar-kanban-card::-webkit-scrollbar,
+.main .mk-tabs::-webkit-scrollbar,
+.main .report-tabs::-webkit-scrollbar,
+.main .automation-tabs::-webkit-scrollbar,
+.main .o-tabs::-webkit-scrollbar,
+.main .c360-tabs::-webkit-scrollbar {
+  display: none;
+}
+.main .nav-bar-kanban-card > *,
+.main .mk-tabs > *,
+.main .report-tabs > *,
+.main .automation-tabs > *,
+.main .o-tabs > *,
+.main .c360-tabs > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.main [data-scroll="right"] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+.main [data-scroll="left"] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+.main [data-scroll="both"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+}
 @keyframes sheet-in {
   from {
     transform: translateY(32px);
@@ -2794,7 +2844,7 @@ body.crm-loading::before {
     max-height: 75vh;
     max-height: 75dvh;
   }
-  /* Stage chips above a board and tab bars: one line that scrolls sideways */
+  /* On phones and tablets every tab bar is a full-width line that scrolls sideways */
   .main .nav-bar-kanban-card:not([hidden]),
   .main .mk-tabs:not([hidden]),
   .main .report-tabs:not([hidden]),
@@ -2803,27 +2853,17 @@ body.crm-loading::before {
   .main .o-tabs:not([hidden]),
   .main .c360-tabs:not([hidden]) {
     display: flex;
+  }
+  .main .settings-tabs:not([hidden]) {
     flex-wrap: nowrap;
     max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .main .nav-bar-kanban-card::-webkit-scrollbar,
-  .main .mk-tabs::-webkit-scrollbar,
-  .main .report-tabs::-webkit-scrollbar,
-  .main .automation-tabs::-webkit-scrollbar,
-  .main .settings-tabs::-webkit-scrollbar,
-  .main .o-tabs::-webkit-scrollbar,
-  .main .c360-tabs::-webkit-scrollbar {
+  .main .settings-tabs::-webkit-scrollbar {
     display: none;
   }
-  .main .nav-bar-kanban-card > *,
-  .main .mk-tabs > *,
-  .main .report-tabs > *,
-  .main .automation-tabs > *,
-  .main .settings-tabs > *,
-  .main .o-tabs > *,
-  .main .c360-tabs > * {
+  .main .settings-tabs > * {
     flex-shrink: 0;
     white-space: nowrap;
   }
@@ -3239,16 +3279,12 @@ body.search-open {
   color: var(--text-muted);
   font-size: 12px;
 }
+/* Up to 1100px (tablets, and laptops where the sidebar takes room): a search icon in the top bar,
+   so the page's own buttons and the bell still fit; on phones the results fill the screen */
 @media (max-width: 1100px) {
-  .topbar-search {
-    min-width: 190px;
-  }
-  .topbar-search kbd {
+  .main .topbar-date {
     display: none;
   }
-}
-/* Phones and tablets: a search icon in the top bar; the results fill the screen */
-@media (max-width: 860px) {
   .main .topbar .topbar-search {
     justify-content: center;
     width: 38px;

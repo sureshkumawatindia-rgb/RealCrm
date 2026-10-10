@@ -441,6 +441,7 @@
 }
 .task-add-row input {
   flex: 1;
+  min-width: 0; /* a flex item never shrinks below its content without it */
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
@@ -506,6 +507,7 @@
 }
 .range-field input[type="range"] {
   flex: 1;
+  min-width: 0; /* a flex item never shrinks below its content without it */
   accent-color: var(--brand-darker);
 }
 .range-field .range-value {
@@ -566,6 +568,7 @@
 }
 .note-input-row input {
   flex: 1;
+  min-width: 0; /* a flex item never shrinks below its content without it */
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 9px 12px;

@@ -162,6 +162,7 @@
       }
       .wa-private-form input {
         flex: 1 1 180px;
+        min-width: 0; /* a flex item never shrinks below its content without it */
         padding: 9px 12px;
         border: 1px solid var(--border-strong);
         border-radius: var(--radius-sm, 8px);

@@ -471,9 +471,16 @@ $("changePhone").addEventListener("click", () => {
   showStep("phone");
 });
 
-// The Google button follows the page's language (it is drawn again when it changes).
+// The Google button follows the page's language and fits the card: Google draws it at a fixed
+// width (200–400 px), so it is drawn again when the language or the room for it changes (a
+// phone turned sideways).
 let googleReady = false;
 let googleLang = "";
+let googleWidth = 0;
+function googleButtonWidth() {
+  const room = $("google-signin-slot").parentElement?.clientWidth || 300;
+  return Math.max(200, Math.min(400, Math.floor(room)));
+}
 function renderGoogleButton() {
   if (typeof google === "undefined" || !google.accounts?.id) {
     // GSI script not loaded yet (ad-blocker / offline) — retry shortly.
@@ -487,18 +494,28 @@ function renderGoogleButton() {
     });
     googleReady = true;
   }
-  if (googleLang === lang) return;
+  // The room comes from the card (its grid column never grows with the button, style.css).
+  const width = googleButtonWidth();
+  if (googleLang === lang && Math.abs(googleWidth - width) < 8) return;
   googleLang = lang;
+  googleWidth = width;
   $("google-signin-slot").replaceChildren();
   google.accounts.id.renderButton($("google-signin-slot"), {
     theme: "outline",
     size: "large",
     shape: "pill",
     text: "continue_with",
-    width: 300,
+    width,
     locale: lang,
   });
 }
+let googleResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(googleResizeTimer);
+  googleResizeTimer = setTimeout(() => {
+    if (googleReady && Math.abs(googleButtonWidth() - googleWidth) >= 8) renderGoogleButton();
+  }, 250);
+});
 
 $("langBtn").addEventListener("click", () => {
   lang = lang === "hi" ? "en" : "hi";

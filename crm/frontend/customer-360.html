@@ -84,9 +84,19 @@
         font-size: 18px;
         flex-shrink: 0;
       }
+      /* The name, email and phone take the room left and break anywhere (a long email has no spaces) */
+      .c360-who {
+        flex: 1;
+        min-width: 0;
+      }
       .c360-header h2 {
         margin: 0 0 3px;
         font-size: 19px;
+        overflow-wrap: anywhere;
+      }
+      .c360-header .sub span {
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
       .c360-header .sub {
         font-size: 12.5px;
@@ -99,6 +109,7 @@
         margin-left: auto;
         display: flex;
         gap: 8px;
+        flex-shrink: 0;
       }
 
       .c360-health {
@@ -174,6 +185,7 @@
         font-size: 13.5px;
         color: var(--text);
         font-weight: 500;
+        overflow-wrap: anywhere;
       }
 
       .c360-tabs {
@@ -308,6 +320,7 @@
       }
       .note-input-row input {
         flex: 1;
+        min-width: 0; /* a flex item never shrinks below its content without it */
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         padding: 9px 12px;
@@ -315,6 +328,21 @@
         font-family: inherit;
       }
 
+      /* Phones: the health score goes under the name instead of off the screen */
+      @media (max-width: 600px) {
+        .c360-header {
+          flex-wrap: wrap;
+          padding: 16px;
+          gap: 12px 14px;
+        }
+        /* At least 160px for the name, so the score moves to its own line instead */
+        .c360-who {
+          flex: 1 1 160px;
+        }
+        .c360-header-actions {
+          margin-left: 70px;
+        }
+      }
       @media (max-width: 1000px) {
         .c360-layout {
           flex-direction: column;
@@ -468,7 +496,7 @@
           <div id="profileView" style="display:none">
             <div class="panel c360-header">
               <div class="c360-avatar" id="c360Avatar">?</div>
-              <div>
+              <div class="c360-who">
                 <h2 id="c360Name">—</h2>
                 <div class="sub">
                   <span id="c360Company"></span>

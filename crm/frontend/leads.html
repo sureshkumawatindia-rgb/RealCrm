@@ -44,6 +44,7 @@
       }
       .note-title-input {
         flex: 1;
+        min-width: 0; /* a flex item never shrinks below its content without it */
         border: none;
         background: transparent;
         font-weight: 600;
@@ -102,6 +103,7 @@
       }
       .field-with-action select {
         flex: 1;
+        min-width: 0; /* a flex item never shrinks below its content without it */
       }
       .field-with-action .btn {
         white-space: nowrap;

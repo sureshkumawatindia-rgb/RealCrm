@@ -471,6 +471,7 @@
 }
 .note-input-row input {
   flex: 1;
+  min-width: 0; /* a flex item never shrinks below its content without it */
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 9px 12px;

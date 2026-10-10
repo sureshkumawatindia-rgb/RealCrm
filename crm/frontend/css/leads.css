@@ -418,6 +418,7 @@
 }
 .task-add-row input {
   flex: 1;
+  min-width: 0; /* a flex item never shrinks below its content without it */
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 9px 10px;

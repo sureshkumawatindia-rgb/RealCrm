@@ -193,18 +193,18 @@ function itemsForDate(dateStr) {
 function chipHtml(item) {
   if (item.kind === "event") {
     const e = item.data;
-    const label = e.startTime
-      ? `${formatTime(e.startTime)} ${e.title}`
-      : e.title;
-    return `<div class="day-chip ${TYPE_CHIP_CLASS[e.type]}" data-kind="event" data-id="${e.id}" title="${escapeHtml(e.title)}"><i class="fa-solid fa-circle"></i>${escapeHtml(label)}</div>`;
+    // A short time (10:00) so a narrow day still has room for the event's name.
+    const time = e.startTime ? `<span class="chip-time">${escapeHtml(e.startTime)}</span>` : "";
+    const tip = e.startTime ? `${formatTime(e.startTime)} ${e.title}` : e.title;
+    return `<div class="day-chip ${TYPE_CHIP_CLASS[e.type]}" data-kind="event" data-id="${e.id}" title="${escapeHtml(tip)}"><i class="fa-solid fa-circle"></i>${time}<span class="chip-label">${escapeHtml(e.title)}</span></div>`;
   }
   if (item.kind === "task") {
     const t = item.data;
     const overdue = t.status !== "Done" && t.dueDate < todayStr();
-    return `<div class="day-chip chip-task ${overdue ? "overdue" : ""}" data-kind="task" data-id="${t.id}" title="Task: ${escapeHtml(t.title)}"><i class="fa-solid fa-list-check"></i>${escapeHtml(t.title)}</div>`;
+    return `<div class="day-chip chip-task ${overdue ? "overdue" : ""}" data-kind="task" data-id="${t.id}" title="Task: ${escapeHtml(t.title)}"><i class="fa-solid fa-list-check"></i><span class="chip-label">${escapeHtml(t.title)}</span></div>`;
   }
   const d = item.data;
-  return `<div class="day-chip chip-deal" data-kind="deal" data-id="${d.id}" title="Deal close: ${escapeHtml(d.name)}"><i class="fa-solid fa-handshake"></i>${escapeHtml(d.name)}</div>`;
+  return `<div class="day-chip chip-deal" data-kind="deal" data-id="${d.id}" title="Deal close: ${escapeHtml(d.name)}"><i class="fa-solid fa-handshake"></i><span class="chip-label">${escapeHtml(d.name)}</span></div>`;
 }
 
 // ---------------------------------------------------------------
@@ -315,11 +315,13 @@ function renderCalendar() {
         <button type="button" class="day-add" data-date="${dateStr}" title="Add event"><i class="fa-solid fa-plus"></i></button>
         ${visible.map((it) => chipHtml(it)).join("")}
         ${extra > 0 ? `<div class="day-chip-more">+${extra} more</div>` : ""}
+        ${items.length ? `<span class="day-dots" aria-label="${items.length} ${items.length === 1 ? "item" : "items"}">${items.slice(0, 3).map((it) => `<i style="background:${dotColor(it)}"></i>`).join("")}</span>` : ""}
       </div>`;
     })
     .join("");
 
   attachGridEvents();
+  if (phoneView()) renderInlineAgenda();
 }
 
 function attachGridEvents() {
@@ -327,6 +329,12 @@ function attachGridEvents() {
     cell.addEventListener("click", (e) => {
       if (e.target.closest(".day-chip") || e.target.closest(".day-add")) return;
       const dateStr = cell.dataset.date;
+      // Phones: the day's list opens under the month instead of a popup.
+      if (phoneView()) {
+        selectedDate = dateStr;
+        renderInlineAgenda();
+        return;
+      }
       const items = itemsForDate(dateStr);
       if (items.length > 0) {
         openDayAgenda(dateStr, items);
@@ -366,15 +374,35 @@ function attachGridEvents() {
 }
 
 // ---------------------------------------------------------------
-// Day agenda modal
+// Day agenda: a popup on computers, a list under the month on phones
 // ---------------------------------------------------------------
-function openDayAgenda(dateStr, items) {
-  activeDayDate = dateStr;
-  document.getElementById("dayModalTitle").textContent =
-    formatDateLong(dateStr);
+const phoneView = () => window.matchMedia("(max-width: 600px)").matches;
+let selectedDate = "";
+function dotColor(item) {
+  if (item.kind === "event") return TYPE_DOT[item.data.type] || "var(--info)";
+  return item.kind === "task" ? "var(--text-faint)" : "var(--brand-darker)";
+}
 
-  const list = document.getElementById("dayAgendaList");
-  list.innerHTML = items
+function renderInlineAgenda() {
+  const box = document.getElementById("dayAgendaInline");
+  if (!box) return;
+  const inMonth = (date) => date && Number(date.slice(5, 7)) === viewMonth + 1 && Number(date.slice(0, 4)) === viewYear;
+  if (!inMonth(selectedDate)) selectedDate = inMonth(todayStr()) ? todayStr() : dateKey(viewYear, viewMonth, 1);
+  document.querySelectorAll(".calendar-cell").forEach((cell) => cell.classList.toggle("is-selected", cell.dataset.date === selectedDate));
+  const items = itemsForDate(selectedDate);
+  box.innerHTML = `
+    <div class="day-agenda-inline-head">
+      <strong>${escapeHtml(formatDateLong(selectedDate))}</strong>
+      <button type="button" class="btn btn-primary" id="inlineAddBtn"><i class="fa-solid fa-plus"></i> New event</button>
+    </div>
+    ${items.length ? `<div class="day-agenda-list">${agendaItemsHtml(items)}</div>` : '<p class="day-agenda-empty">Nothing on this day.</p>'}`;
+  box.hidden = false;
+  bindAgendaItems(box, () => {});
+  box.querySelector("#inlineAddBtn").addEventListener("click", () => openModal(null, selectedDate));
+}
+
+function agendaItemsHtml(items) {
+  return items
     .map((it) => {
       if (it.kind === "event") {
         const e = it.data;
@@ -409,10 +437,12 @@ function openDayAgenda(dateStr, items) {
       </div>`;
     })
     .join("");
+}
 
+function bindAgendaItems(list, beforeOpen) {
   list.querySelectorAll('.day-agenda-item[data-kind="event"]').forEach((row) =>
     row.addEventListener("click", () => {
-      closeDayModal();
+      beforeOpen();
       openModal(row.dataset.id);
     }),
   );
@@ -426,7 +456,14 @@ function openDayAgenda(dateStr, items) {
       window.location.href = "leads.html?focus=pipeline";
     }),
   );
+}
 
+function openDayAgenda(dateStr, items) {
+  activeDayDate = dateStr;
+  document.getElementById("dayModalTitle").textContent = formatDateLong(dateStr);
+  const list = document.getElementById("dayAgendaList");
+  list.innerHTML = agendaItemsHtml(items);
+  bindAgendaItems(list, closeDayModal);
   document.getElementById("dayModalOverlay").classList.add("open");
 }
 function closeDayModal() {

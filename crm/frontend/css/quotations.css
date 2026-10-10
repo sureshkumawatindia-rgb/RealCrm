@@ -134,7 +134,8 @@
 /* items */
 .q-line {
   display: grid;
-  grid-template-columns: minmax(180px, 2.2fr) 84px 70px 110px 150px 78px 110px 32px;
+  /* About 720px in all: it fits the items box from about 1440px wide; narrower, cards (below) */
+  grid-template-columns: minmax(140px, 2.2fr) 64px 56px 92px 120px 64px 96px 32px;
   gap: 8px;
   align-items: start;
   padding: 10px 0;
@@ -155,11 +156,20 @@
   padding: 8px 9px;
   font-size: 13px;
 }
+.q-line .q-line-item {
+  container-type: inline-size;
+}
 .q-line .q-line-extra {
   display: grid;
-  grid-template-columns: 1fr 110px;
+  grid-template-columns: minmax(0, 1fr) 110px;
   gap: 6px;
   margin-top: 6px;
+}
+/* A narrow item column (the full rows on a laptop): the name over the HSN code, not squeezed */
+@container (max-width: 220px) {
+  .q-line .q-line-extra {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .q-disc {
   display: flex;
@@ -167,6 +177,7 @@
 }
 .q-disc input {
   flex: 1;
+  min-width: 0; /* a flex item never shrinks below its content without it */
 }
 .q-disc select {
   width: 58px;
@@ -343,13 +354,17 @@
   }
 }
 
-/* phones and narrow windows: each line becomes a small card */
-@media (max-width: 820px) {
+/* Each line becomes a small card when the items box is too narrow for the columns (about 730px:
+   on phones, and on tablets and small laptops where the sidebar takes room) */
+.q-items {
+  container: qitems / inline-size;
+}
+@container qitems (max-width: 730px) {
   .q-line.q-line-head {
     display: none;
   }
   .q-line {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     border: 1px solid var(--border-soft);
     border-radius: var(--radius-md);
     padding: 10px;
