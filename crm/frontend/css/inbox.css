@@ -44,6 +44,7 @@
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr) 300px;
   height: calc(100vh - 62px - var(--plan-banner-h, 0px)); /* the plan banner (app.js) */
+  height: calc(100dvh - 62px - var(--plan-banner-h, 0px));
   min-height: 420px;
   background: var(--surface);
 }
@@ -326,6 +327,9 @@
   background: var(--warning-bg);
   color: #b36b00;
 }
+.window-chip .window-short {
+  display: none;
+}
 .thread-messages {
   flex: 1;
   overflow-y: auto;
@@ -511,6 +515,14 @@
 .msg:hover .reply-btn,
 .msg .reply-btn:focus {
   opacity: 1;
+}
+/* Touch screens have no hover (R2): the reply arrow always shows, with a finger-sized target. */
+@media (hover: none) {
+  .msg .reply-btn {
+    opacity: 0.75;
+    min-width: 40px;
+    min-height: 40px;
+  }
 }
 
 /* ---------- composer ---------- */
@@ -1031,14 +1043,29 @@
   .inbox-details {
     width: 100%;
   }
+  /* The reply window stays in sight on phones, short: "3h left" or "Templates only" (R2) */
   .window-chip {
+    flex-shrink: 0;
+    padding: 4px 8px;
+  }
+  .window-chip .window-long {
     display: none;
+  }
+  .window-chip .window-short {
+    display: inline;
   }
   .bubble {
     max-width: 85%;
   }
   .inbox-notify-btn span,
   .inbox-live #inboxLiveText {
+    display: none;
+  }
+}
+
+/* The smallest phones (R2): the customer's name gets the avatar's room in the chat's header */
+@media (max-width: 400px) {
+  #threadAvatar {
     display: none;
   }
 }

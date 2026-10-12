@@ -48,6 +48,76 @@
       .settings-panel.active {
         display: block;
       }
+      .settings-back,
+      .settings-tab-go {
+        display: none;
+      }
+      /* Phones (R2): Settings opens as a list of its sections, like a phone's own settings; a
+         section opens on its own, with "All settings" (or the phone's back button) to return. */
+      @media (max-width: 600px) {
+        .main .settings-tabs:not([hidden]) {
+          flex-direction: column;
+          flex-wrap: nowrap;
+          gap: 0;
+          overflow: visible;
+          max-width: none;
+          background: var(--surface);
+          border: 1px solid var(--border-soft);
+          border-radius: var(--radius-md);
+          -webkit-mask-image: none;
+          mask-image: none;
+        }
+        .main .settings-tabs > .settings-tab,
+        .main .settings-tabs > .settings-tab.active {
+          width: 100%;
+          min-height: 52px;
+          padding: 12px 16px;
+          border: 0;
+          border-bottom: 1px solid var(--border-soft);
+          border-radius: 0;
+          background: transparent;
+          color: var(--text);
+          font-size: 14.5px;
+          gap: 12px;
+          white-space: normal;
+          text-align: left;
+        }
+        .main .settings-tabs > .settings-tab:last-child {
+          border-bottom: 0;
+        }
+        .main .settings-tabs > .settings-tab > i:first-child {
+          width: 22px;
+          text-align: center;
+          color: var(--text-muted);
+        }
+        .main .settings-tabs .settings-tab-go {
+          display: inline;
+          margin-left: auto;
+          font-size: 12px;
+          color: var(--text-faint);
+        }
+        #settingsPage[data-settings-view="menu"] .settings-panel.active {
+          display: none;
+        }
+        #settingsPage[data-settings-view="panel"] .settings-tabs {
+          display: none;
+        }
+        #settingsPage[data-settings-view="panel"] .settings-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 44px;
+          margin: -6px 0 8px;
+          padding: 0 4px;
+          border: 0;
+          background: none;
+          font: inherit;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text);
+          cursor: pointer;
+        }
+      }
       .settings-section {
         margin-bottom: 20px;
       }
@@ -784,7 +854,7 @@
           </div>
         </header>
 
-        <div class="page">
+        <div class="page" id="settingsPage">
           <div class="settings-tabs" id="settingsTabs">
             <button class="settings-tab active" data-panel="profile">
               <i class="fa-solid fa-user"></i> Your Profile
@@ -826,6 +896,8 @@
               <i class="fa-solid fa-database"></i> Data & Privacy
             </button>
           </div>
+          <!-- Phones: back from a section to the list of sections (R2) -->
+          <button class="settings-back" id="settingsBack" type="button"><i class="fa-solid fa-chevron-left"></i> All settings</button>
 
           <!-- YOUR PROFILE -->
           <div class="settings-panel active" data-settings-panel="profile">

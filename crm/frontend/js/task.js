@@ -206,12 +206,33 @@ function taskCardHtml(t) {
           ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${formatDate(t.dueDate)}
         </div>
       </div>
+      ${kanbanMoveButton(t.id)}
     </div>`;
+}
+
+// A task to another status: dropped on a column, or picked in "Move to…" on a touch screen (R2).
+function moveTask(id, newStatus) {
+  const task = getTask(id);
+  if (!task || task.status === newStatus) return;
+  saveTask(task.id, { status: newStatus })
+    .then(() => showToast(`Moved "${task.title}" to ${newStatus}`, "success"))
+    .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the task."), "error"))
+    .finally(renderAll);
 }
 
 function attachDragEvents() {
   document.querySelectorAll(".task-card").forEach((card) => {
     card.addEventListener("click", () => openModal(card.dataset.id));
+    card.querySelector(".kanban-move")?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const task = getTask(card.dataset.id);
+      if (!task) return;
+      const status = await crmMoveMenu.open({
+        title: `Move "${task.title}" to`, current: task.status, returnFocus: event.currentTarget,
+        options: STATUSES.map((s) => ({ value: s, label: s, color: STATUS_DOT[s] })),
+      });
+      if (status) moveTask(task.id, status);
+    });
     card.addEventListener("dragstart", () => {
       draggingId = card.dataset.id;
       card.classList.add("dragging");
@@ -232,13 +253,7 @@ function attachDragEvents() {
       e.preventDefault();
       col.classList.remove("drag-over");
       if (!draggingId) return;
-      const newStatus = col.dataset.status;
-      const task = getTask(draggingId);
-      if (!task || task.status === newStatus) return;
-      saveTask(task.id, { status: newStatus })
-        .then(() => showToast(`Moved "${task.title}" to ${newStatus}`, "success"))
-        .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the task."), "error"))
-        .finally(renderAll);
+      moveTask(draggingId, col.dataset.status);
     });
   });
 }
