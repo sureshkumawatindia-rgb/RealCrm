@@ -97,7 +97,7 @@ describe('WhatsApp broadcasts', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('saves drafts for owners and admins with a sendable template, filled in completely', async () => {
-    expect((await api().get('/api/v1/broadcasts/quota').set(auth())).body.data).toEqual({ plan: 'Growth', limit: 750, used: 0, left: 750 });
+    expect((await api().get('/api/v1/broadcasts/quota').set(auth())).body.data).toEqual({ plan: 'Growth', limit: 1000, used: 0, left: 1000 });
     const codes = async (body) => (await post('/broadcasts', { name: 'x', segmentId: segment.id, ...body })).body.errors?.[0]?.code;
     expect(await codes({ templateId: templates.diwali_offer.id })).toBe('TEMPLATE_NOT_SENDABLE');
     expect(await codes({ templateId: templates.quotation_pdf.id })).toBe('TEMPLATE_NOT_SENDABLE');
@@ -115,7 +115,7 @@ describe('WhatsApp broadcasts', () => {
     expect(estimate).toMatchObject({
       recipients: 25, // not the opted-out one, not the one without a mobile, not Gujarat
       cost: { perMessagePaise: 11.5, paise: 288, gstPaise: 52, currency: 'INR' },
-      quota: { limit: 750, used: 0 }, dailyLimit: { limit: 250, tier: 'TIER_250', usedToday: 0, leftToday: 250 },
+      quota: { limit: 1000, used: 0 }, dailyLimit: { limit: 250, tier: 'TIER_250', usedToday: 0, leftToday: 250 },
     });
     expect((await api().get(`/api/v1/broadcasts/${draft.body.data.id}`).set(bearer(stranger.token))).status).toBe(404);
   });

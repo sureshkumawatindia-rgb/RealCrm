@@ -237,7 +237,8 @@ No migration (additive; a missing setting reads as on).
 No migration (a missing field means a shared number).
 
 - `whatsappaccounts.agentMemberId` (an `organizationmembers` id, default null): the number is that agent's own. A new chat on it gets `assigneeId` = the agent, a new WhatsApp lead `ownerId` = the agent (so the assignment rules leave it alone), a new contact `ownerId` = the agent; an unassigned chat on it is given to them. An agent who is disabled, removed or without the Inbox page counts as none (the number is shared until reassigned). A member starting a chat without naming a number uses their own, else a shared one.
-- The plans (`constants/plans.js`) carry `aiBudgetShare`: Starter 0.25, Pro 0.5, Growth 1, Scale 2 times `AI_MONTHLY_BUDGET_USD`.
+- The plans (`constants/plans.js`) carry `aiBudgetShare`: Starter 0.25, Pro 0.5, Growth 1, Scale 2, Infinite 4 times `AI_MONTHLY_BUDGET_USD`.
+- D68: `organizations.plan` can also be `infinite`. The agents limit counts active members with `role: 'agent'` plus pending, unexpired invites for an agent (like users, which count everyone).
 
 ## 1u. Company login (D66, 2026-10-10)
 
