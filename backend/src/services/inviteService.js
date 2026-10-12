@@ -59,8 +59,6 @@ async function create(req, { email, role, modules, permissions, displayName = ''
   }
   const pending = await Invite.findOne({ organizationId, email });
   await planService.assertRoom(organizationId, 'users', { adding: holdsSeat(pending) ? 0 : 1, action: 'invite people' });
-  // An agent also takes an agent seat (D68), unless this pending invite already holds one.
-  if (role === 'agent') await planService.assertRoom(organizationId, 'agents', { adding: holdsSeat(pending) && pending.role === 'agent' ? 0 : 1, action: 'invite agents' });
 
   const { invite, link } = await issue(
     { organizationId, email },
@@ -96,7 +94,6 @@ async function resend(req, id) {
   if (existing.status === 'accepted') throw httpError(409, 'CONFLICT', 'This invite was already accepted.');
   if (existing.role === 'admin' && req.member.role !== 'owner') throw httpError(403, 'FORBIDDEN', 'Only an owner can invite admins.');
   await planService.assertRoom(req.tenant.organizationId, 'users', { adding: holdsSeat(existing) ? 0 : 1, action: 'invite people' });
-  if (existing.role === 'agent') await planService.assertRoom(req.tenant.organizationId, 'agents', { adding: holdsSeat(existing) ? 0 : 1, action: 'invite agents' });
   const { invite, link } = await issue({ _id: existing._id }, {});
   await audit(req, { action: 'invite.resent', entityType: 'Invite', entityId: invite._id });
   return { invite: serializeInvite(invite), link };

@@ -25,25 +25,15 @@
     comped: ["Complimentary", "badge-neutral"],
   };
   // How a limit reads on a plan card.
-  // Users are the whole team (admins, agents, viewers); agents are a limit within it (D68).
   const LIMIT_TEXT = {
-    users: (n) => `${count(n)} user${n === 1 ? "" : "s"} (admins, agents, viewers)`,
-    agents: (n) => `Up to ${count(n)} agent${n === 1 ? "" : "s"}`,
-    whatsappNumbers: (n) => `${count(n)} WhatsApp number${n === 1 ? "" : "s"}${n >= 20 ? " (Meta's maximum)" : ""}`,
+    users: (n) => `${count(n)} user${n === 1 ? "" : "s"}`,
+    whatsappNumbers: (n) => `${count(n)} WhatsApp number${n === 1 ? "" : "s"}`,
     contacts: (n) => `${count(n)} contacts`,
     broadcastsPerMonth: (n) => `${count(n)} broadcasts a month`,
     quotesPerMonth: (n) => `${count(n)} quotations a month`,
     templates: (n) => `${count(n)} message templates`,
   };
-  const UNLIMITED_TEXT = {
-    users: "Unlimited users",
-    agents: "Unlimited agents",
-    whatsappNumbers: "Unlimited WhatsApp numbers",
-    contacts: "Unlimited contacts",
-    broadcastsPerMonth: "Unlimited broadcasts",
-    quotesPerMonth: "Unlimited quotations",
-    templates: "Unlimited message templates",
-  };
+  const UNLIMITED_TEXT = { templates: "Unlimited message templates" };
   let catalog = null;
   let current = null;
   let loaded = false;

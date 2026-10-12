@@ -2759,8 +2759,7 @@ body.crm-loading::before {
 }
 .plan-grid {
   display: grid;
-  /* five plans side by side on a computer (D68) */
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 12px;
 }
 .plan-card {

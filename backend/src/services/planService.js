@@ -104,13 +104,6 @@ const COUNTERS = {
     ]);
     return members + invites;
   },
-  agents: async (organizationId) => {
-    const [members, invites] = await Promise.all([
-      OrganizationMember.countDocuments({ organizationId, status: 'active', role: 'agent' }),
-      Invite.countDocuments({ organizationId, status: 'pending', role: 'agent', expiresAt: { $gt: new Date() } }),
-    ]);
-    return members + invites;
-  },
   whatsappNumbers: (organizationId) => WhatsAppAccount.countDocuments({ organizationId }),
   contacts: (organizationId) => Contact.countDocuments({ organizationId }),
   broadcastsPerMonth: (organizationId) => Broadcast.countDocuments({ organizationId, startedAt: { $gte: monthStart() } }),
