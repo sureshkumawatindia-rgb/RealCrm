@@ -82,7 +82,7 @@
 .nav-bar-kanban-card button.active {
   background: var(--brand);
   border-color: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
 }
 
 /* ---------- Layout: main + right sidebar ---------- */
@@ -156,8 +156,8 @@
   color: var(--warning);
 }
 .doc-card__icon.type-image {
-  background: #f2e9fb;
-  color: #7c3aed;
+  background: var(--violet-bg);
+  color: var(--violet);
 }
 .doc-card__icon.type-archive {
   background: var(--bg);
@@ -232,7 +232,7 @@
   height: 20px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand), var(--brand-darker));
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -259,8 +259,8 @@
   color: var(--warning);
 }
 .badge-cat-report {
-  background: #f2e9fb;
-  color: #7c3aed;
+  background: var(--violet-bg);
+  color: var(--violet);
 }
 .badge-cat-template {
   background: var(--brand-light);

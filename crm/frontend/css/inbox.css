@@ -115,11 +115,11 @@
 .inbox-tab.active {
   background: var(--brand);
   border-color: var(--brand-dark);
-  color: var(--ink);
+  color: var(--on-brand);
 }
 .inbox-tab.active .count {
   background: rgba(255, 255, 255, 0.6);
-  color: var(--ink);
+  color: var(--on-brand);
 }
 .inbox-list-body {
   flex: 1;
@@ -181,7 +181,7 @@
   height: 20px;
   padding: 0 6px;
   border-radius: var(--radius-pill);
-  background: #25d366;
+  background: var(--wa);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -226,7 +226,7 @@
 }
 .inbox-connect .fa-whatsapp {
   font-size: 36px;
-  color: #25d366;
+  color: var(--wa);
 }
 .inbox-connect strong {
   color: var(--text);
@@ -267,7 +267,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: #f4f1ea;
+  background: var(--chat-bg);
 }
 .inbox-empty {
   margin: auto;
@@ -277,7 +277,7 @@
 }
 .inbox-empty i {
   font-size: 42px;
-  color: #25d366;
+  color: var(--wa);
 }
 .inbox-thread-inner {
   display: flex;
@@ -325,7 +325,7 @@
 }
 .window-chip.closed {
   background: var(--warning-bg);
-  color: #b36b00;
+  color: var(--warning-text);
 }
 .window-chip .window-short {
   display: none;
@@ -341,7 +341,7 @@
 }
 .day-sep span {
   font-size: 11.5px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--glass-surface);
   color: var(--text-muted);
   padding: 3px 10px;
   border-radius: var(--radius-pill);
@@ -358,7 +358,7 @@
   max-width: min(72%, 560px);
   padding: 7px 10px 5px;
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--bubble-in);
   box-shadow: var(--pop-2);
   font-size: 13.5px;
   line-height: 1.45;
@@ -371,14 +371,14 @@
   white-space: pre-wrap;
 }
 .msg.out .bubble {
-  background: #dcf8c6;
+  background: var(--bubble-out);
 }
 .msg.failed .bubble {
   background: var(--danger-bg);
 }
 .bubble .quote {
-  border-left: 3px solid #25d366;
-  background: rgba(0, 0, 0, 0.04);
+  border-left: 3px solid var(--wa);
+  background: var(--tint);
   padding: 4px 8px;
   border-radius: 6px;
   margin-bottom: 4px;
@@ -425,7 +425,7 @@
   place-items: center;
   width: 200px;
   height: 140px;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--tint);
   color: var(--text-faint);
   font-size: 26px;
 }
@@ -446,7 +446,7 @@
   padding: 6px 12px;
 }
 .bubble .attachment.doc {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--tint);
   border-radius: 8px;
   padding: 8px 6px 8px 10px;
   margin-bottom: 4px;
@@ -472,7 +472,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--tint);
   color: var(--text-muted);
   border-radius: var(--radius-pill);
   padding: 1px 6px;
@@ -550,7 +550,7 @@
 .composer-closed {
   justify-content: flex-start;
   background: var(--warning-bg);
-  color: #8a5300;
+  color: var(--warning-text);
 }
 .composer-closed span {
   flex: 1;
@@ -927,9 +927,9 @@
   cursor: pointer;
 }
 .status-buttons button.active {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #fff;
+  background: var(--ink-fill);
+  border-color: var(--ink-fill);
+  color: var(--on-ink);
 }
 .notes-list {
   display: grid;
@@ -938,7 +938,7 @@
   overflow-y: auto;
 }
 .note {
-  background: #fff8d6;
+  background: var(--note-bg);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   font-size: 12.5px;
@@ -1119,7 +1119,7 @@
   padding: 5px 12px;
 }
 .template-preview {
-  background: #efeae2;
+  background: var(--chat-bg);
   border-radius: var(--radius-sm);
   padding: 12px;
   font-size: 13px;
@@ -1166,12 +1166,12 @@
   font-weight: 600;
 }
 .template-preview mark {
-  background: #fff3b0;
+  background: var(--highlight);
   border-radius: 3px;
   padding: 0 2px;
 }
 .template-preview mark.empty {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--tint);
   color: var(--text-muted);
 }
 .template-actions {
@@ -1311,9 +1311,9 @@ a.ctx-link:hover {
   cursor: pointer;
 }
 .private-chip.on {
-  background: #2b2b2e;
-  border-color: #2b2b2e;
-  color: #fff;
+  background: var(--ink-fill);
+  border-color: var(--ink-fill);
+  color: var(--on-ink);
 }
 .private-chip[hidden] {
   display: none;

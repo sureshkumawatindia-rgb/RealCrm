@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Theme and language before the page is drawn (CP5) -->
+    <script src="js/boot.js"></script>
     <title>Customer 360° | YELLOW CRM</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
@@ -76,7 +78,7 @@
         height: 56px;
         border-radius: 50%;
         background: linear-gradient(135deg, var(--brand), var(--brand-darker));
-        color: var(--text);
+        color: var(--on-brand);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -206,7 +208,7 @@
       .c360-tab.active {
         background: var(--brand);
         border-color: var(--brand);
-        color: var(--text);
+        color: var(--on-brand);
       }
       .c360-panel {
         display: none;
@@ -285,7 +287,7 @@
         padding: 6px 12px;
       }
       .c360-wa-list {
-        background: #efeae2;
+        background: var(--chat-bg);
         padding: 12px 16px;
         display: grid;
         gap: 6px;
@@ -294,7 +296,7 @@
       }
       .c360-wa-msg {
         max-width: 78%;
-        background: #fff;
+        background: var(--bubble-in);
         border-radius: 10px;
         padding: 6px 10px;
         font-size: 13px;
@@ -305,7 +307,7 @@
       }
       .c360-wa-msg.out {
         justify-self: end;
-        background: #dcf8c6;
+        background: var(--bubble-out);
       }
       .c360-wa-msg .meta {
         display: block;

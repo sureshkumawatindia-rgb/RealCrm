@@ -35,7 +35,7 @@
   height: 46px;
   border-radius: var(--radius-md);
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -437,7 +437,7 @@
 }
 .ai-ask-msg.user .ai-ask-msg-avatar {
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
 }
 .ai-ask-msg.ai .ai-ask-msg-avatar {
   background: var(--info-bg);

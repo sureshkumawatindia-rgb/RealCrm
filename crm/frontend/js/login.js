@@ -68,175 +68,24 @@ const stayLoggedIn = () => Boolean($("stayLoggedIn")?.checked);
 // ---------------------------------------------------------------
 // English / Hindi
 // ---------------------------------------------------------------
-const TEXT = {
-  en: {
-    pitchTitle: "Every WhatsApp enquiry, one team inbox.",
-    pitchText: "Chats, leads, quotations, orders and payments of your business — in one place, for your whole team.",
-    point1: "Works with your WhatsApp Business app number",
-    point2: "Your team replies from one shared inbox",
-    point3: "GST quotations and payment links in the chat",
-    subGoogle: "Sign in to your workspace",
-    subSignup: "Create your company's workspace",
-    googleHint: "Use the Google account your company added you with.",
-    signupHint: "Sign in with Google. Your company is set up next, then you can add your team.",
-    companyLabel: "Company name",
-    companyPlaceholder: "e.g. Sharma Traders",
-    companyHelp: "Enter the name your company registered with Yellow CRM.",
-    companyFound: "{name} found. Continue with Google.",
-    companyFirst: "Enter your company name first.",
-    continueGoogle: "Continue with Google",
-    newHere: "New to Yellow CRM?",
-    createCompany: "Create your company",
-    haveCompany: "Already on Yellow CRM?",
-    logInCompany: "Log in to your company",
-    errCompanyNotFound: "We couldn't find this company. Check the name or ask your admin.",
-    errCompanyAmbiguous: "More than one company has this name. Enter your workspace code instead. Your admin finds it in Settings → Company.",
-    errNotInWorkspace: "This Google account hasn't been added to {company}. Ask your admin to add you.",
-    errTooMany: "Too many tries. Wait a minute and try again.",
-    errCompanyCheck: "Could not check the company. Check your internet and try again.",
-    subPhone: "2-step verification is on for your account. We'll send a code on WhatsApp.",
-    subCode: "Enter the 6-digit code from WhatsApp.",
-    subCodeSms: "Enter the 6-digit code from the SMS.",
-    subQr: "Scan this code with your phone to log in on this computer.",
-    signingIn: "Signing you in…",
-    change: "Change",
-    phonePlaceholder: "Your mobile number",
-    getCode: "Get a code on WhatsApp",
-    codePlaceholder: "6-digit code",
-    logIn: "Log in",
-    resend: "Send the code again",
-    resendIn: "Send the code again ({s}s)",
-    changeNumber: "Change number",
-    bySms: "Get the code by SMS instead",
-    byWhatsapp: "Get the code on WhatsApp instead",
-    stay: "Stay logged in on this browser",
-    stayInfo: "On this browser, the code is not asked again for 30 days. Logging out ends it. Don't tick it on a shared computer.",
-    toGoogle: "Log in with Google instead",
-    qrReload: "Click to show a new code",
-    qr1: "Open <strong>YELLOW CRM</strong> on your phone, where you are signed in",
-    qr2: "Tap <strong>Settings → Your Profile → Log in on another computer</strong>",
-    qr3: "Point your phone at this code and tap <strong>Allow</strong>",
-    legal: 'By continuing you agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.',
-    privacy: "Privacy Policy",
-    terms: "Terms of Service",
-    hintFilled: "Your verified number is filled in.",
-    hintNew: "Your WhatsApp number. It is verified with the code.",
-    sentWhatsapp: "We sent a code to {phone} on WhatsApp.",
-    sentSms: "We sent a code to {phone} by SMS.",
-    expires: "It works for {m} minutes.",
-    newCode: "A new code is on its way.",
-    signedInGoogle: "Signed in with Google",
-    noteExpired: "Your session ended. Please log in again.",
-    noteInvite: "You're invited to join {org} as {role}. Log in with {email}.",
-    notePendingLink: "Log in on this phone first. Then allow the computer.",
-    noteDeclined: "Your phone did not allow this computer. Scan the new code to try again.",
-    errGoogle: "Google sign-in failed. Please try again.",
-    errSend: "Could not send a code.",
-    errCode: "That code did not work.",
-  },
-  hi: {
-    pitchTitle: "हर WhatsApp पूछताछ, एक टीम इनबॉक्स में।",
-    pitchText: "आपके कारोबार की चैट, लीड, कोटेशन, ऑर्डर और पेमेंट — एक ही जगह, पूरी टीम के लिए।",
-    point1: "आपके WhatsApp Business ऐप वाले नंबर के साथ चलता है",
-    point2: "आपकी टीम एक साझा इनबॉक्स से जवाब देती है",
-    point3: "चैट में ही GST कोटेशन और पेमेंट लिंक",
-    subGoogle: "अपने वर्कस्पेस में साइन इन करें",
-    subSignup: "अपनी कंपनी का वर्कस्पेस बनाएँ",
-    googleHint: "वही Google खाता इस्तेमाल करें जिससे आपकी कंपनी ने आपको जोड़ा है।",
-    signupHint: "Google से साइन इन करें। फिर आपकी कंपनी बनेगी और आप अपनी टीम को जोड़ सकेंगे।",
-    companyLabel: "कंपनी का नाम",
-    companyPlaceholder: "जैसे शर्मा ट्रेडर्स",
-    companyHelp: "अपनी कंपनी का नाम दर्ज करें जो Yellow CRM में रजिस्टर है।",
-    companyFound: "{name} मिल गई। Google से आगे बढ़ें।",
-    companyFirst: "पहले अपनी कंपनी का नाम डालें।",
-    continueGoogle: "Google के साथ जारी रखें",
-    newHere: "Yellow CRM पर नए हैं?",
-    createCompany: "अपनी कंपनी बनाएँ",
-    haveCompany: "पहले से Yellow CRM पर हैं?",
-    logInCompany: "अपनी कंपनी में लॉग इन करें",
-    errCompanyNotFound: "यह कंपनी नहीं मिली। नाम जाँचें या अपने एडमिन से पूछें।",
-    errCompanyAmbiguous: "इस नाम की एक से ज़्यादा कंपनियाँ हैं। अपना वर्कस्पेस कोड डालें। यह आपके एडमिन को Settings → Company में मिलेगा।",
-    errNotInWorkspace: "यह Google खाता {company} में नहीं जोड़ा गया है। अपने एडमिन से आपको जोड़ने के लिए कहें।",
-    errTooMany: "बहुत बार कोशिश हुई। एक मिनट रुककर फिर कोशिश करें।",
-    errCompanyCheck: "कंपनी की जाँच नहीं हो सकी। इंटरनेट देखें और फिर कोशिश करें।",
-    subPhone: "आपके खाते पर 2-स्टेप वेरिफ़िकेशन चालू है। हम WhatsApp पर एक कोड भेजेंगे।",
-    subCode: "WhatsApp पर आया 6 अंकों का कोड डालें।",
-    subCodeSms: "SMS से आया 6 अंकों का कोड डालें।",
-    subQr: "इस कंप्यूटर पर लॉग इन करने के लिए यह कोड अपने फ़ोन से स्कैन करें।",
-    signingIn: "साइन इन हो रहा है…",
-    change: "बदलें",
-    phonePlaceholder: "आपका मोबाइल नंबर",
-    getCode: "WhatsApp पर कोड पाएँ",
-    codePlaceholder: "6 अंकों का कोड",
-    logIn: "लॉग इन करें",
-    resend: "कोड फिर से भेजें",
-    resendIn: "कोड फिर से भेजें ({s} सेकंड)",
-    changeNumber: "नंबर बदलें",
-    bySms: "कोड SMS पर मँगाएँ",
-    byWhatsapp: "कोड WhatsApp पर मँगाएँ",
-    stay: "इस ब्राउज़र पर लॉग इन रहें",
-    stayInfo: "इस ब्राउज़र पर 30 दिन तक कोड दोबारा नहीं माँगा जाएगा। लॉग आउट करने पर यह ख़त्म हो जाता है। किसी साझा कंप्यूटर पर इसे न चुनें।",
-    toGoogle: "Google से लॉग इन करें",
-    qrReload: "नया कोड दिखाने के लिए क्लिक करें",
-    qr1: "अपने फ़ोन पर <strong>YELLOW CRM</strong> खोलें, जहाँ आप साइन इन हैं",
-    qr2: "<strong>Settings → Your Profile → Log in on another computer</strong> पर टैप करें",
-    qr3: "फ़ोन को इस कोड की ओर करें और <strong>Allow</strong> पर टैप करें",
-    legal: 'आगे बढ़कर आप <a href="terms.html">सेवा की शर्तों</a> और <a href="privacy.html">गोपनीयता नीति</a> से सहमत होते हैं।',
-    privacy: "गोपनीयता नीति",
-    terms: "सेवा की शर्तें",
-    hintFilled: "आपका सत्यापित नंबर भरा हुआ है।",
-    hintNew: "आपका WhatsApp नंबर। यह कोड से सत्यापित होगा।",
-    sentWhatsapp: "{phone} पर WhatsApp से कोड भेजा गया है।",
-    sentSms: "{phone} पर SMS से कोड भेजा गया है।",
-    expires: "यह {m} मिनट तक चलेगा।",
-    newCode: "नया कोड भेज दिया गया है।",
-    signedInGoogle: "Google से साइन इन हो गया",
-    noteExpired: "आपका सेशन ख़त्म हो गया। कृपया फिर से लॉग इन करें।",
-    noteInvite: "आपको {org} में {role} के रूप में जुड़ने का न्योता मिला है। {email} से लॉग इन करें।",
-    notePendingLink: "पहले इस फ़ोन पर लॉग इन करें। फिर कंप्यूटर को अनुमति दें।",
-    noteDeclined: "आपके फ़ोन ने इस कंप्यूटर को अनुमति नहीं दी। दोबारा कोशिश के लिए नया कोड स्कैन करें।",
-    errGoogle: "Google साइन इन नहीं हो सका। कृपया फिर कोशिश करें।",
-    errSend: "कोड नहीं भेजा जा सका।",
-    errCode: "यह कोड काम नहीं किया।",
-  },
-};
+// The texts are in i18n/en.json and i18n/hi.json under "login." (CP5), like every page's.
+
+const lt = (key, values) => t(`login.${key}`, values);
+
 // The server answers in English; in Hindi the usual login errors are shown in Hindi.
-const HINDI_ERRORS = {
-  OTP_INVALID: "कोड गलत है या उसका समय निकल गया। नया कोड मँगाएँ।",
-  OTP_LOCKED: "बहुत बार गलत कोड डाला गया। नया कोड मँगाएँ।",
-  OTP_TOO_MANY: "इस नंबर पर बहुत सारे कोड भेजे जा चुके हैं। 15 मिनट बाद फिर कोशिश करें।",
-  PHONE_MISMATCH: "इस खाते का अपना मोबाइल नंबर डालें।",
-  PHONE_IN_USE: "यह नंबर किसी दूसरे खाते से जुड़ा है।",
-  LOGIN_EXPIRED: "साइन इन में बहुत देर हो गई। Google से फिर से साइन इन करें।",
-  SMS_OFF: "SMS से कोड अभी चालू नहीं है।",
-};
-
-let lang = getPreference("loginLanguage", /^hi\b/i.test(navigator.language || "") ? "hi" : "en") === "hi" ? "hi" : "en";
-const t = (key, values = {}) => (TEXT[lang][key] || TEXT.en[key] || key).replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ""));
-
 function errorText(error, fallbackKey) {
-  if (lang === "hi") {
-    if (HINDI_ERRORS[error?.code]) return HINDI_ERRORS[error.code];
-    if (error?.code === "VALIDATION_ERROR") return error.errors?.[0]?.field === "code" ? "कोड 6 अंकों का होता है।" : "सही मोबाइल नंबर डालें।";
+  if (crmI18n.language() === "hi") {
+    if (crmI18n.has(`login.error.${error?.code}`)) return lt(`error.${error.code}`);
+    if (error?.code === "VALIDATION_ERROR") return lt(error.errors?.[0]?.field === "code" ? "error.codeDigits" : "error.mobile");
   }
-  return apiErrorMessage(error, fallbackKey ? t(fallbackKey) : "");
+  return apiErrorMessage(error, fallbackKey ? lt(fallbackKey) : "");
 }
 
 function applyLanguage() {
-  document.documentElement.lang = lang;
-  $("langLabel").textContent = lang === "hi" ? "English" : "हिंदी";
-  document.querySelectorAll("[data-i18n]").forEach((el) => {
-    el.textContent = t(el.dataset.i18n);
-  });
-  document.querySelectorAll("[data-i18n-html]").forEach((el) => {
-    el.innerHTML = t(el.dataset.i18nHtml); // our own fixed texts, not user data
-  });
+  $("langLabel").textContent = crmI18n.language() === "hi" ? "English" : "हिंदी";
+  crmI18n.apply(document);
   document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
-    el.placeholder = t(el.dataset.i18nPlaceholder);
     el.setAttribute("aria-label", el.placeholder);
-  });
-  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
-    el.title = t(el.dataset.i18nTitle);
   });
 }
 
@@ -259,7 +108,7 @@ function setLoginNoteText(key, values = {}) {
 function renderNote() {
   const el = $("login-note");
   if (!el) return;
-  const message = note.key ? t(note.key, note.values) : note.raw;
+  const message = note.key ? lt(note.key, note.values) : note.raw;
   el.textContent = message;
   el.hidden = !message;
 }
@@ -364,13 +213,13 @@ let resendLeft = 0;
 function renderStepTexts() {
   const step = STEPS[login.step];
   const signingUp = ["google", "busy"].includes(login.step) && company.mode === "signup";
-  $("loginSub").textContent = t(signingUp ? "subSignup" : login.step === "code" && login.channel === "sms" ? "subCodeSms" : step.sub);
-  $("smsBtn").textContent = t(login.channel === "sms" ? "byWhatsapp" : "bySms");
+  $("loginSub").textContent = lt(signingUp ? "subSignup" : login.step === "code" && login.channel === "sms" ? "subCodeSms" : step.sub);
+  $("smsBtn").textContent = lt(login.channel === "sms" ? "byWhatsapp" : "bySms");
   if (login.sent) {
     const { phone, channel, minutes } = login.sent;
-    $("codeHint").textContent = `${t(channel === "sms" ? "sentSms" : "sentWhatsapp", { phone })} ${t("expires", { m: minutes })}`;
+    $("codeHint").textContent = `${lt(channel === "sms" ? "sentSms" : "sentWhatsapp", { phone })} ${lt("expires", { m: minutes })}`;
   }
-  $("phoneHint").textContent = login.phoneHintKey ? t(login.phoneHintKey) : "";
+  $("phoneHint").textContent = login.phoneHintKey ? lt(login.phoneHintKey) : "";
   renderResend();
 }
 
@@ -414,14 +263,14 @@ async function handleGoogleCredentialResponse(response) {
   company.googleError = null;
   showStep("busy");
   try {
-    const auth = await crmApi("/auth/google", postJson({ credential: response.credential, inviteToken, workspace }));
+    const auth = await crmApi("/auth/google", postJson({ credential: response.credential, inviteToken, workspace, language: crmI18n.language() }));
     if (auth.step !== "whatsapp-code") {
       rememberCompany();
       await completeSignIn(auth);
       return;
     }
     Object.assign(login, { challenge: auth.challenge, smsBackup: Boolean(auth.smsBackup), channel: "whatsapp", sent: null });
-    $("whoEmail").textContent = auth.user?.email || t("signedInGoogle");
+    $("whoEmail").textContent = auth.user?.email || lt("signedInGoogle");
     $("loginPhone").value = prettyPhone(auth.phone);
     login.phoneHintKey = auth.phone ? "hintFilled" : "hintNew";
     if (note.key !== "noteInvite") setLoginNote("");
@@ -436,7 +285,7 @@ async function handleGoogleCredentialResponse(response) {
 function renderResend() {
   const button = $("resendBtn");
   button.disabled = resendLeft > 0;
-  button.textContent = resendLeft > 0 ? t("resendIn", { s: resendLeft }) : t("resend");
+  button.textContent = resendLeft > 0 ? lt("resendIn", { s: resendLeft }) : lt("resend");
 }
 function startResendWait() {
   clearInterval(resendTimer);
@@ -478,7 +327,7 @@ $("phoneForm").addEventListener("submit", async (event) => {
 async function sendAgain(channel) {
   try {
     await sendCode(login.phone, channel);
-    showToast(t("newCode"), "success");
+    showToast(lt("newCode"), "success");
     $("loginCode").value = "";
     $("loginCode").focus();
   } catch (error) {
@@ -560,11 +409,11 @@ function setFound(found) {
 function companyErrorText() {
   const code = company.error?.code;
   if (!code && !company.error) return "";
-  if (code === "COMPANY_EMPTY") return t("companyFirst");
-  if (code === "WORKSPACE_NOT_FOUND") return t("errCompanyNotFound");
-  if (code === "WORKSPACE_AMBIGUOUS") return t("errCompanyAmbiguous");
-  if (code === "RATE_LIMITED") return t("errTooMany");
-  return company.error.status ? errorText(company.error) : t("errCompanyCheck"); // no answer: offline
+  if (code === "COMPANY_EMPTY") return lt("companyFirst");
+  if (code === "WORKSPACE_NOT_FOUND") return lt("errCompanyNotFound");
+  if (code === "WORKSPACE_AMBIGUOUS") return lt("errCompanyAmbiguous");
+  if (code === "RATE_LIMITED") return lt("errTooMany");
+  return company.error.status ? errorText(company.error) : lt("errCompanyCheck"); // no answer: offline
 }
 
 function renderCompany() {
@@ -572,25 +421,25 @@ function renderCompany() {
   const ready = signup || Boolean(company.found);
   const input = $("loginCompany");
   $("companyForm").hidden = signup;
-  input.placeholder = t("companyPlaceholder");
+  input.placeholder = lt("companyPlaceholder");
   input.setAttribute("aria-invalid", String(company.state === "error"));
   input.setAttribute("aria-busy", String(company.state === "checking"));
   $("companyField").className = `login-company-field${company.state ? ` is-${company.state}` : ""}`;
   const icon = { checking: "fa-spinner fa-spin", found: "fa-circle-check" }[company.state];
   $("companyState").innerHTML = icon ? `<i class="fa-solid ${icon}"></i>` : "";
-  $("companyHelp").textContent = company.found ? t("companyFound", { name: company.found.name }) : t("companyHelp");
+  $("companyHelp").textContent = company.found ? lt("companyFound", { name: company.found.name }) : lt("companyHelp");
   const error = companyErrorText();
   $("companyError").textContent = error;
   $("companyError").hidden = !error;
-  const refused = company.googleError ? t("errNotInWorkspace", { company: company.googleError.company }) : "";
+  const refused = company.googleError ? lt("errNotInWorkspace", { company: company.googleError.company }) : "";
   $("googleError").textContent = refused;
   $("googleError").hidden = !refused;
   $("googleWait").hidden = ready;
-  $("googleWait").title = ready ? "" : t("companyFirst");
+  $("googleWait").title = ready ? "" : lt("companyFirst");
   $("google-signin-slot").hidden = !ready;
-  $("googleHint").textContent = t(signup ? "signupHint" : "googleHint");
-  $("signupAsk").textContent = t(signup ? "haveCompany" : "newHere");
-  $("signupLink").textContent = t(signup ? "logInCompany" : "createCompany");
+  $("googleHint").textContent = lt(signup ? "signupHint" : "googleHint");
+  $("signupAsk").textContent = lt(signup ? "haveCompany" : "newHere");
+  $("signupLink").textContent = lt(signup ? "logInCompany" : "createCompany");
   if (ready && login.step === "google") renderGoogleButton();
 }
 
@@ -717,8 +566,8 @@ function renderGoogleButton() {
   if ($("google-signin-slot").hidden) return; // drawn when the company is found (or for a sign-up)
   // The room comes from the card (its grid column never grows with the button, style.css).
   const width = googleButtonWidth();
-  if (googleLang === lang && Math.abs(googleWidth - width) < 8) return;
-  googleLang = lang;
+  if (googleLang === crmI18n.language() && Math.abs(googleWidth - width) < 8) return;
+  googleLang = crmI18n.language();
   googleWidth = width;
   $("google-signin-slot").replaceChildren();
   google.accounts.id.renderButton($("google-signin-slot"), {
@@ -727,7 +576,7 @@ function renderGoogleButton() {
     shape: "pill",
     text: "continue_with",
     width,
-    locale: lang,
+    locale: crmI18n.language(),
   });
 }
 let googleResizeTimer = null;
@@ -738,9 +587,9 @@ window.addEventListener("resize", () => {
   }, 250);
 });
 
-$("langBtn").addEventListener("click", () => {
-  lang = lang === "hi" ? "en" : "hi";
-  setPreference("loginLanguage", lang);
+// Before signing in the choice is this browser's; it is saved on the account at sign-in (CP5).
+$("langBtn").addEventListener("click", async () => {
+  await crmI18n.setLanguage(crmI18n.language() === "hi" ? "en" : "hi");
   applyLanguage();
   renderStepTexts();
   renderNote();
@@ -847,7 +696,8 @@ const qrLogin = (() => {
 $("toGoogle").addEventListener("click", () => showStep(login.challenge ? (login.sent ? "code" : "phone") : "google"));
 $("qrReload").addEventListener("click", () => qrLogin.reload());
 
-if (!alreadySignedIn) {
+// The page's texts first (i18n/*.json), then the card.
+if (!alreadySignedIn) crmI18n.ready.then(() => {
   applyLanguage();
   if (sessionStorage.getItem(PENDING_LINK_KEY)) setLoginNoteText("notePendingLink");
   // With an invite, its company is filled in once the invite is looked up.
@@ -855,4 +705,4 @@ if (!alreadySignedIn) {
   showInviteDetails();
   showStep(withPhone ? "qr" : "google");
   if (!$("loginCompany").value && !withPhone && window.matchMedia("(pointer: fine)").matches) $("loginCompany").focus();
-}
+});

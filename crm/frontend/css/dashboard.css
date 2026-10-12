@@ -279,7 +279,7 @@
   height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand), var(--brand-darker));
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;

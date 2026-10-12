@@ -101,7 +101,12 @@ async function twoStep(req, res) {
   res.json({ success: true, data, message: data.twoStep ? '2-step verification is on' : '2-step verification is off' });
 }
 
+// PATCH /auth/preferences → { language, theme } (CP5).
+async function preferences(req, res) {
+  res.json({ success: true, data: await authService.updatePreferences(req, req.body) });
+}
+
 module.exports = {
-  google, workspace, refresh, logout, me, switchOrganization, loginCode, loginVerify, qrStart, qrPoll, qrPeek, qrApprove,
+  preferences, google, workspace, refresh, logout, me, switchOrganization, loginCode, loginVerify, qrStart, qrPoll, qrPeek, qrApprove,
   devices, deviceLogOut, devicesLogOutOthers, phoneStatus, phoneRequest, phoneVerify, phoneUnlink, twoStep,
 };

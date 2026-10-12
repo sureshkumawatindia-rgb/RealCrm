@@ -521,7 +521,7 @@ async function renderWhatsAppTab(customer) {
   const label = (c) => `${c.account?.verifiedName || c.account?.name || "WhatsApp"}${c.account?.displayPhone ? ` · ${c.account.displayPhone}` : ""}`;
   const describe = (c) => `${c.status} · ${c.assigneeId ? `with ${memberName(c.assigneeId) || "a teammate"}` : "in the queue"}`;
   head.innerHTML = `
-    ${chats.length > 1 ? `<select id="c360WaPick" aria-label="WhatsApp number">${chats.map((c, i) => `<option value="${i}">${escapeHtml(label(c))}</option>`).join("")}</select>` : `<span><i class="fa-brands fa-whatsapp" style="color:#25d366"></i> ${escapeHtml(label(chats[0]))}</span>`}
+    ${chats.length > 1 ? `<select id="c360WaPick" aria-label="WhatsApp number">${chats.map((c, i) => `<option value="${i}">${escapeHtml(label(c))}</option>`).join("")}</select>` : `<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> ${escapeHtml(label(chats[0]))}</span>`}
     <span id="c360WaState">${escapeHtml(describe(chats[0]))}</span>
     <a class="btn btn-outline" id="c360WaOpen" href="Inbox.html?c=${encodeURIComponent(chats[0].id)}"><i class="fa-solid fa-comments"></i> Open in Inbox</a>`;
   const pick = document.getElementById("c360WaPick");

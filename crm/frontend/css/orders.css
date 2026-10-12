@@ -23,6 +23,7 @@
 .o-tab.active {
   background: var(--brand);
   border-color: var(--brand-dark);
+  color: var(--on-brand);
   font-weight: 600;
 }
 

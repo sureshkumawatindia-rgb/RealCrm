@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Theme and language before the page is drawn (CP5) -->
+    <script src="js/boot.js"></script>
     <title>Settings | YELLOW CRM</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
@@ -40,7 +42,7 @@
       .settings-tab.active {
         background: var(--brand, #6366f1);
         border-color: var(--brand, #6366f1);
-        color: #fff;
+        color: var(--on-brand);
       }
       .settings-panel {
         display: none;
@@ -214,13 +216,13 @@
         flex-wrap: wrap;
         padding: 16px 18px;
         margin: 0 0 16px;
-        border: 1px solid #d6efdf;
+        border: 1px solid var(--wa-soft-border);
         border-radius: var(--radius, 10px);
-        background: #f4fbf6;
+        background: var(--wa-soft);
       }
       .wa-connect-card > .fa-whatsapp {
         font-size: 30px;
-        color: #25d366;
+        color: var(--wa);
       }
       .wa-connect-text {
         flex: 1;
@@ -288,7 +290,7 @@
         width: 18px;
         height: 18px;
         margin-top: 2px;
-        accent-color: #25d366;
+        accent-color: var(--wa);
       }
       .two-step-row .settings-hint {
         margin: 2px 0 0;
@@ -338,8 +340,8 @@
         margin-left: 6px;
         padding: 1px 8px;
         border-radius: 999px;
-        background: #e7f9ee;
-        color: #1a9e4b;
+        background: var(--wa-soft);
+        color: var(--success-text);
         font-size: 11px;
         font-weight: 600;
       }
@@ -436,12 +438,12 @@
         gap: 2px;
       }
       .lr-preview {
-        background: #efeae2;
+        background: var(--chat-bg);
         border-radius: var(--radius-sm, 10px);
         padding: 10px 12px;
       }
       .lr-preview > div {
-        background: #fff;
+        background: var(--bubble-in);
         border-radius: 10px;
         padding: 8px 10px;
         white-space: pre-wrap;
@@ -490,7 +492,7 @@
         padding: 16px;
         border: 1px dashed var(--border);
         border-radius: var(--radius-sm, 10px);
-        background: #fff;
+        background: var(--surface);
       }
       /* Settings → WhatsApp: templates and click-to-chat */
       .wa-block {
@@ -640,7 +642,7 @@
         justify-content: center;
         flex-shrink: 0;
         background: var(--brand);
-        color: var(--text);
+        color: var(--on-brand);
         font-weight: 700;
         font-size: 18px;
       }
@@ -992,6 +994,21 @@
                   </div>
                   <p class="logo-upload-error" id="gmailConnectionError" role="alert" hidden></p>
                   <div id="gmailMessageList" style="margin-top:12px"></div>
+                </div>
+                <div class="settings-section" id="prefsSection" data-prefs-choices style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label" data-i18n="prefs.title">Language and theme</div>
+                  <p class="settings-hint" data-i18n="prefs.hint">Saved on your account, the same on every device. System follows your phone or computer.</p>
+                  <div class="crm-prefs__label" id="profileLanguageLabel" data-i18n="prefs.language">Language</div>
+                  <div class="crm-prefs__options profile-prefs" role="radiogroup" aria-labelledby="profileLanguageLabel">
+                    <button type="button" role="radio" data-language="en" lang="en">English</button>
+                    <button type="button" role="radio" data-language="hi" lang="hi">हिंदी</button>
+                  </div>
+                  <div class="crm-prefs__label" id="profileThemeLabel" data-i18n="prefs.theme">Theme</div>
+                  <div class="crm-prefs__options crm-prefs__options--3 profile-prefs" role="radiogroup" aria-labelledby="profileThemeLabel">
+                    <button type="button" role="radio" data-theme-choice="system"><i class="fa-solid fa-desktop"></i> <span data-i18n="prefs.system">System</span></button>
+                    <button type="button" role="radio" data-theme-choice="light"><i class="fa-solid fa-sun"></i> <span data-i18n="prefs.light">Light</span></button>
+                    <button type="button" role="radio" data-theme-choice="dark"><i class="fa-solid fa-moon"></i> <span data-i18n="prefs.dark">Dark</span></button>
+                  </div>
                 </div>
                 <div class="settings-section" id="companySwitchSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
                   <div class="settings-section-label">Your Companies</div>

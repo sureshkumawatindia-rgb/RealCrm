@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { LANGUAGES, THEMES } = require('../constants/preferences');
 
 const userSchema = new mongoose.Schema(
   {
@@ -16,6 +17,12 @@ const userSchema = new mongoose.Schema(
     // 2-step verification (D60, Settings → Your Profile): on a new browser, a WhatsApp code to
     // that number after Google. Off unless switched on.
     twoStepEnabledAt: { type: Date },
+    // The CRM's language and theme for this person on every device (CP5). Not set = English and
+    // the device's theme; the language picked on the login page is saved at the first sign-in.
+    preferences: {
+      language: { type: String, enum: LANGUAGES },
+      theme: { type: String, enum: THEMES },
+    },
   },
   { timestamps: true },
 );

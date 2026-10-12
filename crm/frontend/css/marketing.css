@@ -232,7 +232,7 @@
   height: 20px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand), var(--brand-darker));
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -343,7 +343,7 @@
   height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand), var(--brand-darker));
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -542,7 +542,7 @@
 .nav-bar-kanban-card button.active {
   background: var(--brand);
   border-color: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
 }
 
 /* ============================================================
@@ -725,7 +725,7 @@
 .mk-step .bar span {
   display: block;
   height: 100%;
-  background: #25d366;
+  background: var(--wa);
 }
 .mk-step.muted .n {
   color: var(--text-muted);

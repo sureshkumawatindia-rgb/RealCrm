@@ -15,7 +15,7 @@ const STAGE_DOT = {
   New: "var(--info)",
   Contacted: "var(--brand-darker)",
   "Quote Sent": "var(--warning)",
-  Negotiation: "#7c3aed",
+  Negotiation: "var(--violet)",
   Won: "var(--success)",
   Lost: "var(--danger)",
 };

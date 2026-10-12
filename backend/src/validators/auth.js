@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { objectId } = require('./common');
+const { LANGUAGES, THEMES } = require('../constants/preferences');
 
 const phone = Joi.string().trim().min(6).max(30).required();
 const code = Joi.string().trim().pattern(/^\d{6}$/).required().messages({ 'string.pattern.base': 'The code has 6 digits.' });
@@ -12,6 +13,8 @@ module.exports = {
     inviteToken: Joi.string().max(200).allow(''),
     // The workspace code POST /auth/workspace answered (D66); empty when signing up a new company.
     workspace: Joi.string().trim().lowercase().max(40).allow(''),
+    // The login page's language, saved for a person who has not chosen one yet (CP5).
+    language: Joi.string().valid(...LANGUAGES),
   }),
   // The company typed on the login page: its workspace code or its exact name (D66).
   workspaceLookup: Joi.object({
@@ -30,6 +33,11 @@ module.exports = {
   qrSecret: Joi.object({ secret }),
   qrApprove: Joi.object({ secret, allow: Joi.boolean().default(true) }),
   twoStep: Joi.object({ enabled: Joi.boolean().required() }),
+  // One's own language and theme (CP5).
+  preferences: Joi.object({
+    language: Joi.string().valid(...LANGUAGES),
+    theme: Joi.string().valid(...THEMES),
+  }).min(1),
   // "Where you're logged in": a session family id (a UUID).
   deviceParams: Joi.object({ id: Joi.string().guid().required() }),
 };

@@ -240,6 +240,12 @@ No migration (a missing field means a shared number).
 - The plans (`constants/plans.js`) carry `aiBudgetShare`: Starter 0.25, Pro 0.5, Growth 1, Scale 2, Infinite 4 times `AI_MONTHLY_BUDGET_USD`.
 - D68: `organizations.plan` can also be `infinite`. The agents limit counts active members with `role: 'agent'` plus pending, unexpired invites for an agent (like users, which count everyone).
 
+## 1x. Language and theme (D72, 2026-10-12)
+
+No migration (not set = English and the device's theme).
+
+- `users.preferences` { language: en | hi, theme: system | light | dark }: the person's own, for every company they belong to (`constants/preferences.js`). The login page's language is saved at the first sign-in when none is set.
+
 ## 1w. Inbox: reactions, read receipts, pins, archive, voice notes (D70, 2026-10-12)
 
 No migration (additive; a missing field means "none", a missing setting reads as on).

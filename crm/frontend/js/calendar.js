@@ -22,7 +22,7 @@ const TYPE_DOT = {
   Meeting: "var(--info)",
   Call: "var(--brand-darker)",
   "Follow-up": "var(--warning)",
-  Demo: "#7c3aed",
+  Demo: "var(--violet)",
   Deadline: "var(--danger)",
   Reminder: "var(--success)",
 };

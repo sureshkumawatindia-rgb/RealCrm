@@ -306,7 +306,7 @@
   justify-content: center;
   font-size: 9.5px;
   font-weight: 800;
-  color: var(--text);
+  color: var(--on-brand);
 }
 .lead-card__date {
   font-size: 10.5px;

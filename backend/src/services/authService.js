@@ -13,6 +13,7 @@ const inviteService = require('./inviteService');
 const planService = require('./planService');
 const loginAlertService = require('./loginAlertService');
 const workspaceService = require('./workspaceService');
+const { DEFAULT_PREFERENCES } = require('../constants/preferences');
 
 function safeGoogleAuthMessage(error) {
   const message = String(error.message || '');
@@ -63,11 +64,22 @@ async function mayEnterWorkspace(user, organization, email) {
   return Boolean(user && String(user.organizationId) === String(organization._id) && await adoptLegacyOrganization(user));
 }
 
+// The person as the pages keep them (a copy in the browser), with their language and theme.
+function preferencesOf(user) {
+  return {
+    language: user.preferences?.language || DEFAULT_PREFERENCES.language,
+    theme: user.preferences?.theme || DEFAULT_PREFERENCES.theme,
+  };
+}
+function userSummary(user) {
+  return { id: user.googleId, email: user.email, name: user.name, picture: user.picture, preferences: preferencesOf(user) };
+}
+
 function memberSummary(member) {
   return { id: member._id, role: member.role, modules: member.modules, permissions: member.permissions };
 }
 
-async function loginWithGoogle(req, { credential, inviteToken, workspace }) {
+async function loginWithGoogle(req, { credential, inviteToken, workspace, language }) {
   let payload;
   try {
     payload = await verifyGoogleIdToken(credential);
@@ -95,6 +107,8 @@ async function loginWithGoogle(req, { credential, inviteToken, workspace }) {
     user.name = payload.name || user.name;
     user.picture = payload.picture || user.picture;
   }
+  // The language picked on the login page becomes theirs, unless they already chose one (CP5).
+  if (language && !user.preferences?.language) user.set('preferences.language', language);
 
   const { invitedOrganizationId, inviteError } = await inviteService.acceptPendingInvites(user, email, inviteToken);
   // Unless this browser is remembered, the mobile number and a WhatsApp code come next (D58):
@@ -151,7 +165,7 @@ async function startSession(req, user, { invitedOrganizationId = null, inviteErr
     familyId: session.familyId, // the browser's entry under "Where you're logged in"
     data: {
       token,
-      user: { id: user.googleId, email: user.email, name: user.name, picture: user.picture },
+      user: userSummary(user),
       organizationId,
       member: memberSummary(member),
       memberships: await describeMemberships(user._id),
@@ -208,11 +222,21 @@ async function switchOrganization(req, organizationId) {
 async function me(req) {
   const organization = await Organization.findById(req.tenant.organizationId).select('name logoUrl');
   return {
-    user: { id: req.user.googleId, email: req.user.email, name: req.user.name, picture: req.user.picture },
+    user: userSummary(req.user),
     organization: { id: organization?._id, name: organization?.name || '', logoUrl: organization?.logoUrl || '' },
     member: memberSummary(req.member),
     memberships: await describeMemberships(req.user._id),
   };
 }
 
-module.exports = { loginWithGoogle, startSession, refresh, logout, switchOrganization, me };
+// PATCH /auth/preferences — the person's own language and theme (CP5), for every company they
+// belong to and every device.
+async function updatePreferences(req, changes) {
+  for (const key of ['language', 'theme']) {
+    if (changes[key]) req.user.set(`preferences.${key}`, changes[key]);
+  }
+  await req.user.save();
+  return preferencesOf(req.user);
+}
+
+module.exports = { loginWithGoogle, startSession, refresh, logout, switchOrganization, me, updatePreferences };

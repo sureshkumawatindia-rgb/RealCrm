@@ -21,7 +21,7 @@
 }
 .pl-note {
   background: var(--warning-bg);
-  color: #8a5300;
+  color: var(--warning-text);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   font-size: 12.5px;
@@ -123,13 +123,13 @@
   color: var(--text-muted);
 }
 .pl-preview {
-  background: #efeae2;
+  background: var(--chat-bg);
   border-radius: var(--radius-sm);
   padding: 10px;
   margin-top: 8px;
 }
 .pl-preview > div {
-  background: #fff;
+  background: var(--bubble-in);
   border-radius: 10px;
   padding: 8px 10px;
   white-space: pre-wrap;

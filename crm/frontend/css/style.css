@@ -58,6 +58,138 @@
   /* Apple-style fluid easing */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* CP5: colours that used to be written in the pages, so the dark theme can change them */
+  color-scheme: light;
+  --on-brand: #1d1d1f; /* text on the yellow: dark in both themes */
+  --panel-2: #f3f4f6;
+  --success-text: #15803d; /* 5:1 on white (was #1a9e4b, 3.5:1) */
+  --warning-text: #8a5300;
+  --danger-soft: #fdecec;
+  --violet: #7c3aed;
+  --violet-bg: #f2e9fb;
+  --wa: #25d366; /* WhatsApp green */
+  --wa-hover: #1ebe5a;
+  --wa-soft: #e7f9ee;
+  --wa-soft-border: #d6efdf;
+  --highlight: rgba(255, 222, 89, 0.6);
+  --tint: rgba(0, 0, 0, 0.05);
+  --glass: rgba(251, 251, 253, 0.82);
+  --glass-surface: rgba(255, 255, 255, 0.9);
+  --overlay: rgba(29, 29, 31, 0.32);
+  --ink-fill: #2b2b2e;
+  --on-ink: #ffffff;
+  --chat-bg: #efeae2;
+  --bubble-in: #ffffff;
+  --bubble-out: #d9fdd3;
+  --note-bg: #fff8d6;
+}
+
+/* The dark theme (CP5): "System" on a dark phone or computer, or "Dark" chosen (app.js
+   crmTheme sets data-theme on <html>; "Light" chosen sets data-theme="light"). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --brand-darker: #ffd23f; /* yellow text and links on dark */
+    --brand-light: rgba(255, 222, 89, 0.12);
+    --brand-ring: rgba(255, 199, 0, 0.35);
+    --ink: #ececf1;
+    --bg: #0f1115;
+    --surface: #181b20;
+    --panel-2: #20242b;
+    --border: rgba(235, 235, 245, 0.14);
+    --border-soft: #262a31;
+    --border-strong: rgba(235, 235, 245, 0.24);
+    --text: #ececf1;
+    --text-muted: #a1a1aa;
+    --text-faint: #71717a;
+    --success: #30d158;
+    --success-bg: rgba(48, 209, 88, 0.14);
+    --success-text: #4ade80;
+    --warning: #ffb340;
+    --warning-bg: rgba(255, 159, 10, 0.16);
+    --warning-text: #fbbf24;
+    --danger: #ff6961;
+    --danger-bg: rgba(255, 69, 58, 0.16);
+    --danger-soft: rgba(255, 69, 58, 0.14);
+    --danger-text: #ff8a80;
+    --info: #7b93ff;
+    --info-bg: rgba(74, 108, 247, 0.2);
+    --violet: #c4b5fd;
+    --violet-bg: rgba(124, 58, 237, 0.22);
+    --wa-soft: rgba(37, 211, 102, 0.1);
+    --wa-soft-border: rgba(37, 211, 102, 0.28);
+    --highlight: rgba(255, 222, 89, 0.28);
+    --tint: rgba(255, 255, 255, 0.06);
+    --glass: rgba(15, 17, 21, 0.82);
+    --glass-surface: rgba(24, 27, 32, 0.92);
+    --overlay: rgba(0, 0, 0, 0.6);
+    --ink-fill: #ececf1;
+    --on-ink: #111318;
+    /* WhatsApp Web's dark chat */
+    --chat-bg: #0b141a;
+    --bubble-in: #202c33;
+    --bubble-out: #005c4b;
+  --note-bg: rgba(255, 222, 89, 0.1);
+    --pop-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --pop-3: 0 2px 6px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);
+    --pop-4: 0 3px 10px rgba(0, 0, 0, 0.45), 0 10px 24px rgba(0, 0, 0, 0.4);
+    --pop-6: 0 6px 18px rgba(0, 0, 0, 0.5), 0 16px 36px rgba(0, 0, 0, 0.45);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.25);
+    --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.45), 0 14px 32px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5), 0 24px 56px rgba(0, 0, 0, 0.5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --brand-darker: #ffd23f; /* yellow text and links on dark */
+  --brand-light: rgba(255, 222, 89, 0.12);
+  --brand-ring: rgba(255, 199, 0, 0.35);
+  --ink: #ececf1;
+  --bg: #0f1115;
+  --surface: #181b20;
+  --panel-2: #20242b;
+  --border: rgba(235, 235, 245, 0.14);
+  --border-soft: #262a31;
+  --border-strong: rgba(235, 235, 245, 0.24);
+  --text: #ececf1;
+  --text-muted: #a1a1aa;
+  --text-faint: #71717a;
+  --success: #30d158;
+  --success-bg: rgba(48, 209, 88, 0.14);
+  --success-text: #4ade80;
+  --warning: #ffb340;
+  --warning-bg: rgba(255, 159, 10, 0.16);
+  --warning-text: #fbbf24;
+  --danger: #ff6961;
+  --danger-bg: rgba(255, 69, 58, 0.16);
+  --danger-soft: rgba(255, 69, 58, 0.14);
+  --danger-text: #ff8a80;
+  --info: #7b93ff;
+  --info-bg: rgba(74, 108, 247, 0.2);
+  --violet: #c4b5fd;
+  --violet-bg: rgba(124, 58, 237, 0.22);
+  --wa-soft: rgba(37, 211, 102, 0.1);
+  --wa-soft-border: rgba(37, 211, 102, 0.28);
+  --highlight: rgba(255, 222, 89, 0.28);
+  --tint: rgba(255, 255, 255, 0.06);
+  --glass: rgba(15, 17, 21, 0.82);
+  --glass-surface: rgba(24, 27, 32, 0.92);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --ink-fill: #ececf1;
+  --on-ink: #111318;
+  /* WhatsApp Web's dark chat */
+  --chat-bg: #0b141a;
+  --bubble-in: #202c33;
+  --bubble-out: #005c4b;
+  --note-bg: rgba(255, 222, 89, 0.1);
+  --pop-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --pop-3: 0 2px 6px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);
+  --pop-4: 0 3px 10px rgba(0, 0, 0, 0.45), 0 10px 24px rgba(0, 0, 0, 0.4);
+  --pop-6: 0 6px 18px rgba(0, 0, 0, 0.5), 0 16px 36px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.25);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.45), 0 14px 32px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5), 0 24px 56px rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -222,7 +354,7 @@ button {
 }
 .ai-bubble.out {
   align-self: flex-end;
-  background: #d9fdd3;
+  background: #d9fdd3; /* a drawing on the yellow panel: the same in both themes */
 }
 .ai-bubble.short {
   width: 34%;
@@ -299,7 +431,7 @@ button {
 }
 .login-mark.is-letter {
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
   font-weight: 700;
   font-size: 22px;
 }
@@ -477,7 +609,7 @@ button {
   color: var(--text);
 }
 .login-who .fa-circle-check {
-  color: #25d366;
+  color: var(--wa);
 }
 .login-form {
   display: grid;
@@ -558,7 +690,7 @@ button {
 .login-stay input {
   width: 16px;
   height: 16px;
-  accent-color: #25d366;
+  accent-color: var(--wa);
 }
 .login-stay .fa-circle-info {
   color: var(--text-faint);
@@ -638,7 +770,7 @@ button {
   border-radius: 50%;
   border: 0;
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
@@ -700,13 +832,13 @@ button {
   color: var(--text);
 }
 .link-icon.is-ok {
-  background: #e7f9ee;
-  color: #1a9e4b;
+  background: var(--wa-soft);
+  color: var(--success-text);
 }
 .link-icon.is-no,
 .link-icon.is-warn {
-  background: #fdecec;
-  color: #c0392b;
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 .link-computer {
   margin: 0 0 4px;
@@ -755,7 +887,7 @@ button {
   align-items: center;
   padding: 28px 16px 32px;
   background:
-    linear-gradient(#e8f6ee, #e8f6ee) top / 100% 220px no-repeat,
+    linear-gradient(var(--wa-soft), var(--wa-soft)) top / 100% 220px no-repeat,
     var(--bg);
   font-family: "Inter", "Noto Sans Devanagari", sans-serif;
 }
@@ -852,25 +984,25 @@ button {
   text-align: center;
   padding: 28px 22px;
   border-radius: 16px;
-  background: #f4fbf6;
-  border: 1px solid #d6efdf;
+  background: var(--wa-soft);
+  border: 1px solid var(--wa-soft-border);
 }
 .cw-side .fa-whatsapp {
   font-size: 54px;
-  color: #25d366;
+  color: var(--wa);
 }
 .cw-connect {
   width: 100%;
   justify-content: center;
   padding: 13px 16px;
   font-size: 15px;
-  background: #25d366;
-  border-color: #25d366;
+  background: var(--wa);
+  border-color: var(--wa);
   color: #fff;
 }
 .cw-connect:hover {
-  background: #1ebe5a;
-  border-color: #1ebe5a;
+  background: var(--wa-hover);
+  border-color: var(--wa-hover);
   color: #fff;
 }
 .cw-small {
@@ -895,8 +1027,8 @@ button {
   margin: 0;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: #fdecec;
-  color: #a12a1f;
+  background: var(--danger-soft);
+  color: var(--danger-text);
   font-size: 13px;
   line-height: 1.45;
   text-align: left;
@@ -921,7 +1053,7 @@ button {
   height: 100%;
   width: 0;
   border-radius: 8px;
-  background: #25d366;
+  background: var(--wa);
   transition: width 0.4s;
 }
 .cw-counts {
@@ -1073,7 +1205,7 @@ button {
   border-radius: 12px;
   background: var(--brand);
   border: 1px solid var(--border);
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1153,7 +1285,7 @@ button {
 }
 .nav-item.active {
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
   font-weight: 700;
   box-shadow: var(--pop-2);
 }
@@ -1164,7 +1296,7 @@ button {
   height: 18px;
   padding: 0 5px;
   border-radius: var(--radius-pill);
-  background: #25d366;
+  background: var(--wa);
   color: #fff;
   font-size: 10.5px;
   font-weight: 700;
@@ -1238,7 +1370,7 @@ button {
 .topbar {
   height: 62px;
   border-bottom: 1px solid var(--border-soft);
-  background: rgba(251, 251, 253, 0.82);
+  background: var(--glass);
   backdrop-filter: saturate(180%) blur(14px);
   -webkit-backdrop-filter: saturate(180%) blur(14px);
   position: sticky;
@@ -1474,7 +1606,7 @@ tbody tr:hover {
 }
 .badge-brand {
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
   border-color: var(--border);
 }
 
@@ -1537,7 +1669,7 @@ tbody tr:hover {
 }
 .btn-primary {
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
   box-shadow: var(--pop-2);
 }
 .btn-primary:hover {
@@ -1586,7 +1718,7 @@ tbody tr:hover {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(29, 29, 31, 0.32);
+  background: var(--overlay);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: none;
@@ -1808,7 +1940,7 @@ tbody tr:hover {
 .stepper-dot--active .stepper-num {
   background: var(--brand);
   border-color: transparent;
-  color: var(--text);
+  color: var(--on-brand);
   box-shadow: var(--pop-2);
 }
 .stepper-dot--active .stepper-label {
@@ -1988,8 +2120,9 @@ tbody tr:hover {
   background: var(--brand);
   box-shadow: var(--pop-2);
 }
-.role-card:has(input:checked) i {
-  color: var(--text);
+.role-card:has(input:checked) i,
+.role-card:has(input:checked) span {
+  color: var(--on-brand);
 }
 
 /* Module access grid */
@@ -2152,7 +2285,7 @@ tbody tr:hover {
   border-radius: 50%;
   background: var(--brand);
   border: 1px solid var(--border);
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2181,7 +2314,7 @@ tbody tr:hover {
 }
 .agent-card__modules {
   font-size: 11px;
-  color: var(--text);
+  color: var(--on-brand);
   background: var(--brand);
   display: inline-block;
   padding: 2px 9px;
@@ -2232,7 +2365,7 @@ tbody tr:hover {
     position: fixed;
     inset: 0;
     z-index: 89;
-    background: rgba(29, 29, 31, 0.36);
+    background: var(--overlay);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.28s var(--ease);
@@ -2374,11 +2507,109 @@ body.crm-loading::before {
   justify-content: center;
   gap: 12px;
   padding: 10px 16px;
-  background: #fef2f2;
+  background: var(--danger-soft);
   color: var(--danger);
   font-size: 13px;
   font-weight: 600;
   border-bottom: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+/* ============================================================
+   LANGUAGE AND THEME (CP5): the button next to the bell (app.js
+   crmPrefsMenu). A Hindi page stays hidden until its texts are in
+   (js/boot.js adds .i18n-pending, app.js removes it).
+   ============================================================ */
+html.i18n-pending body {
+  visibility: hidden;
+}
+.crm-prefs {
+  position: relative;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+.topbar > .crm-prefs {
+  margin-left: auto;
+}
+.topbar > .topbar-search + .crm-prefs,
+.crm-prefs + .crm-bell,
+.topbar > .crm-prefs + .crm-bell {
+  margin-left: 4px;
+}
+.crm-prefs__btn {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+.crm-prefs__panel[hidden] {
+  display: none;
+}
+.crm-prefs__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(300px, calc(100vw - 32px));
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--pop-6);
+  z-index: 50;
+}
+.crm-prefs__label {
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.crm-prefs__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.crm-prefs__options--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.crm-prefs__options button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.crm-prefs__options button:hover {
+  border-color: var(--brand-dark);
+}
+.crm-prefs__options button[aria-checked="true"] {
+  border-color: var(--brand-dark);
+  background: var(--brand-light);
+  font-weight: 600;
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.crm-prefs__options button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.profile-prefs {
+  max-width: 420px;
+}
+.crm-prefs__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 /* ============================================================
@@ -2647,11 +2878,11 @@ body.crm-loading::before {
 }
 /* "Connect WhatsApp" on the dashboard (D60) */
 .plan-banner.whatsapp-banner {
-  background: #ecf8f0;
-  border-bottom-color: #c9ebd6;
+  background: var(--wa-soft);
+  border-bottom-color: var(--wa-soft-border);
 }
 .whatsapp-banner .fa-whatsapp {
-  color: #25d366;
+  color: var(--wa);
   font-size: 16px;
 }
 .plan-banner-text {
@@ -3378,7 +3609,7 @@ body.crm-loading::before {
   align-items: flex-start;
   justify-content: center;
   padding: 10vh 16px 16px;
-  background: rgba(29, 29, 31, 0.32);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -3479,8 +3710,8 @@ body.search-open {
   color: var(--warning);
 }
 .search-chats {
-  background: #e7f9ee;
-  color: #1a9e4b;
+  background: var(--wa-soft);
+  color: var(--success-text);
 }
 .search-quotations,
 .search-orders {
@@ -3514,7 +3745,7 @@ body.search-open {
 .search-item mark {
   padding: 0 1px;
   border-radius: 3px;
-  background: rgba(255, 222, 89, 0.6);
+  background: var(--highlight);
   color: inherit;
 }
 .search-item-go {

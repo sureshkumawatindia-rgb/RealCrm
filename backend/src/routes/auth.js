@@ -34,5 +34,7 @@ router.post('/phone/verify', authLimiter, authenticate, validate({ body: schemas
 router.delete('/phone', authenticate, controller.phoneUnlink);
 // 2-step verification: the WhatsApp code after Google on a new browser (optional, D60).
 router.put('/two-step', authenticate, validate({ body: schemas.twoStep }), controller.twoStep);
+// One's own language and theme, the same on every device (CP5).
+router.patch('/preferences', authenticate, validate({ body: schemas.preferences }), controller.preferences);
 
 module.exports = router;

@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Theme and language before the page is drawn (CP5) -->
+    <script src="js/boot.js"></script>
     <title>Sign In | YELLOW CRM</title>
     <meta name="description" content="YELLOW CRM — every WhatsApp enquiry, lead, quotation and payment of your business in one team inbox." />
     <!-- The card WhatsApp, Facebook and others show when the CRM's link is shared -->
@@ -27,12 +29,12 @@
   <body>
     <!-- Logging in (D60): Google. People who switched on 2-step verification then get a code on
          WhatsApp (or SMS). A computer can also be logged in from a phone: login.html?with=phone.
-         Texts with data-i18n come from js/login.js (English / Hindi). -->
+         Texts with data-i18n come from i18n/en.json and i18n/hi.json (CP5). -->
     <main class="auth-page">
       <section class="auth-showcase" aria-hidden="true">
         <div class="auth-brand"><img src="img/icons/icon-192.png" alt="" width="36" height="36" /> YELLOW CRM</div>
-        <h2 data-i18n="pitchTitle">Every WhatsApp enquiry, one team inbox.</h2>
-        <p data-i18n="pitchText">Chats, leads, quotations, orders and payments of your business — in one place, for your whole team.</p>
+        <h2 data-i18n="login.pitchTitle">Every WhatsApp enquiry, one team inbox.</h2>
+        <p data-i18n="login.pitchText">Chats, leads, quotations, orders and payments of your business — in one place, for your whole team.</p>
         <div class="auth-illustration">
           <div class="ai-window">
             <div class="ai-list">
@@ -51,9 +53,9 @@
           </div>
         </div>
         <ul class="auth-points">
-          <li><i class="fa-brands fa-whatsapp"></i> <span data-i18n="point1">Works with your WhatsApp Business app number</span></li>
-          <li><i class="fa-solid fa-users"></i> <span data-i18n="point2">Your team replies from one shared inbox</span></li>
-          <li><i class="fa-solid fa-file-invoice"></i> <span data-i18n="point3">GST quotations and payment links in the chat</span></li>
+          <li><i class="fa-brands fa-whatsapp"></i> <span data-i18n="login.point1">Works with your WhatsApp Business app number</span></li>
+          <li><i class="fa-solid fa-users"></i> <span data-i18n="login.point2">Your team replies from one shared inbox</span></li>
+          <li><i class="fa-solid fa-file-invoice"></i> <span data-i18n="login.point3">GST quotations and payment links in the chat</span></li>
         </ul>
       </section>
 
@@ -69,7 +71,7 @@
                off, so a plain look-alike stands in until the company is found. -->
           <div class="login-step" id="googleStep">
             <form class="login-company" id="companyForm" novalidate>
-              <label for="loginCompany" data-i18n="companyLabel">Company name</label>
+              <label for="loginCompany" data-i18n="login.companyLabel">Company name</label>
               <div class="login-company-field" id="companyField">
                 <input type="text" id="loginCompany" name="organization" autocomplete="organization" maxlength="200" spellcheck="false" placeholder="e.g. Sharma Traders" aria-describedby="companyHelp companyError" />
                 <span class="login-company-state" id="companyState" aria-hidden="true"></span>
@@ -80,7 +82,7 @@
             <div class="login-google">
               <button type="button" class="login-google-wait" id="googleWait" aria-disabled="true">
                 <svg class="login-g" viewBox="0 0 48 48" width="18" height="18" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-                <span data-i18n="continueGoogle">Continue with Google</span>
+                <span data-i18n="login.continueGoogle">Continue with Google</span>
               </button>
               <div id="google-signin-slot" hidden></div>
             </div>
@@ -94,10 +96,10 @@
 
           <!-- 2-step verification: the mobile number -->
           <div class="login-step" id="phoneStep" hidden>
-            <p class="login-who"><i class="fa-solid fa-circle-check"></i> <span id="whoEmail"></span> <button type="button" class="login-link" id="changeGoogle" data-i18n="change">Change</button></p>
+            <p class="login-who"><i class="fa-solid fa-circle-check"></i> <span id="whoEmail"></span> <button type="button" class="login-link" id="changeGoogle" data-i18n="login.change">Change</button></p>
             <form class="login-form" id="phoneForm" autocomplete="on">
-              <input type="tel" id="loginPhone" inputmode="tel" autocomplete="tel" maxlength="30" data-i18n-placeholder="phonePlaceholder" placeholder="Your mobile number" aria-label="Your mobile number" required />
-              <button class="btn btn-primary" type="submit" id="sendCodeBtn"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="getCode">Get a code on WhatsApp</span></button>
+              <input type="tel" id="loginPhone" inputmode="tel" autocomplete="tel" maxlength="30" data-i18n-placeholder="login.phonePlaceholder" placeholder="Your mobile number" aria-label="Your mobile number" required />
+              <button class="btn btn-primary" type="submit" id="sendCodeBtn"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="login.getCode">Get a code on WhatsApp</span></button>
             </form>
             <p class="login-hint" id="phoneHint"></p>
           </div>
@@ -106,13 +108,13 @@
           <div class="login-step" id="codeStep" hidden>
             <p class="login-hint" id="codeHint"></p>
             <form class="login-form" id="codeForm" autocomplete="off">
-              <input type="text" id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-i18n-placeholder="codePlaceholder" placeholder="6-digit code" aria-label="6-digit code" required />
-              <button class="btn btn-primary" type="submit" id="verifyBtn" data-i18n="logIn">Log in</button>
+              <input type="text" id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-i18n-placeholder="login.codePlaceholder" placeholder="6-digit code" aria-label="6-digit code" required />
+              <button class="btn btn-primary" type="submit" id="verifyBtn" data-i18n="login.logIn">Log in</button>
             </form>
             <p class="login-links">
               <button type="button" class="login-link" id="resendBtn">Send the code again</button>
               <span aria-hidden="true">·</span>
-              <button type="button" class="login-link" id="changePhone" data-i18n="changeNumber">Change number</button>
+              <button type="button" class="login-link" id="changePhone" data-i18n="login.changeNumber">Change number</button>
             </p>
             <p class="login-links" id="smsRow" hidden>
               <button type="button" class="login-link" id="smsBtn"></button>
@@ -125,36 +127,36 @@
               <img id="qrImage" alt="Code to scan with your phone" width="220" height="220" hidden />
               <div class="login-qr-wait" id="qrWait"><i class="fa-solid fa-spinner fa-spin"></i></div>
               <button class="login-qr-reload" id="qrReload" type="button" hidden>
-                <i class="fa-solid fa-rotate-right"></i><span data-i18n="qrReload">Click to show a new code</span>
+                <i class="fa-solid fa-rotate-right"></i><span data-i18n="login.qrReload">Click to show a new code</span>
               </button>
             </div>
             <ol class="login-qr-steps">
-              <li data-i18n-html="qr1"></li>
-              <li data-i18n-html="qr2"></li>
-              <li data-i18n-html="qr3"></li>
+              <li data-i18n-html="login.qr1"></li>
+              <li data-i18n-html="login.qr2"></li>
+              <li data-i18n-html="login.qr3"></li>
             </ol>
           </div>
 
           <!-- Signing in -->
           <div class="login-step login-busy" id="busyStep" hidden>
             <i class="fa-solid fa-spinner fa-spin"></i>
-            <span data-i18n="signingIn">Signing you in…</span>
+            <span data-i18n="login.signingIn">Signing you in…</span>
           </div>
 
           <label class="login-stay" id="stayRow" hidden>
             <input type="checkbox" id="stayLoggedIn" checked />
-            <span data-i18n="stay">Stay logged in on this browser</span>
-            <i class="fa-solid fa-circle-info" data-i18n-title="stayInfo"></i>
+            <span data-i18n="login.stay">Stay logged in on this browser</span>
+            <i class="fa-solid fa-circle-info" data-i18n-title="login.stayInfo"></i>
           </label>
 
-          <button class="login-alt" id="toGoogle" type="button" hidden><i class="fa-solid fa-chevron-left"></i><span data-i18n="toGoogle">Log in with Google instead</span></button>
+          <button class="login-alt" id="toGoogle" type="button" hidden><i class="fa-solid fa-chevron-left"></i><span data-i18n="login.toGoogle">Log in with Google instead</span></button>
 
-          <p class="login-legal" data-i18n-html="legal">By continuing you agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.</p>
+          <p class="login-legal" data-i18n-html="login.legal">By continuing you agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.</p>
         </div>
         <footer class="auth-foot">
-          <a href="privacy.html" data-i18n="privacy">Privacy Policy</a>
+          <a href="privacy.html" data-i18n="login.privacy">Privacy Policy</a>
           <span aria-hidden="true">·</span>
-          <a href="terms.html" data-i18n="terms">Terms of Service</a>
+          <a href="terms.html" data-i18n="login.terms">Terms of Service</a>
           <span aria-hidden="true">·</span>
           <span>© YELLOW CRM</span>
         </footer>

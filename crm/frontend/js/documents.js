@@ -24,7 +24,7 @@ const CATEGORY_DOT = {
   Contract: "var(--info)",
   Invoice: "var(--success)",
   Proposal: "var(--warning)",
-  Report: "#7c3aed",
+  Report: "var(--violet)",
   Template: "var(--brand-darker)",
   Other: "var(--text-faint)",
 };

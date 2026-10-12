@@ -13,7 +13,7 @@
   initSidebarToggle();
 
   const $ = (id) => document.getElementById(id);
-  const STAGE_COLOR = { New: "var(--info)", Contacted: "var(--brand-darker)", "Quote Sent": "var(--warning)", Negotiation: "#7c3aed", Won: "var(--success)", Lost: "var(--danger)" };
+  const STAGE_COLOR = { New: "var(--info)", Contacted: "var(--brand-darker)", "Quote Sent": "var(--warning)", Negotiation: "var(--violet)", Won: "var(--success)", Lost: "var(--danger)" };
   const TICKET_STATUSES = ["Open", "In Progress", "Waiting on Customer", "Resolved", "Closed"];
   const TICKET_COLOR = { Open: "var(--info)", "In Progress": "var(--brand-darker)", "Waiting on Customer": "var(--warning)", Resolved: "var(--success)", Closed: "var(--text-faint)" };
   const TICKET_PRIORITIES = ["Low", "Medium", "High", "Urgent"];

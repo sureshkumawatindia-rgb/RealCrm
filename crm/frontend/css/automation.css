@@ -339,7 +339,7 @@
 }
 .au-tag--when {
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
 }
 .au-tag--if {
   background: var(--info-bg);

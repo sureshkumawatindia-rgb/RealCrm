@@ -155,6 +155,129 @@ function setPreference(name, value) {
   }
 }
 
+// ---------------------------------------------------------------
+// Language and theme (CP5). Texts: t(key) from i18n/en.json and i18n/hi.json, and on elements
+// with data-i18n, data-i18n-html (our own fixed texts only), data-i18n-placeholder,
+// data-i18n-title and data-i18n-aria-label. The signed-in person's language and theme are
+// saved on their account (PATCH /auth/preferences) and in their copy (crm_user), which
+// js/boot.js reads before the page is drawn; before signing in, this browser's choice
+// (crm_prefs). Customers' messages are never translated.
+// ---------------------------------------------------------------
+const CRM_LANGUAGES = ["en", "hi"];
+const CRM_THEMES = ["system", "light", "dark"];
+
+function crmPreferences() {
+  if (isAuthenticated()) {
+    // Signed in before CP5 (no copy yet): the account's defaults until /auth/me answers.
+    const saved = getCurrentUser()?.preferences || {};
+    return {
+      language: CRM_LANGUAGES.includes(saved.language) ? saved.language : "en",
+      theme: CRM_THEMES.includes(saved.theme) ? saved.theme : "system",
+    };
+  }
+  const browser = /^hi\b/i.test(navigator.language || "") ? "hi" : "en";
+  const language = [getPreference("language", null), getPreference("loginLanguage", null), browser].find((code) => CRM_LANGUAGES.includes(code));
+  const theme = getPreference("theme", null);
+  return { language, theme: CRM_THEMES.includes(theme) ? theme : "system" };
+}
+
+const crmI18n = (() => {
+  let language = crmPreferences().language;
+  const texts = {};
+  const load = (code) =>
+    texts[code]
+      ? Promise.resolve(texts[code])
+      : fetch(`i18n/${code}.json`)
+          .then((response) => (response.ok ? response.json() : {}))
+          .catch(() => ({}))
+          .then((data) => {
+            texts[code] = data;
+            return data;
+          });
+  const lookup = (key) => texts[language]?.[key] ?? texts.en?.[key];
+  const fill = (text, values) => String(text).replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ""));
+
+  function t(key, values = {}) {
+    const text = lookup(key);
+    return text === undefined ? key : fill(text, values);
+  }
+  // Only texts the dictionaries have: a missing key leaves the page's own English.
+  function apply(root = document) {
+    const each = (attribute, set) =>
+      root.querySelectorAll(`[${attribute}]`).forEach((el) => {
+        const text = lookup(el.getAttribute(attribute));
+        if (text !== undefined) set(el, fill(text, {}));
+      });
+    each("data-i18n", (el, text) => { el.textContent = text; });
+    each("data-i18n-html", (el, text) => { el.innerHTML = text; }); // our own fixed texts, never user data
+    each("data-i18n-placeholder", (el, text) => { el.placeholder = text; });
+    each("data-i18n-title", (el, text) => { el.title = text; });
+    each("data-i18n-aria-label", (el, text) => { el.setAttribute("aria-label", text); });
+  }
+  function show() {
+    document.documentElement.lang = language;
+    document.documentElement.classList.remove("i18n-pending");
+  }
+  const domReady = () => (document.readyState === "loading" ? new Promise((resolve) => document.addEventListener("DOMContentLoaded", resolve, { once: true })) : Promise.resolve());
+  const ready = Promise.all([load("en"), language === "en" ? null : load(language)])
+    .then(domReady)
+    .then(() => {
+      apply(document);
+      show();
+    });
+
+  // Before signing in the choice is this browser's (the login page); signed in, it is saved
+  // on the account by crmSavePreferences and the page reloads in the new language.
+  async function setLanguage(code) {
+    if (!CRM_LANGUAGES.includes(code)) return;
+    await load(code);
+    language = code;
+    if (!isAuthenticated()) setPreference("language", code);
+    apply(document);
+    show();
+  }
+  return {
+    t,
+    ready,
+    apply,
+    setLanguage,
+    has: (key) => texts[language]?.[key] !== undefined,
+    language: () => language,
+    locale: () => (language === "hi" ? "hi-IN" : "en-IN"), // dates and numbers on translated pages
+  };
+})();
+const t = crmI18n.t;
+
+// "system" follows the device (style.css @media prefers-color-scheme); light and dark set
+// data-theme on <html>. Pages with charts listen for "crm:theme" to redraw them.
+const crmTheme = (() => {
+  const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  const isDark = () => {
+    const chosen = document.documentElement.dataset.theme;
+    return chosen ? chosen === "dark" : Boolean(media?.matches);
+  };
+  const announce = () => document.dispatchEvent(new CustomEvent("crm:theme", { detail: { dark: isDark() } }));
+  function apply(theme) {
+    const before = isDark();
+    if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+    else delete document.documentElement.dataset.theme;
+    if (isDark() !== before) announce();
+  }
+  media?.addEventListener?.("change", () => {
+    if (!document.documentElement.dataset.theme) announce();
+  });
+  return { apply, isDark };
+})();
+crmTheme.apply(crmPreferences().theme); // pages without js/boot.js
+
+// Saves the person's language and/or theme on their account and in their copy.
+async function crmSavePreferences(changes) {
+  const preferences = await crmApi("/auth/preferences", jsonRequest("PATCH", changes));
+  const user = getCurrentUser();
+  if (user) localStorage.setItem(KEYS.USER, JSON.stringify({ ...user, preferences }));
+  return preferences;
+}
+
 function requireAuth() {
   if (!isAuthenticated()) {
     window.location.replace("login.html");
@@ -827,6 +950,99 @@ async function addCampaignNote(campaignId, text) {
 function newIdempotencyKey() {
   return window.crypto?.randomUUID ? crypto.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
+
+// ---------------------------------------------------------------
+// The language and theme button in the top bar (CP5), next to the bell. The same choices are
+// in Settings → Your Profile (js/settings.js uses crmChoosePreference too).
+// ---------------------------------------------------------------
+async function crmChoosePreference(changes) {
+  const before = crmPreferences();
+  if (changes.theme) crmTheme.apply(changes.theme); // at once; put back if it cannot be saved
+  try {
+    await crmSavePreferences(changes);
+  } catch (error) {
+    crmTheme.apply(before.theme);
+    showToast(apiErrorMessage(error, t("prefs.failed")), "error");
+    return false;
+  }
+  if (changes.language && changes.language !== crmI18n.language()) window.location.reload();
+  return true;
+}
+
+// Buttons with data-language or data-theme-choice inside root: the current choice is checked,
+// a click saves the new one.
+function crmWirePreferenceChoices(root) {
+  const render = () => {
+    const { language, theme } = crmPreferences();
+    root.querySelectorAll("[data-language]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.language === language)));
+    root.querySelectorAll("[data-theme-choice]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.themeChoice === theme)));
+  };
+  root.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-language], button[data-theme-choice]");
+    if (!button || button.getAttribute("aria-checked") === "true") return;
+    const changes = button.dataset.language ? { language: button.dataset.language } : { theme: button.dataset.themeChoice };
+    button.disabled = true;
+    await crmChoosePreference(changes);
+    button.disabled = false;
+    render();
+  });
+  render();
+  return render;
+}
+
+const crmPrefsMenu = (() => {
+  const byId = (id) => document.getElementById(id);
+  const THEME_ICONS = { system: "fa-desktop", light: "fa-sun", dark: "fa-moon" };
+  let render = () => {};
+
+  function setOpen(open) {
+    byId("crmPrefsPanel").hidden = !open;
+    byId("crmPrefsBtn").setAttribute("aria-expanded", String(open));
+    if (open) render();
+  }
+
+  function mount() {
+    const bell = byId("crmBell");
+    if (!bell || byId("crmPrefs")) return;
+    const box = document.createElement("div");
+    box.className = "crm-prefs";
+    box.id = "crmPrefs";
+    box.innerHTML = `
+      <button class="icon-btn crm-prefs__btn" id="crmPrefsBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="${escapeHtml(t("prefs.title"))}" title="${escapeHtml(t("prefs.title"))}">
+        <i class="fa-solid fa-circle-half-stroke"></i>
+      </button>
+      <div class="crm-prefs__panel" id="crmPrefsPanel" role="dialog" aria-label="${escapeHtml(t("prefs.title"))}" hidden>
+        <div class="crm-prefs__label" id="crmPrefsLanguage">${escapeHtml(t("prefs.language"))}</div>
+        <div class="crm-prefs__options" role="radiogroup" aria-labelledby="crmPrefsLanguage">
+          <button type="button" role="radio" data-language="en" lang="en">English</button>
+          <button type="button" role="radio" data-language="hi" lang="hi">हिंदी</button>
+        </div>
+        <div class="crm-prefs__label" id="crmPrefsTheme">${escapeHtml(t("prefs.theme"))}</div>
+        <div class="crm-prefs__options crm-prefs__options--3" role="radiogroup" aria-labelledby="crmPrefsTheme">
+          ${CRM_THEMES.map((theme) => `<button type="button" role="radio" data-theme-choice="${theme}"><i class="fa-solid ${THEME_ICONS[theme]}"></i> ${escapeHtml(t(`prefs.${theme}`))}</button>`).join("")}
+        </div>
+        <p class="crm-prefs__hint">${escapeHtml(t("prefs.hint"))}</p>
+      </div>`;
+    bell.parentElement.insertBefore(box, bell);
+
+    byId("crmPrefsBtn").addEventListener("click", (event) => {
+      event.stopPropagation();
+      setOpen(byId("crmPrefsPanel").hidden);
+    });
+    byId("crmPrefsPanel").addEventListener("click", (event) => event.stopPropagation());
+    render = crmWirePreferenceChoices(byId("crmPrefsPanel"));
+    document.addEventListener("click", () => {
+      if (!byId("crmPrefsPanel").hidden) setOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !byId("crmPrefsPanel").hidden) {
+        setOpen(false);
+        byId("crmPrefsBtn").focus();
+      }
+    });
+  }
+  return { mount };
+})();
 
 // ---------------------------------------------------------------
 // The bell (Phase 6, D31): this member's notifications, e.g. from an automation's "notify"
@@ -1980,6 +2196,17 @@ async function syncMembership() {
       saveCompanyInfo({ ...cached, name, logoUrl });
       renderSidebarBrand();
     }
+    // The language and theme chosen on another device (CP5).
+    const preferences = me.user?.preferences;
+    const user = getCurrentUser();
+    if (preferences && user && JSON.stringify(user.preferences || null) !== JSON.stringify(preferences)) {
+      localStorage.setItem(KEYS.USER, JSON.stringify({ ...user, preferences }));
+      crmTheme.apply(preferences.theme);
+      if (preferences.language !== crmI18n.language()) {
+        window.location.reload();
+        return;
+      }
+    }
     const before = localStorage.getItem(KEYS.MEMBER);
     const after = JSON.stringify({ ...me.member, organizationId: me.organization?.id ?? getCurrentMember()?.organizationId });
     if (before === after) return;
@@ -2077,6 +2304,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (isAuthenticated() && document.querySelector(".sidebar")) syncMembership();
   explainNoAccess();
   crmBell.mount();
+  crmI18n.ready.then(() => {
+    crmPrefsMenu.mount();
+    document.querySelectorAll("[data-prefs-choices]").forEach(crmWirePreferenceChoices); // Settings → Your Profile
+  });
   crmSearch.mount();
   fillSearchFromAddress();
   crmPlan.mountBanner();

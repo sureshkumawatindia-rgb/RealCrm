@@ -68,12 +68,12 @@ async function loadCatalogBar() {
   }
   bar.hidden = false;
   if (!state.catalogs.length) {
-    bar.innerHTML = '<span><i class="fa-brands fa-whatsapp" style="color:#25d366"></i> Show your products in WhatsApp: connect your Meta catalog in <a href="Settings.html?tab=whatsapp">Settings → WhatsApp</a>, then tick “Show in the WhatsApp catalog” on the products.</span>';
+    bar.innerHTML = '<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> Show your products in WhatsApp: connect your Meta catalog in <a href="Settings.html?tab=whatsapp">Settings → WhatsApp</a>, then tick “Show in the WhatsApp catalog” on the products.</span>';
     return;
   }
   const c = state.catalogs[0];
   const p = state.products;
-  bar.innerHTML = `<span><i class="fa-brands fa-whatsapp" style="color:#25d366"></i> WhatsApp catalog <strong>${escapeHtml(c.name || c.catalogId)}</strong>: ${p.synced} of ${p.included} chosen products are in it${p.failed ? ` · <span style="color:var(--danger)">${p.failed} need attention</span>` : ""}${c.lastSyncAt ? ` · last sync ${escapeHtml(new Date(c.lastSyncAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}` : ""}. Prices go with GST.</span>
+  bar.innerHTML = `<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> WhatsApp catalog <strong>${escapeHtml(c.name || c.catalogId)}</strong>: ${p.synced} of ${p.included} chosen products are in it${p.failed ? ` · <span style="color:var(--danger)">${p.failed} need attention</span>` : ""}${c.lastSyncAt ? ` · last sync ${escapeHtml(new Date(c.lastSyncAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}` : ""}. Prices go with GST.</span>
     ${manager ? '<button class="btn btn-outline" type="button" id="catalogSyncBtn"><i class="fa-solid fa-rotate"></i> Sync now</button>' : ""}`;
   document.getElementById("catalogSyncBtn")?.addEventListener("click", async (event) => {
     event.target.disabled = true;

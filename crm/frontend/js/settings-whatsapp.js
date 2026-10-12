@@ -96,7 +96,7 @@
       <div class="sub wa-agent" style="margin-top:8px">
         <label style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0">
           <strong>New chats go to</strong>
-          <select data-wa-agent="${escapeHtml(a.id)}" style="flex:1 1 200px; max-width:280px; min-width:0" ${locked ? "disabled" : ""}>
+          <select class="filter" data-wa-agent="${escapeHtml(a.id)}" style="flex:1 1 200px; max-width:280px; min-width:0" ${locked ? "disabled" : ""}>
             <option value="" ${chosen && !gone ? "" : "selected"}>The whole team (shared number)</option>${options}
           </select>
         </label>
@@ -127,7 +127,7 @@
       <div class="settings-summary-row" style="align-items:flex-start; flex-wrap:wrap">
         <div class="info" style="min-width:0; flex:1 1 240px">
           <div class="name">
-            <i class="fa-brands fa-whatsapp" style="color:#25d366"></i> ${escapeHtml(title)}
+            <i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> ${escapeHtml(title)}
             ${a.displayPhone ? `<span class="text-muted" style="font-weight:500">· ${escapeHtml(a.displayPhone)}</span>` : ""}
             ${STATUS_BADGE[a.status] || ""} ${a.isDefault ? '<span class="badge badge-brand">Default</span>' : ""}
             ${a.provider === "mock" ? '<span class="badge badge-neutral">Test number</span>' : ""}

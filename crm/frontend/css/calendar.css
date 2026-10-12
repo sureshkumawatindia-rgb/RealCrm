@@ -95,7 +95,7 @@
   align-self: flex-start;
 }
 .calendar-cell.is-today .day-number {
-  color: var(--text);
+  color: var(--on-brand);
   background: var(--brand);
   width: 22px;
   height: 22px;
@@ -127,7 +127,7 @@
 }
 .calendar-cell .day-add:hover {
   background: var(--brand);
-  color: var(--text);
+  color: var(--on-brand);
 }
 
 .day-chip {
@@ -199,8 +199,8 @@
   color: var(--warning);
 }
 .chip-demo {
-  background: #f2e9fb;
-  color: #7c3aed;
+  background: var(--violet-bg);
+  color: var(--violet);
 }
 .chip-deadline {
   background: var(--danger-bg);
@@ -345,7 +345,7 @@
   height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand), var(--brand-darker));
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -449,7 +449,7 @@
   height: 26px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand), var(--brand-darker));
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -506,7 +506,7 @@
   height: 30px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand), var(--brand-darker));
-  color: var(--text);
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
