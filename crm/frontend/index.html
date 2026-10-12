@@ -4,13 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>
-      // Signed in on this browser: straight to the dashboard, before the page is drawn.
+      // Signed in on this browser: straight to the dashboard, before the page is drawn. In Hindi
+      // the page waits (at most 2 seconds) for js/landing.js to put the Hindi texts in (CP5).
       (function () {
         try {
           var session = localStorage.getItem("crm_session");
           if (session && session.split(".").length === 3) window.location.replace("dashboard.html");
+          var prefs = JSON.parse(localStorage.getItem("crm_prefs") || "null") || {};
+          var language = prefs.language || prefs.loginLanguage || (/^hi\b/i.test(navigator.language || "") ? "hi" : "en");
+          if (language === "hi") {
+            document.documentElement.lang = "hi";
+            document.documentElement.classList.add("i18n-pending");
+            setTimeout(function () {
+              document.documentElement.classList.remove("i18n-pending");
+            }, 2000);
+          }
         } catch (e) {
-          /* storage blocked: show the home page */
+          /* storage blocked: show the home page in English */
         }
       })();
     </script>
@@ -27,14 +37,14 @@
     <link rel="icon" type="image/png" href="img/icons/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="css/landing.css" />
   </head>
   <body>
     <!-- The public home page (CP4). Nothing here is made up: the screenshots are the real pages
          with a sample shop's data (customers' numbers masked), and the plans come from
          GET /api/v1/site/plans (backend constants/plans.js), so prices live in one place only. -->
-    <a class="lp-skip" href="#main">Skip to content</a>
+    <a class="lp-skip" href="#main" data-i18n="lp.skip-to-content">Skip to content</a>
 
     <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
       <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-5A8 8 0 1 1 20.5 11.5z" /><path d="M8.5 10.5h7M8.5 13.5h4.5" /></symbol>
@@ -55,24 +65,25 @@
     <header class="lp-header" id="header">
       <div class="lp-wrap lp-header-row">
         <a class="lp-brand" href="#top"><img src="img/icons/icon-192.png" alt="" width="32" height="32" /> <span>YELLOW CRM</span></a>
-        <nav class="lp-nav" aria-label="Home page">
-          <a href="#features">Features</a>
-          <a href="#screens">Screens</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
+        <nav class="lp-nav" aria-label="Home page" data-i18n-aria-label="lp.home-page">
+          <a href="#features" data-i18n="lp.nav.features">Features</a>
+          <a href="#screens" data-i18n="lp.nav.screens">Screens</a>
+          <a href="#pricing" data-i18n="lp.nav.pricing">Pricing</a>
+          <a href="#faq" data-i18n="lp.nav.faq">FAQ</a>
         </nav>
         <div class="lp-header-actions">
-          <a class="lp-link" href="login.html">Log in</a>
-          <a class="lp-btn lp-btn-dark" href="login.html?signup=1">Start free trial</a>
+          <button class="lp-lang" id="langBtn" type="button" aria-label="Change language" data-i18n-aria-label="lp.langLabel" lang="hi">हिंदी</button>
+          <a class="lp-link" href="login.html" data-i18n="lp.logIn">Log in</a>
+          <a class="lp-btn lp-btn-dark" href="login.html?signup=1" data-i18n="lp.startTrial">Start free trial</a>
         </div>
         <details class="lp-menu" id="menu">
-          <summary aria-label="Menu"><svg class="lp-ico"><use href="#i-menu" /></svg></summary>
-          <nav aria-label="Home page menu">
-            <a href="#features">Features</a>
-            <a href="#screens">Screens</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#faq">FAQ</a>
-            <a href="login.html">Log in</a>
+          <summary aria-label="Menu" data-i18n-aria-label="lp.nav.menu"><svg class="lp-ico"><use href="#i-menu" /></svg></summary>
+          <nav aria-label="Home page menu" data-i18n-aria-label="lp.home-page-menu">
+            <a href="#features" data-i18n="lp.nav.features">Features</a>
+            <a href="#screens" data-i18n="lp.nav.screens">Screens</a>
+            <a href="#pricing" data-i18n="lp.nav.pricing">Pricing</a>
+            <a href="#faq" data-i18n="lp.nav.faq">FAQ</a>
+            <a href="login.html" data-i18n="lp.logIn">Log in</a>
           </nav>
         </details>
       </div>
@@ -82,18 +93,14 @@
       <section class="lp-hero" id="top">
         <div class="lp-wrap lp-hero-grid">
           <div>
-            <p class="lp-eyebrow">The WhatsApp CRM for growing businesses</p>
-            <h1>Every WhatsApp enquiry, one team inbox.</h1>
-            <p class="lp-lead">
-              Chats, leads, GST quotations, orders and payments of your business in one place. Your
-              whole team answers from your WhatsApp number, new leads go to the right person, and you
-              always see which quotations still wait for an answer.
-            </p>
+            <p class="lp-eyebrow" data-i18n="lp.the-whatsapp-crm-for-growing-businesses">The WhatsApp CRM for growing businesses</p>
+            <h1 data-i18n="lp.every-whatsapp-enquiry-one-team-inbox">Every WhatsApp enquiry, one team inbox.</h1>
+            <p class="lp-lead" data-i18n="lp.chats-leads-gst-quotations-orders-and">Chats, leads, GST quotations, orders and payments of your business in one place. Your whole team answers from your WhatsApp number, new leads go to the right person, and you always see which quotations still wait for an answer.</p>
             <div class="lp-cta">
-              <a class="lp-btn lp-btn-dark lp-btn-lg" href="login.html?signup=1">Start free trial <svg class="lp-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
-              <a class="lp-btn lp-btn-light lp-btn-lg" href="#pricing">See the plans</a>
+              <a class="lp-btn lp-btn-dark lp-btn-lg" href="login.html?signup=1"><span data-i18n="lp.startTrial">Start free trial</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
+              <a class="lp-btn lp-btn-light lp-btn-lg" href="#pricing" data-i18n="lp.see-the-plans">See the plans</a>
             </div>
-            <p class="lp-note" id="trialNote">Sign in with Google to start. No card needed.</p>
+            <p class="lp-note" id="trialNote" data-i18n="lp.sign-in-with-google-to-start">Sign in with Google to start. No card needed.</p>
           </div>
           <div class="lp-hero-shots">
             <figure class="lp-frame">
@@ -103,102 +110,102 @@
                 width="1280"
                 height="800"
                 fetchpriority="high"
-                alt="The YELLOW CRM inbox on a computer: the team's WhatsApp chats on the left, a customer asking the price of cumin and the agent's replies in the middle, and the customer's lead and quotation on the right."
+                alt="The YELLOW CRM inbox on a computer: the team's WhatsApp chats on the left, a customer asking the price of cumin and the agent's replies in the middle, and the customer's lead and quotation on the right." data-i18n-alt="lp.the-yellow-crm-inbox-on-a"
               />
             </figure>
             <figure class="lp-frame lp-frame-phone">
-              <img src="img/landing/inbox-phone.webp" width="780" height="1688" loading="lazy" alt="The same chat in YELLOW CRM on a phone." />
+              <img src="img/landing/inbox-phone.webp" width="780" height="1688" loading="lazy" alt="The same chat in YELLOW CRM on a phone." data-i18n-alt="lp.the-same-chat-in-yellow-crm" />
             </figure>
           </div>
         </div>
       </section>
 
-      <section class="lp-points" aria-label="In short">
+      <section class="lp-points" aria-label="In short" data-i18n-aria-label="lp.in-short">
         <ul class="lp-wrap">
-          <li><svg class="lp-ico" aria-hidden="true"><use href="#i-chat" /></svg> Works with your WhatsApp Business app number</li>
-          <li><svg class="lp-ico" aria-hidden="true"><use href="#i-users" /></svg> Your team replies from one shared inbox</li>
-          <li><svg class="lp-ico" aria-hidden="true"><use href="#i-doc" /></svg> GST quotations and payment links in the chat</li>
-          <li><svg class="lp-ico" aria-hidden="true"><use href="#i-phone" /></svg> On the computer and on the phone</li>
+          <li><svg class="lp-ico" aria-hidden="true"><use href="#i-chat" /></svg> <span data-i18n="lp.works-with-your-whatsapp-business-app">Works with your WhatsApp Business app number</span></li>
+          <li><svg class="lp-ico" aria-hidden="true"><use href="#i-users" /></svg> <span data-i18n="lp.your-team-replies-from-one-shared">Your team replies from one shared inbox</span></li>
+          <li><svg class="lp-ico" aria-hidden="true"><use href="#i-doc" /></svg> <span data-i18n="lp.gst-quotations-and-payment-links-in">GST quotations and payment links in the chat</span></li>
+          <li><svg class="lp-ico" aria-hidden="true"><use href="#i-phone" /></svg> <span data-i18n="lp.on-the-computer-and-on-the">On the computer and on the phone</span></li>
         </ul>
       </section>
 
       <section class="lp-section" id="features" aria-labelledby="featuresTitle">
         <div class="lp-wrap">
-          <h2 id="featuresTitle">From the first message to the payment</h2>
-          <p class="lp-sub">Everything a sales team needs around WhatsApp, in one CRM made for Indian businesses.</p>
+          <h2 id="featuresTitle" data-i18n="lp.from-the-first-message-to-the">From the first message to the payment</h2>
+          <p class="lp-sub" data-i18n="lp.everything-a-sales-team-needs-around">Everything a sales team needs around WhatsApp, in one CRM made for Indian businesses.</p>
           <div class="lp-features-grid">
             <article class="lp-card">
               <div class="lp-card-icon"><svg class="lp-ico" aria-hidden="true"><use href="#i-chat" /></svg></div>
-              <h3>WhatsApp team inbox</h3>
-              <p>Connect the number you already use in the WhatsApp Business app, and the whole team answers from it.</p>
+              <h3 data-i18n="lp.whatsapp-team-inbox">WhatsApp team inbox</h3>
+              <p data-i18n="lp.connect-the-number-you-already-use">Connect the number you already use in the WhatsApp Business app, and the whole team answers from it.</p>
               <ul class="lp-ticks">
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Assign chats, write private notes, see who handles what</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Templates, photos, documents, voice notes and reactions</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Reply suggestions from the AI assistant</li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.assign-chats-write-private-notes-see">Assign chats, write private notes, see who handles what</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.templates-photos-documents-voice-notes-and">Templates, photos, documents, voice notes and reactions</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.reply-suggestions-from-the-ai-assistant">Reply suggestions from the AI assistant</span></li>
               </ul>
             </article>
             <article class="lp-card">
               <div class="lp-card-icon"><svg class="lp-ico" aria-hidden="true"><use href="#i-funnel" /></svg></div>
-              <h3>Leads from every source</h3>
-              <p>Enquiries from IndiaMART, JustDial, TradeIndia, Facebook and Google Ads forms, your website and WhatsApp become leads by themselves.</p>
+              <h3 data-i18n="lp.leads-from-every-source">Leads from every source</h3>
+              <p data-i18n="lp.enquiries-from-indiamart-justdial-tradeindia-facebook">Enquiries from IndiaMART, JustDial, TradeIndia, Facebook and Google Ads forms, your website and WhatsApp become leads by themselves.</p>
               <ul class="lp-ticks">
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Given to the right person by source, product, city or turn</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> A first reply on WhatsApp within a minute</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> A repeat enquiry joins the same customer</li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.given-to-the-right-person-by">Given to the right person by source, product, city or turn</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.a-first-reply-on-whatsapp-within">A first reply on WhatsApp within a minute</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.a-repeat-enquiry-joins-the-same">A repeat enquiry joins the same customer</span></li>
               </ul>
             </article>
             <article class="lp-card">
               <div class="lp-card-icon"><svg class="lp-ico" aria-hidden="true"><use href="#i-doc" /></svg></div>
-              <h3>GST quotations and orders</h3>
-              <p>Make a quotation from the chat. CGST and SGST, or IGST, are worked out from the customer's state or GSTIN.</p>
+              <h3 data-i18n="lp.gst-quotations-and-orders">GST quotations and orders</h3>
+              <p data-i18n="lp.make-a-quotation-from-the-chat">Make a quotation from the chat. CGST and SGST, or IGST, are worked out from the customer's state or GSTIN.</p>
               <ul class="lp-ticks">
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Quotations, estimates and proforma invoices</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Sent as a PDF on WhatsApp; you see when it is opened</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> An accepted quotation becomes an order you can track to delivery</li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.quotations-estimates-and-proforma-invoices">Quotations, estimates and proforma invoices</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.sent-as-a-pdf-on-whatsapp">Sent as a PDF on WhatsApp; you see when it is opened</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.an-accepted-quotation-becomes-an-order">An accepted quotation becomes an order you can track to delivery</span></li>
               </ul>
             </article>
             <article class="lp-card">
               <div class="lp-card-icon"><svg class="lp-ico" aria-hidden="true"><use href="#i-rupee" /></svg></div>
-              <h3>Payments in the chat</h3>
-              <p>Send a Razorpay or Cashfree payment link on WhatsApp, paid into your own account.</p>
+              <h3 data-i18n="lp.payments-in-the-chat">Payments in the chat</h3>
+              <p data-i18n="lp.send-a-razorpay-or-cashfree-payment">Send a Razorpay or Cashfree payment link on WhatsApp, paid into your own account.</p>
               <ul class="lp-ticks">
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> A paid link updates the order and the lead by itself</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> The customer gets a receipt on WhatsApp</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> A list of payments due, by how old they are</li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.a-paid-link-updates-the-order">A paid link updates the order and the lead by itself</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.the-customer-gets-a-receipt-on">The customer gets a receipt on WhatsApp</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.a-list-of-payments-due-by">A list of payments due, by how old they are</span></li>
               </ul>
             </article>
             <article class="lp-card">
               <div class="lp-card-icon"><svg class="lp-ico" aria-hidden="true"><use href="#i-bolt" /></svg></div>
-              <h3>Follow-ups on autopilot</h3>
-              <p>Let the CRM send the reminders your team would otherwise forget.</p>
+              <h3 data-i18n="lp.follow-ups-on-autopilot">Follow-ups on autopilot</h3>
+              <p data-i18n="lp.let-the-crm-send-the-reminders">Let the CRM send the reminders your team would otherwise forget.</p>
               <ul class="lp-ticks">
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Follow-up messages that stop when the customer replies</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> A FAQ bot with buttons, and an away message</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> WhatsApp broadcasts to saved groups of customers</li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.follow-up-messages-that-stop-when">Follow-up messages that stop when the customer replies</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.a-faq-bot-with-buttons-and">A FAQ bot with buttons, and an away message</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.whatsapp-broadcasts-to-saved-groups-of">WhatsApp broadcasts to saved groups of customers</span></li>
               </ul>
             </article>
             <article class="lp-card">
               <div class="lp-card-icon"><svg class="lp-ico" aria-hidden="true"><use href="#i-chart" /></svg></div>
-              <h3>Your team, measured</h3>
-              <p>See how every person and every lead source is doing.</p>
+              <h3 data-i18n="lp.your-team-measured">Your team, measured</h3>
+              <p data-i18n="lp.see-how-every-person-and-every">See how every person and every lead source is doing.</p>
               <ul class="lp-ticks">
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Team live: who is online and which chats wait for a reply</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Reply times, wins and money collected per person</li>
-                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> Lead sources and quotation win rate, with CSV export</li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.team-live-who-is-online-and">Team live: who is online and which chats wait for a reply</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.reply-times-wins-and-money-collected">Reply times, wins and money collected per person</span></li>
+                <li><svg class="lp-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="lp.lead-sources-and-quotation-win-rate">Lead sources and quotation win rate, with CSV export</span></li>
               </ul>
             </article>
           </div>
           <div class="lp-also">
-            <h3>Also in YELLOW CRM</h3>
+            <h3 data-i18n="lp.also-in-yellow-crm">Also in YELLOW CRM</h3>
             <ul class="lp-chips">
-              <li>Customer 360°</li>
-              <li>Tasks and calendar</li>
-              <li>Support tickets</li>
-              <li>WhatsApp catalog and carts</li>
-              <li>Hide customers' numbers from agents</li>
-              <li>2-step verification</li>
-              <li>Phone app with notifications</li>
-              <li>Public API and webhooks</li>
+              <li data-i18n="lp.customer-360">Customer 360°</li>
+              <li data-i18n="lp.tasks-and-calendar">Tasks and calendar</li>
+              <li data-i18n="lp.support-tickets">Support tickets</li>
+              <li data-i18n="lp.whatsapp-catalog-and-carts">WhatsApp catalog and carts</li>
+              <li data-i18n="lp.hide-customers-numbers-from-agents">Hide customers' numbers from agents</li>
+              <li data-i18n="lp.2-step-verification">2-step verification</li>
+              <li data-i18n="lp.phone-app-with-notifications">Phone app with notifications</li>
+              <li data-i18n="lp.public-api-and-webhooks">Public API and webhooks</li>
             </ul>
           </div>
         </div>
@@ -206,36 +213,36 @@
 
       <section class="lp-section lp-screens" id="screens" aria-labelledby="screensTitle">
         <div class="lp-wrap">
-          <h2 id="screensTitle">See it before you sign up</h2>
-          <p class="lp-sub">Real screens of YELLOW CRM, filled with a sample shop's data.</p>
+          <h2 id="screensTitle" data-i18n="lp.see-it-before-you-sign-up">See it before you sign up</h2>
+          <p class="lp-sub" data-i18n="lp.real-screens-of-yellow-crm-filled">Real screens of YELLOW CRM, filled with a sample shop's data.</p>
           <div class="lp-gallery">
             <figure>
               <div class="lp-frame">
                 <div class="lp-frame-bar" aria-hidden="true"><i></i><i></i><i></i></div>
-                <img src="img/landing/leads.webp" width="1280" height="800" loading="lazy" alt="The Leads page: leads from TradeIndia, Facebook, the website, JustDial, IndiaMART and WhatsApp, each with its product, owner, stage and value." />
+                <img src="img/landing/leads.webp" width="1280" height="800" loading="lazy" alt="The Leads page: leads from TradeIndia, Facebook, the website, JustDial, IndiaMART and WhatsApp, each with its product, owner, stage and value." data-i18n-alt="lp.the-leads-page-leads-from-tradeindia" />
               </div>
-              <figcaption><strong>Leads</strong> from every source in one list, each with its owner, stage and value.</figcaption>
+              <figcaption data-i18n-html="lp.leads-from-every-source-in-one"><strong>Leads</strong> from every source in one list, each with its owner, stage and value.</figcaption>
             </figure>
             <figure>
               <div class="lp-frame">
                 <div class="lp-frame-bar" aria-hidden="true"><i></i><i></i><i></i></div>
-                <img src="img/landing/quotation.webp" width="1280" height="800" loading="lazy" alt="A quotation being made: the customer's details, the items with HSN codes, and the totals with CGST and SGST and the amount in words." />
+                <img src="img/landing/quotation.webp" width="1280" height="800" loading="lazy" alt="A quotation being made: the customer's details, the items with HSN codes, and the totals with CGST and SGST and the amount in words." data-i18n-alt="lp.a-quotation-being-made-the-customer" />
               </div>
-              <figcaption><strong>GST quotation</strong> with the tax worked out, ready to send on WhatsApp.</figcaption>
+              <figcaption data-i18n-html="lp.gst-quotation-with-the-tax-worked"><strong>GST quotation</strong> with the tax worked out, ready to send on WhatsApp.</figcaption>
             </figure>
             <figure>
               <div class="lp-frame">
                 <div class="lp-frame-bar" aria-hidden="true"><i></i><i></i><i></i></div>
-                <img src="img/landing/team-live.webp" width="1280" height="800" loading="lazy" alt="Team live: team members online, chats waiting for a reply, replies today, and each person's open chats and first reply time." />
+                <img src="img/landing/team-live.webp" width="1280" height="800" loading="lazy" alt="Team live: team members online, chats waiting for a reply, replies today, and each person's open chats and first reply time." data-i18n-alt="lp.team-live-team-members-online-chats" />
               </div>
-              <figcaption><strong>Team live</strong>: who is online, which chats wait, and how fast each person replies.</figcaption>
+              <figcaption data-i18n-html="lp.team-live-who-is-online-which"><strong>Team live</strong>: who is online, which chats wait, and how fast each person replies.</figcaption>
             </figure>
             <figure>
               <div class="lp-frame">
                 <div class="lp-frame-bar" aria-hidden="true"><i></i><i></i><i></i></div>
-                <img src="img/landing/dashboard.webp" width="1280" height="800" loading="lazy" alt="The dashboard: chats waiting for a reply, new leads, the open pipeline, quotations waiting, and the pipeline by stage." />
+                <img src="img/landing/dashboard.webp" width="1280" height="800" loading="lazy" alt="The dashboard: chats waiting for a reply, new leads, the open pipeline, quotations waiting, and the pipeline by stage." data-i18n-alt="lp.the-dashboard-chats-waiting-for-a" />
               </div>
-              <figcaption><strong>Dashboard</strong>: today's chats, leads, pipeline and quotations at a glance.</figcaption>
+              <figcaption data-i18n-html="lp.dashboard-today-s-chats-leads-pipeline"><strong>Dashboard</strong>: today's chats, leads, pipeline and quotations at a glance.</figcaption>
             </figure>
           </div>
         </div>
@@ -243,14 +250,14 @@
 
       <section class="lp-section" id="pricing" aria-labelledby="pricingTitle">
         <div class="lp-wrap">
-          <h2 id="pricingTitle">Plans for every team size</h2>
-          <p class="lp-sub" id="pricingSub">Monthly prices in rupees. GST is extra.</p>
+          <h2 id="pricingTitle" data-i18n="lp.plans-for-every-team-size">Plans for every team size</h2>
+          <p class="lp-sub" id="pricingSub" data-i18n="lp.monthly-prices-in-rupees-gst-is">Monthly prices in rupees. GST is extra.</p>
           <div class="lp-plans" id="plans" aria-live="polite">
-            <p class="lp-loading">Loading the plans…</p>
+            <p class="lp-loading" data-i18n="lp.loading-the-plans">Loading the plans…</p>
           </div>
-          <noscript><p class="lp-sub">Turn on JavaScript to see the plans, or <a href="login.html">log in</a>.</p></noscript>
+          <noscript><p class="lp-sub" data-i18n-html="lp.turn-on-javascript-to-see-the">Turn on JavaScript to see the plans, or <a href="login.html" data-i18n="lp.log-in">log in</a>.</p></noscript>
           <div class="lp-included" id="included" hidden>
-            <h3>Every plan has</h3>
+            <h3 data-i18n="lp.every-plan-has">Every plan has</h3>
             <ul class="lp-ticks" id="includedList"></ul>
           </div>
         </div>
@@ -258,66 +265,39 @@
 
       <section class="lp-section" id="faq" aria-labelledby="faqTitle">
         <div class="lp-wrap">
-          <h2 id="faqTitle">Questions, answered</h2>
+          <h2 id="faqTitle" data-i18n="lp.questions-answered">Questions, answered</h2>
           <div class="lp-faq-list">
             <details>
-              <summary>Can I use the WhatsApp number I already have? <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p>
-                Yes. Connect the number you use in the WhatsApp Business app (version 2.24.17 or newer)
-                and keep using the app on your phone: its contacts and up to 6 months of chats come into
-                the inbox, and what you send from the phone shows there too. A new number works as well.
-                You connect it in Meta's own window, in a few minutes.
-              </p>
+              <summary><span data-i18n="lp.can-i-use-the-whatsapp-number">Can I use the WhatsApp number I already have?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="lp.yes-connect-the-number-you-use">Yes. Connect the number you use in the WhatsApp Business app (version 2.24.17 or newer) and keep using the app on your phone: its contacts and up to 6 months of chats come into the inbox, and what you send from the phone shows there too. A new number works as well. You connect it in Meta's own window, in a few minutes.</p>
             </details>
             <details>
-              <summary>Who pays for WhatsApp messages? <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p>
-                Meta charges for some messages, mainly templates such as broadcasts, at Meta's own rates,
-                and bills your business directly on your Meta account. YELLOW CRM adds nothing on top:
-                the plan price is for the CRM.
-              </p>
+              <summary><span data-i18n="lp.who-pays-for-whatsapp-messages">Who pays for WhatsApp messages?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="lp.meta-charges-for-some-messages-mainly">Meta charges for some messages, mainly templates such as broadcasts, at Meta's own rates, and bills your business directly on your Meta account. YELLOW CRM adds nothing on top: the plan price is for the CRM.</p>
             </details>
             <details>
-              <summary>What happens when the free trial ends? <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p>
-                Nothing is deleted. Your team can still sign in, read and reply to customers, and new
-                WhatsApp messages and leads keep coming in. Adding more people, contacts, quotations or
-                broadcasts waits until you choose a plan in Settings. Choose during the trial and the
-                rest of the trial stays free.
-              </p>
+              <summary><span data-i18n="lp.what-happens-when-the-free-trial">What happens when the free trial ends?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="lp.nothing-is-deleted-your-team-can">Nothing is deleted. Your team can still sign in, read and reply to customers, and new WhatsApp messages and leads keep coming in. Adding more people, contacts, quotations or broadcasts waits until you choose a plan in Settings. Choose during the trial and the rest of the trial stays free.</p>
             </details>
             <details>
-              <summary>Can I change or cancel my plan? <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p>
-                Yes, any time from Settings. A bigger plan starts at once and a smaller one from the next
-                month. If you cancel, your plan runs until the end of the month you paid for.
-              </p>
+              <summary><span data-i18n="lp.can-i-change-or-cancel-my">Can I change or cancel my plan?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="lp.yes-any-time-from-settings-a">Yes, any time from Settings. A bigger plan starts at once and a smaller one from the next month. If you cancel, your plan runs until the end of the month you paid for.</p>
             </details>
             <details>
-              <summary>Do I get a GST invoice? <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p>Yes. Every payment for your plan comes with a GST tax invoice as a PDF, for your accounts.</p>
+              <summary><span data-i18n="lp.do-i-get-a-gst-invoice">Do I get a GST invoice?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="lp.yes-every-payment-for-your-plan">Yes. Every payment for your plan comes with a GST tax invoice as a PDF, for your accounts.</p>
             </details>
             <details>
-              <summary>Can I choose what each person sees? <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p>
-                Yes. Everyone signs in with their own Google account, and you choose their role (admin,
-                agent or viewer) and the pages they can open. You can hide customers' phone numbers from
-                agents, and anyone can switch on 2-step verification with a code on WhatsApp.
-              </p>
+              <summary><span data-i18n="lp.can-i-choose-what-each-person">Can I choose what each person sees?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="lp.yes-everyone-signs-in-with-their">Yes. Everyone signs in with their own Google account, and you choose their role (admin, agent or viewer) and the pages they can open. You can hide customers' phone numbers from agents, and anyone can switch on 2-step verification with a code on WhatsApp.</p>
             </details>
             <details>
-              <summary>Is there a phone app? <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p>
-                YELLOW CRM works in the phone's browser and can be added to the home screen like an app,
-                with notifications on the phone. Nothing to download from a store.
-              </p>
+              <summary><span data-i18n="lp.is-there-a-phone-app">Is there a phone app?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="lp.yellow-crm-works-in-the-phone">YELLOW CRM works in the phone's browser and can be added to the home screen like an app, with notifications on the phone. Nothing to download from a store.</p>
             </details>
             <details>
-              <summary>Can I take my data out, or delete it? <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p>
-                Yes. The owner can download all the company's data at any time, and delete the company,
-                in Settings → Data &amp; Privacy. See the <a href="privacy.html">Privacy Policy</a>.
-              </p>
+              <summary><span data-i18n="lp.can-i-take-my-data-out">Can I take my data out, or delete it?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n-html="lp.yes-the-owner-can-download-all">Yes. The owner can download all the company's data at any time, and delete the company, in Settings → Data &amp; Privacy. See the <a href="privacy.html" data-i18n="lp.privacy-policy">Privacy Policy</a>.</p>
             </details>
           </div>
         </div>
@@ -327,12 +307,12 @@
         <div class="lp-wrap">
           <div class="lp-final-box">
             <div>
-              <h2 id="finalTitle">Bring your team's WhatsApp into one place</h2>
-              <p>Set up your company in minutes and invite your team.</p>
+              <h2 id="finalTitle" data-i18n="lp.bring-your-team-s-whatsapp-into">Bring your team's WhatsApp into one place</h2>
+              <p data-i18n="lp.set-up-your-company-in-minutes">Set up your company in minutes and invite your team.</p>
             </div>
             <div class="lp-cta">
-              <a class="lp-btn lp-btn-dark lp-btn-lg" href="login.html?signup=1">Start free trial <svg class="lp-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
-              <a class="lp-btn lp-btn-light lp-btn-lg" href="login.html">Log in</a>
+              <a class="lp-btn lp-btn-dark lp-btn-lg" href="login.html?signup=1"><span data-i18n="lp.startTrial">Start free trial</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
+              <a class="lp-btn lp-btn-light lp-btn-lg" href="login.html" data-i18n="lp.logIn">Log in</a>
             </div>
           </div>
         </div>
@@ -345,12 +325,12 @@
           <a class="lp-brand" href="#top"><img src="img/icons/icon-192.png" alt="" width="32" height="32" loading="lazy" /> <span>YELLOW CRM</span></a>
           <p>© <span id="year"></span> <span class="js-operator-name">YELLOW CRM</span><span id="operatorEmail"></span></p>
         </div>
-        <nav aria-label="Legal and account">
-          <a href="#pricing">Pricing</a>
-          <a href="privacy.html">Privacy Policy</a>
-          <a href="terms.html">Terms of Service</a>
-          <a href="privacy.html#data-deletion">Data deletion</a>
-          <a href="login.html">Log in</a>
+        <nav aria-label="Legal and account" data-i18n-aria-label="lp.legal-and-account">
+          <a href="#pricing" data-i18n="lp.nav.pricing">Pricing</a>
+          <a href="privacy.html" data-i18n="lp.privacy-policy">Privacy Policy</a>
+          <a href="terms.html" data-i18n="lp.terms-of-service">Terms of Service</a>
+          <a href="privacy.html#data-deletion" data-i18n="lp.data-deletion">Data deletion</a>
+          <a href="login.html" data-i18n="lp.logIn">Log in</a>
         </nav>
       </div>
     </footer>

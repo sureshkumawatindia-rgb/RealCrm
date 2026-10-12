@@ -151,7 +151,7 @@
 
             <div class="topbar-actions">
               <button class="btn btn-outline" id="quickDealBtn" type="button">
-                <i class="fa-solid fa-handshake"></i> New Deal
+                <i class="fa-solid fa-handshake"></i> <span data-i18n="dash.newDeal">New Deal</span>
               </button>
 
               <div class="quick-add" id="quickAddPicker">
@@ -160,21 +160,21 @@
                   id="quickAddTrigger"
                   type="button"
                 >
-                  <i class="fa-solid fa-plus"></i> New
+                  <i class="fa-solid fa-plus"></i> <span data-i18n="dash.new">New</span>
                   <i class="fa-solid fa-chevron-down quick-add__chevron"></i>
                 </button>
                 <div class="quick-add__menu" id="quickAddMenu">
                   <button type="button" data-target="deal">
-                    <i class="fa-solid fa-handshake"></i> Deal
+                    <i class="fa-solid fa-handshake"></i> <span data-i18n="dash.add.deal">Deal</span>
                   </button>
                   <button type="button" data-target="lead">
-                    <i class="fa-solid fa-bullseye"></i> Lead
+                    <i class="fa-solid fa-bullseye"></i> <span data-i18n="dash.add.lead">Lead</span>
                   </button>
                   <button type="button" data-target="task">
-                    <i class="fa-solid fa-list-check"></i> Task
+                    <i class="fa-solid fa-list-check"></i> <span data-i18n="dash.add.task">Task</span>
                   </button>
                   <button type="button" data-target="event">
-                    <i class="fa-solid fa-calendar-days"></i> Event
+                    <i class="fa-solid fa-calendar-days"></i> <span data-i18n="dash.add.event">Event</span>
                   </button>
                 </div>
               </div>
@@ -192,26 +192,24 @@
             <div class="dash-col dash-col--main">
               <div class="panel">
                 <div class="panel-head">
-                  <h3>Pipeline by Stage</h3>
-                  <a href="./Deals.html" class="btn btn-outline">Open Deals</a>
+                  <h3 data-i18n="dash.pipeline">Pipeline by Stage</h3>
+                  <a href="./Deals.html" class="btn btn-outline" data-i18n="dash.openDeals">Open Deals</a>
                 </div>
                 <div id="pipelineBars" class="pipeline-wrap"></div>
               </div>
 
               <div class="panel">
                 <div class="panel-head">
-                  <h3>Recent Leads</h3>
-                  <a href="leads.html" class="btn btn-outline">View all</a>
+                  <h3 data-i18n="dash.recentLeads">Recent Leads</h3>
+                  <a href="leads.html" class="btn btn-outline" data-i18n="dash.viewAll">View all</a>
                 </div>
                 <div id="recentLeadsTable"></div>
               </div>
 
               <div class="panel">
                 <div class="panel-head">
-                  <h3>Active Campaigns</h3>
-                  <a href="./Marketing.html" class="btn btn-outline"
-                    >Open Marketing</a
-                  >
+                  <h3 data-i18n="dash.campaigns">Active Campaigns</h3>
+                  <a href="./Marketing.html" class="btn btn-outline" data-i18n="dash.openMarketing">Open Marketing</a>
                 </div>
                 <div id="campaignsList" class="mini-list"></div>
               </div>
@@ -221,32 +219,32 @@
             <div class="dash-col dash-col--side">
               <div class="panel">
                 <div class="panel-head">
-                  <h3>Today's Tasks</h3>
-                  <a href="./Tasks.html" class="btn btn-outline">Open</a>
+                  <h3 data-i18n="dash.todayTasks">Today's Tasks</h3>
+                  <a href="./Tasks.html" class="btn btn-outline" data-i18n="dash.open">Open</a>
                 </div>
                 <div id="todayTasksList" class="mini-list"></div>
               </div>
 
               <div class="panel">
                 <div class="panel-head">
-                  <h3>Upcoming Events</h3>
-                  <a href="./Calendar.html" class="btn btn-outline">Open</a>
+                  <h3 data-i18n="dash.events">Upcoming Events</h3>
+                  <a href="./Calendar.html" class="btn btn-outline" data-i18n="dash.open">Open</a>
                 </div>
                 <div id="upcomingEventsList" class="mini-list"></div>
               </div>
 
               <div class="panel">
                 <div class="panel-head">
-                  <h3>Products</h3>
-                  <a href="./leads.html" class="btn btn-outline">Manage</a>
+                  <h3 data-i18n="dash.products">Products</h3>
+                  <a href="./leads.html" class="btn btn-outline" data-i18n="dash.manage">Manage</a>
                 </div>
                 <div id="productsList" class="mini-list"></div>
               </div>
 
               <div class="panel">
                 <div class="panel-head">
-                  <h3>Team Workload</h3>
-                  <a href="accounts.html" class="btn btn-outline">Manage</a>
+                  <h3 data-i18n="dash.team">Team Workload</h3>
+                  <a href="accounts.html" class="btn btn-outline" data-i18n="dash.manage">Manage</a>
                 </div>
                 <div id="teamWorkloadList" class="mini-list"></div>
               </div>

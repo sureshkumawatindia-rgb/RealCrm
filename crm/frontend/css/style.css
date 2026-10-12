@@ -5,7 +5,8 @@
    corners, calm neutral grays, and fluid Apple-style easing.
    No hard offsets, no ink-black borders, no pure black anywhere.
    ============================================================ */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+/* Noto Sans Devanagari for Hindi (CP5): its unicode-range means it downloads only on a page with Hindi text */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap");
 
 :root {
   --brand: #ffde59;
@@ -202,13 +203,17 @@ body {
 body {
   margin: 0;
   font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI",
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Noto Sans Devanagari", "Segoe UI",
     sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.011em;
+}
+/* Devanagari keeps the letter spacing it was designed with (the tighter Latin spacing breaks its joined letters) */
+:lang(hi) body {
+  letter-spacing: 0;
 }
 a {
   color: inherit;

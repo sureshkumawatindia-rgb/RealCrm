@@ -9,7 +9,8 @@
  * to POST /whatsapp/accounts/embedded-signup; the server does the rest. Then the import of the
  * chats is shown as it happens (Socket.IO whatsapp:sync, and a check every few seconds).
  */
-(function connectWhatsApp() {
+// Starts once the page's texts are in (i18n/*.json, CP5).
+crmI18n.ready.then(function connectWhatsApp() {
   const $ = (id) => document.getElementById(id);
   if (!isOrgManager()) {
     window.location.replace("Inbox.html"); // connecting WhatsApp is an owner's or admin's job
@@ -21,10 +22,10 @@
   });
   const json = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const FRIENDLY = {
-    CONNECT_NOT_AVAILABLE: "Connecting WhatsApp is still being set up for this CRM. Please try again later.",
-    WHATSAPP_CONNECT_FAILED: "Meta did not finish connecting your number. Please click Connect WhatsApp again.",
-    NUMBER_IN_USE: "This WhatsApp number is already connected to another company in YELLOW CRM.",
-    WHATSAPP_UNREACHABLE: "Meta could not be reached. Check the internet connection and try again.",
+    CONNECT_NOT_AVAILABLE: t("cw.err.notAvailable"),
+    WHATSAPP_CONNECT_FAILED: t("cw.err.connectFailed"),
+    NUMBER_IN_USE: t("cw.err.numberInUse"),
+    WHATSAPP_UNREACHABLE: t("cw.err.unreachable"),
   };
 
   let config = null;
@@ -46,7 +47,7 @@
 
   function showError(message, details = "") {
     const box = $("connectError");
-    box.innerHTML = `${escapeHtml(message)}${details && details !== message ? `<details><summary>Details</summary>${escapeHtml(details)}</details>` : ""}`;
+    box.innerHTML = `${escapeHtml(message)}${details && details !== message ? `<details><summary>${escapeHtml(t("cw.details"))}</summary>${escapeHtml(details)}</details>` : ""}`;
     box.hidden = false;
     show("connectView");
   }
@@ -64,7 +65,7 @@
       script.async = true;
       script.defer = true;
       script.crossOrigin = "anonymous";
-      script.onerror = () => reject(new Error("Meta's window could not be loaded. Check the internet connection, or allow facebook.com if an ad blocker is on."));
+      script.onerror = () => reject(new Error(t("cw.err.sdk")));
       document.body.appendChild(script);
     });
   }
@@ -86,7 +87,7 @@
     }
     if (data?.type !== "WA_EMBEDDED_SIGNUP") return;
     if (data.event === "CANCEL") session.cancelledAt = data.data?.current_step || "start";
-    else if (data.event === "ERROR") session.error = data.data?.error_message || "Meta reported a problem.";
+    else if (data.event === "ERROR") session.error = data.data?.error_message || t("cw.err.metaProblem");
     else if (String(data.event || "").startsWith("FINISH")) {
       session.event = data.event;
       session.wabaId = String(data.data?.waba_id || "");
@@ -132,15 +133,15 @@
       setTimeout(finish, 3000);
       return;
     }
-    if (session.code) return showError("Meta did not tell us which WhatsApp account you chose. Please click Connect WhatsApp again.");
-    if (session.error) return showError("Meta could not finish connecting your number.", session.error);
-    return showError(`Meta's window was closed before finishing${session.cancelledAt ? ` (at: ${String(session.cancelledAt).replace(/_/g, " ").toLowerCase()})` : ""}. Click Connect WhatsApp to try again.`);
+    if (session.code) return showError(t("cw.err.noAccount"));
+    if (session.error) return showError(t("cw.err.notFinished"), session.error);
+    return showError(session.cancelledAt ? t("cw.err.closedAt", { step: String(session.cancelledAt).replace(/_/g, " ").toLowerCase() }) : t("cw.err.closed"));
   }
 
   async function submit() {
     session.submitting = true;
-    $("progressTitle").textContent = "Connecting…";
-    $("progressText").textContent = "Setting up your number with Meta. This takes a few seconds.";
+    $("progressTitle").textContent = t("cw.connecting");
+    $("progressText").textContent = t("cw.settingUp");
     $("importBox").hidden = true;
     $("openInboxBtn").hidden = true;
     $("retrySyncBtn").hidden = true;
@@ -157,7 +158,7 @@
       }));
       showAccount(account);
     } catch (error) {
-      showError(FRIENDLY[error.code] || "WhatsApp could not be connected. Please try again.", error.message);
+      showError(FRIENDLY[error.code] || t("cw.err.generic"), error.message);
     } finally {
       session.submitting = false;
     }
@@ -179,23 +180,23 @@
     $("openInboxBtn").hidden = false;
     const sync = account.sync;
     if (account.connectionType !== "coexistence" || !sync) {
-      $("progressTitle").textContent = "WhatsApp is connected";
-      $("progressText").textContent = `New messages to ${account.displayPhone || "your number"} now arrive in the Inbox, and your team can reply from there.`;
+      $("progressTitle").textContent = t("cw.connected.title");
+      $("progressText").textContent = t("cw.connected.text", { phone: account.displayPhone || t("cw.yourNumber") });
       $("importBox").hidden = true;
       return stopWatching();
     }
     $("importBox").hidden = false;
     $("importBar").style.width = `${overallPercent(sync)}%`;
-    $("countChats").textContent = sync.chats.toLocaleString("en-IN");
-    $("countMessages").textContent = sync.messages.toLocaleString("en-IN");
-    $("countContacts").textContent = sync.contacts.toLocaleString("en-IN");
+    $("countChats").textContent = sync.chats.toLocaleString(crmI18n.locale());
+    $("countMessages").textContent = sync.messages.toLocaleString(crmI18n.locale());
+    $("countContacts").textContent = sync.contacts.toLocaleString(crmI18n.locale());
     $("retrySyncBtn").hidden = !["failed", "declined"].includes(sync.status);
     const texts = {
-      pending: ["Importing your chats…", "Asking WhatsApp for your contacts and the last 6 months of chats."],
-      importing: ["Importing your chats…", "Your contacts and the last 6 months of chats are coming in from your WhatsApp Business app."],
-      done: ["Your chats are in", "Everything from the last 6 months is in the Inbox. New messages — and replies you send from the phone — keep coming in."],
-      declined: ["Old chats were not shared", "Chat history sharing is off in your WhatsApp Business app, so only new chats come in. To bring old chats, allow sharing in the app and click Import chats again (within 24 hours of connecting)."],
-      failed: ["Importing your chats stopped", sync.error ? `Meta said: ${sync.error}` : "Meta did not start the import. Click Import chats again."],
+      pending: [t("cw.sync.importing"), t("cw.sync.pendingText")],
+      importing: [t("cw.sync.importing"), t("cw.sync.importingText")],
+      done: [t("cw.sync.doneTitle"), t("cw.sync.doneText")],
+      declined: [t("cw.sync.declinedTitle"), t("cw.sync.declinedText")],
+      failed: [t("cw.sync.failedTitle"), sync.error ? t("cw.sync.metaSaid", { error: sync.error }) : t("cw.sync.failedText")],
     };
     const [title, text] = texts[sync.status] || texts.pending;
     $("progressTitle").textContent = title;
@@ -248,7 +249,7 @@
     try {
       showAccount(await crmApi(`/whatsapp/accounts/${$("retrySyncBtn").dataset.accountId}/sync`, { method: "POST" }));
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not ask WhatsApp again."), "error");
+      showToast(apiErrorMessage(error, t("cw.err.retry")), "error");
     } finally {
       $("retrySyncBtn").disabled = false;
     }
@@ -261,7 +262,7 @@
     try {
       config = await crmApi("/whatsapp/connect");
     } catch (error) {
-      showError(apiErrorMessage(error, "Could not load the WhatsApp connection."));
+      showError(apiErrorMessage(error, t("cw.err.load")));
       return;
     }
     // ?add=1 (Settings → WhatsApp → Connect another number, or Reconnect): straight to the button.
@@ -277,4 +278,4 @@
   }
 
   load();
-})();
+});

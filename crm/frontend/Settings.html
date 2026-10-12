@@ -866,54 +866,54 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Settings</h2>
+            <h2 data-i18n="nav.settings">Settings</h2>
           </div>
         </header>
 
         <div class="page" id="settingsPage">
           <div class="settings-tabs" id="settingsTabs">
             <button class="settings-tab active" data-panel="profile">
-              <i class="fa-solid fa-user"></i> Your Profile
+              <i class="fa-solid fa-user"></i> <span data-i18n="set.tab.profile">Your Profile</span>
             </button>
             <button class="settings-tab" data-panel="company">
-              <i class="fa-solid fa-building"></i> Company
+              <i class="fa-solid fa-building"></i> <span data-i18n="set.tab.company">Company</span>
             </button>
             <button class="settings-tab" data-panel="team">
-              <i class="fa-solid fa-user-group"></i> Team & Access
+              <i class="fa-solid fa-user-group"></i> <span data-i18n="set.tab.team">Team & Access</span>
             </button>
             <button class="settings-tab" data-panel="whatsapp" id="whatsappTab" style="display: none">
-              <i class="fa-brands fa-whatsapp"></i> WhatsApp
+              <i class="fa-brands fa-whatsapp"></i> <span data-i18n="set.tab.whatsapp">WhatsApp</span>
             </button>
             <button class="settings-tab" data-panel="leadsources" id="leadSourcesTab" style="display: none">
-              <i class="fa-solid fa-inbox"></i> Lead sources
+              <i class="fa-solid fa-inbox"></i> <span data-i18n="set.tab.leadsources">Lead sources</span>
             </button>
             <button class="settings-tab" data-panel="billing" id="billingTab" style="display: none">
-              <i class="fa-solid fa-file-invoice"></i> Billing
+              <i class="fa-solid fa-file-invoice"></i> <span data-i18n="set.tab.billing">Billing</span>
             </button>
             <button class="settings-tab" data-panel="payments" id="paymentsTab" style="display: none">
-              <i class="fa-solid fa-indian-rupee-sign"></i> Payments
+              <i class="fa-solid fa-indian-rupee-sign"></i> <span data-i18n="set.tab.payments">Payments</span>
             </button>
             <button class="settings-tab" data-panel="leadrules" id="leadRulesTab" style="display: none">
-              <i class="fa-solid fa-route"></i> Lead rules
+              <i class="fa-solid fa-route"></i> <span data-i18n="set.tab.leadrules">Lead rules</span>
             </button>
             <button class="settings-tab" data-panel="ai" id="aiTab" style="display: none">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> AI assistant
+              <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="set.tab.ai">AI assistant</span>
             </button>
             <button class="settings-tab" data-panel="integrations" id="integrationsTab" style="display: none">
-              <i class="fa-solid fa-plug"></i> API & webhooks
+              <i class="fa-solid fa-plug"></i> <span data-i18n="set.tab.integrations">API & webhooks</span>
             </button>
             <button class="settings-tab" data-panel="audit" id="auditTab" style="display: none">
-              <i class="fa-solid fa-clipboard-list"></i> Audit log
+              <i class="fa-solid fa-clipboard-list"></i> <span data-i18n="set.tab.audit">Audit log</span>
             </button>
             <button class="settings-tab" data-panel="plan" id="planTab" style="display: none">
-              <i class="fa-solid fa-gem"></i> Plan & usage
+              <i class="fa-solid fa-gem"></i> <span data-i18n="set.tab.plan">Plan & usage</span>
             </button>
             <button class="settings-tab" data-panel="data">
-              <i class="fa-solid fa-database"></i> Data & Privacy
+              <i class="fa-solid fa-database"></i> <span data-i18n="set.tab.data">Data & Privacy</span>
             </button>
           </div>
           <!-- Phones: back from a section to the list of sections (R2) -->
-          <button class="settings-back" id="settingsBack" type="button"><i class="fa-solid fa-chevron-left"></i> All settings</button>
+          <button class="settings-back" id="settingsBack" type="button"><i class="fa-solid fa-chevron-left"></i> <span data-i18n="set.allSettings">All settings</span></button>
 
           <!-- YOUR PROFILE -->
           <div class="settings-panel active" data-settings-panel="profile">
@@ -1318,11 +1318,11 @@
           <div class="settings-panel" data-settings-panel="whatsapp">
             <div class="panel">
               <div class="panel-head">
-                <h3>WhatsApp</h3>
+                <h3 data-i18n="set.tab.whatsapp">WhatsApp</h3>
                 <span class="text-muted" style="font-size: 12px" id="waCount"></span>
               </div>
               <div style="padding: 20px">
-                <p class="settings-hint">
+                <p class="settings-hint" data-i18n="wa.intro">
                   Your company's WhatsApp Business number, connected through Meta. Customers'
                   messages arrive in the Inbox, and new numbers become contacts and leads.
                 </p>
@@ -1332,21 +1332,21 @@
                     <strong id="waConnectTitle">Connect WhatsApp</strong>
                     <span id="waConnectText"></span>
                   </div>
-                  <a class="btn btn-primary" id="waConnectLink" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> Connect WhatsApp</a>
+                  <a class="btn btn-primary" id="waConnectLink" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="inbox.connect.button">Connect WhatsApp</span></a>
                 </div>
                 <div id="waAccountList"></div>
 
                 <div class="settings-section wa-block" id="waReceiptsSection" hidden>
-                  <div class="settings-section-label">Read receipts</div>
+                  <div class="settings-section-label" data-i18n="wa.receipts.label">Read receipts</div>
                   <label class="two-step-row">
                     <input type="checkbox" id="readReceiptsToggle" />
-                    <span><strong>Send read receipts</strong><br /><span class="settings-hint">When a teammate opens a chat, the customer sees blue ticks on their message, and "typing…" while you write a reply. Turn it off to keep both hidden.</span></span>
+                    <span><strong data-i18n="wa.receipts.title">Send read receipts</strong><br /><span class="settings-hint" data-i18n="wa.receipts.hint">When a teammate opens a chat, the customer sees blue ticks on their message, and "typing…" while you write a reply. Turn it off to keep both hidden.</span></span>
                   </label>
                 </div>
 
                 <div class="settings-section wa-block" id="waPrivateSection" hidden>
-                  <div class="settings-section-label"><i class="fa-solid fa-lock"></i> Private numbers (only owners see this)</div>
-                  <p class="settings-hint">
+                  <div class="settings-section-label"><i class="fa-solid fa-lock"></i> <span data-i18n="wa.priv.label">Private numbers (only owners see this)</span></div>
+                  <p class="settings-hint" data-i18n="wa.priv.hint">
                     Personal chats — family, friends — that come in with your WhatsApp Business number.
                     Only owners see them: admins and agents don't, reports leave them out, and no
                     automation, bot or auto-reply runs for them. Nothing is deleted. You can also make
@@ -1354,37 +1354,37 @@
                   </p>
                   <ul class="device-list" id="waPrivateList"></ul>
                   <form class="wa-private-form" id="waPrivateForm" autocomplete="off">
-                    <input type="tel" id="waPrivatePhone" inputmode="tel" maxlength="30" placeholder="Mobile number, e.g. 98290 12345" aria-label="Mobile number" required />
-                    <input type="text" id="waPrivateNote" maxlength="60" placeholder="Label, e.g. Family" aria-label="Label" />
-                    <button class="btn btn-outline" type="submit"><i class="fa-solid fa-lock"></i> Make private</button>
+                    <input type="tel" id="waPrivatePhone" inputmode="tel" maxlength="30" placeholder="Mobile number, e.g. 98290 12345" aria-label="Mobile number" data-i18n-placeholder="wa.priv.phonePlaceholder" data-i18n-aria-label="wa.priv.phone" required />
+                    <input type="text" id="waPrivateNote" maxlength="60" placeholder="Label, e.g. Family" aria-label="Label" data-i18n-placeholder="wa.priv.labelPlaceholder" data-i18n-aria-label="wa.priv.labelField" />
+                    <button class="btn btn-outline" type="submit"><i class="fa-solid fa-lock"></i> <span data-i18n="inbox.private.make">Make private</span></button>
                   </form>
                 </div>
 
                 <div class="settings-section wa-block" id="waTemplatesSection" hidden>
-                  <div class="settings-section-label">Message templates</div>
-                  <p class="settings-hint">
+                  <div class="settings-section-label" data-i18n="wa.tpl.label">Message templates</div>
+                  <p class="settings-hint" data-i18n="wa.tpl.hint">
                     WhatsApp allows only approved templates when a customer has not written in the
                     last 24 hours (and for writing first). Meta reviews every new template, usually
                     within minutes, sometimes up to a day.
                   </p>
                   <div class="wa-toolbar">
                     <div class="field">
-                      <label for="waTplAccount">Number</label>
+                      <label for="waTplAccount" data-i18n="wa.numberLabel">Number</label>
                       <select id="waTplAccount"></select>
                     </div>
-                    <button class="btn btn-outline" id="waTplSync" type="button"><i class="fa-solid fa-rotate"></i> Sync from Meta</button>
+                    <button class="btn btn-outline" id="waTplSync" type="button"><i class="fa-solid fa-rotate"></i> <span data-i18n="wa.tpl.sync">Sync from Meta</span></button>
                   </div>
                   <div id="waTplList"></div>
                   <details class="wa-new" id="waTplNew">
-                    <summary><i class="fa-solid fa-plus"></i> New template</summary>
+                    <summary><i class="fa-solid fa-plus"></i> <span data-i18n="wa.tpl.new">New template</span></summary>
                     <form id="waTplForm" autocomplete="off">
                       <div class="field-row">
                         <div class="field">
-                          <label for="waTplName">Name</label>
+                          <label for="waTplName" data-i18n="col.name">Name</label>
                           <input type="text" id="waTplName" maxlength="512" placeholder="order_update" required />
                         </div>
                         <div class="field">
-                          <label for="waTplLanguage">Language</label>
+                          <label for="waTplLanguage" data-i18n="prefs.language">Language</label>
                           <select id="waTplLanguage">
                             <option value="en">English (en)</option>
                             <option value="en_US">English US (en_US)</option>
@@ -1401,66 +1401,66 @@
                           </select>
                         </div>
                         <div class="field">
-                          <label for="waTplCategory">Category</label>
+                          <label for="waTplCategory" data-i18n="wa.tpl.category">Category</label>
                           <select id="waTplCategory">
-                            <option value="UTILITY">Utility (orders, updates)</option>
-                            <option value="MARKETING">Marketing (offers, follow-ups)</option>
+                            <option value="UTILITY" data-i18n="wa.tpl.utility">Utility (orders, updates)</option>
+                            <option value="MARKETING" data-i18n="wa.tpl.marketing">Marketing (offers, follow-ups)</option>
                           </select>
                         </div>
                       </div>
                       <div class="field">
-                        <label for="waTplHeader">Header (optional, up to 60 characters)</label>
+                        <label for="waTplHeader" data-i18n="wa.tpl.header">Header (optional, up to 60 characters)</label>
                         <input type="text" id="waTplHeader" maxlength="60" placeholder="Order update" />
                       </div>
                       <div class="field">
-                        <label for="waTplBody">Message</label>
+                        <label for="waTplBody" data-i18n="inbox.quick.message">Message</label>
                         <textarea id="waTplBody" rows="4" maxlength="1024" required placeholder="Namaste {{1}}, your order {{2}} has been dispatched today."></textarea>
-                        <p class="settings-hint" style="margin: 6px 0 0">
+                        <p class="settings-hint" style="margin: 6px 0 0" data-i18n="wa.tpl.variablesHint">
                           Write {{1}}, {{2}} … where you fill in details when sending. Do not start or end the message with one.
                         </p>
                       </div>
                       <div id="waTplExamples"></div>
                       <div class="field">
-                        <label for="waTplFooter">Footer (optional)</label>
+                        <label for="waTplFooter" data-i18n="wa.tpl.footer">Footer (optional)</label>
                         <input type="text" id="waTplFooter" maxlength="60" placeholder="Reply STOP to stop updates" />
                       </div>
                       <div class="field">
-                        <label>Buttons (optional, up to 3)</label>
+                        <label data-i18n="wa.tpl.buttons">Buttons (optional, up to 3)</label>
                         <div id="waTplButtons"></div>
-                        <button class="btn btn-outline" id="waTplAddButton" type="button"><i class="fa-solid fa-plus"></i> Add a button</button>
+                        <button class="btn btn-outline" id="waTplAddButton" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="wa.tpl.addButton">Add a button</span></button>
                       </div>
                       <div class="data-actions" style="justify-content: flex-end">
-                        <button class="btn btn-primary" type="submit" id="waTplSubmit"><i class="fa-solid fa-paper-plane"></i> Submit to Meta</button>
+                        <button class="btn btn-primary" type="submit" id="waTplSubmit"><i class="fa-solid fa-paper-plane"></i> <span data-i18n="wa.tpl.submit">Submit to Meta</span></button>
                       </div>
                     </form>
                   </details>
                 </div>
 
                 <div class="settings-section wa-block" id="waLinkSection" hidden>
-                  <div class="settings-section-label">Click-to-chat link and QR code</div>
-                  <p class="settings-hint">
+                  <div class="settings-section-label" data-i18n="wa.link.label">Click-to-chat link and QR code</div>
+                  <p class="settings-hint" data-i18n="wa.link.hint">
                     Put the link on your website, IndiaMART profile or email signature, and the QR code
                     on your shop counter, visiting card or packaging. A customer who taps or scans it
                     starts a WhatsApp chat with you, and the chat lands in the Inbox.
                   </p>
                   <div class="field-row">
                     <div class="field">
-                      <label for="waLinkAccount">Number</label>
+                      <label for="waLinkAccount" data-i18n="wa.numberLabel">Number</label>
                       <select id="waLinkAccount"></select>
                     </div>
                     <div class="field">
-                      <label for="waLinkText">Message already typed for the customer (optional)</label>
+                      <label for="waLinkText" data-i18n="wa.link.text">Message already typed for the customer (optional)</label>
                       <input type="text" id="waLinkText" maxlength="500" placeholder="Hi, I want the price list" />
                     </div>
                   </div>
                   <div class="wa-link" id="waLinkResult" hidden>
-                    <img id="waLinkQr" alt="QR code of the click-to-chat link" />
+                    <img id="waLinkQr" alt="QR code of the click-to-chat link" data-i18n-aria-label="wa.link.qrAlt" />
                     <div class="wa-link-info">
                       <code id="waLinkUrl"></code>
                       <div class="wa-link-actions">
-                        <button class="btn btn-outline" type="button" id="waLinkCopy"><i class="fa-solid fa-copy"></i> Copy link</button>
-                        <a class="btn btn-outline" id="waLinkOpen" href="#" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i> Try it</a>
-                        <button class="btn btn-outline" type="button" id="waLinkPng"><i class="fa-solid fa-download"></i> QR code (PNG)</button>
+                        <button class="btn btn-outline" type="button" id="waLinkCopy"><i class="fa-solid fa-copy"></i> <span data-i18n="wa.link.copy">Copy link</span></button>
+                        <a class="btn btn-outline" id="waLinkOpen" href="#" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i> <span data-i18n="wa.link.try">Try it</span></a>
+                        <button class="btn btn-outline" type="button" id="waLinkPng"><i class="fa-solid fa-download"></i> <span data-i18n="wa.link.png">QR code (PNG)</span></button>
                       </div>
                     </div>
                   </div>
@@ -1468,8 +1468,8 @@
                 </div>
 
                 <details class="wa-advanced" id="waAdvanced">
-                  <summary>Advanced (developers): connect a number with your own Meta app</summary>
-                  <p class="settings-hint">
+                  <summary data-i18n="wa.adv.summary">Advanced (developers): connect a number with your own Meta app</summary>
+                  <p class="settings-hint" data-i18n="wa.adv.hint">
                     For a number that runs on your own Meta developer app (not the WhatsApp
                     Business app). Most companies use Connect WhatsApp above instead.
                     From your Meta developer app: WhatsApp → API Setup gives the
@@ -1481,11 +1481,11 @@
                   <form id="waConnectForm" autocomplete="off">
                     <div class="field-row">
                       <div class="field">
-                        <label for="waName">Name (optional)</label>
-                        <input type="text" id="waName" maxlength="100" placeholder="e.g. Sales line" />
+                        <label for="waName" data-i18n="wa.adv.name">Name (optional)</label>
+                        <input type="text" id="waName" maxlength="100" placeholder="e.g. Sales line" data-i18n-placeholder="wa.adv.namePlaceholder" />
                       </div>
                       <div class="field">
-                        <label for="waPhoneNumberId">Phone number ID</label>
+                        <label for="waPhoneNumberId" data-i18n="wa.adv.phoneId">Phone number ID</label>
                         <input type="text" id="waPhoneNumberId" inputmode="numeric" placeholder="e.g. 106540352242922" required />
                       </div>
                     </div>
@@ -1495,17 +1495,17 @@
                         <input type="text" id="waWabaId" inputmode="numeric" placeholder="e.g. 102290129340398" />
                       </div>
                       <div class="field">
-                        <label for="waAppSecret">App secret</label>
+                        <label for="waAppSecret" data-i18n="wa.adv.secret">App secret</label>
                         <input type="password" id="waAppSecret" required />
                       </div>
                     </div>
                     <div class="field">
-                      <label for="waAccessToken">Access token</label>
+                      <label for="waAccessToken" data-i18n="wa.adv.token">Access token</label>
                       <input type="password" id="waAccessToken" required />
                     </div>
                     <div class="data-actions" style="justify-content: flex-end">
                       <button class="btn btn-primary" type="submit" id="waConnectBtn">
-                        <i class="fa-brands fa-whatsapp"></i> Connect Number
+                        <i class="fa-brands fa-whatsapp"></i> <span data-i18n="wa.adv.connect">Connect Number</span>
                       </button>
                     </div>
                   </form>

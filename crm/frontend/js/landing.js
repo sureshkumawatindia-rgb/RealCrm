@@ -12,6 +12,56 @@
       : "http://127.0.0.1:3000/api/v1";
   const $ = (id) => document.getElementById(id);
 
+  // Language (CP5): the texts are in i18n/en.json and i18n/hi.json ("lp."), like the CRM's. The
+  // choice is this browser's (crm_prefs), so the login page opens in it too, and it is saved on
+  // the account at sign-up.
+  function readPrefs() {
+    try {
+      return JSON.parse(localStorage.getItem("crm_prefs") || "null") || {};
+    } catch {
+      return {};
+    }
+  }
+  let language = (() => {
+    const prefs = readPrefs();
+    const code = prefs.language || prefs.loginLanguage || (/^hi\b/i.test(navigator.language || "") ? "hi" : "en");
+    return code === "hi" ? "hi" : "en";
+  })();
+  const texts = {};
+  const loadTexts = (code) =>
+    texts[code]
+      ? Promise.resolve()
+      : fetch(`i18n/${code}.json`)
+          .then((response) => (response.ok ? response.json() : {}))
+          .catch(() => ({}))
+          .then((data) => {
+            texts[code] = data;
+          });
+  const lookup = (key) => texts[language]?.[key] ?? texts.en?.[key];
+  function t(key, values = {}) {
+    const text = lookup(key);
+    return text === undefined ? key : String(text).replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ""));
+  }
+  const has = (key) => lookup(key) !== undefined;
+  // Our own texts only; a missing one leaves the page's English.
+  function applyTexts() {
+    const each = (attribute, set) =>
+      document.querySelectorAll(`[${attribute}]`).forEach((el) => {
+        const text = lookup(el.getAttribute(attribute));
+        if (text !== undefined) set(el, text);
+      });
+    each("data-i18n-html", (el, text) => { el.innerHTML = text; });
+    each("data-i18n", (el, text) => { el.textContent = text; });
+    each("data-i18n-alt", (el, text) => { el.alt = text; });
+    each("data-i18n-aria-label", (el, text) => { el.setAttribute("aria-label", text); });
+    document.documentElement.lang = language;
+    document.title = t("lp.title");
+    $("langBtn").textContent = language === "hi" ? "English" : "हिंदी";
+    $("langBtn").lang = language === "hi" ? "en" : "hi";
+    document.documentElement.classList.remove("i18n-pending");
+  }
+  const locale = () => (language === "hi" ? "hi-IN" : "en-IN");
+
   function escapeText(value) {
     return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   }
@@ -21,75 +71,68 @@
     return (await response.json()).data;
   }
 
-  const count = (n) => new Intl.NumberFormat("en-IN").format(n);
+  const count = (n) => new Intl.NumberFormat(locale()).format(n);
   function rupees(paise) {
     const digits = paise % 100 ? 2 : 0;
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(paise / 100);
+    return new Intl.NumberFormat(locale(), { style: "currency", currency: "INR", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(paise / 100);
   }
-  // The same words as Settings → Plan & usage (js/settings-plan.js).
-  const LIMIT_TEXT = {
-    users: (n) => `${count(n)} user${n === 1 ? "" : "s"} (admins, agents, viewers)`,
-    agents: (n) => `Up to ${count(n)} agent${n === 1 ? "" : "s"}`,
-    whatsappNumbers: (n) => `${count(n)} WhatsApp number${n === 1 ? "" : "s"}${n >= 20 ? " (Meta's maximum)" : ""}`,
-    contacts: (n) => `${count(n)} contacts`,
-    broadcastsPerMonth: (n) => `${count(n)} broadcasts a month`,
-    quotesPerMonth: (n) => `${count(n)} quotations a month`,
-    templates: (n) => `${count(n)} message templates`,
+  // The same words as Settings → Plan & usage (js/settings-plan.js), in the page's language.
+  const limitText = (metric, n) => {
+    if (n === null) return has(`lp.unlimited.${metric}`) ? t(`lp.unlimited.${metric}`) : "";
+    const key = `lp.limit.${metric}${n === 1 ? "One" : ""}`;
+    if (!has(key)) return "";
+    return t(key, { n: count(n) }) + (metric === "whatsappNumbers" && n >= 20 ? t("lp.limit.metaMax") : "");
   };
-  const UNLIMITED_TEXT = {
-    users: "Unlimited users",
-    agents: "Unlimited agents",
-    whatsappNumbers: "Unlimited WhatsApp numbers",
-    contacts: "Unlimited contacts",
-    broadcastsPerMonth: "Unlimited broadcasts",
-    quotesPerMonth: "Unlimited quotations",
-    templates: "Unlimited message templates",
-  };
+  // plans.js names features and "every plan has" in English; the page has them translated,
+  // else (a new or changed one) shows the English.
+  const featureLabel = (feature, label) => (has(`lp.feature.${feature}`) ? t(`lp.feature.${feature}`) : label);
+  const includedSlug = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").split("-").slice(0, 6).join("-");
+  const includedLabel = (text) => (has(`lp.included.${includedSlug(text)}`) && texts.en?.[`lp.included.${includedSlug(text)}`] === text ? t(`lp.included.${includedSlug(text)}`) : text);
   const icon = (name) => `<svg class="lp-ico" aria-hidden="true"><use href="#i-${name}" /></svg>`;
 
   function planCard(plan, catalog) {
     const trial = plan.key === catalog.trialPlan;
     const limits = catalog.limits
-      .map(({ metric }) => (plan.limits[metric] === null ? UNLIMITED_TEXT[metric] : LIMIT_TEXT[metric]?.(plan.limits[metric])))
+      .map(({ metric }) => limitText(metric, plan.limits[metric]))
       .filter(Boolean);
     const features = catalog.features.map(({ feature, label }) => {
-      const has = plan.features[feature];
-      return `<li class="${has ? "yes" : "no"}">${icon(has ? "check" : "dash")}<span>${escapeText(label)}${has ? "" : '<span class="lp-sr"> (not in this plan)</span>'}</span></li>`;
+      const included = plan.features[feature];
+      return `<li class="${included ? "yes" : "no"}">${icon(included ? "check" : "dash")}<span>${escapeText(featureLabel(feature, label))}${included ? "" : `<span class="lp-sr">${escapeText(t("lp.notInPlan"))}</span>`}</span></li>`;
     });
     const id = `plan-${escapeText(plan.key)}`;
     return `
       <article class="lp-plan${trial ? " is-trial" : ""}" aria-labelledby="${id}">
         <div class="lp-plan-head">
           <h3 id="${id}">${escapeText(plan.name)}</h3>
-          ${trial ? '<span class="lp-badge">Free trial plan</span>' : ""}
+          ${trial ? `<span class="lp-badge">${escapeText(t("lp.trialBadge"))}</span>` : ""}
         </div>
-        <p class="lp-price">${rupees(plan.pricePaise)}<small> /month</small></p>
-        <p class="lp-gst">${rupees(plan.totalPaise)} with ${escapeText(catalog.gstPct)}% GST</p>
+        <p class="lp-price">${rupees(plan.pricePaise)}<small>${escapeText(t("lp.perMonth"))}</small></p>
+        <p class="lp-gst">${escapeText(t("lp.withGst", { total: rupees(plan.totalPaise), gst: catalog.gstPct }))}</p>
         <ul>${limits.map((text) => `<li>${escapeText(text)}</li>`).join("")}</ul>
         <ul class="lp-features">${features.join("")}</ul>
-        <a class="lp-btn ${trial ? "lp-btn-dark" : "lp-btn-light"} lp-btn-block" href="login.html?signup=1">Start free trial</a>
+        <a class="lp-btn ${trial ? "lp-btn-dark" : "lp-btn-light"} lp-btn-block" href="login.html?signup=1">${escapeText(t("lp.startTrial"))}</a>
       </article>`;
   }
 
   async function loadPlans() {
     const box = $("plans");
-    box.innerHTML = '<p class="lp-loading">Loading the plans…</p>';
+    box.innerHTML = `<p class="lp-loading">${escapeText(t("lp.loading-the-plans"))}</p>`;
     try {
       const catalog = await getJson("/site/plans");
       const trialPlan = catalog.plans.find((plan) => plan.key === catalog.trialPlan);
       box.innerHTML = catalog.plans.map((plan) => planCard(plan, catalog)).join("");
-      $("includedList").innerHTML = catalog.included.map((text) => `<li>${icon("check")}<span>${escapeText(text)}</span></li>`).join("");
+      $("includedList").innerHTML = catalog.included.map((text) => `<li>${icon("check")}<span>${escapeText(includedLabel(text))}</span></li>`).join("");
       $("included").hidden = !catalog.included.length;
       if (trialPlan) {
-        const everything = Object.values(trialPlan.features).every(Boolean) ? ", with every feature" : "";
-        $("pricingSub").textContent = `Monthly prices in rupees, plus ${catalog.gstPct}% GST. Every new company gets ${catalog.trialDays} days of ${trialPlan.name} free${everything}; choose a plan whenever you are ready, and the rest of the trial stays free.`;
-        $("trialNote").textContent = `${catalog.trialDays}-day free trial of ${trialPlan.name}. Sign in with Google to start; no card needed.`;
+        const every = Object.values(trialPlan.features).every(Boolean) ? t("lp.everyFeature") : "";
+        $("pricingSub").textContent = t("lp.pricingSub", { gst: catalog.gstPct, days: catalog.trialDays, plan: trialPlan.name, every });
+        $("trialNote").textContent = t("lp.trialNote", { days: catalog.trialDays, plan: trialPlan.name });
       }
     } catch {
       box.innerHTML = `
         <div class="lp-error" role="alert">
-          The plans could not be loaded. Check the internet connection and try again.<br />
-          <button class="lp-btn lp-btn-light" type="button" id="plansRetry">Try again</button>
+          ${escapeText(t("lp.plansFailed"))}<br />
+          <button class="lp-btn lp-btn-light" type="button" id="plansRetry">${escapeText(t("lp.tryAgain"))}</button>
         </div>`;
       $("plansRetry").addEventListener("click", loadPlans);
     }
@@ -129,7 +172,23 @@
     }
   });
 
+  // A different language: the texts at once, then the plans drawn again in it.
+  $("langBtn").addEventListener("click", async () => {
+    language = language === "hi" ? "en" : "hi";
+    try {
+      localStorage.setItem("crm_prefs", JSON.stringify({ ...readPrefs(), language }));
+    } catch {
+      /* the choice is just not remembered */
+    }
+    await loadTexts(language);
+    applyTexts();
+    loadPlans();
+  });
+
   $("year").textContent = String(new Date().getFullYear());
-  loadPlans();
+  Promise.all([loadTexts("en"), language === "en" ? null : loadTexts(language)]).then(() => {
+    applyTexts();
+    loadPlans();
+  });
   loadOperator();
 })();

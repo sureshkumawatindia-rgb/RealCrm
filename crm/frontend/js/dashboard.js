@@ -44,7 +44,7 @@ function initials(name) {
 }
 function formatCurrency(n) {
   const num = Number(n) || 0;
-  return "₹" + num.toLocaleString("en-IN");
+  return "₹" + num.toLocaleString(crmI18n.locale());
 }
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -60,7 +60,7 @@ function statusBadge(status) {
     Active: "badge-success",
     Inactive: "badge-neutral",
   };
-  return `<span class="badge ${map[status] || "badge-neutral"}">${escapeHtml(status)}</span>`;
+  return `<span class="badge ${map[status] || "badge-neutral"}">${escapeHtml(crmLabel("stage", status))}</span>`;
 }
 
 // ---------------------------------------------------------------
@@ -88,10 +88,10 @@ function renderHeader() {
   // A phone's top bar has room for a short greeting only.
   const narrow = window.matchMedia("(max-width: 600px)").matches;
   document.getElementById("greetingHeading").textContent = firstName
-    ? `${narrow ? "Hi" : "Welcome back"}, ${firstName}`
-    : "Dashboard";
+    ? t(narrow ? "dash.hi" : "dash.welcome", { name: firstName })
+    : t("dash.title");
   document.getElementById("topbarDate").textContent =
-    new Date().toLocaleDateString("en-IN", {
+    new Date().toLocaleDateString(crmI18n.locale(), {
       weekday: "long",
       day: "2-digit",
       month: "long",
@@ -147,9 +147,9 @@ function initQuickActions() {
 // ---------------------------------------------------------------
 function formatWait(minutes) {
   if (minutes == null) return "";
-  if (minutes < 60) return `${minutes} min`;
-  if (minutes < 48 * 60) return `${Math.floor(minutes / 60)} h`;
-  return `${Math.round(minutes / 1440)} days`;
+  if (minutes < 60) return t("dash.wait.minutes", { n: minutes });
+  if (minutes < 48 * 60) return t("dash.wait.hours", { n: Math.floor(minutes / 60) });
+  return t("dash.wait.days", { n: Math.round(minutes / 1440) });
 }
 async function renderServerKpis() {
   let d;
@@ -161,23 +161,23 @@ async function renderServerKpis() {
   const money = (paise) => formatCurrency(Math.round((paise || 0) / 100));
   const cards = [
     {
-      label: "Chats waiting for a reply", value: d.chats.waitingForReply, route: "Inbox.html",
-      sub: d.chats.waitingForReply ? `longest ${formatWait(d.chats.longestWaitMinutes)} · ${d.chats.unassigned} not taken` : "all answered",
+      label: t("dash.kpi.chats"), value: d.chats.waitingForReply, route: "Inbox.html",
+      sub: d.chats.waitingForReply ? t("dash.kpi.chatsSub", { wait: formatWait(d.chats.longestWaitMinutes), n: d.chats.unassigned }) : t("dash.kpi.allAnswered"),
       cls: d.chats.longestWaitMinutes > 120 ? "warning" : "",
     },
-    { label: "New leads today", value: d.leads.today, sub: `${d.leads.month} this month · ${d.leads.wonMonth} won`, cls: "info", route: "leads.html" },
-    { label: "Open pipeline", value: money(d.pipeline.valuePaise), sub: `${d.pipeline.open} open leads`, cls: "success", route: "Deals.html" },
-    { label: "Quotes waiting 3+ days", value: d.quotations.waitingThreeDays, sub: "sent, no answer yet", cls: d.quotations.waitingThreeDays ? "warning" : "", route: "leads.html" },
-    { label: "Collected this month", value: money(d.payments.collectedMonthPaise), sub: "payments received", cls: "success", route: "Reports & Analytics.html" },
-    { label: "Due now", value: money(d.payments.duePaise), sub: `${d.payments.dueOrders} order${d.payments.dueOrders === 1 ? "" : "s"}`, cls: d.payments.duePaise ? "warning" : "", route: "Orders.html?tab=dues" },
-    { label: "Tasks due today", value: d.tasks.dueToday, sub: d.tasks.overdue ? `${d.tasks.overdue} overdue` : "none overdue", cls: d.tasks.overdue ? "warning" : "", route: "Tasks.html" },
+    { label: t("dash.kpi.leadsToday"), value: d.leads.today, sub: t("dash.kpi.leadsSub", { month: d.leads.month, won: d.leads.wonMonth }), cls: "info", route: "leads.html" },
+    { label: t("dash.kpi.pipeline"), value: money(d.pipeline.valuePaise), sub: t("dash.kpi.pipelineSub", { n: d.pipeline.open }), cls: "success", route: "Deals.html" },
+    { label: t("dash.kpi.quotes"), value: d.quotations.waitingThreeDays, sub: t("dash.kpi.quotesSub"), cls: d.quotations.waitingThreeDays ? "warning" : "", route: "leads.html" },
+    { label: t("dash.kpi.collected"), value: money(d.payments.collectedMonthPaise), sub: t("dash.kpi.collectedSub"), cls: "success", route: "Reports & Analytics.html" },
+    { label: t("dash.kpi.due"), value: money(d.payments.duePaise), sub: t(d.payments.dueOrders === 1 ? "dash.orderOne" : "dash.orderMany", { n: d.payments.dueOrders }), cls: d.payments.duePaise ? "warning" : "", route: "Orders.html?tab=dues" },
+    { label: t("dash.kpi.tasks"), value: d.tasks.dueToday, sub: d.tasks.overdue ? t("dash.kpi.overdue", { n: d.tasks.overdue }) : t("dash.kpi.noneOverdue"), cls: d.tasks.overdue ? "warning" : "", route: "Tasks.html" },
   ];
   document.getElementById("kpiGrid").innerHTML = cards
     .map((c) => `
-      <a href="${escapeHtml(c.route)}" class="stat-card stat-card-link ${c.cls}" aria-label="Open ${escapeHtml(c.label)}">
+      <a href="${escapeHtml(c.route)}" class="stat-card stat-card-link ${c.cls}" aria-label="${escapeHtml(t("dash.kpi.openLabel", { name: c.label }))}">
         <div class="label">${escapeHtml(c.label)}</div>
         <div class="value">${escapeHtml(String(c.value))}</div>
-        <div class="label" style="text-transform:none;letter-spacing:0;margin-top:4px;font-weight:500">${escapeHtml(c.sub)}${d.scope === "own" ? " · yours" : ""}</div>
+        <div class="label" style="text-transform:none;letter-spacing:0;margin-top:4px;font-weight:500">${escapeHtml(c.sub)}${d.scope === "own" ? escapeHtml(t("dash.kpi.yours")) : ""}</div>
       </a>`)
     .join("");
 }
@@ -205,34 +205,34 @@ function renderKpis() {
   const upcomingEvents = events.filter((e) => e.date >= today);
 
   const cards = [
-    { label: "Total Customers", value: customers.length, cls: "", route: "customers.html" },
-    { label: "Total Leads", value: leads.length, cls: "info", route: "leads.html" },
+    { label: t("dash.kpi.customers"), value: customers.length, cls: "", route: "customers.html" },
+    { label: t("dash.kpi.leads"), value: leads.length, cls: "info", route: "leads.html" },
     {
-      label: "Open Pipeline",
+      label: t("dash.kpi.pipeline"),
       value: `${openDeals.length} · ${formatCurrency(pipelineValue)}`,
       cls: "success",
       route: "Deals.html",
     },
     {
-      label: "Tasks Due Today",
+      label: t("dash.kpi.tasks"),
       value: tasksDueToday.length,
       cls: overdueTasks.length ? "warning" : "",
       route: "Tasks.html",
     },
-    { label: "Upcoming Events", value: upcomingEvents.length, cls: "info", route: "Calendar.html" },
-    { label: "Total Products", value: products.length, cls: "", route: "Products.html" },
-    { label: "Team Agents", value: agents.length, cls: "", route: "accounts.html" },
+    { label: t("dash.events"), value: upcomingEvents.length, cls: "info", route: "Calendar.html" },
+    { label: t("dash.kpi.products"), value: products.length, cls: "", route: "Products.html" },
+    { label: t("dash.kpi.agents"), value: agents.length, cls: "", route: "accounts.html" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
     .map((c) => {
       const cardContent = `
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>`;
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>`;
 
       if (c.route) {
         return `
-          <a href="${c.route}" class="stat-card stat-card-link ${c.cls}" aria-label="Open ${c.label}">
+          <a href="${c.route}" class="stat-card stat-card-link ${c.cls}" aria-label="${escapeHtml(t("dash.kpi.openLabel", { name: c.label }))}">
             ${cardContent}
           </a>`;
       }
@@ -253,7 +253,7 @@ function renderPipeline() {
   const el = document.getElementById("pipelineBars");
 
   if (!deals.length) {
-    el.innerHTML = `<div class="pipeline-empty"><i class="fa-solid fa-handshake"></i>No deals yet. Add one from the Deals page.</div>`;
+    el.innerHTML = `<div class="pipeline-empty"><i class="fa-solid fa-handshake"></i>${escapeHtml(t("dash.empty.deals"))}</div>`;
     return;
   }
 
@@ -274,11 +274,11 @@ function renderPipeline() {
       const p = Math.max(4, Math.round((total / maxValue) * 100));
       return `
         <div class="pipeline-row">
-          <div class="stage-label">${stage}</div>
+          <div class="stage-label">${escapeHtml(crmLabel("stage", stage))}</div>
           <div class="stage-track">
             <div class="stage-fill" style="width:${p}%;background:${STAGE_DOT[stage]}"></div>
           </div>
-          <div class="stage-meta"><strong>${stageDeals.length}</strong> deal${stageDeals.length === 1 ? "" : "s"} · ${formatCurrency(total)}</div>
+          <div class="stage-meta">${escapeHtml(t(stageDeals.length === 1 ? "dash.dealOne" : "dash.dealMany", { n: stageDeals.length }))} · ${formatCurrency(total)}</div>
         </div>`;
     })
     .join("");
@@ -294,7 +294,7 @@ function renderRecentLeads() {
   const recent = leads.slice(0, 5);
 
   if (!recent.length) {
-    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>No leads yet. Add one from the Leads page.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>${escapeHtml(t("dash.empty.leads"))}</p></div>`;
     return;
   }
 
@@ -306,7 +306,7 @@ function renderRecentLeads() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Company</th><th>Product</th><th>Status</th><th>Value</th></tr></thead>
+      <thead><tr><th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("col.status"))}</th><th>${escapeHtml(t("col.value"))}</th></tr></thead>
       <tbody>
         ${recent
           .map(
@@ -334,7 +334,7 @@ function renderCampaigns() {
   const el = document.getElementById("campaignsList");
 
   if (!campaigns.length) {
-    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-bullhorn"></i>No active campaigns. Create one from the Marketing page.</div>`;
+    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-bullhorn"></i>${escapeHtml(t("dash.empty.campaigns"))}</div>`;
     return;
   }
 
@@ -345,9 +345,9 @@ function renderCampaigns() {
         <span class="mini-icon brand"><i class="fa-solid fa-bullhorn"></i></span>
         <div class="info">
           <div class="name">${escapeHtml(c.name)}</div>
-          <div class="sub">${escapeHtml(c.type || "Campaign")} · ${c.budget ? formatCurrency(c.budget) : "No budget set"}</div>
+          <div class="sub">${escapeHtml(c.type || t("dash.campaign"))} · ${c.budget ? formatCurrency(c.budget) : escapeHtml(t("dash.noBudget"))}</div>
         </div>
-        <div class="mini-right"><span class="badge ${CAMPAIGN_STATUS_TAG[c.status] || "badge-neutral"}">${c.status}</span></div>
+        <div class="mini-right"><span class="badge ${CAMPAIGN_STATUS_TAG[c.status] || "badge-neutral"}">${escapeHtml(crmLabel("campaign", c.status))}</span></div>
       </div>`,
     )
     .join("");
@@ -371,7 +371,7 @@ function renderTodayTasks() {
   const el = document.getElementById("todayTasksList");
 
   if (!tasks.length) {
-    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-circle-check"></i>Nothing due today. You're all caught up.</div>`;
+    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-circle-check"></i>${escapeHtml(t("dash.empty.tasks"))}</div>`;
     return;
   }
 
@@ -383,9 +383,9 @@ function renderTodayTasks() {
         <span class="mini-icon ${overdue ? "warning" : "info"}"><i class="fa-solid fa-list-check"></i></span>
         <div class="info">
           <div class="name">${escapeHtml(t.title)}</div>
-          <div class="sub">${escapeHtml(t.assignee || "Unassigned")} · ${t.priority} priority</div>
+          <div class="sub">${escapeHtml(t.assignee || crmI18n.t("dash.unassigned"))} · ${escapeHtml(crmI18n.t("dash.priority", { p: crmLabel("priority", t.priority) }))}</div>
         </div>
-        <div class="mini-right"><span class="mini-tag" style="color:${overdue ? "var(--danger)" : "var(--text-faint)"}">${overdue ? "Overdue" : "Today"}</span></div>
+        <div class="mini-right"><span class="mini-tag" style="color:${overdue ? "var(--danger)" : "var(--text-faint)"}">${escapeHtml(crmI18n.t(overdue ? "dash.overdue" : "dash.today"))}</span></div>
       </div>`;
     })
     .join("");
@@ -405,14 +405,14 @@ function renderUpcomingEvents() {
   const el = document.getElementById("upcomingEventsList");
 
   if (!events.length) {
-    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-calendar-days"></i>Nothing scheduled. Add an event from the Calendar page.</div>`;
+    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-calendar-days"></i>${escapeHtml(t("dash.empty.events"))}</div>`;
     return;
   }
 
   el.innerHTML = events
     .map((e) => {
       const dt = new Date(e.date + "T00:00:00");
-      const label = dt.toLocaleDateString("en-IN", {
+      const label = dt.toLocaleDateString(crmI18n.locale(), {
         day: "2-digit",
         month: "short",
       });
@@ -421,7 +421,7 @@ function renderUpcomingEvents() {
         <span class="mini-icon info"><i class="fa-solid fa-calendar-day"></i></span>
         <div class="info">
           <div class="name">${escapeHtml(e.title)}</div>
-          <div class="sub">${escapeHtml(e.type)}${e.assignee ? " · " + escapeHtml(e.assignee) : ""}</div>
+          <div class="sub">${escapeHtml(crmLabel("event", e.type))}${e.assignee ? " · " + escapeHtml(e.assignee) : ""}</div>
         </div>
         <div class="mini-right"><span class="mini-tag" style="color:var(--text-faint)">${label}</span></div>
       </div>`;
@@ -440,7 +440,7 @@ function renderProductsList() {
   const el = document.getElementById("productsList");
 
   if (!products.length) {
-    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-box-open"></i>No products yet. Add one from the Leads page or Products page.</div>`;
+    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-box-open"></i>${escapeHtml(t("dash.empty.products"))}</div>`;
     return;
   }
 
@@ -449,13 +449,13 @@ function renderProductsList() {
       const count = leads.filter((l) => l.product === p.id).length;
       const qty =
         p.quantity === "" || p.quantity == null ? null : Number(p.quantity);
-      const qtyLabel = qty === null ? "" : ` · Qty: ${qty}`;
+      const qtyLabel = qty === null ? "" : ` · ${t("dash.qty", { n: qty })}`;
       return `
       <div class="mini-row" data-nav="./Products.html">
         <span class="mini-icon brand"><i class="fa-solid fa-box-open"></i></span>
         <div class="info">
           <div class="name">${escapeHtml(p.name)}</div>
-          <div class="sub">${escapeHtml(p.category || "Product")}${p.price ? " · " + formatCurrency(p.price) : ""}${qtyLabel} · ${count} lead${count === 1 ? "" : "s"}</div>
+          <div class="sub">${escapeHtml(p.category || t("dash.product"))}${p.price ? " · " + formatCurrency(p.price) : ""}${escapeHtml(qtyLabel)} · ${escapeHtml(t(count === 1 ? "dash.leadOne" : "dash.leadMany", { n: count }))}</div>
         </div>
       </div>`;
     })
@@ -474,7 +474,7 @@ function renderTeamWorkload() {
   const el = document.getElementById("teamWorkloadList");
 
   if (!agents.length) {
-    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-user-group"></i>No agents yet. Add one from Account Champions.</div>`;
+    el.innerHTML = `<div class="mini-empty"><i class="fa-solid fa-user-group"></i>${escapeHtml(t("dash.empty.agents"))}</div>`;
     return;
   }
 
@@ -498,7 +498,7 @@ function renderTeamWorkload() {
         <span class="team-avatar">${initials(a.name)}</span>
         <div class="info">
           <div class="name">${escapeHtml(a.name)}</div>
-          <div class="sub">${escapeHtml(a.role || "Agent")}</div>
+          <div class="sub">${escapeHtml(crmLabel("role", a.role || "Agent"))}</div>
           <div class="team-bar-track"><div class="team-bar-fill" style="width:${Math.max(6, Math.round((a.load / maxLoad) * 100))}%"></div></div>
         </div>
         <div class="mini-right"><span class="mini-tag" style="color:var(--brand-darker)">${a.load}</span></div>
@@ -538,13 +538,13 @@ async function renderSetupChecklist() {
     getAgents().length > 1 ? true : has("/invites?status=pending&limit=1"),
   ]);
   const steps = [
-    { done: whatsapp, title: "Connect your WhatsApp number", text: "Your customers' chats come into the Inbox; the app keeps working on your phone.", href: "connect-whatsapp.html?add=1", action: "Connect" },
-    { done: Boolean(organization.gstin || organization.address), title: "Add your business and GST details", text: "They appear on every quotation, order and invoice.", href: "Settings.html?tab=company", action: "Add details" },
-    { done: getProducts().length > 0, title: "Add your products", text: "With prices and GST, ready for quotations and your WhatsApp catalog.", href: "Products.html", action: "Add products" },
-    { done: invited, title: "Invite your team", text: "Each person signs in with Google and sees only what you allow.", href: "invite-team.html", action: "Invite" },
-    { done: leadSources, title: "Bring in leads automatically", text: "IndiaMART, Facebook, your website and more go straight into Leads.", href: "Settings.html?tab=leadsources", action: "Connect" },
-    { done: quotation, title: "Send your first quotation", text: "GST worked out for you, sent as a PDF on WhatsApp.", href: "Quotations.html?new=1", action: "Create" },
-  ];
+    { done: whatsapp, key: "whatsapp", href: "connect-whatsapp.html?add=1" },
+    { done: Boolean(organization.gstin || organization.address), key: "business", href: "Settings.html?tab=company" },
+    { done: getProducts().length > 0, key: "products", href: "Products.html" },
+    { done: invited, key: "team", href: "invite-team.html" },
+    { done: leadSources, key: "leads", href: "Settings.html?tab=leadsources" },
+    { done: quotation, key: "quote", href: "Quotations.html?new=1" },
+  ].map((step) => ({ ...step, title: t(`dash.setup.${step.key}.title`), text: t(`dash.setup.${step.key}.text`), action: t(`dash.setup.${step.key}.action`) }));
   const doneCount = steps.filter((step) => step.done).length;
   if (doneCount === steps.length) return;
   // On phones only the next step shows, with "Show all steps" (dashboard.css, R3).
@@ -557,10 +557,10 @@ async function renderSetupChecklist() {
   card.innerHTML = `
     <div class="setup-head">
       <div>
-        <h3>Get your CRM ready</h3>
-        <p>${doneCount} of ${steps.length} done · each step ticks itself when it's done</p>
+        <h3>${escapeHtml(t("dash.setup.title"))}</h3>
+        <p>${escapeHtml(t("dash.setup.progress", { done: doneCount, total: steps.length }))}</p>
       </div>
-      <button class="icon-btn" type="button" id="setupHide" aria-label="Hide this list" title="Hide this list"><i class="fa-solid fa-xmark"></i></button>
+      <button class="icon-btn" type="button" id="setupHide" aria-label="${escapeHtml(t("dash.setup.hide"))}" title="${escapeHtml(t("dash.setup.hide"))}"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="setup-progress" aria-hidden="true"><span style="width: ${Math.round((doneCount / steps.length) * 100)}%"></span></div>
     <ol class="setup-steps">
@@ -573,21 +573,21 @@ async function renderSetupChecklist() {
             <strong>${escapeHtml(step.title)}</strong>
             <span>${escapeHtml(step.text)}</span>
           </div>
-          ${step.done ? '<span class="setup-done">Done</span>' : `<a class="btn btn-outline" href="${escapeHtml(step.href)}">${escapeHtml(step.action)}</a>`}
+          ${step.done ? `<span class="setup-done">${escapeHtml(t("dash.setup.done"))}</span>` : `<a class="btn btn-outline" href="${escapeHtml(step.href)}">${escapeHtml(step.action)}</a>`}
         </li>`,
         )
         .join("")}
     </ol>
-    <button class="setup-toggle" type="button" id="setupToggle" aria-expanded="false">Show all ${steps.length} steps</button>`;
+    <button class="setup-toggle" type="button" id="setupToggle" aria-expanded="false">${escapeHtml(t("dash.setup.showAll", { n: steps.length }))}</button>`;
   card.querySelector("#setupToggle").addEventListener("click", (event) => {
     const all = card.classList.toggle("show-all");
     event.currentTarget.setAttribute("aria-expanded", String(all));
-    event.currentTarget.textContent = all ? "Show only the next step" : `Show all ${steps.length} steps`;
+    event.currentTarget.textContent = all ? t("dash.setup.showNext") : t("dash.setup.showAll", { n: steps.length });
   });
   card.querySelector("#setupHide").addEventListener("click", () => {
     setPreference("setupChecklistHidden", true);
     card.remove();
-    showToast("Hidden. Everything is still in Settings.", "info");
+    showToast(t("dash.setup.hidden"), "info");
   });
   document.querySelector(".page")?.prepend(card);
 }

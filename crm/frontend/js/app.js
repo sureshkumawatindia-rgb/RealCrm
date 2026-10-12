@@ -550,7 +550,7 @@ async function crmReady(names, onReady) {
   document.body.classList.add("crm-loading");
   document.getElementById("crm-load-error")?.remove();
   try {
-    await crmLoad(names);
+    await Promise.all([crmLoad(names), crmI18n.ready]); // the data and the page's texts
     document.body.classList.remove("crm-loading");
     onReady();
   } catch (error) {
@@ -559,8 +559,8 @@ async function crmReady(names, onReady) {
     banner.id = "crm-load-error";
     banner.className = "crm-load-error";
     banner.setAttribute("role", "alert");
-    banner.innerHTML = `<span></span><button type="button" class="btn btn-outline">Retry</button>`;
-    banner.querySelector("span").textContent = `Couldn't load your CRM data: ${error.message || "unknown error"}`;
+    banner.innerHTML = `<span></span><button type="button" class="btn btn-outline">${escapeHtml(t("common.retry"))}</button>`;
+    banner.querySelector("span").textContent = t("common.loadFailed", { reason: error.message || t("common.unknownError") });
     banner.querySelector("button").addEventListener("click", () => crmReady(names, onReady));
     document.body.prepend(banner);
   }
@@ -589,6 +589,13 @@ const dateOnly = (value) => (value ? String(value).slice(0, 10) : "");
 const LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation", "Won", "Lost"];
 const OPEN_LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation"];
 const ROLE_LABELS = { owner: "Owner", admin: "Admin", agent: "Agent", viewer: "Viewer" };
+
+// A value the server keeps in English (a lead stage, a priority, a role …) in the person's
+// language (CP5): t("<group>.<value>") when the texts have it, else the value itself.
+function crmLabel(group, value) {
+  const key = `${group}.${value}`;
+  return crmI18n.has(key) ? t(key) : value;
+}
 
 // Asks why a lead was lost (required by the server). Returns null when cancelled.
 function askLostReason(name) {
@@ -1055,10 +1062,10 @@ const crmBell = (() => {
   const byId = (id) => document.getElementById(id);
   const ago = (iso) => {
     const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-    if (minutes < 1) return "just now";
-    if (minutes < 60) return `${minutes} min ago`;
-    if (minutes < 24 * 60) return `${Math.round(minutes / 60)} h ago`;
-    return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+    if (minutes < 1) return t("bell.justNow");
+    if (minutes < 60) return t("bell.minutesAgo", { n: minutes });
+    if (minutes < 24 * 60) return t("bell.hoursAgo", { n: Math.round(minutes / 60) });
+    return new Date(iso).toLocaleDateString(crmI18n.locale(), { day: "2-digit", month: "short" });
   };
 
   function render() {
@@ -1066,7 +1073,7 @@ const crmBell = (() => {
     if (!count) return;
     count.textContent = unread > 99 ? "99+" : String(unread);
     count.hidden = !unread;
-    byId("crmBellBtn").setAttribute("aria-label", unread ? `Notifications: ${unread} unread` : "Notifications");
+    byId("crmBellBtn").setAttribute("aria-label", unread ? t("bell.unreadLabel", { n: unread }) : t("bell.title"));
     byId("crmBellReadAll").hidden = !unread;
     byId("crmBellList").innerHTML = items.length
       ? items
@@ -1075,7 +1082,7 @@ const crmBell = (() => {
               ${n.body ? `<span class="body">${escapeHtml(n.body)}</span>` : ""}
               <span class="time">${escapeHtml(ago(n.createdAt))}</span></button>`)
           .join("")
-      : '<p class="crm-bell__empty">Nothing new. Automations that notify you show up here.</p>';
+      : `<p class="crm-bell__empty">${escapeHtml(t("bell.empty"))}</p>`;
   }
 
   async function refresh() {
@@ -1124,11 +1131,11 @@ const crmBell = (() => {
     bell.className = "crm-bell";
     bell.id = "crmBell";
     bell.innerHTML = `
-      <button class="icon-btn crm-bell__btn" id="crmBellBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+      <button class="icon-btn crm-bell__btn" id="crmBellBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="${escapeHtml(t("bell.title"))}">
         <i class="fa-regular fa-bell"></i><span class="crm-bell__count" id="crmBellCount" hidden></span>
       </button>
       <div class="crm-bell__panel" id="crmBellPanel" hidden>
-        <div class="crm-bell__head"><strong>Notifications</strong><button type="button" class="crm-bell__readall" id="crmBellReadAll" hidden>Mark all read</button></div>
+        <div class="crm-bell__head"><strong>${escapeHtml(t("bell.title"))}</strong><button type="button" class="crm-bell__readall" id="crmBellReadAll" hidden>${escapeHtml(t("bell.readAll"))}</button></div>
         <div class="crm-bell__list" id="crmBellList"></div>
       </div>`;
     // Next to the page's own buttons on the right, if it has any (never inside the page title).
@@ -1154,7 +1161,7 @@ const crmBell = (() => {
         unread = 0;
         render();
       } catch (error) {
-        showToast(apiErrorMessage(error, "Couldn't mark them read."), "error");
+        showToast(apiErrorMessage(error, t("bell.readFailed")), "error");
       }
     });
     document.addEventListener("click", (event) => {
@@ -1484,6 +1491,8 @@ const crmSearch = (() => {
     tickets: "fa-solid fa-headset",
   };
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  // The server names each group in English; the page has them in the person's language.
+  const groupLabel = (group) => (crmI18n.has(`search.group.${group.type}`) ? t(`search.group.${group.type}`) : group.label);
   let overlay;
   let input;
   let results;
@@ -1526,7 +1535,7 @@ const crmSearch = (() => {
 
   function render(data, q) {
     if (!data.groups.length) {
-      message("fa-regular fa-face-meh", `Nothing found for “${escapeHtml(q)}”. Try a name, phone number, or a quotation or order number.`);
+      message("fa-regular fa-face-meh", escapeHtml(t("search.none", { q })));
       return;
     }
     let n = 0;
@@ -1534,10 +1543,10 @@ const crmSearch = (() => {
       data.groups
         .map(
           (group) => `
-        <section class="search-group" aria-label="${escapeHtml(group.label)}">
+        <section class="search-group" aria-label="${escapeHtml(groupLabel(group))}">
           <div class="search-group-head">
-            <span>${escapeHtml(group.label)}</span>
-            ${group.total > group.items.length ? `<a href="${escapeHtml(group.allUrl)}">Show all ${group.total}</a>` : ""}
+            <span>${escapeHtml(groupLabel(group))}</span>
+            ${group.total > group.items.length ? `<a href="${escapeHtml(group.allUrl)}">${escapeHtml(t("search.showAll", { n: group.total }))}</a>` : ""}
           </div>
           ${group.items
             .map(
@@ -1562,16 +1571,16 @@ const crmSearch = (() => {
     const q = input.value.trim();
     const ticket = ++asked;
     if (q.length < 2) {
-      message("fa-solid fa-magnifying-glass", "Type a name, phone number, company, quotation or order number…");
+      message("fa-solid fa-magnifying-glass", escapeHtml(t("search.hint")));
       return;
     }
     results.setAttribute("aria-busy", "true");
-    if (!results.querySelector(".search-item")) message("fa-solid fa-spinner fa-spin", "Searching…");
+    if (!results.querySelector(".search-item")) message("fa-solid fa-spinner fa-spin", escapeHtml(t("search.searching")));
     try {
       const data = await crmApi(`/search?q=${encodeURIComponent(q)}&limit=5`);
       if (ticket === asked) render(data, q);
     } catch (error) {
-      if (ticket === asked) message("fa-solid fa-triangle-exclamation", escapeHtml(apiErrorMessage(error, "Couldn't search right now. Try again.")));
+      if (ticket === asked) message("fa-solid fa-triangle-exclamation", escapeHtml(apiErrorMessage(error, t("search.failed"))));
     } finally {
       if (ticket === asked) results.removeAttribute("aria-busy");
     }
@@ -1583,16 +1592,16 @@ const crmSearch = (() => {
     overlay.id = "crmSearch";
     overlay.hidden = true;
     overlay.innerHTML = `
-      <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search the CRM">
+      <div class="search-panel" role="dialog" aria-modal="true" aria-label="${escapeHtml(t("search.title"))}">
         <div class="search-field">
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-          <input type="search" id="crmSearchInput" placeholder="Search customers, leads, chats, orders…" autocomplete="off" spellcheck="false"
+          <input type="search" id="crmSearchInput" placeholder="${escapeHtml(t("search.placeholder"))}" autocomplete="off" spellcheck="false"
             role="combobox" aria-expanded="true" aria-controls="crmSearchResults" aria-autocomplete="list" />
-          <button type="button" class="search-esc" aria-label="Close search">Esc</button>
+          <button type="button" class="search-esc" aria-label="${escapeHtml(t("search.close"))}">Esc</button>
         </div>
-        <div class="search-results" id="crmSearchResults" role="listbox" aria-label="Results"></div>
+        <div class="search-results" id="crmSearchResults" role="listbox" aria-label="${escapeHtml(t("search.results"))}"></div>
         <div class="search-foot" aria-hidden="true">
-          <span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span>
+          <span><kbd>↑</kbd><kbd>↓</kbd> ${escapeHtml(t("search.keyMove"))}</span><span><kbd>Enter</kbd> ${escapeHtml(t("search.keyOpen"))}</span><span><kbd>Esc</kbd> ${escapeHtml(t("search.keyClose"))}</span>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -1649,8 +1658,8 @@ const crmSearch = (() => {
     button.type = "button";
     button.className = "topbar-search";
     button.id = "crmSearchBtn";
-    button.setAttribute("aria-label", `Search the CRM (${isMac ? "⌘" : "Ctrl"}+K)`);
-    button.innerHTML = `<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>Search…</span><kbd>${isMac ? "⌘" : "Ctrl"} K</kbd>`;
+    button.setAttribute("aria-label", `${t("search.title")} (${isMac ? "⌘" : "Ctrl"}+K)`);
+    button.innerHTML = `<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>${escapeHtml(t("search.button"))}</span><kbd>${isMac ? "⌘" : "Ctrl"} K</kbd>`;
     button.addEventListener("click", open);
     const bell = document.getElementById("crmBell");
     if (bell) bell.before(button);
@@ -2226,6 +2235,48 @@ async function syncMembership() {
 // future global nav items should follow this same pattern instead
 // of editing each page's HTML.
 // ---------------------------------------------------------------
+// The menu on every page in the person's language (CP5): each item by the page it opens.
+const NAV_KEYS = {
+  "dashboard.html": "nav.dashboard",
+  "inbox.html": "nav.inbox",
+  "customer-360.html": "nav.customer360",
+  "customers.html": "nav.customers",
+  "leads.html": "nav.leads",
+  "accounts.html": "nav.accounts",
+  "deals.html": "nav.deals",
+  "quotations.html": "nav.quotations",
+  "orders.html": "nav.orders",
+  "marketing.html": "nav.marketing",
+  "sales automation.html": "nav.automation",
+  "tasks.html": "nav.tasks",
+  "calendar.html": "nav.calendar",
+  "documents.html": "nav.documents",
+  "support.html": "nav.support",
+  "reports & analytics.html": "nav.reports",
+  "team-live.html": "nav.teamLive",
+  "my-performance.html": "nav.myPerformance",
+  "al insights.html": "nav.aiInsights",
+  "products.html": "nav.products",
+  "settings.html": "nav.settings",
+};
+function translateSidebar() {
+  if (crmI18n.language() === "en") return;
+  const setText = (el, key) => {
+    if (!el || !crmI18n.has(key)) return;
+    const node = [...el.childNodes].reverse().find((child) => child.nodeType === Node.TEXT_NODE && child.textContent.trim());
+    if (node) node.textContent = ` ${t(key)} `;
+  };
+  document.querySelectorAll(".sidebar a.nav-item").forEach((link) => {
+    const page = decodeURIComponent((link.getAttribute("href") || "").split("?")[0].split("/").pop()).toLowerCase();
+    setText(link, NAV_KEYS[page]);
+  });
+  document.querySelectorAll(".sidebar .nav-parent[data-group] > span").forEach((span) => {
+    const key = `nav.group.${span.parentElement.dataset.group}`;
+    if (crmI18n.has(key)) span.textContent = t(key);
+  });
+  setText(document.getElementById("logout-btn"), "nav.signOut");
+}
+
 function injectGlobalNavItems() {
   const navGroup = document.querySelector(".sidebar .nav-group");
   if (!navGroup) return; // page has no sidebar (login, company setup, etc.)
@@ -2303,12 +2354,14 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebarUser(); // Quotations, Orders, Team live and My performance never called it
   if (isAuthenticated() && document.querySelector(".sidebar")) syncMembership();
   explainNoAccess();
-  crmBell.mount();
+  // The top bar's buttons and the menu once the texts are in (i18n/*.json).
   crmI18n.ready.then(() => {
+    crmBell.mount();
+    crmSearch.mount();
     crmPrefsMenu.mount();
+    translateSidebar();
     document.querySelectorAll("[data-prefs-choices]").forEach(crmWirePreferenceChoices); // Settings → Your Profile
   });
-  crmSearch.mount();
   fillSearchFromAddress();
   crmPlan.mountBanner();
   mountWhatsAppReminder();

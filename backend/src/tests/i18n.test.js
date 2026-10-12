@@ -22,7 +22,9 @@ describe('Texts in English and Hindi', () => {
   });
 
   it('writes Hindi in Devanagari', () => {
-    const notHindi = Object.entries(hi).filter(([, text]) => !/[ऀ-ॿ]/.test(text)).map(([key]) => key);
+    // Names that stay as they are in both: the brand, and fields named as Meta's own app names them.
+    const SAME_IN_BOTH = new Set(['set.tab.whatsapp', 'wa.callbackUrl', 'wa.verifyToken', 'wa.adv.phoneId', 'wa.adv.secret', 'wa.adv.token']);
+    const notHindi = Object.entries(hi).filter(([key, text]) => !SAME_IN_BOTH.has(key) && !/[ऀ-ॿ]/.test(text)).map(([key]) => key);
     expect(notHindi).toEqual([]);
   });
 
@@ -36,6 +38,7 @@ describe('Texts in English and Hindi', () => {
     const code = fs.readFileSync(path.join(FRONTEND, 'js', file), 'utf8');
     const keys = [
       ...[...code.matchAll(/(?<![\w.$])t\(\s*"([\w.]+)"/g)].map((m) => m[1]),
+      ...[...code.matchAll(/crmI18n\.t\(\s*"([\w.]+)"/g)].map((m) => m[1]),
       ...[...code.matchAll(/(?<![\w.$])lt\(\s*"([\w.]+)"/g)].map((m) => `login.${m[1]}`), // login.js
     ];
     expect(keys.filter((key) => !(key in en))).toEqual([]);

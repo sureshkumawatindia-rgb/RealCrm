@@ -143,12 +143,12 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Inbox</h2>
+            <h2 data-i18n="nav.inbox">Inbox</h2>
           </div>
           <div class="inbox-topbar-tools">
-            <span class="inbox-live" id="inboxLive" title="Live updates"><span class="dot"></span><span id="inboxLiveText">Connecting…</span></span>
+            <span class="inbox-live" id="inboxLive" title="Live updates" data-i18n-title="inbox.live.title"><span class="dot"></span><span id="inboxLiveText" data-i18n="inbox.live.connecting">Connecting…</span></span>
             <button class="btn btn-outline inbox-notify-btn" id="inboxNotifyBtn" type="button" hidden>
-              <i class="fa-regular fa-bell"></i> Turn on notifications
+              <i class="fa-regular fa-bell"></i> <span data-i18n="inbox.notifyOn">Turn on notifications</span>
             </button>
             <button class="icon-btn" id="inboxSoundBtn" type="button" aria-pressed="true" title="Sound for new messages: on"><i class="fa-solid fa-volume-high"></i></button>
           </div>
@@ -156,40 +156,40 @@
 
         <div class="inbox" id="inbox" data-pane="list">
           <!-- Conversation list -->
-          <section class="inbox-list" aria-label="Chats">
+          <section class="inbox-list" aria-label="Chats" data-i18n-aria-label="inbox.chats">
             <div class="inbox-list-head">
               <div class="inbox-search">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="search" id="inboxSearch" placeholder="Search name, company or number" autocomplete="off" />
+                <input type="search" id="inboxSearch" placeholder="Search name, company or number" data-i18n-placeholder="inbox.searchPlaceholder" autocomplete="off" />
               </div>
               <div class="inbox-tabs" role="tablist">
-                <button class="inbox-tab" data-view="mine" role="tab">Mine <span class="count" id="countMine">0</span></button>
-                <button class="inbox-tab" data-view="unassigned" role="tab">Queue <span class="count" id="countUnassigned">0</span></button>
-                <button class="inbox-tab active" data-view="all" role="tab">All <span class="count" id="countAll">0</span></button>
-                <button class="inbox-tab" data-view="archived" role="tab" title="Archived chats"><i class="fa-solid fa-box-archive"></i> Archived</button>
+                <button class="inbox-tab" data-view="mine" role="tab"><span data-i18n="inbox.tab.mine">Mine</span> <span class="count" id="countMine">0</span></button>
+                <button class="inbox-tab" data-view="unassigned" role="tab"><span data-i18n="inbox.tab.queue">Queue</span> <span class="count" id="countUnassigned">0</span></button>
+                <button class="inbox-tab active" data-view="all" role="tab"><span data-i18n="inbox.tab.all">All</span> <span class="count" id="countAll">0</span></button>
+                <button class="inbox-tab" data-view="archived" role="tab" title="Archived chats" data-i18n-title="inbox.tab.archivedTitle"><i class="fa-solid fa-box-archive"></i> <span data-i18n="inbox.tab.archived">Archived</span></button>
               </div>
-              <select id="inboxStatus" aria-label="Status">
-                <option value="">Open &amp; pending</option>
-                <option value="open">Open</option>
-                <option value="pending">Pending</option>
-                <option value="closed">Closed</option>
-                <option value="any">All chats</option>
+              <select id="inboxStatus" aria-label="Status" data-i18n-aria-label="col.status">
+                <option value="" data-i18n="inbox.status.openPending">Open &amp; pending</option>
+                <option value="open" data-i18n="inbox.status.open">Open</option>
+                <option value="pending" data-i18n="inbox.status.pending">Pending</option>
+                <option value="closed" data-i18n="inbox.status.closed">Closed</option>
+                <option value="any" data-i18n="inbox.status.any">All chats</option>
               </select>
             </div>
             <div class="inbox-list-body" id="conversationList"></div>
-            <button class="inbox-more" id="conversationMore" type="button" hidden>Load more chats</button>
+            <button class="inbox-more" id="conversationMore" type="button" hidden data-i18n="inbox.moreChats">Load more chats</button>
           </section>
 
           <!-- Thread -->
-          <section class="inbox-thread" aria-label="Chat">
+          <section class="inbox-thread" aria-label="Chat" data-i18n-aria-label="inbox.chat">
             <div class="inbox-empty" id="threadEmpty">
               <i class="fa-brands fa-whatsapp"></i>
-              <p>Pick a chat on the left.</p>
-              <p class="text-muted" id="threadEmptyHint">New WhatsApp messages appear here as they arrive.</p>
+              <p data-i18n="inbox.pick">Pick a chat on the left.</p>
+              <p class="text-muted" id="threadEmptyHint" data-i18n="inbox.pickHint">New WhatsApp messages appear here as they arrive.</p>
             </div>
             <div class="inbox-thread-inner" id="threadView" hidden>
               <header class="thread-head">
-                <button class="icon-btn thread-back" id="threadBack" type="button" aria-label="Back to chats"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="icon-btn thread-back" id="threadBack" type="button" aria-label="Back to chats" data-i18n-aria-label="inbox.back"><i class="fa-solid fa-arrow-left"></i></button>
                 <div class="thread-avatar" id="threadAvatar"></div>
                 <div class="thread-title">
                   <div class="name" id="threadName"></div>
@@ -198,119 +198,119 @@
                 <span class="window-chip" id="threadWindow"></span>
                 <button class="bot-chip" id="threadBot" type="button" hidden></button>
                 <button class="private-chip" id="threadPrivate" type="button" hidden></button>
-                <button class="icon-btn thread-info" id="threadInfo" type="button" aria-label="Contact details"><i class="fa-solid fa-circle-info"></i></button>
+                <button class="icon-btn thread-info" id="threadInfo" type="button" aria-label="Contact details" data-i18n-aria-label="inbox.details.title"><i class="fa-solid fa-circle-info"></i></button>
               </header>
               <div class="thread-messages" id="threadMessages">
-                <button class="inbox-more" id="olderMessages" type="button" hidden>Load earlier messages</button>
+                <button class="inbox-more" id="olderMessages" type="button" hidden data-i18n="inbox.olderMessages">Load earlier messages</button>
                 <div id="messageList"></div>
               </div>
               <footer class="composer">
                 <div class="composer-reply" id="replyBar" hidden>
-                  <div><strong>Replying to</strong> <span id="replyText"></span></div>
-                  <button class="icon-btn" id="replyCancel" type="button" aria-label="Cancel reply"><i class="fa-solid fa-xmark"></i></button>
+                  <div><strong data-i18n="inbox.replyingTo">Replying to</strong> <span id="replyText"></span></div>
+                  <button class="icon-btn" id="replyCancel" type="button" aria-label="Cancel reply" data-i18n-aria-label="inbox.cancelReply"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="composer-closed" id="composerClosed" hidden>
                   <i class="fa-solid fa-lock"></i>
-                  <span>The customer has not written in the last 24 hours, so WhatsApp only allows an approved template now. You can still add internal notes.</span>
-                  <button class="btn btn-outline" id="closedTemplateBtn" type="button"><i class="fa-solid fa-file-lines"></i> Send a template</button>
+                  <span data-i18n="inbox.closedText">The customer has not written in the last 24 hours, so WhatsApp only allows an approved template now. You can still add internal notes.</span>
+                  <button class="btn btn-outline" id="closedTemplateBtn" type="button"><i class="fa-solid fa-file-lines"></i> <span data-i18n="inbox.tpl.title">Send a template</span></button>
                 </div>
                 <div class="composer-file" id="fileBar" hidden>
                   <i class="fa-solid fa-paperclip"></i>
                   <span class="name" id="fileName"></span>
                   <span class="text-muted" id="fileSize"></span>
-                  <button class="icon-btn" id="fileCancel" type="button" aria-label="Remove the file"><i class="fa-solid fa-xmark"></i></button>
+                  <button class="icon-btn" id="fileCancel" type="button" aria-label="Remove the file" data-i18n-aria-label="inbox.removeFile"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="ai-suggest" id="aiSuggest" hidden></div>
                 <div class="quick-menu" id="quickMenu" hidden></div>
-                <div class="emoji-picker" id="emojiPicker" role="dialog" aria-label="Emoji" hidden></div>
+                <div class="emoji-picker" id="emojiPicker" role="dialog" aria-label="Emoji" data-i18n-aria-label="inbox.emoji" hidden></div>
                 <!-- Recording a voice note (CP3): it replaces the message row until sent or deleted -->
                 <div class="composer-recording" id="recordingBar" hidden>
-                  <button class="icon-btn" id="recordCancel" type="button" aria-label="Delete the recording" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                  <button class="icon-btn" id="recordCancel" type="button" aria-label="Delete the recording" data-i18n-aria-label="inbox.voice.delete" title="Delete" data-i18n-title="common.delete"><i class="fa-solid fa-trash"></i></button>
                   <span class="rec-dot" aria-hidden="true"></span>
                   <span class="rec-time" id="recordTime" aria-live="off">0:00</span>
-                  <span class="rec-label">Recording a voice note…</span>
-                  <button class="btn btn-primary composer-send" id="recordSend" type="button" aria-label="Send the voice note" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
+                  <span class="rec-label" data-i18n="inbox.voice.recording">Recording a voice note…</span>
+                  <button class="btn btn-primary composer-send" id="recordSend" type="button" aria-label="Send the voice note" data-i18n-aria-label="inbox.voice.send" title="Send" data-i18n-title="inbox.send"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
                 <form class="composer-row" id="composerForm">
-                  <button class="icon-btn" id="quickRepliesBtn" type="button" title="Quick replies (type / )"><i class="fa-solid fa-bolt"></i></button>
+                  <button class="icon-btn" id="quickRepliesBtn" type="button" title="Quick replies (type / )" data-i18n-title="inbox.quick.button"><i class="fa-solid fa-bolt"></i></button>
                   <!-- On the smallest phones these three open from "+" (R3), so the message box keeps its room -->
-                  <button class="icon-btn composer-more" id="composerMore" type="button" title="Attach, template or products" aria-label="Attach, template or products" aria-expanded="false" aria-controls="composerExtras"><i class="fa-solid fa-plus"></i></button>
+                  <button class="icon-btn composer-more" id="composerMore" type="button" title="Attach, template or products" aria-label="Attach, template or products" data-i18n-title="inbox.more" data-i18n-aria-label="inbox.more" aria-expanded="false" aria-controls="composerExtras"><i class="fa-solid fa-plus"></i></button>
                   <span class="composer-extras" id="composerExtras">
-                    <button class="icon-btn" id="emojiBtn" type="button" title="Emoji" aria-label="Emoji" aria-expanded="false" aria-controls="emojiPicker"><i class="fa-regular fa-face-smile"></i></button>
-                    <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document" aria-label="Attach a file"><i class="fa-solid fa-paperclip"></i></button>
-                    <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)" aria-label="Send a template"><i class="fa-solid fa-file-lines"></i></button>
-                    <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog" aria-label="Send products"><i class="fa-solid fa-store"></i></button>
+                    <button class="icon-btn" id="emojiBtn" type="button" title="Emoji" aria-label="Emoji" data-i18n-title="inbox.emoji" data-i18n-aria-label="inbox.emoji" aria-expanded="false" aria-controls="emojiPicker"><i class="fa-regular fa-face-smile"></i></button>
+                    <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document" aria-label="Attach a file" data-i18n-title="inbox.attachTitle" data-i18n-aria-label="inbox.attach"><i class="fa-solid fa-paperclip"></i></button>
+                    <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)" aria-label="Send a template" data-i18n-title="inbox.tpl.buttonTitle" data-i18n-aria-label="inbox.tpl.title"><i class="fa-solid fa-file-lines"></i></button>
+                    <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog" aria-label="Send products" data-i18n-title="inbox.prod.buttonTitle" data-i18n-aria-label="inbox.prod.title"><i class="fa-solid fa-store"></i></button>
                   </span>
-                  <button class="icon-btn" id="aiSuggestBtn" type="button" title="Suggest a reply (AI assistant)" style="display: none"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                  <button class="icon-btn" id="aiSuggestBtn" type="button" title="Suggest a reply (AI assistant)" data-i18n-title="inbox.ai.button" style="display: none"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                   <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.mp4,.3gp,.aac,.amr,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
                   <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies"></textarea>
                   <!-- With nothing typed, the microphone takes the send button's place (as in WhatsApp) -->
-                  <button class="btn btn-primary composer-send" id="micBtn" type="button" title="Record a voice note" aria-label="Record a voice note" hidden><i class="fa-solid fa-microphone"></i></button>
-                  <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
+                  <button class="btn btn-primary composer-send" id="micBtn" type="button" title="Record a voice note" aria-label="Record a voice note" data-i18n-title="inbox.voice.record" data-i18n-aria-label="inbox.voice.record" hidden><i class="fa-solid fa-microphone"></i></button>
+                  <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)" aria-label="Send" data-i18n-title="inbox.sendEnter" data-i18n-aria-label="inbox.send"><i class="fa-solid fa-paper-plane"></i></button>
                 </form>
               </footer>
             </div>
           </section>
 
           <!-- Contact details -->
-          <aside class="inbox-details" id="detailsPanel" aria-label="Contact details">
+          <aside class="inbox-details" id="detailsPanel" aria-label="Contact details" data-i18n-aria-label="inbox.details.title">
             <div class="details-inner" id="detailsView" hidden>
               <div class="details-head">
-                <h3>Details</h3>
-                <button class="icon-btn details-close" id="detailsClose" type="button" aria-label="Close details"><i class="fa-solid fa-xmark"></i></button>
+                <h3 data-i18n="inbox.details.heading">Details</h3>
+                <button class="icon-btn details-close" id="detailsClose" type="button" aria-label="Close details" data-i18n-aria-label="inbox.details.close"><i class="fa-solid fa-xmark"></i></button>
               </div>
               <div class="details-contact">
                 <div class="thread-avatar big" id="detailsAvatar"></div>
                 <div class="name" id="detailsName"></div>
                 <div class="sub" id="detailsPhone"></div>
                 <div class="sub" id="detailsCompany"></div>
-                <a class="btn btn-outline" id="details360" href="#"><i class="fa-solid fa-address-card"></i> Customer 360°</a>
+                <a class="btn btn-outline" id="details360" href="#"><i class="fa-solid fa-address-card"></i> <span data-i18n="nav.customer360">Customer 360°</span></a>
               </div>
               <div class="details-section">
-                <label for="detailsAssignee">Assigned to</label>
+                <label for="detailsAssignee" data-i18n="inbox.details.assigned">Assigned to</label>
                 <select id="detailsAssignee"></select>
               </div>
               <div class="details-section">
-                <label>Status</label>
+                <label data-i18n="col.status">Status</label>
                 <div class="status-buttons" id="detailsStatus">
-                  <button type="button" data-status="open">Open</button>
-                  <button type="button" data-status="pending">Pending</button>
-                  <button type="button" data-status="closed">Closed</button>
+                  <button type="button" data-status="open" data-i18n="inbox.status.open">Open</button>
+                  <button type="button" data-status="pending" data-i18n="inbox.status.pending">Pending</button>
+                  <button type="button" data-status="closed" data-i18n="inbox.status.closed">Closed</button>
                 </div>
               </div>
               <div class="details-section">
-                <label>This chat</label>
+                <label data-i18n="inbox.details.thisChat">This chat</label>
                 <div class="details-actions">
-                  <button class="btn btn-outline" id="detailsPin" type="button"><i class="fa-solid fa-thumbtack"></i> <span>Pin for me</span></button>
-                  <button class="btn btn-outline" id="detailsArchive" type="button"><i class="fa-solid fa-box-archive"></i> <span>Archive</span></button>
+                  <button class="btn btn-outline" id="detailsPin" type="button"><i class="fa-solid fa-thumbtack"></i> <span data-i18n="inbox.details.pin">Pin for me</span></button>
+                  <button class="btn btn-outline" id="detailsArchive" type="button"><i class="fa-solid fa-box-archive"></i> <span data-i18n="inbox.details.archive">Archive</span></button>
                 </div>
-                <p class="details-hint">A pinned chat stays at the top of your list only. An archived chat leaves everyone's list until the customer writes again.</p>
+                <p class="details-hint" data-i18n="inbox.details.hint">A pinned chat stays at the top of your list only. An archived chat leaves everyone's list until the customer writes again.</p>
               </div>
               <div class="details-section">
-                <label for="detailsTags">Labels</label>
-                <input type="text" id="detailsTags" placeholder="e.g. bulk, vip (comma separated)" />
+                <label for="detailsTags" data-i18n="inbox.details.labels">Labels</label>
+                <input type="text" id="detailsTags" placeholder="e.g. bulk, vip (comma separated)" data-i18n-placeholder="inbox.details.labelsPlaceholder" />
               </div>
               <div class="details-section" id="detailsSales" hidden>
-                <label>Sales <span class="text-muted">(leads, quotations and orders)</span></label>
+                <label><span data-i18n="inbox.details.sales">Sales</span> <span class="text-muted" data-i18n="inbox.details.salesHint">(leads, quotations and orders)</span></label>
                 <div id="detailsLeads"></div>
                 <div id="detailsQuotes"></div>
                 <div id="detailsOrders"></div>
               </div>
               <div class="details-section" id="detailsTasksSection" hidden>
-                <label>Follow-ups <span class="text-muted">(open tasks)</span></label>
+                <label><span data-i18n="inbox.details.followUps">Follow-ups</span> <span class="text-muted" data-i18n="inbox.details.followUpsHint">(open tasks)</span></label>
                 <div id="detailsTasks"></div>
                 <form class="followup-form" id="followUpForm" hidden>
-                  <input type="text" id="followUpTitle" maxlength="300" placeholder="Follow up about…" aria-label="Follow-up" required />
-                  <input type="date" id="followUpDate" aria-label="Due date" />
-                  <button class="btn btn-outline" type="submit">Add</button>
+                  <input type="text" id="followUpTitle" maxlength="300" placeholder="Follow up about…" aria-label="Follow-up" data-i18n-placeholder="inbox.details.followUpPlaceholder" data-i18n-aria-label="inbox.details.followUp" required />
+                  <input type="date" id="followUpDate" aria-label="Due date" data-i18n-aria-label="inbox.details.dueDate" />
+                  <button class="btn btn-outline" type="submit" data-i18n="common.add">Add</button>
                 </form>
               </div>
               <div class="details-section">
-                <label>Internal notes <span class="text-muted">(only your team sees these)</span></label>
+                <label><span data-i18n="inbox.details.notes">Internal notes</span> <span class="text-muted" data-i18n="inbox.details.notesHint">(only your team sees these)</span></label>
                 <div class="notes-list" id="notesList"></div>
                 <form class="note-form" id="noteForm">
-                  <input type="text" id="noteText" maxlength="5000" placeholder="Add a note for the team" />
-                  <button class="btn btn-outline" type="submit">Add</button>
+                  <input type="text" id="noteText" maxlength="5000" placeholder="Add a note for the team" data-i18n-placeholder="inbox.details.notePlaceholder" />
+                  <button class="btn btn-outline" type="submit" data-i18n="common.add">Add</button>
                 </form>
               </div>
             </div>
@@ -323,31 +323,31 @@
     <div class="modal-overlay" id="quickModal">
       <div class="modal">
         <div class="modal-head">
-          <h3>Quick replies</h3>
-          <button class="icon-btn" id="quickModalClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 data-i18n="inbox.quick.title">Quick replies</h3>
+          <button class="icon-btn" id="quickModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-          <p class="text-muted" style="font-size: 12.5px; margin-top: 0">Type <strong>/shortcut</strong> in a chat to insert one. Everyone in your team shares them.</p>
+          <p class="text-muted" style="font-size: 12.5px; margin-top: 0" data-i18n-html="inbox.quick.help">Type <strong>/shortcut</strong> in a chat to insert one. Everyone in your team shares them.</p>
           <div id="quickManageList"></div>
           <form id="quickForm" class="quick-form">
             <input type="hidden" id="quickEditId" />
             <div class="field-row">
               <div class="field">
-                <label for="quickShortcut">Shortcut</label>
+                <label for="quickShortcut" data-i18n="inbox.quick.shortcut">Shortcut</label>
                 <input type="text" id="quickShortcut" maxlength="30" placeholder="price" required />
               </div>
               <div class="field">
-                <label for="quickTitle">Title</label>
-                <input type="text" id="quickTitle" maxlength="100" placeholder="Price list" />
+                <label for="quickTitle" data-i18n="inbox.quick.titleLabel">Title</label>
+                <input type="text" id="quickTitle" maxlength="100" placeholder="Price list" data-i18n-placeholder="inbox.quick.titlePlaceholder" />
               </div>
             </div>
             <div class="field">
-              <label for="quickBody">Message</label>
+              <label for="quickBody" data-i18n="inbox.quick.message">Message</label>
               <textarea id="quickBody" rows="3" maxlength="4096" required></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 8px">
-              <button class="btn btn-outline" id="quickReset" type="button">Clear</button>
-              <button class="btn btn-primary" type="submit" id="quickSave">Save</button>
+              <button class="btn btn-outline" id="quickReset" type="button" data-i18n="common.clear">Clear</button>
+              <button class="btn btn-primary" type="submit" id="quickSave" data-i18n="common.save">Save</button>
             </div>
           </form>
         </div>
@@ -358,13 +358,13 @@
     <div class="modal-overlay" id="templateModal">
       <div class="modal template-modal">
         <div class="modal-head">
-          <h3>Send a template</h3>
-          <button class="icon-btn" id="templateModalClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 data-i18n="inbox.tpl.title">Send a template</h3>
+          <button class="icon-btn" id="templateModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
           <div id="templateChooser">
-            <p class="text-muted template-hint">Approved templates of this chat's WhatsApp number. They can be sent any time, also after 24 hours.</p>
-            <input type="search" class="template-search" id="templateSearch" placeholder="Search templates" aria-label="Search templates" />
+            <p class="text-muted template-hint" data-i18n="inbox.tpl.hint">Approved templates of this chat's WhatsApp number. They can be sent any time, also after 24 hours.</p>
+            <input type="search" class="template-search" id="templateSearch" placeholder="Search templates" aria-label="Search templates" data-i18n-placeholder="inbox.tpl.search" data-i18n-aria-label="inbox.tpl.search" />
             <div class="template-list" id="templateList"></div>
           </div>
           <form id="templateForm" hidden>
@@ -373,15 +373,15 @@
                 <strong id="templatePickedName"></strong>
                 <span class="text-muted" id="templatePickedMeta"></span>
               </div>
-              <button class="btn btn-outline" id="templateChange" type="button">Change</button>
+              <button class="btn btn-outline" id="templateChange" type="button" data-i18n="inbox.tpl.change">Change</button>
             </div>
             <div id="templateFields"></div>
             <div class="field">
-              <label>Preview</label>
+              <label data-i18n="inbox.tpl.preview">Preview</label>
               <div class="template-preview" id="templatePreview"></div>
             </div>
             <div class="template-actions">
-              <button class="btn btn-primary" id="templateSend" type="submit"><i class="fa-solid fa-paper-plane"></i> Send template</button>
+              <button class="btn btn-primary" id="templateSend" type="submit"><i class="fa-solid fa-paper-plane"></i> <span data-i18n="inbox.tpl.send">Send template</span></button>
             </div>
           </form>
         </div>
@@ -392,20 +392,20 @@
     <div class="modal-overlay" id="productsModal">
       <div class="modal template-modal">
         <div class="modal-head">
-          <h3>Send products</h3>
-          <button class="icon-btn" id="productsModalClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 data-i18n="inbox.prod.title">Send products</h3>
+          <button class="icon-btn" id="productsModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-          <p class="text-muted template-hint">Products of your WhatsApp catalog. The customer sees the photo and price with GST, and can send a cart back — it becomes an order. One product goes on its own; several go as a list (at most 30).</p>
-          <input type="search" class="template-search" id="productsSearch" placeholder="Search products" aria-label="Search products" />
+          <p class="text-muted template-hint" data-i18n="inbox.prod.hint">Products of your WhatsApp catalog. The customer sees the photo and price with GST, and can send a cart back — it becomes an order. One product goes on its own; several go as a list (at most 30).</p>
+          <input type="search" class="template-search" id="productsSearch" placeholder="Search products" aria-label="Search products" data-i18n-placeholder="inbox.prod.search" data-i18n-aria-label="inbox.prod.search" />
           <div class="template-list" id="productsList"></div>
           <div class="field" id="productsHeaderField" hidden>
-            <label for="productsHeader">Heading of the list</label>
+            <label for="productsHeader" data-i18n="inbox.prod.heading">Heading of the list</label>
             <input type="text" id="productsHeader" maxlength="60" />
           </div>
           <div class="field">
-            <label for="productsText">Message (optional)</label>
-            <input type="text" id="productsText" maxlength="1024" placeholder="e.g. Fresh stock, dispatch in 2 days" />
+            <label for="productsText" data-i18n="inbox.prod.message">Message (optional)</label>
+            <input type="text" id="productsText" maxlength="1024" placeholder="e.g. Fresh stock, dispatch in 2 days" data-i18n-placeholder="inbox.prod.messagePlaceholder" />
           </div>
           <div class="template-actions">
             <button class="btn btn-primary" id="productsSend" type="button" disabled><i class="fa-solid fa-paper-plane"></i> Send</button>

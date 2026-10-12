@@ -9,7 +9,8 @@ const path = require('path');
 const FRONTEND = path.resolve(__dirname, '..', '..', '..', 'crm', 'frontend');
 const SIGN_IN_KEYS = new Set(['crm_session', 'crm_user', 'crm_member', 'crm_company', 'crm_prefs', 'crm_pending_invite', 'crm_session_expired', 'crm_pending_link']);
 const MIGRATION_SCREEN = 'js/settings.js';
-const MAY_WRITE_STORAGE = new Set(['js/app.js', 'js/login.js', MIGRATION_SCREEN]);
+// The home page keeps only its language in crm_prefs (CP5), as the login page does.
+const MAY_WRITE_STORAGE = new Set(['js/app.js', 'js/login.js', 'js/landing.js', MIGRATION_SCREEN]);
 
 const files = [
   ...fs.readdirSync(FRONTEND).filter((file) => file.endsWith('.html')),

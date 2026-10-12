@@ -8,18 +8,19 @@
  * and simulates a customer's message, photo, document or voice note.
  * Runs after settings.js; everything stays inside this function so no names clash.
  */
-(function settingsWhatsApp() {
+// Starts once the page's texts are in (i18n/*.json, CP5).
+crmI18n.ready.then(function settingsWhatsApp() {
   if (!isOrgManager()) return leaveManagerTab("whatsapp");
   document.getElementById("whatsappTab").style.display = "";
 
   const STATUS_BADGE = {
-    connected: '<span class="badge badge-success">Connected</span>',
-    pending: '<span class="badge badge-warning">Not checked</span>',
-    error: '<span class="badge badge-danger">Problem</span>',
-    disconnected: '<span class="badge badge-danger">Disconnected</span>',
+    connected: `<span class="badge badge-success">${escapeHtml(t("wa.status.connected"))}</span>`,
+    pending: `<span class="badge badge-warning">${escapeHtml(t("wa.status.pending"))}</span>`,
+    error: `<span class="badge badge-danger">${escapeHtml(t("wa.status.error"))}</span>`,
+    disconnected: `<span class="badge badge-danger">${escapeHtml(t("wa.status.disconnected"))}</span>`,
   };
-  const QUALITY = { GREEN: "High", YELLOW: "Medium", RED: "Low" };
-  const LIMIT = (tier) => (tier ? tier.replace(/^TIER_/, "").replace("UNLIMITED", "Unlimited").replace(/K$/, ",000").replace(/^(\d+)$/, "$1") : "");
+  const QUALITY = { GREEN: t("wa.quality.high"), YELLOW: t("wa.quality.medium"), RED: t("wa.quality.low") };
+  const LIMIT = (tier) => (tier ? tier.replace(/^TIER_/, "").replace("UNLIMITED", t("wa.unlimited")).replace(/K$/, ",000").replace(/^(\d+)$/, "$1") : "");
   const listEl = document.getElementById("waAccountList");
   let accounts = [];
   let connect = { available: false, devTools: false };
@@ -30,25 +31,25 @@
   function syncHtml(a) {
     const s = a.sync;
     if (a.connectionType !== "coexistence" || !s) return "";
-    const counts = `${s.chats.toLocaleString("en-IN")} chats, ${s.messages.toLocaleString("en-IN")} messages, ${s.contacts.toLocaleString("en-IN")} contacts`;
+    const counts = t("wa.sync.counts", { chats: s.chats.toLocaleString(crmI18n.locale()), messages: s.messages.toLocaleString(crmI18n.locale()), contacts: s.contacts.toLocaleString(crmI18n.locale()) });
     const text = {
-      pending: "Asking WhatsApp for the chats…",
-      importing: `Importing chats: ${counts} so far`,
-      done: `Chats imported: ${counts}${s.finishedAt ? ` · ${when(s.finishedAt)}` : ""}`,
-      declined: "Old chats were not shared (history sharing is off in the WhatsApp Business app). New chats come in.",
-      failed: `Importing chats stopped${s.error ? `: ${s.error}` : ""}`,
+      pending: t("wa.sync.pending"),
+      importing: t("wa.sync.importing", { counts }),
+      done: `${t("wa.sync.done", { counts })}${s.finishedAt ? ` · ${when(s.finishedAt)}` : ""}`,
+      declined: t("wa.sync.declined"),
+      failed: s.error ? t("wa.sync.failedWhy", { error: s.error }) : t("wa.sync.failed"),
     }[s.status] || "";
-    const retry = ["failed", "declined"].includes(s.status) ? ` <button class="btn btn-outline" type="button" data-wa-sync="${escapeHtml(a.id)}"><i class="fa-solid fa-rotate"></i> Import chats again</button>` : "";
+    const retry = ["failed", "declined"].includes(s.status) ? ` <button class="btn btn-outline" type="button" data-wa-sync="${escapeHtml(a.id)}"><i class="fa-solid fa-rotate"></i> ${escapeHtml(t("cw.importAgain"))}</button>` : "";
     return `<div class="sub" style="margin-top:6px">${escapeHtml(text)}${retry}</div>`;
   }
 
   function connectedHtml(a) {
-    const kind = a.connectionType === "coexistence" ? "WhatsApp Business app number (keeps working on the phone)" : "Cloud API number";
+    const kind = t(a.connectionType === "coexistence" ? "wa.kind.app" : "wa.kind.cloud");
     const details = [
       kind,
-      a.qualityRating ? `quality ${QUALITY[a.qualityRating] || a.qualityRating}` : "",
-      a.messagingLimit ? `reaches up to ${LIMIT(a.messagingLimit)} people a day with templates` : "",
-      a.lastWebhookAt ? `last message ${when(a.lastWebhookAt)}` : "no message received yet",
+      a.qualityRating ? t("wa.quality", { q: QUALITY[a.qualityRating] || a.qualityRating }) : "",
+      a.messagingLimit ? t("wa.limit", { n: LIMIT(a.messagingLimit) }) : "",
+      a.lastWebhookAt ? t("wa.lastMessage", { when: when(a.lastWebhookAt) }) : t("wa.noMessage"),
     ].filter(Boolean).join(" · ");
     return `<div class="sub" style="margin-top:6px">${escapeHtml(details)}</div>${syncHtml(a)}`;
   }
@@ -60,44 +61,42 @@
     const link = document.getElementById("waConnectLink");
     link.hidden = !connect.available;
     if (!connect.available) {
-      document.getElementById("waConnectTitle").textContent = "Connect WhatsApp";
-      document.getElementById("waConnectText").textContent = "Connecting your WhatsApp Business number is being set up by the YELLOW CRM team. It will appear here as soon as it is ready.";
+      document.getElementById("waConnectTitle").textContent = t("inbox.connect.button");
+      document.getElementById("waConnectText").textContent = t("wa.connect.notReady");
       return;
     }
-    document.getElementById("waConnectTitle").textContent = live ? "Connect another number" : "Connect your WhatsApp Business number";
-    document.getElementById("waConnectText").textContent = live
-      ? "Add another WhatsApp number of your company, or reconnect one."
-      : "Opens Meta's secure window. Your WhatsApp Business app keeps working, and your chats come into the Inbox.";
-    link.innerHTML = `<i class="fa-brands fa-whatsapp"></i> ${live ? "Connect another number" : "Connect WhatsApp"}`;
+    document.getElementById("waConnectTitle").textContent = t(live ? "wa.connect.another" : "wa.connect.title");
+    document.getElementById("waConnectText").textContent = t(live ? "wa.connect.anotherText" : "wa.connect.text");
+    link.innerHTML = `<i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t(live ? "wa.connect.another" : "inbox.connect.button"))}`;
   }
 
-  const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
+  const when = (iso) => (iso ? new Date(iso).toLocaleString(crmI18n.locale(), { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
   // Meta needs a public HTTPS address; 127.0.0.1 / localhost only works through a tunnel.
   const isLocal = (url) => /^http:\/\/(127\.0\.0\.1|localhost)(:|\/)/.test(url);
 
   function copyButton(value, label) {
-    return `<button class="btn btn-outline" type="button" data-copy="${escapeHtml(value)}" title="Copy ${escapeHtml(label)}"><i class="fa-solid fa-copy"></i></button>`;
+    return `<button class="btn btn-outline" type="button" data-copy="${escapeHtml(value)}" title="${escapeHtml(t("wa.copyLabel", { label }))}"><i class="fa-solid fa-copy"></i></button>`;
   }
 
   // An agent's own number (D67): its new chats and new WhatsApp leads go to that agent.
-  const memberName = (m) => m.name || m.email || "Teammate";
+  const memberName = (m) => m.name || m.email || t("inbox.teammate");
   function agentHtml(a) {
     const takers = team.filter((m) => m.status === "active" && (["owner", "admin"].includes(m.role) || (m.modules || []).includes("inbox")));
     const chosen = a.agentMemberId ? String(a.agentMemberId) : "";
     const gone = chosen && !takers.some((m) => String(m.id) === chosen);
     const locked = !agentNumbersOn && !chosen;
-    const options = takers.map((m) => `<option value="${escapeHtml(m.id)}" ${String(m.id) === chosen ? "selected" : ""}>${escapeHtml(memberName(m))}'s own number</option>`).join("");
+    const options = takers.map((m) => `<option value="${escapeHtml(m.id)}" ${String(m.id) === chosen ? "selected" : ""}>${escapeHtml(t("wa.agent.own", { name: memberName(m) }))}</option>`).join("");
     const note = gone
-      ? "The agent of this number left or cannot open the Inbox, so its new chats go to the whole team. Pick someone else, or keep it shared."
+      ? escapeHtml(t("wa.agent.gone"))
       : locked
-        ? 'An agent\'s own number comes with the Pro plan and above (<a href="Settings.html?tab=plan">Plan & usage</a>).'
-        : chosen ? "New chats and new WhatsApp leads on this number go straight to this agent; other agents don't see them. Owners and admins see everything." : "Everyone in the Inbox sees the new chats on this number.";
+        ? t("wa.agent.locked") // our own text with a link
+        : escapeHtml(t(chosen ? "wa.agent.chosen" : "wa.agent.shared"));
     return `
       <div class="sub wa-agent" style="margin-top:8px">
         <label style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0">
-          <strong>New chats go to</strong>
+          <strong>${escapeHtml(t("wa.agent.label"))}</strong>
           <select class="filter" data-wa-agent="${escapeHtml(a.id)}" style="flex:1 1 200px; max-width:280px; min-width:0" ${locked ? "disabled" : ""}>
-            <option value="" ${chosen && !gone ? "" : "selected"}>The whole team (shared number)</option>${options}
+            <option value="" ${chosen && !gone ? "" : "selected"}>${escapeHtml(t("wa.agent.team"))}</option>${options}
           </select>
         </label>
         <div style="margin-top:4px">${note}</div>
@@ -105,22 +104,22 @@
   }
 
   function accountHtml(a) {
-    const title = a.verifiedName || a.name || "WhatsApp number";
+    const title = a.verifiedName || a.name || t("wa.number");
     const tunnelHint = isLocal(a.webhookUrl)
       ? `<div class="sub" style="margin-top:4px">Meta cannot reach ${escapeHtml(new URL(a.webhookUrl).host)}. Start a tunnel (for example <code>cloudflared tunnel --url http://127.0.0.1:3000</code>) and use <strong>https://&lt;tunnel address&gt;${escapeHtml(a.webhookPath)}</strong> as the callback URL.</div>`
       : "";
     const viaMeta = a.connectionType === "embedded" || a.connectionType === "coexistence";
     const setup = a.provider === "mock"
-      ? `<div class="sub" style="margin-top:6px">Test number — nothing reaches WhatsApp. Use the developer test tools below.</div>`
+      ? `<div class="sub" style="margin-top:6px">${escapeHtml(t("wa.mockNote"))}</div>`
       : viaMeta ? connectedHtml(a) : `
-        <div class="sub" style="margin-top:8px"><strong>In the Meta app → WhatsApp → Configuration → Webhook:</strong> paste these two values, then subscribe to the <strong>messages</strong> field.</div>
+        <div class="sub" style="margin-top:8px">${t("wa.webhookHelp")}</div>
         <div style="display:flex; gap:8px; align-items:center; margin-top:6px; min-width:0">
-          <span class="sub" style="flex-shrink:0; width:92px">Callback URL</span>
-          <code style="word-break:break-all; font-size:12px; flex:1">${escapeHtml(a.webhookUrl)}</code>${copyButton(a.webhookUrl, "callback URL")}
+          <span class="sub" style="flex-shrink:0; width:92px">${escapeHtml(t("wa.callbackUrl"))}</span>
+          <code style="word-break:break-all; font-size:12px; flex:1">${escapeHtml(a.webhookUrl)}</code>${copyButton(a.webhookUrl, t("wa.callbackUrl"))}
         </div>
         <div style="display:flex; gap:8px; align-items:center; margin-top:6px; min-width:0">
-          <span class="sub" style="flex-shrink:0; width:92px">Verify token</span>
-          <code style="word-break:break-all; font-size:12px; flex:1">${escapeHtml(a.verifyToken)}</code>${copyButton(a.verifyToken, "verify token")}
+          <span class="sub" style="flex-shrink:0; width:92px">${escapeHtml(t("wa.verifyToken"))}</span>
+          <code style="word-break:break-all; font-size:12px; flex:1">${escapeHtml(a.verifyToken)}</code>${copyButton(a.verifyToken, t("wa.verifyToken"))}
         </div>
         ${tunnelHint}`;
     return `
@@ -129,23 +128,23 @@
           <div class="name">
             <i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> ${escapeHtml(title)}
             ${a.displayPhone ? `<span class="text-muted" style="font-weight:500">· ${escapeHtml(a.displayPhone)}</span>` : ""}
-            ${STATUS_BADGE[a.status] || ""} ${a.isDefault ? '<span class="badge badge-brand">Default</span>' : ""}
-            ${a.provider === "mock" ? '<span class="badge badge-neutral">Test number</span>' : ""}
+            ${STATUS_BADGE[a.status] || ""} ${a.isDefault ? `<span class="badge badge-brand">${escapeHtml(t("wa.default"))}</span>` : ""}
+            ${a.provider === "mock" ? `<span class="badge badge-neutral">${escapeHtml(t("wa.testNumber"))}</span>` : ""}
           </div>
-          ${viaMeta ? "" : `<div class="sub">Phone number ID ${escapeHtml(a.phoneNumberId)}${a.accessToken.configured ? ` · token …${escapeHtml(a.accessToken.last4)}` : ""} · ${a.lastWebhookAt ? `last message from WhatsApp ${escapeHtml(when(a.lastWebhookAt))}` : "no message received yet"}</div>`}
+          ${viaMeta ? "" : `<div class="sub">${escapeHtml(t("wa.phoneId", { id: a.phoneNumberId }))}${a.accessToken.configured ? ` · token …${escapeHtml(a.accessToken.last4)}` : ""} · ${escapeHtml(a.lastWebhookAt ? t("wa.lastFromWhatsApp", { when: when(a.lastWebhookAt) }) : t("wa.noMessage"))}</div>`}
           ${["error", "disconnected"].includes(a.status) && a.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(a.statusMessage)}</div>` : ""}
           ${setup}
           ${agentHtml(a)}
           ${catalogHtml(a)}
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap">
-          ${viaMeta && a.status !== "connected" ? `<a class="btn btn-primary" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> Reconnect</a>` : ""}
-          <button class="btn btn-outline" type="button" data-wa-test="${escapeHtml(a.id)}"><i class="fa-solid fa-plug-circle-check"></i> ${viaMeta ? "Check" : "Test"}</button>
-          ${a.provider === "meta" && !viaMeta ? `<button class="btn btn-outline" type="button" data-wa-token="${escapeHtml(a.id)}" title="Paste a new access token"><i class="fa-solid fa-key"></i></button>` : ""}
-          ${a.isDefault ? "" : `<button class="btn btn-outline" type="button" data-wa-default="${escapeHtml(a.id)}" title="Make default">Default</button>`}
+          ${viaMeta && a.status !== "connected" ? `<a class="btn btn-primary" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("wa.reconnect"))}</a>` : ""}
+          <button class="btn btn-outline" type="button" data-wa-test="${escapeHtml(a.id)}"><i class="fa-solid fa-plug-circle-check"></i> ${escapeHtml(t(viaMeta ? "wa.check" : "wa.test"))}</button>
+          ${a.provider === "meta" && !viaMeta ? `<button class="btn btn-outline" type="button" data-wa-token="${escapeHtml(a.id)}" title="${escapeHtml(t("wa.newToken"))}"><i class="fa-solid fa-key"></i></button>` : ""}
+          ${a.isDefault ? "" : `<button class="btn btn-outline" type="button" data-wa-default="${escapeHtml(a.id)}" title="${escapeHtml(t("wa.makeDefault"))}">${escapeHtml(t("wa.default"))}</button>`}
           ${viaMeta
-            ? `<button class="btn btn-outline" type="button" data-wa-remove="${escapeHtml(a.id)}">Disconnect</button>`
-            : `<button class="icon-btn danger" type="button" data-wa-remove="${escapeHtml(a.id)}" title="Remove"><i class="fa-solid fa-trash"></i></button>`}
+            ? `<button class="btn btn-outline" type="button" data-wa-remove="${escapeHtml(a.id)}">${escapeHtml(t("wa.disconnect"))}</button>`
+            : `<button class="icon-btn danger" type="button" data-wa-remove="${escapeHtml(a.id)}" title="${escapeHtml(t("wa.remove"))}"><i class="fa-solid fa-trash"></i></button>`}
         </div>
       </div>`;
   }
@@ -155,29 +154,29 @@
   function catalogHtml(a) {
     const c = a.catalog;
     const sync = c?.lastSyncAt
-      ? `last sync ${escapeHtml(when(c.lastSyncAt))}: ${c.lastSync?.error ? `<span style="color:var(--danger)">${escapeHtml(c.lastSync.error)}</span>` : `${c.lastSync?.sent || 0} sent${c.lastSync?.removed ? `, ${c.lastSync.removed} removed` : ""}${c.lastSync?.failed ? `, <span style="color:var(--danger)">${c.lastSync.failed} need attention (Products page)</span>` : ""}`}`
-      : "syncing…";
+      ? `${escapeHtml(t("wa.cat.lastSync", { when: when(c.lastSyncAt) }))}: ${c.lastSync?.error ? `<span style="color:var(--danger)">${escapeHtml(c.lastSync.error)}</span>` : `${escapeHtml(t("wa.cat.sent", { n: c.lastSync?.sent || 0 }))}${c.lastSync?.removed ? `, ${escapeHtml(t("wa.cat.removed", { n: c.lastSync.removed }))}` : ""}${c.lastSync?.failed ? `, <span style="color:var(--danger)">${escapeHtml(t("wa.cat.failed", { n: c.lastSync.failed }))}</span>` : ""}`}`
+      : escapeHtml(t("wa.cat.syncing"));
     const summary = c
-      ? `<strong>WhatsApp catalog:</strong> ${escapeHtml(c.name || c.catalogId)} <span class="text-muted">(${escapeHtml(c.catalogId)})</span> · ${sync}${c.statusMessage ? `<div style="color:var(--danger)">${escapeHtml(c.statusMessage)}</div>` : ""}`
-      : '<strong>WhatsApp catalog:</strong> none. Connect the catalog of this WhatsApp Business Account (Meta Commerce Manager → Catalogs) to send products in chats and receive orders.';
+      ? `<strong>${escapeHtml(t("wa.cat.label"))}</strong> ${escapeHtml(c.name || c.catalogId)} <span class="text-muted">(${escapeHtml(c.catalogId)})</span> · ${sync}${c.statusMessage ? `<div style="color:var(--danger)">${escapeHtml(c.statusMessage)}</div>` : ""}`
+      : `<strong>${escapeHtml(t("wa.cat.label"))}</strong> ${escapeHtml(t("wa.cat.none"))}`;
     const form = catalogFormFor === String(a.id)
       ? `<form class="wa-catalog-form" data-wa-catalog-form="${escapeHtml(a.id)}" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:6px">
-          <input type="text" name="catalogId" inputmode="numeric" placeholder="Catalog ID (digits)" value="${escapeHtml(c?.catalogId || "")}" required style="max-width:220px" />
-          <label class="ls-check" style="margin:0"><input type="checkbox" name="catalogVisible" ${c?.catalogVisible === false ? "" : "checked"} /> Show the shop button in chats</label>
-          <label class="ls-check" style="margin:0"><input type="checkbox" name="cartEnabled" ${c?.cartEnabled === false ? "" : "checked"} /> Customers can send a cart</label>
-          <button class="btn btn-primary" type="submit">Check and connect</button>
-          <button class="btn btn-outline" type="button" data-wa-catalog-cancel>Cancel</button>
+          <input type="text" name="catalogId" inputmode="numeric" placeholder="${escapeHtml(t("wa.cat.idPlaceholder"))}" value="${escapeHtml(c?.catalogId || "")}" required style="max-width:220px" />
+          <label class="ls-check" style="margin:0"><input type="checkbox" name="catalogVisible" ${c?.catalogVisible === false ? "" : "checked"} /> ${escapeHtml(t("wa.cat.shopButton"))}</label>
+          <label class="ls-check" style="margin:0"><input type="checkbox" name="cartEnabled" ${c?.cartEnabled === false ? "" : "checked"} /> ${escapeHtml(t("wa.cat.cart"))}</label>
+          <button class="btn btn-primary" type="submit">${escapeHtml(t("wa.cat.connect"))}</button>
+          <button class="btn btn-outline" type="button" data-wa-catalog-cancel>${escapeHtml(t("common.cancel"))}</button>
         </form>`
       : "";
     return `<div class="sub wa-catalog" style="margin-top:8px">${summary}
       <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap">
-        ${form ? "" : `<button class="btn btn-outline" type="button" data-wa-catalog="${escapeHtml(a.id)}"><i class="fa-solid fa-store"></i> ${c ? "Change catalog" : "Connect catalog"}</button>`}
-        ${c && !form ? `<a class="btn btn-outline" href="Products.html"><i class="fa-solid fa-box-open"></i> Choose products</a><button class="btn btn-outline" type="button" data-wa-catalog-off="${escapeHtml(a.id)}">Disconnect</button>` : ""}
+        ${form ? "" : `<button class="btn btn-outline" type="button" data-wa-catalog="${escapeHtml(a.id)}"><i class="fa-solid fa-store"></i> ${escapeHtml(t(c ? "wa.cat.change" : "wa.cat.connectButton"))}</button>`}
+        ${c && !form ? `<a class="btn btn-outline" href="Products.html"><i class="fa-solid fa-box-open"></i> ${escapeHtml(t("wa.cat.choose"))}</a><button class="btn btn-outline" type="button" data-wa-catalog-off="${escapeHtml(a.id)}">${escapeHtml(t("wa.disconnect"))}</button>` : ""}
       </div>${form}</div>`;
   }
 
   function render() {
-    document.getElementById("waCount").textContent = accounts.length ? `${accounts.length} number${accounts.length === 1 ? "" : "s"}` : "";
+    document.getElementById("waCount").textContent = accounts.length ? t(accounts.length === 1 ? "wa.countOne" : "wa.countMany", { n: accounts.length }) : "";
     listEl.innerHTML = accounts.length ? accounts.map(accountHtml).join("") : "";
     renderConnectCard();
     // Developer test tools: a development server with DEV_TOOLS=on only.
@@ -200,13 +199,13 @@
             <span class="device-icon"><i class="fa-solid fa-lock"></i></span>
             <span class="device-text">
               <span class="device-name">${escapeHtml(n.name || formatPhoneE164(n.phone))}</span>${n.note ? ` <span class="badge badge-neutral">${escapeHtml(n.note)}</span>` : ""}
-              <br /><span class="device-meta">${escapeHtml(formatPhoneE164(n.phone))} · ${n.chats} ${n.chats === 1 ? "chat" : "chats"} · private since ${escapeHtml(when(n.addedAt))}</span>
+              <br /><span class="device-meta">${escapeHtml(formatPhoneE164(n.phone))} · ${escapeHtml(t(n.chats === 1 ? "wa.priv.chatOne" : "wa.priv.chatMany", { n: n.chats }))} · ${escapeHtml(t("wa.priv.since", { when: when(n.addedAt) }))}</span>
             </span>
-            <button class="btn btn-outline" type="button" data-private-show="${escapeHtml(n.id)}" data-name="${escapeHtml(n.name)}" data-phone="${escapeHtml(n.phone)}">Show to team</button>
+            <button class="btn btn-outline" type="button" data-private-show="${escapeHtml(n.id)}" data-name="${escapeHtml(n.name)}" data-phone="${escapeHtml(n.phone)}">${escapeHtml(t("wa.priv.show"))}</button>
           </li>`).join("")
-        : '<li class="device-empty">No private numbers. Make a personal chat private from the Inbox, or add a number below.</li>';
+        : `<li class="device-empty">${escapeHtml(t("wa.priv.none"))}</li>`;
     } catch (error) {
-      list.innerHTML = `<li class="device-empty">${escapeHtml(apiErrorMessage(error, "Couldn't load the private numbers."))}</li>`;
+      list.innerHTML = `<li class="device-empty">${escapeHtml(apiErrorMessage(error, t("wa.priv.loadFailed")))}</li>`;
     }
   }
 
@@ -218,9 +217,9 @@
     try {
       await crmApi("/privacy/numbers", jsonRequest("POST", { phone, note: choice.note || document.getElementById("waPrivateNote").value.trim() }));
       e.target.reset();
-      showToast("Only owners see this number's chats now.", "success");
+      showToast(t("wa.priv.hidden"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+      showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
     }
     loadPrivate();
   });
@@ -232,9 +231,9 @@
     if (!choice) return;
     try {
       await crmApi(`/privacy/numbers/${button.dataset.privateShow}`, { method: "DELETE" });
-      showToast("Your team can see this number's chats again.", "success");
+      showToast(t("wa.priv.shown"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+      showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
     }
     loadPrivate();
   });
@@ -255,10 +254,10 @@
     try {
       const { sendReadReceipts } = await crmApi("/organization/settings", jsonRequest("PATCH", { sendReadReceipts: toggle.checked }));
       toggle.checked = sendReadReceipts;
-      showToast(sendReadReceipts ? "Customers see blue ticks when your team reads their messages." : "Customers no longer see blue ticks or \"typing…\".", "success");
+      showToast(t(sendReadReceipts ? "wa.receipts.on" : "wa.receipts.off"), "success");
     } catch (error) {
       toggle.checked = !toggle.checked;
-      showToast(apiErrorMessage(error, "Couldn't save the setting."), "error");
+      showToast(apiErrorMessage(error, t("wa.receipts.failed")), "error");
     } finally {
       toggle.disabled = false;
     }
@@ -276,7 +275,7 @@
       render();
       refreshExtras();
     } catch (error) {
-      listEl.innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, "Couldn't load the WhatsApp numbers."))}</p>`;
+      listEl.innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, t("wa.loadFailed")))}</p>`;
     }
   }
 
@@ -285,7 +284,7 @@
       const result = await action();
       if (success) showToast(typeof success === "function" ? success(result) : success, "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+      showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
     }
     await load();
   }
@@ -294,10 +293,11 @@
     const select = e.target.closest("[data-wa-agent]");
     if (!select) return;
     const agentMemberId = select.value || null;
-    const name = select.selectedOptions[0]?.textContent.replace(/'s own number$/, "") || "";
+    const chosen = team.find((m) => String(m.id) === String(agentMemberId));
+    const name = chosen ? memberName(chosen) : "";
     select.disabled = true;
     await run(() => crmApi(`/whatsapp/accounts/${select.dataset.waAgent}`, jsonRequest("PATCH", { agentMemberId })),
-      agentMemberId ? `New chats on this number now go to ${name}.` : "This number is shared by the whole team again.");
+      agentMemberId ? t("wa.agent.nowTo", { name }) : t("wa.agent.nowShared"));
   });
 
   listEl.addEventListener("submit", async (e) => {
@@ -310,10 +310,10 @@
     try {
       const connected = await crmApi(`/whatsapp/accounts/${id}/catalog`, jsonRequest("PUT", body));
       catalogFormFor = "";
-      showToast(connected.statusMessage || `Catalog "${connected.name || connected.catalogId}" connected. The products marked for it are being sent.`, connected.statusMessage ? "error" : "success");
+      showToast(connected.statusMessage || t("wa.cat.connected", { name: connected.name || connected.catalogId }), connected.statusMessage ? "error" : "success");
       await load();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't connect the catalog."), "error");
+      showToast(apiErrorMessage(error, t("wa.cat.connectFailed")), "error");
       form.querySelector('button[type="submit"]').disabled = false;
     }
   });
@@ -330,8 +330,8 @@
     }
     const catalogOff = e.target.closest("[data-wa-catalog-off]");
     if (catalogOff) {
-      if (!confirm("Disconnect the catalog? Products stay in Meta's catalog, but the CRM stops syncing them and cannot send them in chats.")) return undefined;
-      return run(() => crmApi(`/whatsapp/accounts/${catalogOff.dataset.waCatalogOff}/catalog`, { method: "DELETE" }), "Catalog disconnected.");
+      if (!confirm(t("wa.cat.confirmOff"))) return undefined;
+      return run(() => crmApi(`/whatsapp/accounts/${catalogOff.dataset.waCatalogOff}/catalog`, { method: "DELETE" }), t("wa.cat.off"));
     }
     const copy = e.target.closest("[data-copy]");
     const test = e.target.closest("[data-wa-test]");
@@ -341,25 +341,25 @@
     if (copy) {
       try {
         await navigator.clipboard.writeText(copy.dataset.copy);
-        showToast("Copied.", "success");
+        showToast(t("wa.copied"), "success");
       } catch {
-        showToast("Copy failed — select the text and copy it by hand.", "error");
+        showToast(t("wa.copyFailed"), "error");
       }
     } else if (test) {
       await run(() => crmApi(`/whatsapp/accounts/${test.dataset.waTest}/test`, { method: "POST" }),
-        (a) => (a.status === "connected" ? "WhatsApp answered: the number works." : `Problem: ${a.statusMessage}`));
+        (a) => (a.status === "connected" ? t("wa.testOk") : t("wa.testProblem", { message: a.statusMessage })));
     } else if (token) {
-      const value = window.prompt("Paste the new access token (it is stored encrypted):");
+      const value = window.prompt(t("wa.tokenPrompt"));
       if (value && value.trim()) {
-        await run(() => crmApi(`/whatsapp/accounts/${token.dataset.waToken}`, jsonRequest("PATCH", { accessToken: value.trim() })), "Access token updated.");
+        await run(() => crmApi(`/whatsapp/accounts/${token.dataset.waToken}`, jsonRequest("PATCH", { accessToken: value.trim() })), t("wa.tokenUpdated"));
       }
     } else if (makeDefault) {
-      await run(() => crmApi(`/whatsapp/accounts/${makeDefault.dataset.waDefault}`, jsonRequest("PATCH", { isDefault: true })), "Default number changed.");
+      await run(() => crmApi(`/whatsapp/accounts/${makeDefault.dataset.waDefault}`, jsonRequest("PATCH", { isDefault: true })), t("wa.defaultChanged"));
     } else if (remove) {
-      if (!confirm("Disconnect this WhatsApp number from the CRM? Its chats stay in the CRM; new messages stop arriving here. The WhatsApp Business app on the phone keeps working.")) return;
-      await run(() => crmApi(`/whatsapp/accounts/${remove.dataset.waRemove}`, { method: "DELETE" }), "WhatsApp number disconnected.");
+      if (!confirm(t("wa.confirmDisconnect"))) return;
+      await run(() => crmApi(`/whatsapp/accounts/${remove.dataset.waRemove}`, { method: "DELETE" }), t("wa.disconnected"));
     } else if (e.target.closest("[data-wa-sync]")) {
-      await run(() => crmApi(`/whatsapp/accounts/${e.target.closest("[data-wa-sync]").dataset.waSync}/sync`, { method: "POST" }), "Asked WhatsApp for the chats again.");
+      await run(() => crmApi(`/whatsapp/accounts/${e.target.closest("[data-wa-sync]").dataset.waSync}/sync`, { method: "POST" }), t("wa.askedAgain"));
     }
   });
 
@@ -378,7 +378,7 @@
       }));
       e.target.reset();
       return account;
-    }, (a) => (a.status === "connected" ? "Number connected. Now set the webhook in the Meta app." : `Saved, but WhatsApp said: ${a.statusMessage}`));
+    }, (a) => (a.status === "connected" ? t("wa.adv.connected") : t("wa.adv.saved", { message: a.statusMessage })));
     button.disabled = false;
   });
 
@@ -417,7 +417,7 @@
   function fillAccountSelect(select) {
     const previous = select.value;
     select.innerHTML = accounts
-      .map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.verifiedName || a.name || "WhatsApp number")}${a.displayPhone ? ` · ${escapeHtml(a.displayPhone)}` : ""}</option>`)
+      .map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.verifiedName || a.name || t("wa.number"))}${a.displayPhone ? ` · ${escapeHtml(a.displayPhone)}` : ""}</option>`)
       .join("");
     if (accounts.some((a) => a.id === previous)) select.value = previous;
   }
@@ -429,12 +429,12 @@
         <div class="info">
           <div class="name">${escapeHtml(t.name)} <span class="badge badge-neutral">${escapeHtml(t.language)}</span>
             <span class="badge badge-info">${escapeHtml(t.category.toLowerCase())}</span>
-            <span class="badge ${TEMPLATE_BADGE[t.status] || "badge-neutral"}">${escapeHtml(t.status.toLowerCase().replace(/_/g, " "))}</span></div>
+            <span class="badge ${TEMPLATE_BADGE[t.status] || "badge-neutral"}">${escapeHtml(crmLabel("tplStatus", t.status))}</span></div>
           <div class="body">${escapeHtml(text)}</div>
-          ${t.rejectedReason ? `<div class="why">Meta's reason: ${escapeHtml(t.rejectedReason.toLowerCase().replace(/_/g, " "))}</div>` : ""}
+          ${t.rejectedReason ? `<div class="why">${escapeHtml(crmI18n.t("wa.tpl.reason", { reason: t.rejectedReason.toLowerCase().replace(/_/g, " ") }))}</div>` : ""}
           ${t.status === "APPROVED" && !t.sendable ? `<div class="why">${escapeHtml(t.notSendableReason)}</div>` : ""}
         </div>
-        <button class="icon-btn danger" type="button" data-tpl-delete="${escapeHtml(t.id)}" title="Delete at Meta and here"><i class="fa-solid fa-trash"></i></button>
+        <button class="icon-btn danger" type="button" data-tpl-delete="${escapeHtml(t.id)}" title="${escapeHtml(crmI18n.t("wa.tpl.deleteTitle"))}"><i class="fa-solid fa-trash"></i></button>
       </div>`;
   }
 
@@ -445,9 +445,9 @@
       templates = await crmApi(`/templates?accountId=${encodeURIComponent(accountId)}`);
       $("waTplList").innerHTML = templates.length
         ? templates.map(templateHtml).join("")
-        : '<p class="settings-hint" style="margin:0">No templates here yet. Press "Sync from Meta" to bring the ones you made in WhatsApp Manager, or create one below.</p>';
+        : `<p class="settings-hint" style="margin:0">${escapeHtml(t("wa.tpl.none"))}</p>`;
     } catch (error) {
-      $("waTplList").innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, "Couldn't load the templates."))}</p>`;
+      $("waTplList").innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, t("inbox.tpl.loadFailed")))}</p>`;
     }
   }
 
@@ -456,9 +456,9 @@
     e.target.disabled = true;
     try {
       const list = await crmApi("/templates/sync", jsonRequest("POST", { accountId: $("waTplAccount").value }));
-      showToast(`Synced: ${list.length} template${list.length === 1 ? "" : "s"}.`, "success");
+      showToast(t(list.length === 1 ? "wa.tpl.syncedOne" : "wa.tpl.syncedMany", { n: list.length }), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't sync the templates."), "error");
+      showToast(apiErrorMessage(error, t("wa.tpl.syncFailed")), "error");
     }
     e.target.disabled = false;
     await loadTemplates();
@@ -467,12 +467,12 @@
     const remove = e.target.closest("[data-tpl-delete]");
     if (!remove) return;
     const template = templates.find((t) => t.id === remove.dataset.tplDelete);
-    if (!confirm(`Delete the template "${template?.name}" (${template?.language}) at Meta? It cannot be sent any more, and the same name cannot be reused for a while.`)) return;
+    if (!confirm(t("wa.tpl.confirmDelete", { name: template?.name, language: template?.language }))) return;
     try {
       await crmApi(`/templates/${remove.dataset.tplDelete}`, { method: "DELETE" });
-      showToast("Template deleted.", "success");
+      showToast(t("wa.tpl.deleted"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't delete the template."), "error");
+      showToast(apiErrorMessage(error, t("wa.tpl.deleteFailed")), "error");
     }
     await loadTemplates();
   });
@@ -483,11 +483,11 @@
     document.querySelectorAll("#waTplExamples input").forEach((input) => {
       saved[input.dataset.key] = input.value;
     });
-    const header = placeholders($("waTplHeader").value).slice(0, 1).map((name) => ({ key: `h:${name}`, label: `Example for the header {{${name}}}` }));
-    const body = placeholders($("waTplBody").value).map((name) => ({ key: `b:${name}`, label: `Example for {{${name}}}` }));
+    const header = placeholders($("waTplHeader").value).slice(0, 1).map((name) => ({ key: `h:${name}`, label: t("wa.tpl.exampleHeader", { name }) }));
+    const body = placeholders($("waTplBody").value).map((name) => ({ key: `b:${name}`, label: t("wa.tpl.example", { name }) }));
     const fields = [...header, ...body];
     $("waTplExamples").innerHTML = fields.length
-      ? `<p class="settings-hint" style="margin:0 0 8px">Meta checks templates with example values (for instance a real-looking name or order number).</p>
+      ? `<p class="settings-hint" style="margin:0 0 8px">${escapeHtml(t("wa.tpl.examplesHint"))}</p>
          <div class="field-row" style="flex-wrap:wrap">${fields
            .map((f) => `<div class="field" style="min-width:180px"><label>${escapeHtml(f.label)}</label><input type="text" maxlength="200" data-key="${escapeHtml(f.key)}" value="${escapeHtml(saved[f.key] || "")}" required /></div>`)
            .join("")}</div>`
@@ -506,14 +506,14 @@
     const row = document.createElement("div");
     row.className = "wa-button-row";
     row.innerHTML = `
-      <select data-button-type aria-label="Button kind">
-        <option value="QUICK_REPLY">Quick reply</option>
-        <option value="URL">Open a link</option>
-        <option value="PHONE_NUMBER">Call a number</option>
+      <select data-button-type aria-label="${escapeHtml(t("wa.btn.kind"))}">
+        <option value="QUICK_REPLY">${escapeHtml(t("wa.btn.quick"))}</option>
+        <option value="URL">${escapeHtml(t("wa.btn.url"))}</option>
+        <option value="PHONE_NUMBER">${escapeHtml(t("wa.btn.phone"))}</option>
       </select>
-      <input type="text" data-button-text maxlength="25" placeholder="Button text" aria-label="Button text" required />
-      <input type="text" data-button-value placeholder="" aria-label="Link or phone number" hidden />
-      <button class="icon-btn danger" type="button" data-button-remove aria-label="Remove button"><i class="fa-solid fa-xmark"></i></button>`;
+      <input type="text" data-button-text maxlength="25" placeholder="${escapeHtml(t("wa.btn.text"))}" aria-label="${escapeHtml(t("wa.btn.text"))}" required />
+      <input type="text" data-button-value placeholder="" aria-label="${escapeHtml(t("wa.btn.value"))}" hidden />
+      <button class="icon-btn danger" type="button" data-button-remove aria-label="${escapeHtml(t("wa.btn.remove"))}"><i class="fa-solid fa-xmark"></i></button>`;
     $("waTplButtons").appendChild(row);
     $("waTplAddButton").hidden = $("waTplButtons").children.length >= 3;
   }
@@ -561,14 +561,14 @@
     submit.disabled = true;
     try {
       const created = await crmApi("/templates", jsonRequest("POST", body));
-      showToast(created.status === "APPROVED" ? "Template approved and ready to use." : "Sent to Meta for approval. The status updates here when Meta decides.", "success");
+      showToast(t(created.status === "APPROVED" ? "wa.tpl.approved" : "wa.tpl.submitted"), "success");
       e.target.reset();
       $("waTplButtons").innerHTML = "";
       $("waTplAddButton").hidden = false;
       renderExamples();
       $("waTplNew").open = false;
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't create the template."), "error");
+      showToast(apiErrorMessage(error, t("wa.tpl.createFailed")), "error");
     }
     submit.disabled = false;
     await loadTemplates();
@@ -593,7 +593,7 @@
       $("waLinkError").hidden = true;
     } catch (error) {
       $("waLinkResult").hidden = true;
-      $("waLinkError").textContent = apiErrorMessage(error, "Couldn't make the link.");
+      $("waLinkError").textContent = apiErrorMessage(error, t("wa.link.failed"));
       $("waLinkError").hidden = false;
     }
   }
@@ -605,16 +605,16 @@
   $("waLinkCopy").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText($("waLinkUrl").textContent);
-      showToast("Link copied.", "success");
+      showToast(t("wa.link.copied"), "success");
     } catch {
-      showToast("Copy failed — select the link and copy it by hand.", "error");
+      showToast(t("wa.link.copyFailed"), "error");
     }
   });
   $("waLinkPng").addEventListener("click", async () => {
     try {
       await crmDownload(`/whatsapp/click-to-chat/qr.png?${linkQuery()}`, "whatsapp-qr.png");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't download the QR code."), "error");
+      showToast(apiErrorMessage(error, t("wa.link.qrFailed")), "error");
     }
   });
 
@@ -631,4 +631,5 @@
   }
 
   load();
-})();
+  return undefined;
+});
