@@ -635,9 +635,15 @@
   }
 
   // --- a file to send (the text box becomes its caption) ---
-  // Phones have room for a short hint only.
-  const defaultPlaceholder = () => (window.matchMedia("(max-width: 520px)").matches ? "Message" : "Message · / for quick replies");
+  // The long hint only where it fits on one line: phones, and a box narrowed by the details
+  // panel, get the short one. Checked again whenever the box changes width.
+  const defaultPlaceholder = () => (window.matchMedia("(max-width: 520px)").matches || (composer.clientWidth > 0 && composer.clientWidth < 260) ? "Message" : "Message · / for quick replies");
   composer.placeholder = defaultPlaceholder();
+  if ("ResizeObserver" in window) {
+    new ResizeObserver(() => {
+      if (!state.file) composer.placeholder = defaultPlaceholder();
+    }).observe(composer);
+  }
   function clearFile() {
     state.file = null;
     state.voice = false;

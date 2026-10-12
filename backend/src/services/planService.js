@@ -192,6 +192,7 @@ function plans() {
     included: INCLUDED, // what every plan has (D67)
     gstPct: PLAN_GST_PCT,
     trialDays: TRIAL_DAYS,
+    trialPlan: TRIAL_PLAN, // a new company tries this plan first
   };
 }
 

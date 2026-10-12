@@ -27,6 +27,8 @@ const COMPANY_PREF = "loginCompany"; // the company last signed in to on this br
 const COMPANY_CHECK_MS = 600; // the company is checked once typing pauses this long
 // login.html?company=sharma-traders (a link an admin shares) fills in the company.
 const companyFromLink = new URLSearchParams(window.location.search).get("company") || "";
+// login.html?signup=1 ("Start free trial" on the home page) opens "Create your company".
+const signupFromLink = new URLSearchParams(window.location.search).get("signup") === "1";
 
 // Take the invite token (and ?with=phone) out of the address bar right away, so it is not kept
 // in history or sent to the server as a Referer.
@@ -531,7 +533,7 @@ $("changePhone").addEventListener("click", () => {
 // off, so a plain look-alike (#googleWait) stands in until the company is found.
 // ---------------------------------------------------------------
 const company = {
-  mode: "login", // or "signup": "Create your company" (Google alone, the old way)
+  mode: signupFromLink && !sessionStorage.getItem(INVITE_KEY) ? "signup" : "login", // or "signup": "Create your company" (Google alone, the old way)
   found: null, // { name, logoUrl, slug } from POST /auth/workspace (or the invite)
   typed: "", // what was found, as typed
   state: "", // "checking" | "found" | "error"

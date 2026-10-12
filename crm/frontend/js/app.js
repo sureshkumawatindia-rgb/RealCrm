@@ -1587,7 +1587,7 @@ const crmPush = (() => {
 })();
 
 // ---------------------------------------------------------------
-// Sidebar user info (called on dashboard/customers/leads/accounts pages)
+// Sidebar user info: every page with a sidebar (also called again by some page scripts)
 // ---------------------------------------------------------------
 function renderSidebarUser() {
   const user = getCurrentUser();
@@ -2073,6 +2073,7 @@ document.addEventListener("DOMContentLoaded", () => {
   injectGlobalNavItems();
   hideUnavailableModules();
   renderSidebarBrand();
+  renderSidebarUser(); // Quotations, Orders, Team live and My performance never called it
   if (isAuthenticated() && document.querySelector(".sidebar")) syncMembership();
   explainNoAccess();
   crmBell.mount();
