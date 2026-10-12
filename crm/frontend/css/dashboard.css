@@ -394,9 +394,33 @@
   padding: 7px 14px;
   font-size: 12.5px;
 }
+.setup-toggle {
+  display: none;
+}
 @media (max-width: 600px) {
   .setup-card {
     padding: 14px 14px 4px;
+  }
+  /* Phones (R3): the progress and the next step; the KPIs are no longer a screen away */
+  .setup-card:not(.show-all) .setup-steps li:not(.next) {
+    display: none;
+  }
+  .setup-card:not(.show-all) .setup-steps li.next {
+    border-bottom: 0;
+  }
+  .setup-toggle {
+    display: block;
+    width: 100%;
+    min-height: 40px;
+    margin: 0 0 6px;
+    border: 0;
+    border-top: 1px solid var(--border-soft);
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
   }
   .setup-steps li {
     flex-wrap: wrap;

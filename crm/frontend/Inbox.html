@@ -221,9 +221,13 @@
                 <div class="quick-menu" id="quickMenu" hidden></div>
                 <form class="composer-row" id="composerForm">
                   <button class="icon-btn" id="quickRepliesBtn" type="button" title="Quick replies (type / )"><i class="fa-solid fa-bolt"></i></button>
-                  <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document"><i class="fa-solid fa-paperclip"></i></button>
-                  <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)"><i class="fa-solid fa-file-lines"></i></button>
-                  <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog"><i class="fa-solid fa-store"></i></button>
+                  <!-- On the smallest phones these three open from "+" (R3), so the message box keeps its room -->
+                  <button class="icon-btn composer-more" id="composerMore" type="button" title="Attach, template or products" aria-label="Attach, template or products" aria-expanded="false" aria-controls="composerExtras"><i class="fa-solid fa-plus"></i></button>
+                  <span class="composer-extras" id="composerExtras">
+                    <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document" aria-label="Attach a file"><i class="fa-solid fa-paperclip"></i></button>
+                    <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)" aria-label="Send a template"><i class="fa-solid fa-file-lines"></i></button>
+                    <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog" aria-label="Send products"><i class="fa-solid fa-store"></i></button>
+                  </span>
                   <button class="icon-btn" id="aiSuggestBtn" type="button" title="Suggest a reply (AI assistant)" style="display: none"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                   <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.mp4,.3gp,.aac,.amr,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
                   <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies"></textarea>

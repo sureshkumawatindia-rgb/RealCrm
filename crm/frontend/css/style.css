@@ -2911,6 +2911,27 @@ body.crm-loading::before {
   }
 }
 
+/* Touch screens (R3): a tap leaves :hover on, so cards and buttons that lift on hover would stay
+   lifted; there they keep only the colour change. :root makes it win over the pages' own files. */
+@media (hover: none) {
+  :root .ai-action-item:hover,
+  :root .auto-card:hover,
+  :root .deal-card:hover,
+  :root .doc-card:hover,
+  :root .lead-card:hover,
+  :root .campaign-card:hover,
+  :root .stat-card:hover,
+  :root .stat-card-link:hover,
+  :root .btn-primary:hover,
+  :root .btn-outline:hover,
+  :root .btn-danger-outline:hover,
+  :root .agent-card:hover,
+  :root .ticket-card:hover,
+  :root .task-card:hover {
+    transform: none;
+  }
+}
+
 /* Under the plans: what every plan has (D67) */
 .plan-included {
   margin-top: 14px;

@@ -547,6 +547,8 @@ async function renderSetupChecklist() {
   ];
   const doneCount = steps.filter((step) => step.done).length;
   if (doneCount === steps.length) return;
+  // On phones only the next step shows, with "Show all steps" (dashboard.css, R3).
+  const next = steps.find((step) => !step.done);
 
   document.getElementById("setupCard")?.remove();
   const card = document.createElement("section");
@@ -565,7 +567,7 @@ async function renderSetupChecklist() {
       ${steps
         .map(
           (step) => `
-        <li class="${step.done ? "done" : ""}">
+        <li class="${step.done ? "done" : ""}${step === next ? " next" : ""}">
           <i class="fa-solid ${step.done ? "fa-circle-check" : "fa-circle"}" aria-hidden="true"></i>
           <div class="setup-step-text">
             <strong>${escapeHtml(step.title)}</strong>
@@ -575,7 +577,13 @@ async function renderSetupChecklist() {
         </li>`,
         )
         .join("")}
-    </ol>`;
+    </ol>
+    <button class="setup-toggle" type="button" id="setupToggle" aria-expanded="false">Show all ${steps.length} steps</button>`;
+  card.querySelector("#setupToggle").addEventListener("click", (event) => {
+    const all = card.classList.toggle("show-all");
+    event.currentTarget.setAttribute("aria-expanded", String(all));
+    event.currentTarget.textContent = all ? "Show only the next step" : `Show all ${steps.length} steps`;
+  });
   card.querySelector("#setupHide").addEventListener("click", () => {
     setPreference("setupChecklistHidden", true);
     card.remove();

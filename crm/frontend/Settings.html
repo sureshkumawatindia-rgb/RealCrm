@@ -630,6 +630,20 @@
         border: 1.5px solid var(--border, #e5e7eb);
         background: var(--panel-2, #f3f4f6);
       }
+      .avatar-preview[hidden] {
+        display: none;
+      }
+      /* No Google photo: the name's initials */
+      .avatar-initials {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        background: var(--brand);
+        color: var(--text);
+        font-weight: 700;
+        font-size: 18px;
+      }
       .profile-top-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr);
@@ -913,10 +927,10 @@
                         <img
                           id="profileAvatarPreview"
                           class="avatar-preview"
-                          src=""
                           alt=""
-                          onerror="this.style.visibility='hidden'"
+                          hidden
                         />
+                        <span class="avatar-preview avatar-initials" id="profileAvatarInitials" aria-hidden="true"></span>
                         <div>
                           <div style="font-weight: 700; font-size: 14px" id="profileNamePreview"></div>
                           <div style="font-size: 12.5px; color: var(--text-muted)" id="profileEmailPreview"></div>

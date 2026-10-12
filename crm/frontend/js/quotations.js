@@ -364,6 +364,11 @@
     if (q && can("delete") && !q.orderId) buttons.push(button("delete", "Delete", "btn-danger-outline", "fa-trash"));
     if (q && q.status !== "Draft" && can("edit")) buttons.push('<p class="q-hint">Sent quotations are not changed; “Revise” makes a new revision and keeps this one.</p>');
     $("qActions").innerHTML = buttons.join("");
+    // Phones (R3): the first two actions also stay at the bottom of the screen (quotations.css).
+    const actions = buttons.filter((html) => !html.startsWith("<p"));
+    $("qStickyActions").innerHTML = actions.length
+      ? actions.slice(0, 2).join("") + (actions.length > 2 ? '<button class="btn btn-outline" type="button" data-sticky-more aria-label="More actions"><i class="fa-solid fa-ellipsis"></i> More</button>' : "")
+      : "";
   }
 
   // Customers can only open a link to a public address.
@@ -633,6 +638,16 @@
     request.headers["Idempotency-Key"] = newIdempotencyKey();
     return crmApi("/quotations", request);
   }
+
+  // The bottom bar's buttons are copies: they press the real one, and "More" goes to the full list.
+  $("qStickyActions").addEventListener("click", (e) => {
+    if (e.target.closest("[data-sticky-more]")) {
+      $("qActions").scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    const copy = e.target.closest("button[data-action]");
+    if (copy) $("qActions").querySelector(`[data-action="${copy.dataset.action}"]`)?.click();
+  });
 
   $("qActions").addEventListener("click", async (e) => {
     const button = e.target.closest("[data-action]");

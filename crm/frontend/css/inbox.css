@@ -602,6 +602,37 @@
 .composer-row textarea:disabled {
   opacity: 0.6;
 }
+/* Attach, template and products: in the row on most screens; behind "+" on the smallest (R3). */
+.composer-extras {
+  display: contents;
+}
+.composer-more {
+  display: none;
+}
+@media (max-width: 400px) {
+  .composer-more {
+    display: inline-flex;
+  }
+  .composer-extras {
+    display: none;
+  }
+  .composer-row.more-open .composer-extras {
+    position: absolute;
+    bottom: calc(100% - 4px);
+    left: 12px;
+    z-index: 5;
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-pop);
+  }
+  .composer-row.more-open .composer-more i {
+    transform: rotate(45deg);
+  }
+}
 .composer-send {
   border-radius: 50%;
   width: 40px;
@@ -1026,12 +1057,11 @@
   }
 }
 
-@media (max-width: 860px) {
+/* Up to 1000px (R3): with the 230px sidebar, the list and the chat side by side left the chat
+   narrower than a phone (880px: 300px + 350px), so the list and the chat take turns, as on phones. */
+@media (max-width: 1000px) {
   .inbox {
     grid-template-columns: minmax(0, 1fr);
-    height: calc(100vh - 56px - var(--plan-banner-h, 0px)); /* the plan banner (app.js) */
-    /* A phone's browser bar comes and goes: the visible height keeps the message box on screen */
-    height: calc(100dvh - 56px - var(--plan-banner-h, 0px));
   }
   .inbox[data-pane="list"] .inbox-thread,
   .inbox[data-pane="thread"] .inbox-list {
@@ -1039,6 +1069,14 @@
   }
   .thread-back {
     display: inline-flex;
+  }
+}
+
+@media (max-width: 860px) {
+  .inbox {
+    height: calc(100vh - 56px - var(--plan-banner-h, 0px)); /* the plan banner (app.js) */
+    /* A phone's browser bar comes and goes: the visible height keeps the message box on screen */
+    height: calc(100dvh - 56px - var(--plan-banner-h, 0px));
   }
   .inbox-details {
     width: 100%;

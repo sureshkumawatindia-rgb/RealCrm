@@ -122,12 +122,23 @@ function renderProfilePreview(user) {
     user?.name || "Unnamed User";
   document.getElementById("profileEmailPreview").textContent =
     user?.email || "";
+  // The Google photo, else the name's initials (also when the photo does not load).
   const img = document.getElementById("profileAvatarPreview");
+  const letters = document.getElementById("profileAvatarInitials");
+  letters.textContent = initials(user?.name || user?.email || "");
+  const showLetters = () => {
+    img.hidden = true;
+    letters.hidden = false;
+  };
   if (user?.picture) {
+    img.onerror = showLetters;
+    img.onload = () => {
+      img.hidden = false;
+      letters.hidden = true;
+    };
     img.src = user.picture;
-    img.style.visibility = "visible";
   } else {
-    img.style.visibility = "hidden";
+    showLetters();
   }
 }
 

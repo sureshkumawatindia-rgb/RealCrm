@@ -95,6 +95,26 @@
     const minutes = Math.max(0, Math.round((new Date(win.expiresAt) - Date.now()) / 60000));
     return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
   }
+  // "+" on the smallest phones (R3): attach, template and products open above the message box,
+  // and close again after a pick, a tap elsewhere or Escape.
+  function setComposerMore(open) {
+    $("composerForm").classList.toggle("more-open", open);
+    $("composerMore").setAttribute("aria-expanded", String(open));
+  }
+  $("composerMore").addEventListener("click", () => setComposerMore(!$("composerForm").classList.contains("more-open")));
+  $("composerExtras").addEventListener("click", (event) => {
+    if (event.target.closest("button")) setComposerMore(false);
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#composerMore, #composerExtras")) setComposerMore(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && $("composerForm").classList.contains("more-open")) {
+      setComposerMore(false);
+      $("composerMore").focus();
+    }
+  });
+
   // "3h" or "45m": the phone's short reply-window chip (R2).
   function windowLeftShort(win) {
     const left = windowLeft(win);

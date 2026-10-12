@@ -270,6 +270,40 @@
   width: 100%;
   justify-content: center;
 }
+.q-sticky-actions {
+  display: none;
+}
+@media (max-width: 600px) {
+  .q-sticky-actions:not(:empty) {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border-soft);
+    box-shadow: 0 -4px 16px rgba(20, 20, 30, 0.08);
+  }
+  .q-sticky-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .q-sticky-actions [data-sticky-more] {
+    flex: 0 0 auto;
+  }
+  /* Room so the bar never covers the end of the form */
+  #qEditorView {
+    padding-bottom: 76px;
+  }
+}
 .q-actions .q-hint {
   font-size: 12px;
   color: var(--text-muted);
