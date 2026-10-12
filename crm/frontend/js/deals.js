@@ -246,6 +246,7 @@ function dealCardHtml(d) {
           ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${formatDate(d.closeDate)}
         </div>
       </div>
+      ${kanbanMoveButton(d.id)}
     </div>`;
 }
 
@@ -253,9 +254,31 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// A deal to another stage: dropped on a column, or picked in "Move to…" on a touch screen (R2).
+function moveDeal(id, newStage) {
+  const deal = getDeal(id);
+  if (!deal || deal.stage === newStage) return;
+  const lostReason = newStage === "Lost" ? askLostReason(deal.name) : null;
+  if (newStage === "Lost" && !lostReason) return;
+  changeLeadStage(deal.id, newStage, lostReason)
+    .then(() => showToast(`Moved "${deal.name}" to ${newStage}`, "success"))
+    .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the deal."), "error"))
+    .finally(renderAll);
+}
+
 function attachDragEvents() {
   document.querySelectorAll(".deal-card").forEach((card) => {
     card.addEventListener("click", () => openModal(card.dataset.id));
+    card.querySelector(".kanban-move")?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const deal = getDeal(card.dataset.id);
+      if (!deal) return;
+      const stage = await crmMoveMenu.open({
+        title: `Move "${deal.name}" to`, current: deal.stage, returnFocus: event.currentTarget,
+        options: STAGES.map((s) => ({ value: s, label: s, color: STAGE_DOT[s] })),
+      });
+      if (stage) moveDeal(deal.id, stage);
+    });
     card.addEventListener("dragstart", () => {
       draggingId = card.dataset.id;
       card.classList.add("dragging");
@@ -276,15 +299,7 @@ function attachDragEvents() {
       e.preventDefault();
       col.classList.remove("drag-over");
       if (!draggingId) return;
-      const newStage = col.dataset.stage;
-      const deal = getDeal(draggingId);
-      if (!deal || deal.stage === newStage) return;
-      const lostReason = newStage === "Lost" ? askLostReason(deal.name) : null;
-      if (newStage === "Lost" && !lostReason) return;
-      changeLeadStage(deal.id, newStage, lostReason)
-        .then(() => showToast(`Moved "${deal.name}" to ${newStage}`, "success"))
-        .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the deal."), "error"))
-        .finally(renderAll);
+      moveDeal(draggingId, col.dataset.stage);
     });
   });
 }

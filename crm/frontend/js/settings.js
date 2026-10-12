@@ -49,9 +49,19 @@ function initials(name) {
 // ---------------------------------------------------------------
 // Tabs
 // ---------------------------------------------------------------
+// Phones (R2): Settings opens as a list of its sections (Settings.html styles); a section the
+// person picks opens on its own, and "All settings" or the phone's back button returns to the
+// list. The section is in the address (?tab=), like links from other pages.
+const settingsPhone = window.matchMedia("(max-width: 600px)");
+function setSettingsView(view) {
+  document.getElementById("settingsPage").dataset.settingsView = view;
+}
+
 function initTabs() {
+  setSettingsView(new URLSearchParams(window.location.search).get("tab") ? "panel" : "menu");
   document.querySelectorAll(".settings-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
+    tab.insertAdjacentHTML("beforeend", '<i class="fa-solid fa-chevron-right settings-tab-go" aria-hidden="true"></i>');
+    tab.addEventListener("click", (event) => {
       document
         .querySelectorAll(".settings-tab")
         .forEach((t) => t.classList.remove("active"));
@@ -62,7 +72,27 @@ function initTabs() {
       document
         .querySelector(`[data-settings-panel="${tab.dataset.panel}"]`)
         .classList.add("active");
+      // Picked by the person from the phone's list (not opened by the page itself).
+      if (event.isTrusted && settingsPhone.matches) {
+        setSettingsView("panel");
+        window.history.pushState({ settingsPanel: tab.dataset.panel }, "", `?tab=${tab.dataset.panel}`);
+        window.scrollTo(0, 0);
+      }
     });
+  });
+  document.getElementById("settingsBack").addEventListener("click", () => {
+    if (window.history.state?.settingsPanel) {
+      window.history.back();
+      return;
+    }
+    setSettingsView("menu");
+    window.history.replaceState(null, "", window.location.pathname);
+    window.scrollTo(0, 0);
+  });
+  window.addEventListener("popstate", (event) => {
+    const panel = event.state?.settingsPanel;
+    if (panel) document.querySelector(`.settings-tab[data-panel="${panel}"]`)?.click();
+    setSettingsView(panel ? "panel" : "menu");
   });
 }
 

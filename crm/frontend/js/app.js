@@ -1157,6 +1157,61 @@ const crmPrivacyDialog = (() => {
   return { open };
 })();
 
+// Kanban boards on touch screens (R2): dragging a card needs a mouse, so each card has a "Move"
+// button there (hidden where a mouse can drag) that lists the columns. open() resolves to the
+// chosen value, or null when cancelled. Deals, Marketing, Support and Tasks use it.
+const kanbanMoveButton = (id) =>
+  `<button class="kanban-move" type="button" data-move="${escapeHtml(id)}" aria-label="Move to another column"><i class="fa-solid fa-arrow-right-arrow-left"></i> Move to…</button>`;
+
+const crmMoveMenu = (() => {
+  // options: [{ value, label, color }]; current: the column the card is in now.
+  function open({ title, current, options, returnFocus = null }) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay open move-menu";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.setAttribute("aria-labelledby", "moveMenuTitle");
+      overlay.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <h3 id="moveMenuTitle">${escapeHtml(title)}</h3>
+            <button class="icon-btn" type="button" data-cancel aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="modal-body move-menu-list">
+            ${options.map((option) => {
+              const here = option.value === current;
+              return `<button class="move-menu-option" type="button" data-value="${escapeHtml(option.value)}" ${here ? 'disabled aria-current="true"' : ""}>
+                <span class="kanban-dot" style="background:${escapeHtml(option.color || "var(--text-faint)")}"></span>
+                <span class="move-menu-label">${escapeHtml(option.label)}</span>
+                ${here ? '<span class="move-menu-here">Here now</span>' : '<i class="fa-solid fa-chevron-right"></i>'}
+              </button>`;
+            }).join("")}
+          </div>
+        </div>`;
+      const close = (result) => {
+        document.removeEventListener("keydown", onKey);
+        overlay.remove();
+        returnFocus?.focus();
+        resolve(result);
+      };
+      const onKey = (event) => {
+        if (event.key === "Escape") close(null);
+      };
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay || event.target.closest("[data-cancel]")) return close(null);
+        const option = event.target.closest(".move-menu-option:not(:disabled)");
+        if (option) close(option.dataset.value);
+        return undefined;
+      });
+      document.addEventListener("keydown", onKey);
+      document.body.appendChild(overlay);
+      overlay.querySelector(".move-menu-option:not(:disabled)")?.focus();
+    });
+  }
+  return { open };
+})();
+
 const isOrgOwner = () => getCurrentMember()?.role === "owner";
 
 // "+919829070001" → "+91 98290 70001" (how numbers are read in India); others unchanged.

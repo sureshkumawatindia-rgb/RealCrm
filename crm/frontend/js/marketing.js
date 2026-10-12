@@ -205,12 +205,33 @@ ${c.audience ? `<div class="campaign-card__audience"><i class="fa-solid fa-users
     ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${formatDate(c.startDate)}
   </div>
 </div>
+${kanbanMoveButton(c.id)}
     </div>`;
+}
+
+// A campaign to another status: dropped on a column, or picked in "Move to…" on a touch screen (R2).
+function moveCampaign(id, newStatus) {
+  const campaign = getCampaign(id);
+  if (!campaign || campaign.status === newStatus) return;
+  saveCampaign(campaign.id, { status: newStatus })
+    .then(() => showToast(`Moved "${campaign.name}" to ${newStatus}`, "success"))
+    .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the campaign."), "error"))
+    .finally(renderAll);
 }
 
 function attachDragEvents() {
   document.querySelectorAll(".campaign-card").forEach((card) => {
     card.addEventListener("click", () => openModal(card.dataset.id));
+    card.querySelector(".kanban-move")?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const campaign = getCampaign(card.dataset.id);
+      if (!campaign) return;
+      const status = await crmMoveMenu.open({
+        title: `Move "${campaign.name}" to`, current: campaign.status, returnFocus: event.currentTarget,
+        options: STATUSES.map((s) => ({ value: s, label: s, color: STATUS_DOT[s] })),
+      });
+      if (status) moveCampaign(campaign.id, status);
+    });
     card.addEventListener("dragstart", () => {
       draggingId = card.dataset.id;
       card.classList.add("dragging");
@@ -233,13 +254,7 @@ function attachDragEvents() {
       e.preventDefault();
       col.classList.remove("drag-over");
       if (!draggingId) return;
-      const newStatus = col.dataset.status;
-      const campaign = getCampaign(draggingId);
-      if (!campaign || campaign.status === newStatus) return;
-      saveCampaign(campaign.id, { status: newStatus })
-        .then(() => showToast(`Moved "${campaign.name}" to ${newStatus}`, "success"))
-        .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the campaign."), "error"))
-        .finally(renderAll);
+      moveCampaign(draggingId, col.dataset.status);
     });
   });
 }

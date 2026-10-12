@@ -95,6 +95,11 @@
     const minutes = Math.max(0, Math.round((new Date(win.expiresAt) - Date.now()) / 60000));
     return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
   }
+  // "3h" or "45m": the phone's short reply-window chip (R2).
+  function windowLeftShort(win) {
+    const left = windowLeft(win);
+    return left && left.includes("h") ? left.split(" ")[0] : left;
+  }
   const isWindowOpen = (c) => Boolean(c?.window?.open && new Date(c.window.expiresAt) > new Date());
 
   // --- conversation list ------------------------------------------------
@@ -384,7 +389,11 @@
     const left = windowLeft(c.window);
     const chip = $("threadWindow");
     const open = isWindowOpen(c);
-    chip.textContent = open ? `Reply window: ${left} left` : "Reply window closed";
+    // The long text on computers, the short one on phones (inbox.css).
+    chip.innerHTML = open
+      ? `<i class="fa-regular fa-clock"></i> <span class="window-long">Reply window: ${escapeHtml(left)} left</span><span class="window-short">${escapeHtml(windowLeftShort(c.window))} left</span>`
+      : '<i class="fa-regular fa-clock"></i> <span class="window-long">Reply window closed</span><span class="window-short">Templates only</span>';
+    chip.title = open ? `You can reply freely for ${left} more.` : "The customer has not written in 24 hours: only approved templates can be sent.";
     chip.className = `window-chip ${open ? "" : "closed"}`;
     renderBotChip(c);
     // Private numbers (D61): owners only — make the chat's number private, or show it again.

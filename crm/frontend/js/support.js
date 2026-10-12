@@ -245,12 +245,33 @@ function ticketCardHtml(t) {
           ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${t.dueDate ? formatDate(t.dueDate) : "No due date"}
         </div>
       </div>
+      ${kanbanMoveButton(t.id)}
     </div>`;
+}
+
+// A ticket to another status: dropped on a column, or picked in "Move to…" on a touch screen (R2).
+function moveTicket(id, newStatus) {
+  const ticket = getTicket(id);
+  if (!ticket || ticket.status === newStatus) return;
+  saveTicket(ticket.id, { status: newStatus })
+    .then(() => showToast(`Moved #${ticket.number} to ${newStatus}`, "success"))
+    .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the ticket."), "error"))
+    .finally(renderAll);
 }
 
 function attachDragEvents() {
   document.querySelectorAll(".ticket-card").forEach((card) => {
     card.addEventListener("click", () => openModal(card.dataset.id));
+    card.querySelector(".kanban-move")?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const ticket = getTicket(card.dataset.id);
+      if (!ticket) return;
+      const status = await crmMoveMenu.open({
+        title: `Move #${ticket.number} to`, current: ticket.status, returnFocus: event.currentTarget,
+        options: STATUSES.map((s) => ({ value: s, label: s, color: STATUS_DOT[s] })),
+      });
+      if (status) moveTicket(ticket.id, status);
+    });
     card.addEventListener("dragstart", () => {
       draggingId = card.dataset.id;
       card.classList.add("dragging");
@@ -271,13 +292,7 @@ function attachDragEvents() {
       e.preventDefault();
       col.classList.remove("drag-over");
       if (!draggingId) return;
-      const newStatus = col.dataset.status;
-      const ticket = getTicket(draggingId);
-      if (!ticket || ticket.status === newStatus) return;
-      saveTicket(ticket.id, { status: newStatus })
-        .then(() => showToast(`Moved #${ticket.number} to ${newStatus}`, "success"))
-        .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the ticket."), "error"))
-        .finally(renderAll);
+      moveTicket(draggingId, col.dataset.status);
     });
   });
 }
