@@ -51,7 +51,7 @@ router.patch('/', requireRole('owner', 'admin'), validate({ body: organizationPa
 router.get('/settings', async (req, res) => {
   res.json({ success: true, data: await teamSettings.getSettings(req) });
 });
-router.patch('/settings', requireRole('owner', 'admin'), validate({ body: Joi.object({ hidePhonesFromAgents: Joi.boolean() }).min(1) }), async (req, res) => {
+router.patch('/settings', requireRole('owner', 'admin'), validate({ body: Joi.object({ hidePhonesFromAgents: Joi.boolean(), sendReadReceipts: Joi.boolean() }).min(1) }), async (req, res) => {
   res.json({ success: true, data: await teamSettings.updateSettings(req, req.body), message: 'Settings saved' });
 });
 // First steps after sign-up (D64): "Invite your team".

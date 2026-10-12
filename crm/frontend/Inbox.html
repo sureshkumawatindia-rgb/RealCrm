@@ -164,6 +164,7 @@
                 <button class="inbox-tab" data-view="mine" role="tab">Mine <span class="count" id="countMine">0</span></button>
                 <button class="inbox-tab" data-view="unassigned" role="tab">Queue <span class="count" id="countUnassigned">0</span></button>
                 <button class="inbox-tab active" data-view="all" role="tab">All <span class="count" id="countAll">0</span></button>
+                <button class="inbox-tab" data-view="archived" role="tab" title="Archived chats"><i class="fa-solid fa-box-archive"></i> Archived</button>
               </div>
               <select id="inboxStatus" aria-label="Status">
                 <option value="">Open &amp; pending</option>
@@ -219,11 +220,21 @@
                 </div>
                 <div class="ai-suggest" id="aiSuggest" hidden></div>
                 <div class="quick-menu" id="quickMenu" hidden></div>
+                <div class="emoji-picker" id="emojiPicker" role="dialog" aria-label="Emoji" hidden></div>
+                <!-- Recording a voice note (CP3): it replaces the message row until sent or deleted -->
+                <div class="composer-recording" id="recordingBar" hidden>
+                  <button class="icon-btn" id="recordCancel" type="button" aria-label="Delete the recording" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                  <span class="rec-dot" aria-hidden="true"></span>
+                  <span class="rec-time" id="recordTime" aria-live="off">0:00</span>
+                  <span class="rec-label">Recording a voice note…</span>
+                  <button class="btn btn-primary composer-send" id="recordSend" type="button" aria-label="Send the voice note" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
                 <form class="composer-row" id="composerForm">
                   <button class="icon-btn" id="quickRepliesBtn" type="button" title="Quick replies (type / )"><i class="fa-solid fa-bolt"></i></button>
                   <!-- On the smallest phones these three open from "+" (R3), so the message box keeps its room -->
                   <button class="icon-btn composer-more" id="composerMore" type="button" title="Attach, template or products" aria-label="Attach, template or products" aria-expanded="false" aria-controls="composerExtras"><i class="fa-solid fa-plus"></i></button>
                   <span class="composer-extras" id="composerExtras">
+                    <button class="icon-btn" id="emojiBtn" type="button" title="Emoji" aria-label="Emoji" aria-expanded="false" aria-controls="emojiPicker"><i class="fa-regular fa-face-smile"></i></button>
                     <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document" aria-label="Attach a file"><i class="fa-solid fa-paperclip"></i></button>
                     <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)" aria-label="Send a template"><i class="fa-solid fa-file-lines"></i></button>
                     <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog" aria-label="Send products"><i class="fa-solid fa-store"></i></button>
@@ -231,7 +242,9 @@
                   <button class="icon-btn" id="aiSuggestBtn" type="button" title="Suggest a reply (AI assistant)" style="display: none"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                   <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.mp4,.3gp,.aac,.amr,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
                   <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies"></textarea>
-                  <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)"><i class="fa-solid fa-paper-plane"></i></button>
+                  <!-- With nothing typed, the microphone takes the send button's place (as in WhatsApp) -->
+                  <button class="btn btn-primary composer-send" id="micBtn" type="button" title="Record a voice note" aria-label="Record a voice note" hidden><i class="fa-solid fa-microphone"></i></button>
+                  <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
                 </form>
               </footer>
             </div>
@@ -264,7 +277,15 @@
                 </div>
               </div>
               <div class="details-section">
-                <label for="detailsTags">Tags</label>
+                <label>This chat</label>
+                <div class="details-actions">
+                  <button class="btn btn-outline" id="detailsPin" type="button"><i class="fa-solid fa-thumbtack"></i> <span>Pin for me</span></button>
+                  <button class="btn btn-outline" id="detailsArchive" type="button"><i class="fa-solid fa-box-archive"></i> <span>Archive</span></button>
+                </div>
+                <p class="details-hint">A pinned chat stays at the top of your list only. An archived chat leaves everyone's list until the customer writes again.</p>
+              </div>
+              <div class="details-section">
+                <label for="detailsTags">Labels</label>
                 <input type="text" id="detailsTags" placeholder="e.g. bulk, vip (comma separated)" />
               </div>
               <div class="details-section" id="detailsSales" hidden>
@@ -395,6 +416,7 @@
 
     <script src="./js/app.js"></script>
     <script src="./js/payment-links.js"></script>
+    <script src="./js/voice-note.js"></script>
     <script src="./js/inbox.js"></script>
   </body>
 </html>

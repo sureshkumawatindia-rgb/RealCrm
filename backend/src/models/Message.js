@@ -37,6 +37,11 @@ const messageSchema = new mongoose.Schema(
       providerMessageId: { type: String },
       emoji: { type: String },
     },
+    // The reactions on this message (CP3): the customer's (from a reaction webhook) and ours.
+    reactions: {
+      customer: { type: String },
+      business: { type: String },
+    },
     // Buttons or a list the CRM sent (Phase 6C bot); the customer's choice comes back as reply.
     // Products from the WhatsApp catalog (Phase 8C): kind product (one) or product_list.
     interactive: {
@@ -73,6 +78,7 @@ const messageSchema = new mongoose.Schema(
     sentAt: { type: Date },
     deliveredAt: { type: Date },
     readAt: { type: Date },
+    playedAt: { type: Date },
     failedAt: { type: Date },
     error: {
       code: { type: Number },

@@ -5,6 +5,7 @@ const Contact = require('../models/Contact');
 const Lead = require('../models/Lead');
 const WhatsAppAccount = require('../models/WhatsAppAccount');
 const OrganizationMember = require('../models/OrganizationMember');
+const Organization = require('../models/Organization');
 const httpError = require('../utils/httpError');
 const logger = require('../config/logger');
 const bus = require('../realtime/bus');
@@ -21,6 +22,7 @@ const mediaService = require('./whatsappMediaService');
 const { previewOf } = require('./whatsappInboundService');
 const { visibilityFilter, privacyFilter } = require('./access');
 const { documentStorage } = require('../storage');
+const { isOggOpusMono } = require('../utils/oggOpus');
 
 // The shared WhatsApp inbox. Who sees which chat (D24): owners, admins and members with
 // inbox:view_all see every chat; other inbox members see chats assigned to them and chats
@@ -38,7 +40,8 @@ function serviceWindow(conversation, now = Date.now()) {
   return { open: Boolean(expiresAt && expiresAt.getTime() > now), expiresAt };
 }
 
-function serializeConversation(conversation) {
+// viewerId: the member the answer is for, so "pinned" is theirs (CP3); live updates leave it out.
+function serializeConversation(conversation, viewerId = null) {
   const contact = conversation.contactId && typeof conversation.contactId === 'object' && conversation.contactId.name !== undefined ? conversation.contactId : null;
   const account = conversation.whatsappAccountId && typeof conversation.whatsappAccountId === 'object' && conversation.whatsappAccountId.phoneNumberId ? conversation.whatsappAccountId : null;
   return {
@@ -58,6 +61,8 @@ function serializeConversation(conversation) {
     lastInboundAt: conversation.lastInboundAt || null,
     window: serviceWindow(conversation),
     tags: conversation.tags,
+    ...(viewerId && { pinned: (conversation.pinnedBy || []).some((memberId) => String(memberId) === String(viewerId)) }),
+    archived: Boolean(conversation.archivedAt),
     // The FAQ bot (Phase 6C): handedOffAt = it waits for a person in this chat.
     bot: { handedOffAt: conversation.bot?.handedOffAt || null, handoffReason: conversation.bot?.handoffReason || '' },
     private: Boolean(conversation.private), // only owners ever receive a private chat (D61)
@@ -77,7 +82,10 @@ function serializeMessage(message) {
       : null,
     location: message.location?.latitude != null ? message.location : null,
     reply: message.reply?.title ? message.reply : null,
-    reaction: message.reaction?.emoji ? message.reaction : null,
+    reaction: message.reaction?.providerMessageId ? { providerMessageId: message.reaction.providerMessageId, emoji: message.reaction.emoji || '' } : null,
+    reactions: message.reactions?.customer || message.reactions?.business
+      ? { customer: message.reactions.customer || '', business: message.reactions.business || '' }
+      : null,
     template: message.template?.name ? message.template : null,
     interactive: message.interactive?.kind
       ? {
@@ -97,6 +105,7 @@ function serializeMessage(message) {
     sentAt: message.sentAt || null,
     deliveredAt: message.deliveredAt || null,
     readAt: message.readAt || null,
+    playedAt: message.playedAt || null,
     failedAt: message.failedAt || null,
     error: message.error?.message || message.error?.title ? message.error : null,
     sentByMemberId: message.sentByMemberId || null,
@@ -128,8 +137,8 @@ async function findVisible(req, id) {
   return conversation;
 }
 
-async function loadSerialized(id) {
-  return serializeConversation(await Conversation.findById(id).populate(POPULATE));
+async function loadSerialized(id, viewerId = null) {
+  return serializeConversation(await Conversation.findById(id).populate(POPULATE), viewerId);
 }
 
 // Everyone who should hear about a conversation right away (see realtime/socket.js).
@@ -137,12 +146,15 @@ function announce(event, conversation, extra = {}) {
   bus.emit(event, { organizationId: conversation.organizationId, conversation, ...extra });
 }
 
-// view: mine | unassigned | all; status: open | pending | closed | any (default open + pending);
-// contactId: one customer's chats (Customer 360; q is ignored then).
+// view: mine | unassigned | all | archived; status: open | pending | closed | any (default open +
+// pending); contactId: one customer's chats (Customer 360; q is ignored then). Archived chats
+// show only under "archived"; the member's pinned chats come first on the first page (CP3).
 async function list(req, query) {
   const filter = { organizationId: req.tenant.organizationId };
   if (query.view === 'mine') filter.assigneeId = req.member._id;
   if (query.view === 'unassigned') filter.assigneeId = null;
+  const archivedView = query.view === 'archived';
+  if (!query.contactId) filter.archivedAt = archivedView ? { $ne: null } : null;
   if (query.status && query.status !== 'any') filter.status = query.status;
   if (!query.status) filter.status = { $in: ['open', 'pending'] };
   if (query.accountId) filter.whatsappAccountId = query.accountId;
@@ -159,16 +171,20 @@ async function list(req, query) {
   const scope = scopeFilter(req);
   const where = Object.keys(scope).length ? { $and: [filter, scope] } : filter;
   const page = toPage(query);
-  const [items, total] = await Promise.all([
-    Conversation.find(where).sort({ lastMessageAt: -1, _id: -1 }).skip(page.skip).limit(page.limit).populate(POPULATE),
+  const newest = { lastMessageAt: -1, _id: -1 };
+  const me = req.member._id;
+  const pinFirst = !archivedView && !query.contactId;
+  const [pinned, items, total] = await Promise.all([
+    pinFirst && page.page === 1 ? Conversation.find({ $and: [where, { pinnedBy: me }] }).sort(newest).limit(20).populate(POPULATE) : [],
+    Conversation.find(pinFirst ? { $and: [where, { pinnedBy: { $ne: me } }] } : where).sort(newest).skip(page.skip).limit(page.limit).populate(POPULATE),
     Conversation.countDocuments(where),
   ]);
-  return { items: items.map(serializeConversation), pagination: paginationMeta(page, total) };
+  return { items: [...pinned, ...items].map((conversation) => serializeConversation(conversation, me)), pagination: paginationMeta(page, total) };
 }
 
 // Counts for the inbox tabs (open and pending chats) and the unread badge.
 async function summary(req) {
-  const base = { organizationId: req.tenant.organizationId, status: { $in: ['open', 'pending'] }, ...privacyFilter(req) };
+  const base = { organizationId: req.tenant.organizationId, status: { $in: ['open', 'pending'] }, archivedAt: null, ...privacyFilter(req) };
   const scope = scopeFilter(req);
   const visible = Object.keys(scope).length ? { $and: [base, scope] } : base;
   const [mine, unassigned, all, unread] = await Promise.all([
@@ -182,7 +198,7 @@ async function summary(req) {
 
 async function get(req, id) {
   const conversation = await findVisible(req, id);
-  return loadSerialized(conversation._id);
+  return loadSerialized(conversation._id, req.member._id);
 }
 
 // Status, assignee (null = nobody) and tags. The assignee must be an active member who can
@@ -209,6 +225,15 @@ async function update(req, id, body) {
   // A closed chat starts afresh: the FAQ bot may answer the customer's next message again.
   if (body.status === 'closed' && conversation.bot?.handedOffAt) conversation.set({ 'bot.handedOffAt': undefined, 'bot.handoffReason': undefined });
   if ('tags' in body) conversation.tags = [...new Set(body.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 20);
+  // Pinned: only for the member who pins (CP3). Archived: for the whole company.
+  if ('pinned' in body) {
+    const others = (conversation.pinnedBy || []).filter((memberId) => String(memberId) !== String(req.member._id));
+    conversation.pinnedBy = body.pinned ? [...others, req.member._id] : others;
+  }
+  if ('archived' in body) {
+    conversation.archivedAt = body.archived ? conversation.archivedAt || new Date() : undefined;
+    conversation.archivedById = body.archived ? req.member._id : undefined;
+  }
   await conversation.save();
   // Resolved (D61): counted for the chat's assignee (else whoever closed it), not for private chats.
   if (body.status === 'closed' && !wasClosed && !conversation.private) {
@@ -222,7 +247,25 @@ async function update(req, id, body) {
   if (conversation.assigneeId && String(conversation.assigneeId) !== String(previousAssigneeId)) await claimCustomer(conversation, conversation.assigneeId);
   await audit(req, { action: 'conversation.updated', entityType: 'Conversation', entityId: conversation._id, changes: Object.keys(body) });
   announce('conversation:updated', conversation, { previousAssigneeId });
-  return loadSerialized(conversation._id);
+  return loadSerialized(conversation._id, req.member._id);
+}
+
+// --- read receipts and "typing…" (CP3) ------------------------------------------------------------
+// When a teammate opens a chat, the customer sees blue ticks on their last message (once per
+// message), unless the company switched read receipts off (Settings → WhatsApp). "Typing…" is
+// the same call with the typing indicator, so it is shown only when read receipts are on.
+const readReceiptsOn = async (organizationId) => (await Organization.findById(organizationId).select('settings').lean())?.settings?.sendReadReceipts !== false;
+
+async function sendReadReceipt(conversation, { typing = false } = {}) {
+  if (!(await readReceiptsOn(conversation.organizationId))) return false;
+  const last = await Message.findOne({ conversationId: conversation._id, direction: 'in', providerMessageId: { $nin: [null, ''] }, origin: { $ne: 'history' } })
+    .sort({ createdAt: -1 }).select('providerMessageId');
+  if (!last || (!typing && conversation.readReceiptFor === last.providerMessageId)) return false;
+  const account = await WhatsAppAccount.findOne({ _id: conversation.whatsappAccountId, organizationId: conversation.organizationId });
+  if (!account || account.status === 'disconnected') return false;
+  await providerFor(account).markRead(credentials(account), { messageId: last.providerMessageId, typing });
+  await Conversation.updateOne({ _id: conversation._id }, { $set: { readReceiptFor: last.providerMessageId } });
+  return true;
 }
 
 async function markRead(req, id) {
@@ -232,7 +275,28 @@ async function markRead(req, id) {
     await conversation.save();
     announce('conversation:updated', conversation);
   }
-  return loadSerialized(conversation._id);
+  // Blue ticks are a courtesy: WhatsApp being slow or down never stops the chat from opening.
+  await sendReadReceipt(conversation).catch((error) => logger.warn(`Read receipt for conversation ${conversation._id} failed: ${error.message}`));
+  return loadSerialized(conversation._id, req.member._id);
+}
+
+// POST /conversations/:id/typing — the page calls it while a teammate types; WhatsApp shows
+// "typing…" for up to 25 seconds, so it goes at most every 20 seconds per chat.
+const TYPING_EVERY_MS = 20 * 1000;
+const typingSentAt = new Map();
+async function typing(req, id) {
+  const conversation = await findVisible(req, id);
+  if (!serviceWindow(conversation).open) return { sent: false };
+  const key = String(conversation._id);
+  if (Date.now() - (typingSentAt.get(key) || 0) < TYPING_EVERY_MS) return { sent: false };
+  if (typingSentAt.size > 5000) typingSentAt.clear();
+  typingSentAt.set(key, Date.now());
+  try {
+    return { sent: await sendReadReceipt(conversation, { typing: true }) };
+  } catch (error) {
+    logger.warn(`Typing indicator for conversation ${conversation._id} failed: ${error.message}`);
+    return { sent: false };
+  }
 }
 
 // Newest page first; pass before=<message id> for older ones. Items come back oldest → newest.
@@ -315,6 +379,30 @@ async function deliver(sender, { conversation, account, contact }, fields, build
   return serializeMessage(message);
 }
 
+// POST /conversations/:id/messages/:messageId/reaction { emoji } — a reaction on a message of
+// the chat (CP3). WhatsApp takes reactions on messages of the last 30 days, never on a reaction;
+// like any message it needs the 24-hour window. The reaction shows on the message.
+const REACTION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+async function react(req, id, messageId, { emoji }) {
+  const context = await sendContext(req, id, { needsWindow: true });
+  const target = await Message.findOne({ _id: messageId, conversationId: context.conversation._id });
+  if (!target) throw httpError(404, 'NOT_FOUND', 'Message not found');
+  if (!target.providerMessageId || target.type === 'reaction' || target.status === 'failed') {
+    throw httpError(400, 'CANNOT_REACT', 'WhatsApp cannot take a reaction on this message.');
+  }
+  if (Date.now() - new Date(target.providerTimestamp || target.createdAt).getTime() > REACTION_MAX_AGE_MS) {
+    throw httpError(400, 'CANNOT_REACT', 'WhatsApp takes reactions only on messages from the last 30 days.');
+  }
+  const sent = await deliver(asMember(req), context, { type: 'reaction', reaction: { providerMessageId: target.providerMessageId, emoji } }, async () => ({
+    type: 'reaction',
+    reaction: { message_id: target.providerMessageId, emoji },
+  }));
+  if (sent.status === 'failed') throw httpError(502, 'WHATSAPP_ERROR', sent.error?.message || 'WhatsApp did not take the reaction.');
+  const updated = await Message.findOneAndUpdate({ _id: target._id }, { $set: { 'reactions.business': emoji } }, { returnDocument: 'after' });
+  bus.emit('message:status', { organizationId: context.conversation.organizationId, message: updated });
+  return serializeMessage(updated);
+}
+
 async function sendText(req, id, { text, replyToMessageId }) {
   const context = await sendContext(req, id, { needsWindow: true });
   const replyTo = await replyTarget(context.conversation, replyToMessageId);
@@ -340,9 +428,13 @@ async function sendTemplate(req, id, { templateId, variables }) {
 }
 
 // A photo, video, audio file or document. A copy stays in the CRM's storage.
-async function sendMedia(req, id, { caption = '', replyToMessageId }, file) {
+// voice: a note recorded on the page (CP3), sent as a WhatsApp voice message (Ogg Opus, mono).
+async function sendMedia(req, id, { caption = '', replyToMessageId, voice = false }, file) {
   const context = await sendContext(req, id, { needsWindow: true });
   const info = mediaService.classify(file);
+  if (voice && (info.mimeType !== 'audio/ogg' || !isOggOpusMono(file.buffer))) {
+    throw httpError(400, 'VALIDATION_ERROR', 'A voice note must be an Ogg Opus recording in mono.', [{ field: 'voice', code: 'VOICE_FORMAT', message: 'Record it again, or send it as an audio file.' }]);
+  }
   if (caption && info.type === 'audio') {
     throw httpError(400, 'VALIDATION_ERROR', 'WhatsApp does not show a caption on audio files.', [{ field: 'caption', code: 'NO_CAPTION', message: 'Send the text as a separate message.' }]);
   }
@@ -351,7 +443,7 @@ async function sendMedia(req, id, { caption = '', replyToMessageId }, file) {
   const fields = {
     type: info.type,
     text: caption,
-    media: { mimeType: info.mimeType, fileName: info.fileName, sizeBytes: file.buffer.length, storageKey, sha256: mediaService.sha256Hex(file.buffer) },
+    media: { mimeType: info.mimeType, fileName: info.fileName, sizeBytes: file.buffer.length, storageKey, sha256: mediaService.sha256Hex(file.buffer), ...(voice && { voice: true }) },
     replyToProviderMessageId: replyTo || undefined,
   };
   return deliver(asMember(req), context, fields, async (message) => {
@@ -359,7 +451,7 @@ async function sendMedia(req, id, { caption = '', replyToMessageId }, file) {
     message.media.providerMediaId = mediaId;
     return {
       type: info.type,
-      [info.type]: { id: mediaId, ...(caption && { caption }), ...(info.type === 'document' && { filename: info.fileName }) },
+      [info.type]: { id: mediaId, ...(caption && { caption }), ...(info.type === 'document' && { filename: info.fileName }), ...(voice && { voice: true }) },
       ...quoting(replyTo),
     };
   });
@@ -573,7 +665,7 @@ async function addNote(req, id, body) {
 }
 
 module.exports = {
-  list, summary, get, update, markRead, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
+  list, summary, get, update, markRead, typing, react, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
   ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, sendProducts, announce, findVisible, setBot,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };

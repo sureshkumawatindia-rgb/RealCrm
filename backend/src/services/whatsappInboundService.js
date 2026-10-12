@@ -222,7 +222,7 @@ function previewOf(fields) {
   const labels = {
     image: 'Photo', video: 'Video', audio: fields.media?.voice ? 'Voice message' : 'Audio', sticker: 'Sticker',
     document: `Document${fields.media?.fileName ? `: ${fields.media.fileName}` : ''}`, location: 'Location',
-    contacts: 'Contact card', reaction: `Reacted ${fields.reaction?.emoji || ''}`.trim(), unsupported: 'Unsupported message', order: 'Order',
+    contacts: 'Contact card', reaction: fields.reaction?.emoji ? `Reacted ${fields.reaction.emoji}` : 'Removed a reaction', unsupported: 'Unsupported message', order: 'Order',
   };
   const text = fields.text ? fields.text.replace(/\s+/g, ' ').trim() : '';
   const label = labels[fields.type];
@@ -311,11 +311,22 @@ async function handleMessage(account, { message, contact: profile }) {
 
   // Reopen the chat, count it unread and move the 24-hour window. Messages can arrive out of
   // order, so only the newest one sets the preview.
+  // A new message brings an archived chat back (CP3).
   conversation = await Conversation.findOneAndUpdate(
     { _id: conversation._id },
-    { $set: { status: 'open' }, $inc: { unreadCount: 1 }, $max: { lastInboundAt: at, lastMessageAt: at } },
+    { $set: { status: 'open' }, $unset: { archivedAt: 1, archivedById: 1 }, $inc: { unreadCount: 1 }, $max: { lastInboundAt: at, lastMessageAt: at } },
     { returnDocument: 'after' },
   );
+  // A reaction shows on the message it is for; a removed reaction comes without an emoji.
+  if (fields.type === 'reaction' && fields.reaction?.providerMessageId) {
+    const emoji = fields.reaction.emoji;
+    const target = await Message.findOneAndUpdate(
+      { organizationId, conversationId: conversation._id, providerMessageId: fields.reaction.providerMessageId },
+      emoji ? { $set: { 'reactions.customer': emoji } } : { $unset: { 'reactions.customer': 1 } },
+      { returnDocument: 'after' },
+    );
+    if (target) bus.emit('message:status', { organizationId, message: target });
+  }
   if (conversation.lastMessageAt.getTime() === at.getTime()) {
     conversation = await Conversation.findOneAndUpdate(
       { _id: conversation._id },
@@ -325,7 +336,8 @@ async function handleMessage(account, { message, contact: profile }) {
   }
 
   bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created && !hidden });
-  if (!hidden) {
+  // A reaction (a 👍 on our message) is not a new question: no bot, auto-reply or workflow runs on it (CP3).
+  if (!hidden && stored.type !== 'reaction') {
     automationEvents.emit('message.received', {
       organizationId, contactId: contact._id, conversationId: conversation._id, messageId: stored._id, text: stored.text || '', messageType: stored.type, replyId: stored.reply?.id || '', key: `message.received:${stored._id}`,
     });

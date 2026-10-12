@@ -10,6 +10,7 @@ const phoneVisibility = require('./phoneVisibility');
 
 const serializeSettings = (organization) => ({
   hidePhonesFromAgents: organization?.settings?.hidePhonesFromAgents !== false, // D65: on unless turned off
+  sendReadReceipts: organization?.settings?.sendReadReceipts !== false, // CP3: on unless turned off
 });
 
 // GET /organization/settings — every member (the pages show what applies to them).
@@ -25,14 +26,19 @@ async function updateSettings(req, patch) {
   if (typeof patch.hidePhonesFromAgents === 'boolean' && patch.hidePhonesFromAgents !== before.hidePhonesFromAgents) {
     changes.hidePhonesFromAgents = patch.hidePhonesFromAgents;
   }
+  if (typeof patch.sendReadReceipts === 'boolean' && patch.sendReadReceipts !== before.sendReadReceipts) {
+    changes.sendReadReceipts = patch.sendReadReceipts;
+  }
   if (!Object.keys(changes).length) return before;
   await Organization.updateOne(
     { _id: organizationId },
     { $set: Object.fromEntries(Object.entries(changes).map(([key, value]) => [`settings.${key}`, value])) },
   );
-  phoneVisibility.forget(organizationId);
-  // Open pages pick it up: their live connection is told, and lists reload.
-  bus.emit('privacy:phones-changed', { organizationId, hidePhonesFromAgents: changes.hidePhonesFromAgents ?? before.hidePhonesFromAgents });
+  if ('hidePhonesFromAgents' in changes) {
+    phoneVisibility.forget(organizationId);
+    // Open pages pick it up: their live connection is told, and lists reload.
+    bus.emit('privacy:phones-changed', { organizationId, hidePhonesFromAgents: changes.hidePhonesFromAgents });
+  }
   await audit(req, { action: 'organization.settings_updated', entityType: 'Organization', entityId: organizationId, changes });
   return { ...before, ...changes };
 }

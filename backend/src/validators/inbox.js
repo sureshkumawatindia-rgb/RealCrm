@@ -9,7 +9,7 @@ const variableValues = Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, Joi.string()
 module.exports = {
   conversationList: Joi.object({
     ...paginationQuery,
-    view: Joi.string().valid('mine', 'unassigned', 'all').default('all'),
+    view: Joi.string().valid('mine', 'unassigned', 'all', 'archived').default('all'),
     status: Joi.string().valid(...CONVERSATION_STATUSES, 'any'),
     accountId: objectId,
     contactId: objectId,
@@ -23,7 +23,13 @@ module.exports = {
     status: Joi.string().valid(...CONVERSATION_STATUSES),
     assigneeId: objectId.allow(null),
     tags: Joi.array().items(Joi.string().trim().max(40)).max(20),
+    pinned: Joi.boolean(), // for the member who asks (CP3)
+    archived: Joi.boolean(), // for the whole company
   }).min(1),
+  // A reaction on a message of the chat (CP3): one emoji.
+  reaction: Joi.object({
+    emoji: Joi.string().trim().min(1).max(16).required(),
+  }),
   messageList: Joi.object({
     before: objectId,
     limit: Joi.number().integer().min(1).max(100),
@@ -45,6 +51,7 @@ module.exports = {
   mediaSend: Joi.object({
     caption: Joi.string().trim().max(1024).allow(''),
     replyToMessageId: objectId,
+    voice: Joi.boolean().truthy('true', '1').falsy('false', '0'), // a recorded voice note (CP3)
   }),
   messageParams: Joi.object({
     id: objectId.required(),

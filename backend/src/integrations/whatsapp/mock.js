@@ -148,6 +148,10 @@ module.exports = {
     return { providerMessageId: `wamid.MOCK${crypto.randomBytes(12).toString('hex')}` };
   },
 
+  async markRead() {
+    return { success: true };
+  },
+
   async listTemplates({ phoneNumberId }) {
     return [...SAMPLE_TEMPLATES, ...(createdTemplates.get(phoneNumberId) || [])].map(normalizeTemplate);
   },

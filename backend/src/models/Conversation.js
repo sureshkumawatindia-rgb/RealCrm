@@ -23,6 +23,13 @@ const conversationSchema = new mongoose.Schema(
     // When the chat was last opened (new, or reopened by the customer): resolution time (D61).
     openedAt: { type: Date },
     tags: { type: [String], default: [] },
+    // CP3: pinned by each member for themselves; archived for the whole company (a new message
+    // from the customer brings the chat back).
+    pinnedBy: { type: [mongoose.Schema.Types.ObjectId], default: undefined },
+    archivedAt: { type: Date },
+    archivedById: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
+    // The customer's message the last read receipt was sent for (blue ticks once per message).
+    readReceiptFor: { type: String },
     // The FAQ bot in this chat (Phase 6C): handedOffAt = the customer asked for a person (or a
     // teammate paused the bot); the bot stays quiet until the chat is closed or it is turned on.
     // The AI assistant's answers here (Phase 10D): when it last answered, and when it passed the

@@ -239,8 +239,34 @@
     loadPrivate();
   });
 
+  // Read receipts (CP3): blue ticks and "typing…" for customers; on unless turned off.
+  async function loadReceipts() {
+    try {
+      const { sendReadReceipts } = await crmApi("/organization/settings");
+      document.getElementById("readReceiptsToggle").checked = sendReadReceipts;
+      document.getElementById("waReceiptsSection").hidden = false;
+    } catch {
+      document.getElementById("waReceiptsSection").hidden = true;
+    }
+  }
+  document.getElementById("readReceiptsToggle").addEventListener("change", async (event) => {
+    const toggle = event.target;
+    toggle.disabled = true;
+    try {
+      const { sendReadReceipts } = await crmApi("/organization/settings", jsonRequest("PATCH", { sendReadReceipts: toggle.checked }));
+      toggle.checked = sendReadReceipts;
+      showToast(sendReadReceipts ? "Customers see blue ticks when your team reads their messages." : "Customers no longer see blue ticks or \"typing…\".", "success");
+    } catch (error) {
+      toggle.checked = !toggle.checked;
+      showToast(apiErrorMessage(error, "Couldn't save the setting."), "error");
+    } finally {
+      toggle.disabled = false;
+    }
+  });
+
   async function load() {
     loadPrivate();
+    loadReceipts();
     try {
       [accounts, connect] = await Promise.all([crmApi("/whatsapp/accounts"), crmApi("/whatsapp/connect")]);
       // The team and the plan only decide the "New chats go to" choice; without them it stays shared.

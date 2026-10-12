@@ -172,12 +172,12 @@ describe('Customer numbers hidden from agents', () => {
   });
 
   it('only owners and admins switch it, it is audited, and agents then see the numbers', async () => {
-    expect((await get(agent.token, '/organization/settings')).body.data).toEqual({ hidePhonesFromAgents: true });
+    expect((await get(agent.token, '/organization/settings')).body.data).toEqual({ hidePhonesFromAgents: true, sendReadReceipts: true });
     expect((await api().patch('/api/v1/organization/settings').set(bearer(agent.token)).send({ hidePhonesFromAgents: false })).status).toBe(403);
     expect((await api().patch('/api/v1/organization/settings').set(bearer(viewer.token)).send({ hidePhonesFromAgents: false })).status).toBe(403);
 
     const off = await api().patch('/api/v1/organization/settings').set(bearer(admin.token)).send({ hidePhonesFromAgents: false });
-    expect(off.body.data).toEqual({ hidePhonesFromAgents: false });
+    expect(off.body.data).toEqual({ hidePhonesFromAgents: false, sendReadReceipts: true });
     expect(await AuditLog.findOne({ action: 'organization.settings_updated', 'changes.hidePhonesFromAgents': false })).toBeTruthy();
     expect(leaks((await get(agent.token, '/contacts?limit=100')).body)).toEqual(expect.arrayContaining(['9876543210']));
 

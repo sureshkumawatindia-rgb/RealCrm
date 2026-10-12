@@ -24,6 +24,7 @@
     sent: '<i class="fa-solid fa-check tick" title="Sent"></i>',
     delivered: '<i class="fa-solid fa-check-double tick" title="Delivered"></i>',
     read: '<i class="fa-solid fa-check-double tick read" title="Read"></i>',
+    played: '<i class="fa-solid fa-microphone tick read" title="Played"></i>',
     failed: '<i class="fa-solid fa-circle-exclamation tick failed" title="Not sent"></i>',
   };
   const MEDIA = {
@@ -33,6 +34,10 @@
     document: ["fa-file-lines", "Document"],
     sticker: ["fa-note-sticky", "Sticker"],
   };
+  // The emoji picker (CP3; the emojis people in India send most) and the quick reactions.
+  const EMOJIS = ["🙏", "👍", "😊", "😀", "😂", "🤣", "😍", "😘", "🤗", "🙂", "😉", "😎", "🤔", "😅", "😇", "😢", "😮", "😡", "👌", "✌️", "🤝", "👏", "🙌", "💪", "👋", "❤️", "💯", "🔥", "🎉", "✅", "❌", "⭐", "📦", "🚚", "🛒", "💰", "📞", "📍", "⏰", "📄", "🪔", "🌸", "🎁", "🍬", "☀️", "🌙"];
+  const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+  const REACTION_DAYS = 30; // WhatsApp takes reactions on messages of the last 30 days
   // Files the page shows itself (anything else is only offered as a download).
   const PREVIEW_TYPES = ["image/jpeg", "image/png", "image/webp", "audio/aac", "audio/amr", "audio/mpeg", "audio/mp4", "audio/ogg", "audio/wav", "video/mp4", "video/3gpp"];
   const baseMime = (mime) => String(mime || "").split(";")[0].trim().toLowerCase();
@@ -57,6 +62,8 @@
     templates: null, // approved templates (loaded when the picker opens)
     template: null, // the one picked
     botEnabled: false, // the organization's WhatsApp FAQ bot is on (GET /bot/status)
+    voice: false, // the file waiting is a recorded voice note (CP3)
+    reactingTo: null, // the message whose reaction bar is open
   };
 
   // --- small helpers -------------------------------------------------------
@@ -125,12 +132,13 @@
   // --- conversation list ------------------------------------------------
   function matchesFilters(c) {
     if (!visibleToMe(c)) return false;
+    if ((state.view === "archived") !== Boolean(c.archived)) return false; // archived chats only under Archived
     if (state.view === "mine" && String(c.assigneeId) !== String(me.id)) return false;
     if (state.view === "unassigned" && c.assigneeId) return false;
     if (state.status !== "any" && (state.status ? c.status !== state.status : c.status === "closed")) return false;
     if (state.q) {
       const q = state.q.toLowerCase();
-      const hay = `${c.contact.name} ${c.contact.company} ${c.contact.phone}`.toLowerCase();
+      const hay = `${c.contact.name} ${c.contact.company} ${c.contact.phone} ${(c.tags || []).join(" ")}`.toLowerCase();
       if (!hay.includes(q) && !(q.replace(/\D/g, "") && c.contact.phone.includes(q.replace(/\D/g, "")))) return false;
     }
     return true;
@@ -146,9 +154,10 @@
         <span style="min-width:0">
           <span class="name">${c.private ? '<i class="fa-solid fa-lock private-lock" title="Private: only owners see this chat"></i> ' : ""}${escapeHtml(c.contact.name || c.contact.phone)}</span>
           <span class="preview">${escapeHtml(preview)}</span>
+          ${(c.tags || []).length ? `<span class="conv-labels">${c.tags.slice(0, 2).map((tag) => `<span class="conv-label">${escapeHtml(tag)}</span>`).join("")}${c.tags.length > 2 ? `<span class="conv-label">+${c.tags.length - 2}</span>` : ""}</span>` : ""}
         </span>
         <span class="conv-meta">
-          <span>${escapeHtml(shortTime(c.lastMessageAt))}</span>
+          <span>${c.pinned ? '<i class="fa-solid fa-thumbtack conv-pin" title="Pinned"></i> ' : ""}${escapeHtml(shortTime(c.lastMessageAt))}</span>
           ${c.unreadCount ? `<span class="unread-badge">${c.unreadCount}</span>` : `<span class="assignee-chip">${escapeHtml(assignee)}</span>`}
         </span>
       </button>`;
@@ -167,7 +176,9 @@
       }
       const empty = state.q
         ? "No chats match your search."
-        : state.view === "mine"
+        : state.view === "archived"
+          ? "No archived chats. Archive a chat from its details to tidy your list."
+          : state.view === "mine"
           ? "No chats assigned to you. Pick one from the Queue."
           : state.status === "" ? "No open chats. Older chats are under All chats." : "No chats here. New WhatsApp messages appear as they arrive.";
       list.innerHTML = `<div class="inbox-list-empty">${escapeHtml(empty)}</div>`;
@@ -192,12 +203,16 @@
     }
   }
 
+  // Pinned chats first (each member's own), then the newest.
+  const byPinThenTime = (a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0);
   function upsertConversation(c) {
     const index = state.conversations.findIndex((item) => String(item.id) === String(c.id));
+    // Live updates do not say who pinned a chat: keep what this member knows.
+    if (c.pinned === undefined) c.pinned = index !== -1 ? Boolean(state.conversations[index].pinned) : Boolean(state.current && String(state.current.id) === String(c.id) && state.current.pinned);
     if (index !== -1) state.conversations.splice(index, 1);
     if (matchesFilters(c)) {
       state.conversations.unshift(c);
-      state.conversations.sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
+      state.conversations.sort(byPinThenTime);
     }
     renderList();
   }
@@ -284,6 +299,15 @@
     const replyButton = m.providerMessageId && m.direction === "in"
       ? `<button class="reply-btn" type="button" data-reply="${escapeHtml(m.id)}" title="Reply to this message"><i class="fa-solid fa-reply"></i></button>`
       : "";
+    // A reaction (CP3): on a customer's message of the last 30 days, while the window is open.
+    const canReact = m.direction === "in" && m.providerMessageId && isWindowOpen(state.current) && Date.now() - new Date(m.at) < REACTION_DAYS * 24 * 60 * 60 * 1000;
+    const reactButton = canReact
+      ? `<button class="reply-btn react-btn" type="button" data-react="${escapeHtml(m.id)}" title="React" aria-label="React to this message" aria-expanded="${state.reactingTo === m.id}"><i class="fa-regular fa-face-smile"></i></button>`
+      : "";
+    const reactionBar = state.reactingTo === m.id
+      ? `<div class="reaction-bar" role="menu" aria-label="Reactions">${QUICK_REACTIONS.map((emoji) => `<button type="button" role="menuitem" data-reaction="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join("")}</div>`
+      : "";
+    const reactions = [m.reactions?.customer, m.reactions?.business].filter(Boolean);
     return `
       <div class="msg ${m.direction} ${m.status === "failed" ? "failed" : ""}" data-id="${escapeHtml(m.id)}">
         <div class="bubble">
@@ -291,8 +315,9 @@
           <div class="bubble-body">${messageBody(m)}</div>
           <div class="bubble-meta">${m.type === "template" ? '<span class="tpl-tag">Template</span>' : ""}${who}${escapeHtml(time)} ${m.direction === "out" ? TICKS[m.status] || "" : ""}</div>
           ${m.status === "failed" && m.error ? `<div class="msg-error">${escapeHtml(m.error.message || m.error.title || "WhatsApp did not accept this message.")}</div>` : ""}
+          ${reactions.length ? `<div class="msg-reactions" title="Reactions">${reactions.map(escapeHtml).join(" ")}</div>` : ""}
         </div>
-        ${replyButton}
+        ${replyButton}${reactButton}${reactionBar}
       </div>`;
   }
 
@@ -307,6 +332,7 @@
       .filter(([, player]) => player)
       .map(([id, player]) => ({ id, player, playing: !player.paused }));
     $("messageList").innerHTML = state.messages
+      .filter((m) => m.type !== "reaction") // shown on the message it is for (CP3)
       .map((m) => {
         const day = dayLabel(new Date(m.at));
         const separator = day !== lastDay ? `<div class="day-sep"><span>${escapeHtml(day)}</span></div>` : "";
@@ -428,6 +454,8 @@
     $("quickRepliesBtn").disabled = !open;
     $("attachBtn").disabled = !open;
     $("productsBtn").disabled = !open; // product messages need the 24-hour window
+    $("emojiBtn").disabled = !open;
+    syncSendButton();
     $("aiSuggestBtn").style.display = state.aiAvailable ? "" : "none";
     $("aiSuggestBtn").disabled = !open;
     if (!open) clearFile();
@@ -493,6 +521,9 @@
   }
 
   async function openConversation(id, { fromList = true } = {}) {
+    if (recording) finishVoiceNote(false);
+    state.reactingTo = null;
+    typingSentAt = 0;
     let c = state.conversations.find((item) => String(item.id) === String(id));
     try {
       if (!c || !fromList) c = await crmApi(`/conversations/${id}`);
@@ -609,6 +640,7 @@
   composer.placeholder = defaultPlaceholder();
   function clearFile() {
     state.file = null;
+    state.voice = false;
     $("fileInput").value = "";
     $("fileBar").hidden = true;
     composer.placeholder = defaultPlaceholder();
@@ -637,6 +669,7 @@
       const form = new FormData();
       form.append("file", state.file, state.file.name);
       if (text) form.append("caption", text);
+      if (state.voice) form.append("voice", "true");
       if (state.replyTo) form.append("replyToMessageId", state.replyTo.id);
       return crmApi(`/conversations/${conversation.id}/messages/media`, { method: "POST", headers, body: form });
     }
@@ -673,7 +706,96 @@
       showToast(apiErrorMessage(error, "Couldn't send the message."), "error");
     } finally {
       sendButton.disabled = !isWindowOpen(state.current);
+      syncSendButton();
     }
+  }
+
+  // --- the microphone, emoji and "typing…" (CP3) ------------------------------------------
+  // Nothing typed and no file: the microphone stands where the send button is.
+  const canRecord = () => Boolean(window.crmVoiceNote?.supported());
+  function syncSendButton() {
+    const empty = !composer.value.trim() && !state.file;
+    $("micBtn").hidden = !(empty && canRecord());
+    $("composerSend").hidden = empty && canRecord();
+    $("micBtn").disabled = !isWindowOpen(state.current);
+  }
+  let recording = null;
+  const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  async function startVoiceNote() {
+    if (!state.current || !isWindowOpen(state.current) || recording) return;
+    try {
+      recording = await crmVoiceNote.startRecording({
+        onTick: (seconds) => { $("recordTime").textContent = clock(seconds); },
+        onLimit: () => finishVoiceNote(true),
+      });
+    } catch (error) {
+      recording = null;
+      showToast(error?.name === "NotAllowedError" ? "Allow the microphone for this site to record a voice note." : "Couldn't start the microphone.", "error");
+      return;
+    }
+    $("recordTime").textContent = "0:00";
+    $("composerForm").hidden = true;
+    $("recordingBar").hidden = false;
+    $("recordSend").focus();
+  }
+  async function finishVoiceNote(send) {
+    if (!recording) return;
+    const current = recording;
+    recording = null;
+    $("recordingBar").hidden = true;
+    $("composerForm").hidden = false;
+    if (!send) {
+      current.cancel();
+      return;
+    }
+    try {
+      const { file, voice } = await current.stop();
+      state.file = file;
+      state.voice = voice;
+      await sendMessage();
+    } catch (error) {
+      clearFile();
+      showToast(apiErrorMessage(error, "Couldn't send the voice note."), "error");
+    }
+  }
+  $("micBtn").addEventListener("click", startVoiceNote);
+  $("recordSend").addEventListener("click", () => finishVoiceNote(true));
+  $("recordCancel").addEventListener("click", () => finishVoiceNote(false));
+
+  // The emoji picker: a tap puts the emoji where the cursor is.
+  $("emojiPicker").innerHTML = EMOJIS.map((emoji) => `<button type="button" data-emoji="${emoji}" aria-label="${emoji}">${emoji}</button>`).join("");
+  function setEmojiPicker(open) {
+    $("emojiPicker").hidden = !open;
+    $("emojiBtn").setAttribute("aria-expanded", String(open));
+  }
+  $("emojiBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    setEmojiPicker($("emojiPicker").hidden);
+  });
+  $("emojiPicker").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-emoji]");
+    if (!button) return;
+    const start = composer.selectionStart ?? composer.value.length;
+    const end = composer.selectionEnd ?? start;
+    composer.value = composer.value.slice(0, start) + button.dataset.emoji + composer.value.slice(end);
+    composer.selectionStart = composer.selectionEnd = start + button.dataset.emoji.length;
+    setEmojiPicker(false);
+    composer.focus();
+    autoSize();
+    syncSendButton();
+  });
+  document.addEventListener("click", (e) => {
+    if (!$("emojiPicker").hidden && !e.target.closest("#emojiPicker, #emojiBtn")) setEmojiPicker(false);
+  });
+
+  // "Typing…" for the customer while a teammate writes (WhatsApp shows it for up to 25 seconds).
+  let typingSentAt = 0;
+  function pingTyping() {
+    const c = state.current;
+    if (!c || !isWindowOpen(c) || !composer.value.trim() || composer.value.startsWith("/")) return;
+    if (Date.now() - typingSentAt < 20 * 1000) return;
+    typingSentAt = Date.now();
+    crmApi(`/conversations/${c.id}/typing`, { method: "POST" }).catch(() => {});
   }
 
   // "/" at the start of the box opens the quick replies.
@@ -717,6 +839,8 @@
     autoSize();
     state.quickIndex = 0;
     renderQuickMenu();
+    syncSendButton();
+    pingTyping();
   });
   composer.addEventListener("keydown", (e) => {
     const menuOpen = !$("quickMenu").hidden;
@@ -770,6 +894,14 @@
     if (play) return playMedia(play);
     const download = e.target.closest("[data-download]");
     if (download) return downloadMedia(download.dataset.download);
+    const react = e.target.closest("[data-react]");
+    if (react) {
+      state.reactingTo = state.reactingTo === react.dataset.react ? null : react.dataset.react;
+      renderMessages({ stickToBottom: false });
+      return undefined;
+    }
+    const reaction = e.target.closest("[data-reaction]");
+    if (reaction && state.reactingTo && state.current) return sendReaction(state.reactingTo, reaction.dataset.reaction);
     const button = e.target.closest("[data-reply]");
     if (!button) return;
     state.replyTo = state.messages.find((m) => String(m.id) === button.dataset.reply) || null;
@@ -778,6 +910,34 @@
     $("replyBar").hidden = false;
     composer.focus();
   });
+  async function sendReaction(messageId, emoji) {
+    const conversation = state.current;
+    state.reactingTo = null;
+    renderMessages({ stickToBottom: false });
+    try {
+      const updated = await crmApi(`/conversations/${conversation.id}/messages/${messageId}/reaction`, jsonRequest("POST", { emoji }));
+      if (state.current && String(state.current.id) === String(conversation.id)) {
+        addOrReplaceMessage(updated);
+        renderMessages({ stickToBottom: false });
+      }
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't send the reaction."), "error");
+    }
+  }
+  // A tap elsewhere or Escape closes the reaction bar.
+  document.addEventListener("click", (e) => {
+    if (state.reactingTo && !e.target.closest("[data-react], .reaction-bar")) {
+      state.reactingTo = null;
+      renderMessages({ stickToBottom: false });
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && state.reactingTo) {
+      state.reactingTo = null;
+      renderMessages({ stickToBottom: false });
+    }
+  });
+
   $("replyCancel").addEventListener("click", () => {
     state.replyTo = null;
     $("replyBar").hidden = true;
@@ -1033,7 +1193,17 @@
     select.value = c.assigneeId ? String(c.assigneeId) : "";
     document.querySelectorAll("#detailsStatus button").forEach((button) => button.classList.toggle("active", button.dataset.status === c.status));
     if (document.activeElement !== $("detailsTags")) $("detailsTags").value = (c.tags || []).join(", ");
+    // Pin (this member only) and archive (everyone), CP3.
+    $("detailsPin").querySelector("span").textContent = c.pinned ? "Unpin" : "Pin for me";
+    $("detailsPin").setAttribute("aria-pressed", String(Boolean(c.pinned)));
+    $("detailsArchive").querySelector("span").textContent = c.archived ? "Unarchive" : "Archive";
   }
+  $("detailsPin").addEventListener("click", () => {
+    if (state.current) patchConversation({ pinned: !state.current.pinned }, state.current.pinned ? "Unpinned." : "Pinned to the top of your chats.");
+  });
+  $("detailsArchive").addEventListener("click", () => {
+    if (state.current) patchConversation({ archived: !state.current.archived }, state.current.archived ? "Back in the chat list." : "Archived. It comes back when the customer writes.");
+  });
   function renderNotes() {
     $("notesList").innerHTML = state.notes.length
       ? state.notes

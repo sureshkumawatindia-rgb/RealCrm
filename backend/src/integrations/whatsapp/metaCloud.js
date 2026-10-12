@@ -86,6 +86,17 @@ module.exports = {
     return { providerMessageId: data.messages?.[0]?.id || null };
   },
 
+  // Blue ticks on a message the customer sent; typing also shows "typing…" to the customer until
+  // we answer or for 25 seconds (Cloud API typing indicators, checked 2026-10-12).
+  async markRead({ phoneNumberId, accessToken }, { messageId, typing = false }) {
+    await graph(`${enc(phoneNumberId)}/messages`, {
+      accessToken,
+      method: 'POST',
+      body: { messaging_product: 'whatsapp', status: 'read', message_id: messageId, ...(typing && { typing_indicator: { type: 'text' } }) },
+    });
+    return { success: true };
+  },
+
   // --- templates (per WhatsApp Business Account) ---
   async listTemplates({ wabaId, accessToken }) {
     const templates = [];

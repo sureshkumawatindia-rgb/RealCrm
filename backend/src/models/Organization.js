@@ -72,6 +72,8 @@ const organizationSchema = new mongoose.Schema(
     // agents and viewers see customers' numbers masked; missing counts as on.
     settings: {
       hidePhonesFromAgents: { type: Boolean, default: true },
+      // CP3: when a teammate opens a chat, the customer sees blue ticks; missing counts as on.
+      sendReadReceipts: { type: Boolean, default: true },
     },
     // First steps after sign-up (D64): when an owner or admin finished or skipped "Invite your team".
     onboarding: {
