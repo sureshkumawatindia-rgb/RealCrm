@@ -13,8 +13,8 @@ function escapeHtml(str) {
 
 function statusBadge(status) {
   return status === "Active"
-    ? '<span class="badge badge-success">Active</span>'
-    : '<span class="badge badge-neutral">Inactive</span>';
+    ? `<span class="badge badge-success">${escapeHtml(t("stage.Active"))}</span>`
+    : `<span class="badge badge-neutral">${escapeHtml(t("stage.Inactive"))}</span>`;
 }
 
 // ---------------------------------------------------------------
@@ -43,7 +43,7 @@ function populateCategoryDatalist() {
 function openProductModal() {
   productForm.reset();
   populateCategoryDatalist();
-  document.getElementById("productModalTitle").textContent = "New Product";
+  document.getElementById("productModalTitle").textContent = t("leads.new-product");
   document.getElementById("editProductId").value = "";
   productModalOverlay.classList.add("open");
 }
@@ -69,7 +69,7 @@ productForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = document.getElementById("pName").value.trim();
   if (!name) {
-    showToast("Product name is required.", "error");
+    showToast(t("leads.productNameRequired"), "error");
     return;
   }
   const product = {
@@ -81,12 +81,12 @@ productForm.addEventListener("submit", async (e) => {
   };
   try {
     const saved = await saveProduct(null, product);
-    showToast("Product added.", "success");
+    showToast(t("leads.productAdded"), "success");
     closeProductModal();
     // Refresh the dropdown in the customer modal and auto-select the new product
     populateProductOptions(saved.id);
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't add the product."), "error");
+    showToast(apiErrorMessage(error, t("customers.err.addProduct")), "error");
   }
 });
 
@@ -101,10 +101,10 @@ function populateProductOptions(selectedId = "") {
       (p) =>
         `<option value="${p.id}" ${p.id === selectedId ? "selected" : ""}>${escapeHtml(
           p.name,
-        )}${p.price ? " — ₹" + Number(p.price).toLocaleString("en-IN") : ""}</option>`,
+        )}${p.price ? " — ₹" + Number(p.price).toLocaleString(crmI18n.locale()) : ""}</option>`,
     )
     .join("");
-  select.innerHTML = `<option value="">— Add product —</option>${options}`;
+  select.innerHTML = `<option value="">${escapeHtml(t("leads.add-product-2"))}</option>${options}`;
 }
 
 function getProductName(productId) {
@@ -114,9 +114,7 @@ function getProductName(productId) {
 }
 
 function openModal(customer = null) {
-  document.getElementById("modalTitle").textContent = customer
-    ? "Edit Customer"
-    : "New Customer";
+  document.getElementById("modalTitle").textContent = t(customer ? "customers.edit" : "customers.new");
   document.getElementById("editId").value = customer ? customer.id : "";
   document.getElementById("fName").value = customer ? customer.name : "";
   document.getElementById("fEmail").value = customer ? customer.email : "";
@@ -166,17 +164,17 @@ customerForm.addEventListener("submit", async (e) => {
     marketingConsent: document.getElementById("fConsent").value,
   };
   if (!data.name || !data.email) {
-    showToast("Name and email are required.", "error");
+    showToast(t("customers.nameEmailRequired"), "error");
     return;
   }
   try {
     // A new customer is a contact that already buys from you (lifecycle "customer").
     await saveContact(id || null, id ? data : { ...data, lifecycle: "customer" });
-    showToast(id ? "Customer updated." : "Customer added.", "success");
+    showToast(t(id ? "customers.updated" : "customers.added"), "success");
     closeModal();
     renderTable();
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't save the customer."), "error");
+    showToast(apiErrorMessage(error, t("customers.err.save")), "error");
   }
 });
 
@@ -196,13 +194,13 @@ function renderTable() {
   });
 
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-users"></i><p>No customers found. Add your first one.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-users"></i><p>${escapeHtml(t("customers.empty"))}</p></div>`;
     return;
   }
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th>Product</th><th>Tags</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("leads.phone"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("customers.col.tags"))}</th><th>${escapeHtml(t("col.status"))}</th><th></th></tr></thead>
       <tbody>
         ${filtered
           .map(
@@ -213,12 +211,12 @@ function renderTable() {
             <td>${escapeHtml(c.phone) || "—"}</td>
             <td>${escapeHtml(c.company) || "—"}</td>
             <td>${escapeHtml(getProductName(c.product))}</td>
-            <td>${(c.tags || []).map((t) => `<span class="badge badge-neutral">${escapeHtml(t)}</span>`).join(" ") || "—"}${c.consent?.marketing === "opted_out" ? ' <span class="badge badge-danger" title="Said no to WhatsApp offers">No offers</span>' : ""}</td>
+            <td>${(c.tags || []).map((t) => `<span class="badge badge-neutral">${escapeHtml(t)}</span>`).join(" ") || "—"}${c.consent?.marketing === "opted_out" ? ` <span class="badge badge-danger" title="${escapeHtml(crmI18n.t("customers.noOffersTitle"))}">${escapeHtml(crmI18n.t("customers.noOffers"))}</span>` : ""}</td>
             <td>${statusBadge(c.status)}</td>
             <td>
               <div class="row-actions">
-                <button class="icon-btn edit-btn" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
-                <button class="icon-btn danger delete-btn" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+                <button class="icon-btn edit-btn" data-id="${c.id}" title="${escapeHtml(crmI18n.t("common.edit"))}" aria-label="${escapeHtml(crmI18n.t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn danger delete-btn" data-id="${c.id}" title="${escapeHtml(crmI18n.t("common.delete"))}" aria-label="${escapeHtml(crmI18n.t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>`,
@@ -235,13 +233,13 @@ function renderTable() {
   );
   container.querySelectorAll(".delete-btn").forEach((btn) =>
     btn.addEventListener("click", async () => {
-      if (!confirm("Delete this customer?")) return;
+      if (!confirm(t("customers.confirmDelete"))) return;
       try {
         await removeContact(btn.dataset.id);
-        showToast("Customer deleted.", "success");
+        showToast(t("customers.deleted"), "success");
         renderTable();
       } catch (error) {
-        showToast(apiErrorMessage(error, "Couldn't delete the customer."), "error");
+        showToast(apiErrorMessage(error, t("customers.err.delete")), "error");
       }
     }),
   );

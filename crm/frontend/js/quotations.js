@@ -6,7 +6,8 @@
  * Addresses: ?id=<quotation>, or ?new=1 with leadId, contactId or conversationId.
  * One IIFE: no globals.
  */
-(function quotationsPage() {
+// Starts once the page's texts are in (i18n/*.json, CP5).
+crmI18n.ready.then(function quotationsPage() {
   const $ = (id) => document.getElementById(id);
   const me = getCurrentMember() || {};
   // The API's rule for leads/deals: managers everything; others need the module; viewers only
@@ -24,14 +25,14 @@
 
   const STATUS_BADGE = { Draft: "badge-neutral", Sent: "badge-info", Viewed: "badge-brand", Accepted: "badge-success", Rejected: "badge-danger", Expired: "badge-warning" };
   const RATES = [0, 0.25, 3, 5, 12, 18, 28, 40];
-  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const day = (iso) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "");
+  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString(crmI18n.locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const day = (iso) => (iso ? new Date(iso).toLocaleDateString(crmI18n.locale(), { day: "2-digit", month: "short", year: "numeric" }) : "");
   const dateInput = (iso) => (iso ? String(iso).slice(0, 10) : "");
-  const statusBadge = (status) => `<span class="badge ${STATUS_BADGE[status] || "badge-neutral"}">${escapeHtml(status)}</span>`;
+  const statusBadge = (status) => `<span class="badge ${STATUS_BADGE[status] || "badge-neutral"}">${escapeHtml(crmLabel("quoteStatus", status))}</span>`;
   let states = [];
   let products = [];
 
-  // Indian numbering in words: 1,27,13,00 paise → "Rupees One Lakh Twenty-Seven Thousand One Hundred Thirty Only".
+  // Indian numbering in words, as the PDF the customer gets prints it (so English in both languages): 1,27,13,00 paise → "Rupees One Lakh Twenty-Seven Thousand One Hundred Thirty Only".
   const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
   function belowHundred(n) {
@@ -80,7 +81,7 @@
       list.more = Boolean(body.pagination?.hasNextPage);
       renderList();
     } catch (error) {
-      $("qTable").innerHTML = `<div class="empty-state"><p>${escapeHtml(apiErrorMessage(error, "Couldn't load the quotations."))}</p></div>`;
+      $("qTable").innerHTML = `<div class="empty-state"><p>${escapeHtml(apiErrorMessage(error, t("quotes.err.list")))}</p></div>`;
     }
   }
 
@@ -88,22 +89,22 @@
     $("qMore").hidden = !list.more;
     if (!list.items.length) {
       const filtered = $("qSearch").value.trim() || $("qStatus").value || $("qType").value;
-      $("qTable").innerHTML = `<div class="empty-state"><i class="fa-solid fa-file-invoice"></i><p>${filtered ? "No quotation matches." : "No quotations yet. Make one from a lead, a customer or a WhatsApp chat — or press “New quotation”."}</p></div>`;
+      $("qTable").innerHTML = `<div class="empty-state"><i class="fa-solid fa-file-invoice"></i><p>${escapeHtml(t(filtered ? "quotes.empty.filtered" : "quotes.empty.none"))}</p></div>`;
       return;
     }
     $("qTable").innerHTML = `
       <table>
-        <thead><tr><th>Number</th><th>Customer</th><th>Date</th><th>Valid until</th><th class="q-amount">Amount</th><th>Status</th></tr></thead>
+        <thead><tr><th>${escapeHtml(t("quotes.col.number"))}</th><th>${escapeHtml(t("quotes.col.customer"))}</th><th>${escapeHtml(t("quotes.col.date"))}</th><th>${escapeHtml(t("quotes.col.validUntil"))}</th><th class="q-amount">${escapeHtml(t("quotes.col.amount"))}</th><th>${escapeHtml(t("col.status"))}</th></tr></thead>
         <tbody>${list.items
           .map(
             (q) => `
           <tr data-open="${escapeHtml(q.id)}" tabindex="0">
-            <td><div class="q-num">${escapeHtml(q.number || q.legacyNumber)}</div><div class="q-muted">${escapeHtml(q.type)}${q.revision ? ` · revision ${q.revision}` : ""}</div></td>
+            <td><div class="q-num">${escapeHtml(q.number || q.legacyNumber)}</div><div class="q-muted">${escapeHtml(crmLabel("quoteType", q.type))}${q.revision ? ` · ${escapeHtml(t("quotes.revisionN", { n: q.revision }))}` : ""}</div></td>
             <td><div>${escapeHtml(q.billTo?.name || "—")}</div>${q.billTo?.company ? `<div class="q-muted">${escapeHtml(q.billTo.company)}</div>` : ""}</td>
             <td>${escapeHtml(day(q.quotationDate))}</td>
             <td>${escapeHtml(day(q.validUntil))}</td>
             <td class="q-amount">${rupees(q.totals?.grandTotalPaise)}</td>
-            <td>${statusBadge(q.status)}${q.viewCount ? ` <span class="q-muted" title="Opened by the customer">👁 ${q.viewCount}</span>` : ""}</td>
+            <td>${statusBadge(q.status)}${q.viewCount ? ` <span class="q-muted" title="${escapeHtml(t("quotes.openedByCustomer"))}">👁 ${q.viewCount}</span>` : ""}</td>
           </tr>`,
           )
           .join("")}</tbody>
@@ -200,19 +201,19 @@
   // --- rendering ---
   function renderHead() {
     const q = ed.q;
-    $("qNumber").textContent = q ? `${q.number || q.legacyNumber}` : `New ${($("qDocType").value || "Quotation").toLowerCase()}`;
-    $("pageTitle").textContent = q ? q.type : "Quotations";
+    $("qNumber").textContent = q ? `${q.number || q.legacyNumber}` : t("quotes.newOf", { type: crmLabel("quoteType", $("qDocType").value || "Quotation") });
+    $("pageTitle").textContent = q ? crmLabel("quoteType", q.type) : t("nav.quotations");
     $("qSub").innerHTML = q
       ? [
-          escapeHtml(q.type),
-          q.revision ? `revision ${q.revision}` : "",
+          escapeHtml(crmLabel("quoteType", q.type)),
+          q.revision ? escapeHtml(t("quotes.revisionN", { n: q.revision })) : "",
           statusBadge(q.status),
-          `dated ${escapeHtml(day(q.quotationDate))}`,
-          q.sentAt ? `sent ${escapeHtml(day(q.sentAt))}` : "",
-          q.viewCount ? `opened ${q.viewCount}× by the customer` : "",
-          q.rejectedReason ? `reason: ${escapeHtml(q.rejectedReason)}` : "",
+          escapeHtml(t("quotes.dated", { date: day(q.quotationDate) })),
+          q.sentAt ? escapeHtml(t("quotes.sentOn", { date: day(q.sentAt) })) : "",
+          q.viewCount ? escapeHtml(t("quotes.openedN", { n: q.viewCount })) : "",
+          q.rejectedReason ? escapeHtml(t("quotes.reason", { reason: q.rejectedReason })) : "",
         ].filter(Boolean).join(" · ")
-      : "Not saved yet";
+      : escapeHtml(t("quotes.notSaved"));
     $("qTypeField").hidden = Boolean(q);
   }
 
@@ -223,7 +224,7 @@
     $("qCustomerLink").innerHTML = c?.label ? escapeHtml(c.label) : "";
     const b = ed.billTo;
     document.querySelectorAll("[data-bill]").forEach((input) => {
-      if (input.dataset.bill === "stateCode") input.innerHTML = stateOptions(b.stateCode || "", "Not known");
+      if (input.dataset.bill === "stateCode") input.innerHTML = stateOptions(b.stateCode || "", t("quotes.notKnown"));
       else input.value = b[input.dataset.bill] || "";
     });
   }
@@ -236,33 +237,33 @@
     return `
       <div class="q-line" data-key="${line.key}">
         <div class="q-line-item">
-          <span class="q-line-label">Item</span>
-          <select data-f="productId" aria-label="Product"><option value="">Other item (type a name)</option>${productOptions}</select>
+          <span class="q-line-label">${escapeHtml(t("quotes.item"))}</span>
+          <select data-f="productId" aria-label="${escapeHtml(t("col.product"))}"><option value="">${escapeHtml(t("quotes.otherItem"))}</option>${productOptions}</select>
           <div class="q-line-extra">
-            <input type="text" data-f="name" maxlength="200" placeholder="Item name" value="${escapeHtml(line.name)}" aria-label="Item name" />
-            <input type="text" data-f="hsnSac" maxlength="8" inputmode="numeric" placeholder="HSN/SAC" value="${escapeHtml(line.hsnSac)}" aria-label="HSN or SAC code" />
+            <input type="text" data-f="name" maxlength="200" placeholder="${escapeHtml(t("quotes.itemName"))}" value="${escapeHtml(line.name)}" aria-label="${escapeHtml(t("quotes.itemName"))}" />
+            <input type="text" data-f="hsnSac" maxlength="8" inputmode="numeric" placeholder="HSN/SAC" value="${escapeHtml(line.hsnSac)}" aria-label="${escapeHtml(t("quotes.hsnLabel"))}" />
           </div>
         </div>
-        <div><span class="q-line-label">Qty</span><input type="number" data-f="quantity" min="0" step="any" value="${escapeHtml(line.quantity)}" aria-label="Quantity" /></div>
-        <div><span class="q-line-label">Unit</span><input type="text" data-f="unit" maxlength="20" placeholder="pcs" value="${escapeHtml(line.unit)}" aria-label="Unit" /></div>
-        <div><span class="q-line-label">Rate (₹)</span><input type="number" data-f="price" min="0" step="0.01" value="${escapeHtml(line.price)}" aria-label="Rate in rupees, without GST" /></div>
-        <div><span class="q-line-label">Discount</span>
+        <div><span class="q-line-label">${escapeHtml(t("quotes.qty"))}</span><input type="number" data-f="quantity" min="0" step="any" value="${escapeHtml(line.quantity)}" aria-label="${escapeHtml(t("leads.quantity"))}" /></div>
+        <div><span class="q-line-label">${escapeHtml(t("quotes.unit"))}</span><input type="text" data-f="unit" maxlength="20" placeholder="pcs" value="${escapeHtml(line.unit)}" aria-label="${escapeHtml(t("quotes.unit"))}" /></div>
+        <div><span class="q-line-label">${escapeHtml(t("quotes.rate"))}</span><input type="number" data-f="price" min="0" step="0.01" value="${escapeHtml(line.price)}" aria-label="${escapeHtml(t("quotes.rateLabel"))}" /></div>
+        <div><span class="q-line-label">${escapeHtml(t("quotes.discount"))}</span>
           <div class="q-disc">
-            <input type="number" data-f="discount" min="0" step="0.01" placeholder="0" value="${escapeHtml(line.discount)}" aria-label="Discount" />
-            <select data-f="discountType" aria-label="Discount in rupees or percent"><option value="amount" ${line.discountType === "amount" ? "selected" : ""}>₹</option><option value="percent" ${line.discountType === "percent" ? "selected" : ""}>%</option></select>
+            <input type="number" data-f="discount" min="0" step="0.01" placeholder="0" value="${escapeHtml(line.discount)}" aria-label="${escapeHtml(t("quotes.discount"))}" />
+            <select data-f="discountType" aria-label="${escapeHtml(t("quotes.discountKind"))}"><option value="amount" ${line.discountType === "amount" ? "selected" : ""}>₹</option><option value="percent" ${line.discountType === "percent" ? "selected" : ""}>%</option></select>
           </div>
         </div>
-        <div><span class="q-line-label">GST %</span><input type="number" data-f="gst" min="0" max="100" step="0.01" list="qRateList" value="${escapeHtml(line.gst)}" aria-label="GST rate in percent" /></div>
+        <div><span class="q-line-label">GST %</span><input type="number" data-f="gst" min="0" max="100" step="0.01" list="qRateList" value="${escapeHtml(line.gst)}" aria-label="${escapeHtml(t("quotes.gstLabel"))}" /></div>
         <div class="q-line-amount" data-amount="${line.key}"></div>
-        <button class="icon-btn danger q-line-remove" type="button" data-remove="${line.key}" title="Remove this item"><i class="fa-solid fa-trash"></i></button>
+        <button class="icon-btn danger q-line-remove" type="button" data-remove="${line.key}" title="${escapeHtml(t("quotes.removeItem"))}"><i class="fa-solid fa-trash"></i></button>
       </div>`;
   }
 
   function renderLines() {
     $("qItems").innerHTML = ed.lines.length
-      ? `<div class="q-line q-line-head"><div>Item</div><div>Qty</div><div>Unit</div><div>Rate (₹)</div><div>Discount</div><div>GST %</div><div style="text-align:right">Amount</div><div></div></div>${ed.lines.map(lineHtml).join("")}
+      ? `<div class="q-line q-line-head"><div>${escapeHtml(t("quotes.item"))}</div><div>${escapeHtml(t("quotes.qty"))}</div><div>${escapeHtml(t("quotes.unit"))}</div><div>${escapeHtml(t("quotes.rate"))}</div><div>${escapeHtml(t("quotes.discount"))}</div><div>GST %</div><div style="text-align:right">${escapeHtml(t("quotes.col.amount"))}</div><div></div></div>${ed.lines.map(lineHtml).join("")}
          <datalist id="qRateList">${RATES.map((r) => `<option value="${r}"></option>`).join("")}</datalist>`
-      : '<div class="q-items-empty">No items yet. Add one below.</div>';
+      : `<div class="q-items-empty">${escapeHtml(t("quotes.noItems"))}</div>`;
     renderAmounts();
     lockIfNeeded();
   }
@@ -289,28 +290,28 @@
     const s = priced?.supply || {};
     $("qWarnings").innerHTML = (s.warnings || []).map((w) => `<div class="q-warning"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(w.message)}</div>`).join("");
     if (!t || !ed.lines.some(usable)) {
-      $("qTotals").innerHTML = '<p class="q-muted" style="margin:0">Add an item to see the total.</p>';
+      $("qTotals").innerHTML = `<p class="q-muted" style="margin:0">${escapeHtml(crmI18n.t("quotes.addItemForTotal"))}</p>`;
       return;
     }
     const row = (label, value, cls = "") => `<div class="q-sum-row ${cls}"><span>${label}</span><span>${value}</span></div>`;
     const taxLabel = s.taxLabel || "SGST";
     const rows = [
-      row("Subtotal", rupees(t.subtotalPaise)),
-      t.discountPaise ? row("Discount", `− ${rupees(t.discountPaise)}`) : "",
-      row("Taxable value", rupees(t.taxablePaise)),
-      s.zeroRated ? row("GST", "Nil (LUT)", "muted") : "",
+      row(escapeHtml(crmI18n.t("quotes.subtotal")), rupees(t.subtotalPaise)),
+      t.discountPaise ? row(escapeHtml(crmI18n.t("quotes.discount")), `− ${rupees(t.discountPaise)}`) : "",
+      row(escapeHtml(crmI18n.t("quotes.taxable")), rupees(t.taxablePaise)),
+      s.zeroRated ? row("GST", escapeHtml(crmI18n.t("quotes.nilLut")), "muted") : "",
       !s.zeroRated && s.interState ? row("IGST", rupees(t.igstPaise)) : "",
       !s.zeroRated && !s.interState ? row("CGST", rupees(t.cgstPaise)) + row(taxLabel, rupees(t.sgstPaise)) : "",
-      t.roundOffPaise ? row("Round off", `${t.roundOffPaise > 0 ? "+" : "−"} ${rupees(Math.abs(t.roundOffPaise))}`, "muted") : "",
-      row("Total", rupees(t.grandTotalPaise), "grand"),
+      t.roundOffPaise ? row(escapeHtml(crmI18n.t("quotes.roundOff")), `${t.roundOffPaise > 0 ? "+" : "−"} ${rupees(Math.abs(t.roundOffPaise))}`, "muted") : "",
+      row(escapeHtml(crmI18n.t("quotes.total")), rupees(t.grandTotalPaise), "grand"),
     ];
     const rateRows = (t.byRate || [])
       .map((r) => `<tr><td>${r.ratePct}%</td><td>${rupees(r.taxablePaise)}</td><td>${s.interState ? rupees(r.igstPaise) : `${rupees(r.cgstPaise)} + ${rupees(r.sgstPaise)}`}</td></tr>`)
       .join("");
     $("qTotals").innerHTML = `${rows.join("")}
       <div class="q-words">${escapeHtml(inWords(t.grandTotalPaise))}</div>
-      <div class="q-sum-row muted" style="margin-top:6px"><span>Place of supply</span><span>${escapeHtml(s.placeOfSupply || "—")}${s.placeOfSupplyCode ? ` (${escapeHtml(s.placeOfSupplyCode)})` : ""}</span></div>
-      ${rateRows ? `<details class="q-rates"><summary>GST by rate</summary><table><thead><tr><th>Rate</th><th>Taxable</th><th>${s.interState ? "IGST" : `CGST + ${escapeHtml(taxLabel)}`}</th></tr></thead><tbody>${rateRows}</tbody></table></details>` : ""}`;
+      <div class="q-sum-row muted" style="margin-top:6px"><span>${escapeHtml(crmI18n.t("quotes.placeOfSupply"))}</span><span>${escapeHtml(s.placeOfSupply || "—")}${s.placeOfSupplyCode ? ` (${escapeHtml(s.placeOfSupplyCode)})` : ""}</span></div>
+      ${rateRows ? `<details class="q-rates"><summary>${escapeHtml(crmI18n.t("quotes.gstByRate"))}</summary><table><thead><tr><th>${escapeHtml(crmI18n.t("quotes.rateCol"))}</th><th>${escapeHtml(crmI18n.t("quotes.taxableCol"))}</th><th>${s.interState ? "IGST" : `CGST + ${escapeHtml(taxLabel)}`}</th></tr></thead><tbody>${rateRows}</tbody></table></details>` : ""}`;
   }
 
   function renderHistory() {
@@ -319,55 +320,55 @@
     $("qHistory").innerHTML = revisions
       .slice()
       .reverse()
-      .map((r) => `<div class="q-rev"><span>Revision ${r.revision} · ${statusBadge(r.status)} · ${escapeHtml(day(r.quotationDate))}</span><span>${rupees(r.totals?.grandTotalPaise)}</span></div>`)
+      .map((r) => `<div class="q-rev"><span>${escapeHtml(t("quotes.revisionCap", { n: r.revision }))} · ${statusBadge(r.status)} · ${escapeHtml(day(r.quotationDate))}</span><span>${rupees(r.totals?.grandTotalPaise)}</span></div>`)
       .join("");
   }
 
   function renderActions() {
     const q = ed.q;
     const buttons = [];
-    const button = (id, label, cls = "btn-outline", icon = "") => `<button class="btn ${cls}" type="button" data-action="${id}">${icon ? `<i class="fa-solid ${icon}"></i> ` : ""}${label}</button>`;
+    const button = (id, labelKey, cls = "btn-outline", icon = "") => `<button class="btn ${cls}" type="button" data-action="${id}">${icon ? `<i class="fa-solid ${icon}"></i> ` : ""}${escapeHtml(t(labelKey))}</button>`;
     if (!q) {
-      if (can("create")) buttons.push(button("create", "Save draft", "btn-primary", "fa-floppy-disk"));
+      if (can("create")) buttons.push(button("create", "quotes.act.saveDraft", "btn-primary", "fa-floppy-disk"));
     } else if (can("edit")) {
       if (q.status === "Draft") {
-        buttons.push(button("save", "Save changes", "btn-primary", "fa-floppy-disk"));
-        buttons.push(button("sent", "Mark as sent", "btn-outline", "fa-paper-plane"));
+        buttons.push(button("save", "quotes.act.save", "btn-primary", "fa-floppy-disk"));
+        buttons.push(button("sent", "quotes.act.markSent", "btn-outline", "fa-paper-plane"));
       }
       if (["Draft", "Sent", "Viewed", "Expired"].includes(q.status)) {
-        buttons.push(button("accepted", "Customer accepted", "btn-outline", "fa-circle-check"));
-        buttons.push(button("rejected", "Customer rejected", "btn-outline", "fa-circle-xmark"));
+        buttons.push(button("accepted", "quotes.act.accepted", "btn-outline", "fa-circle-check"));
+        buttons.push(button("rejected", "quotes.act.rejected", "btn-outline", "fa-circle-xmark"));
       }
-      if (["Sent", "Viewed", "Rejected", "Expired"].includes(q.status)) buttons.push(button("revise", "Revise (new revision)", "btn-primary", "fa-pen"));
+      if (["Sent", "Viewed", "Rejected", "Expired"].includes(q.status)) buttons.push(button("revise", "quotes.act.revise", "btn-primary", "fa-pen"));
       if (q.status === "Accepted" && !q.orderId) {
-        buttons.unshift(button("order", "Create order", "btn-primary", "fa-truck-fast"));
-        buttons.push(button("unaccept", "Undo “accepted”", "btn-outline", "fa-rotate-left"));
+        buttons.unshift(button("order", "quotes.act.order", "btn-primary", "fa-truck-fast"));
+        buttons.push(button("unaccept", "quotes.act.unaccept", "btn-outline", "fa-rotate-left"));
       }
     }
     if (q && canChat() && can("edit") && ["Draft", "Sent", "Viewed", "Accepted"].includes(q.status)) {
       // First for a draft; after the main actions once it was sent (e.g. "Create order" first).
-      buttons[q.status === "Draft" ? "unshift" : "push"](button("whatsapp", q.status === "Draft" ? "Send on WhatsApp" : "Send again on WhatsApp", q.status === "Draft" ? "btn-primary" : "btn-outline", "fa-paper-plane"));
+      buttons[q.status === "Draft" ? "unshift" : "push"](button("whatsapp", q.status === "Draft" ? "quotes.act.whatsapp" : "quotes.act.whatsappAgain", q.status === "Draft" ? "btn-primary" : "btn-outline", "fa-paper-plane"));
     }
-    if (q?.orderId) buttons.unshift(`<a class="btn btn-primary" href="Orders.html?id=${encodeURIComponent(q.orderId)}"><i class="fa-solid fa-truck-fast"></i> Open the order</a>`);
+    if (q?.orderId) buttons.unshift(`<a class="btn btn-primary" href="Orders.html?id=${encodeURIComponent(q.orderId)}"><i class="fa-solid fa-truck-fast"></i> ${escapeHtml(t("inbox.openOrder"))}</a>`);
     // Phase 8: a payment link for the quotation's total (an advance is fine); paying accepts it.
-    if (q && can("edit") && (q.orderId || ["Sent", "Viewed", "Accepted"].includes(q.status))) buttons.push(button("paylink", "Payment link", "btn-outline", "fa-indian-rupee-sign"));
+    if (q && can("edit") && (q.orderId || ["Sent", "Viewed", "Accepted"].includes(q.status))) buttons.push(button("paylink", "quotes.act.paylink", "btn-outline", "fa-indian-rupee-sign"));
     if (q) {
-      buttons.push(button("pdf", "Download PDF", "btn-outline", "fa-file-pdf"));
+      buttons.push(button("pdf", "quotes.act.pdf", "btn-outline", "fa-file-pdf"));
       if (q.status !== "Draft") {
-        buttons.push(button("copylink", "Copy customer link", "btn-outline", "fa-link"));
-        buttons.push(button("openlink", "Open customer view", "btn-outline", "fa-arrow-up-right-from-square"));
-        if (isLocalLink(q.shareUrl)) buttons.push('<p class="q-hint">This link opens only on this computer until the CRM runs on a public (https) address.</p>');
+        buttons.push(button("copylink", "quotes.act.copyLink", "btn-outline", "fa-link"));
+        buttons.push(button("openlink", "quotes.act.openLink", "btn-outline", "fa-arrow-up-right-from-square"));
+        if (isLocalLink(q.shareUrl)) buttons.push(`<p class="q-hint">${escapeHtml(t("quotes.hint.localLink"))}</p>`);
       } else {
-        buttons.push('<p class="q-hint">The customer link works once the quotation is marked as sent.</p>');
+        buttons.push(`<p class="q-hint">${escapeHtml(t("quotes.hint.linkAfterSent"))}</p>`);
       }
     }
-    if (q && can("delete") && !q.orderId) buttons.push(button("delete", "Delete", "btn-danger-outline", "fa-trash"));
-    if (q && q.status !== "Draft" && can("edit")) buttons.push('<p class="q-hint">Sent quotations are not changed; “Revise” makes a new revision and keeps this one.</p>');
+    if (q && can("delete") && !q.orderId) buttons.push(button("delete", "common.delete", "btn-danger-outline", "fa-trash"));
+    if (q && q.status !== "Draft" && can("edit")) buttons.push(`<p class="q-hint">${escapeHtml(t("quotes.hint.revise"))}</p>`);
     $("qActions").innerHTML = buttons.join("");
     // Phones (R3): the first two actions also stay at the bottom of the screen (quotations.css).
     const actions = buttons.filter((html) => !html.startsWith("<p"));
     $("qStickyActions").innerHTML = actions.length
-      ? actions.slice(0, 2).join("") + (actions.length > 2 ? '<button class="btn btn-outline" type="button" data-sticky-more aria-label="More actions"><i class="fa-solid fa-ellipsis"></i> More</button>' : "")
+      ? actions.slice(0, 2).join("") + (actions.length > 2 ? `<button class="btn btn-outline" type="button" data-sticky-more aria-label="${escapeHtml(t("quotes.moreActions"))}"><i class="fa-solid fa-ellipsis"></i> ${escapeHtml(t("quotes.more"))}</button>` : "")
       : "";
   }
 
@@ -418,7 +419,7 @@
       renderAmounts();
     } catch (error) {
       if (seq !== ed.seq) return;
-      $("qWarnings").innerHTML = `<div class="q-warning">${escapeHtml(apiErrorMessage(error, "Couldn't work out the total."))}</div>`;
+      $("qWarnings").innerHTML = `<div class="q-warning">${escapeHtml(apiErrorMessage(error, t("quotes.err.total")))}</div>`;
     }
   }
 
@@ -499,12 +500,12 @@
     ]);
     const leadContacts = new Set(leads.map((l) => String(l.contactId)));
     picks = [
-      ...leads.map((l) => ({ leadId: l.id, name: l.contact?.name || l.title, detail: `Lead · ${l.title || "Enquiry"} · ${l.stage}`, label: `Lead: ${l.title || "Enquiry"}` })),
-      ...contacts.filter((c) => !leadContacts.has(String(c.id))).map((c) => ({ contactId: c.id, name: c.name, detail: ["Customer", c.company, c.phone].filter(Boolean).join(" · "), label: "Customer" })),
+      ...leads.map((l) => ({ leadId: l.id, name: l.contact?.name || l.title, detail: `${t("dash.add.lead")} · ${l.title || t("inbox.ctx.enquiry")} · ${crmLabel("stage", l.stage)}`, label: t("quotes.leadLabel", { title: l.title || t("inbox.ctx.enquiry") }) })),
+      ...contacts.filter((c) => !leadContacts.has(String(c.id))).map((c) => ({ contactId: c.id, name: c.name, detail: [t("quotes.col.customer"), c.company, c.phone].filter(Boolean).join(" · "), label: t("quotes.col.customer") })),
     ];
     $("qPickerResults").innerHTML = picks.length
       ? picks.map((p, i) => `<button class="q-pick" type="button" data-pick="${i}"><i class="fa-solid ${p.leadId ? "fa-bullseye" : "fa-user"}"></i><span class="who"><strong>${escapeHtml(p.name)}</strong><span class="q-muted">${escapeHtml(p.detail)}</span></span></button>`).join("")
-      : '<p class="q-muted">Nobody found. Add the customer or lead first.</p>';
+      : `<p class="q-muted">${escapeHtml(t("quotes.nobodyFound"))}</p>`;
   }
   $("qPickerResults").addEventListener("click", async (e) => {
     const pick = picks[Number(e.target.closest("[data-pick]")?.dataset.pick)];
@@ -523,7 +524,7 @@
       if (!$("qValid").value) $("qValid").value = result.defaults?.validUntil || "";
       ed.priced = result;
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't load the customer."), "error");
+      showToast(apiErrorMessage(error, t("quotes.err.customer")), "error");
       ed.customer = null;
     }
     // A lead's product and quantity make the first line.
@@ -532,7 +533,7 @@
         const lead = await crmApi(`/leads/${encodeURIComponent(leadId)}`);
         const product = products.find((p) => String(p.id) === String(lead.productId));
         if (product) ed.lines = [lineFromProduct(product, lead.quantity || 1)];
-        if (ed.customer) ed.customer.label = `Lead: ${lead.title || "Enquiry"} · ${lead.contact?.name || ed.billTo.name || ""}`;
+        if (ed.customer) ed.customer.label = `${t("quotes.leadLabel", { title: lead.title || t("inbox.ctx.enquiry") })} · ${lead.contact?.name || ed.billTo.name || ""}`;
       } catch {
         /* the lead's product is only a convenience */
       }
@@ -553,7 +554,7 @@
     ed.dirty = false;
     ["qTerms", "qNotes", "qValid", "qPickerInput"].forEach((id) => { $(id).value = ""; });
     $("qPickerResults").innerHTML = "";
-    $("qPlace").innerHTML = stateOptions("", "Automatic (the customer's state)");
+    $("qPlace").innerHTML = stateOptions("", t("quotes.placeAuto"));
     $("qZero").checked = false;
     $("qDocType").value = "Quotation";
   }
@@ -567,7 +568,7 @@
   async function openNew(params) {
     resetEditor();
     if (!can("create")) {
-      showToast("You can't make quotations.", "error");
+      showToast(t("quotes.cannotCreate"), "error");
       return go("");
     }
     const type = params.get("type");
@@ -575,7 +576,7 @@
     showEditor();
     const ref = ["leadId", "contactId", "conversationId"].find((key) => params.get(key));
     if (ref) {
-      ed.customer = { [ref]: params.get(ref), label: ref === "conversationId" ? "From the WhatsApp chat" : "" };
+      ed.customer = { [ref]: params.get(ref), label: ref === "conversationId" ? t("quotes.fromChat") : "" };
       await loadCustomer();
     } else {
       renderEditor();
@@ -594,7 +595,7 @@
     $("qValid").value = dateInput(q.validUntil);
     $("qTerms").value = q.terms || "";
     $("qNotes").value = q.notes || "";
-    $("qPlace").innerHTML = stateOptions(q.placeOfSupplyCode || "", "Automatic (the customer's state)");
+    $("qPlace").innerHTML = stateOptions(q.placeOfSupplyCode || "", t("quotes.placeAuto"));
     $("qZero").checked = Boolean(q.supply?.zeroRated);
     renderEditor();
     // A draft's warnings (e.g. the state was assumed) come from a fresh preview.
@@ -604,11 +605,11 @@
   async function openExisting(id) {
     resetEditor();
     showEditor();
-    $("qNumber").textContent = "Loading…";
+    $("qNumber").textContent = t("cw.loading");
     try {
       applySaved(await crmApi(`/quotations/${encodeURIComponent(id)}`));
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't open the quotation."), "error");
+      showToast(apiErrorMessage(error, t("quotes.err.open")), "error");
       go("", { replace: true });
     }
   }
@@ -617,7 +618,7 @@
     resetEditor();
     $("qEditorView").hidden = true;
     $("qListView").hidden = false;
-    $("pageTitle").textContent = "Quotations";
+    $("pageTitle").textContent = t("nav.quotations");
     loadList();
   }
 
@@ -625,11 +626,11 @@
   async function save(extra = {}) {
     const body = { ...contentPayload(), ...extra };
     if (!body.items.length) {
-      showToast("Add at least one item with a quantity.", "error");
+      showToast(t("quotes.needItem"), "error");
       return null;
     }
     if (!body.billTo.name) {
-      showToast("The customer needs a name.", "error");
+      showToast(t("quotes.needName"), "error");
       return null;
     }
     if (ed.q) return crmApi(`/quotations/${ed.q.id}`, jsonRequest("PATCH", body));
@@ -658,37 +659,37 @@
       let saved = null;
       if (action === "create") {
         if (!ed.customer) {
-          showToast("Choose the customer first.", "error");
+          showToast(t("quotes.chooseCustomer"), "error");
           return;
         }
         saved = await save();
         if (saved) {
           ed.dirty = false;
           history.replaceState(null, "", `?id=${encodeURIComponent(saved.id)}`);
-          showToast(`${saved.type} ${saved.number} saved as a draft.`, "success");
+          showToast(t("quotes.savedDraft", { type: crmLabel("quoteType", saved.type), number: saved.number }), "success");
         }
       } else if (action === "save") {
         saved = await save();
-        if (saved) showToast("Saved.", "success");
+        if (saved) showToast(t("quotes.saved"), "success");
       } else if (action === "sent") {
         saved = await save({ status: "Sent" });
-        if (saved) showToast(`Marked as sent.${saved.leadId ? " The lead is now at Quote Sent (if it was New or Contacted)." : ""}`, "success");
+        if (saved) showToast(t(saved.leadId ? "quotes.markedSentLead" : "quotes.markedSent"), "success");
       } else if (action === "accepted" || action === "unaccept") {
         saved = await crmApi(`/quotations/${ed.q.id}`, jsonRequest("PATCH", { status: action === "accepted" ? "Accepted" : "Sent" }));
-        showToast(action === "accepted" ? "Marked as accepted." : "Back to sent.", "success");
+        showToast(t(action === "accepted" ? "quotes.markedAccepted" : "quotes.backToSent"), "success");
       } else if (action === "rejected") {
-        const reason = window.prompt("Why did the customer say no? (optional — for example: price too high)");
+        const reason = window.prompt(t("quotes.whyRejected"));
         if (reason === null) return;
         saved = await crmApi(`/quotations/${ed.q.id}`, jsonRequest("PATCH", { status: "Rejected", rejectedReason: reason.trim() }));
-        showToast("Marked as rejected.", "success");
+        showToast(t("quotes.markedRejected"), "success");
       } else if (action === "revise") {
         saved = await crmApi(`/quotations/${ed.q.id}/revise`, { method: "POST" });
-        showToast(`Revision ${saved.revision} opened. Make the changes, then save and send it.`, "success");
+        showToast(t("quotes.revisionOpened", { n: saved.revision }), "success");
       } else if (action === "order") {
         const request = jsonRequest("POST", { quotationId: ed.q.id });
         request.headers["Idempotency-Key"] = newIdempotencyKey();
         const created = await crmApi("/orders", request);
-        showToast(`Order ${created.number} created.`, "success");
+        showToast(t("quotes.orderCreated", { number: created.number }), "success");
         window.location.href = `Orders.html?id=${encodeURIComponent(created.id)}`;
         return;
       } else if (action === "whatsapp") {
@@ -715,25 +716,25 @@
       } else if (action === "copylink") {
         try {
           await navigator.clipboard.writeText(ed.q.shareUrl);
-          showToast("Link copied. When the customer opens it, the quotation shows as “Viewed”.", "success");
+          showToast(t("quotes.linkCopied"), "success");
         } catch {
-          window.prompt("Copy the customer link:", ed.q.shareUrl);
+          window.prompt(t("quotes.copyLinkPrompt"), ed.q.shareUrl);
         }
         return;
       } else if (action === "openlink") {
         window.open(`${ed.q.shareUrl}?preview=1`, "_blank", "noopener");
         return;
       } else if (action === "delete") {
-        if (!confirm(`Delete ${ed.q.type.toLowerCase()} ${ed.q.number}?`)) return;
+        if (!confirm(t("quotes.confirmDelete", { type: crmLabel("quoteType", ed.q.type), number: ed.q.number }))) return;
         await crmApi(`/quotations/${ed.q.id}`, { method: "DELETE" });
         ed.dirty = false;
-        showToast("Deleted.", "success");
+        showToast(t("quotes.deleted"), "success");
         go("");
         return;
       }
       if (saved) applySaved(saved);
     } catch (error) {
-      showToast(apiErrorMessage(error, "That didn't work."), "error");
+      showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
     } finally {
       button.disabled = false;
     }
@@ -748,9 +749,9 @@
   function templateVars(template) {
     if (!template) return [];
     return [
-      ...(template.header?.variables || []).map((name) => ["header", name, `{{${name}}} in the heading`]),
-      ...template.body.variables.map((name) => ["body", name, `{{${name}}} in the message`]),
-      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), `The end of the "${b.text}" button link`]),
+      ...(template.header?.variables || []).map((name) => ["header", name, t("quotes.var.header", { name })]),
+      ...template.body.variables.map((name) => ["body", name, t("quotes.var.body", { name })]),
+      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), t("quotes.var.button", { text: b.text })]),
     ];
   }
   function sendPreview(template) {
@@ -768,13 +769,13 @@
     const body = $("sendBody");
     $("sendGo").hidden = true;
     if (send.done) {
-      body.innerHTML = `<div class="q-send-done"><i class="fa-solid fa-circle-check"></i><p>Sent to ${escapeHtml(ed.q.billTo?.name || "the customer")} on WhatsApp.</p>
-        <a class="btn btn-outline" href="Inbox.html?c=${encodeURIComponent(send.done)}"><i class="fa-solid fa-comments"></i> Open the chat</a></div>`;
-      $("sendCancel").textContent = "Close";
+      body.innerHTML = `<div class="q-send-done"><i class="fa-solid fa-circle-check"></i><p>${escapeHtml(t("quotes.send.done", { name: ed.q.billTo?.name || t("quotes.send.theCustomer") }))}</p>
+        <a class="btn btn-outline" href="Inbox.html?c=${encodeURIComponent(send.done)}"><i class="fa-solid fa-comments"></i> ${escapeHtml(t("quotes.send.openChat"))}</a></div>`;
+      $("sendCancel").textContent = t("common.close");
       return;
     }
     if (!o) {
-      body.innerHTML = '<p class="q-muted">Loading…</p>';
+      body.innerHTML = `<p class="q-muted">${escapeHtml(t("cw.loading"))}</p>`;
       return;
     }
     if (o.blocked) {
@@ -784,26 +785,26 @@
     const windowOpen = Boolean(o.conversation?.windowOpen);
     if (!windowOpen) send.mode = "template";
     const template = o.templates.find((t) => String(t.id) === send.templateId) || null;
-    const to = `To <strong>${escapeHtml(ed.q.billTo?.name || "")}</strong> · ${escapeHtml(o.phone)}${o.account ? ` · from ${escapeHtml(o.account.name || o.account.phone)}` : ""}`;
+    const to = `${t("quotes.send.to", { name: `<strong>${escapeHtml(ed.q.billTo?.name || "")}</strong>` })} · ${escapeHtml(o.phone)}${o.account ? ` · ${escapeHtml(t("quotes.send.from", { number: o.account.name || o.account.phone }))}` : ""}`;
     const modes = windowOpen
       ? `<div class="q-send-mode">
-          <label><input type="radio" name="sendMode" value="document" ${send.mode === "document" ? "checked" : ""} /><span>The PDF in the chat, with a message<small>The customer wrote in the last 24 hours, so any message can go.</small></span></label>
-          <label><input type="radio" name="sendMode" value="template" ${send.mode === "template" ? "checked" : ""} /><span>An approved template<small>For example one with the PDF as its header.</small></span></label>
+          <label><input type="radio" name="sendMode" value="document" ${send.mode === "document" ? "checked" : ""} /><span>${escapeHtml(t("quotes.send.pdfMode"))}<small>${escapeHtml(t("quotes.send.pdfModeHint"))}</small></span></label>
+          <label><input type="radio" name="sendMode" value="template" ${send.mode === "template" ? "checked" : ""} /><span>${escapeHtml(t("quotes.send.tplMode"))}<small>${escapeHtml(t("quotes.send.tplModeHint"))}</small></span></label>
         </div>`
-      : '<div class="q-warning">The customer has not written in the last 24 hours, so WhatsApp allows only an approved template. A template with a PDF (document) header carries the quotation; others send only their text.</div>';
+      : `<div class="q-warning">${escapeHtml(t("quotes.send.closed"))}</div>`;
     let detail = "";
     if (send.mode === "document") {
-      detail = `<div class="field"><label for="sendCaption">Message with the PDF</label><textarea id="sendCaption" rows="4" maxlength="1024">${escapeHtml(send.caption ?? o.caption)}</textarea></div>`;
+      detail = `<div class="field"><label for="sendCaption">${escapeHtml(t("quotes.send.caption"))}</label><textarea id="sendCaption" rows="4" maxlength="1024">${escapeHtml(send.caption ?? o.caption)}</textarea></div>`;
     } else if (!o.templates.length) {
-      detail = '<p class="q-muted">No approved template on this WhatsApp number yet. Make one in Settings → WhatsApp → Message templates (or in WhatsApp Manager — for the PDF, choose a "Document" header) and wait for Meta to approve it.</p>';
+      detail = `<p class="q-muted">${escapeHtml(t("quotes.send.noTemplates"))}</p>`;
     } else {
-      detail = `<div class="field"><label for="sendTemplate">Template</label><select id="sendTemplate"><option value="">Choose a template…</option>${o.templates
-        .map((t) => `<option value="${escapeHtml(t.id)}" ${String(t.id) === send.templateId ? "selected" : ""}>${escapeHtml(t.name)} (${escapeHtml(t.language)})${t.documentHeader ? " — with the PDF" : ""}</option>`)
+      detail = `<div class="field"><label for="sendTemplate">${escapeHtml(t("inbox.template"))}</label><select id="sendTemplate"><option value="">${escapeHtml(t("quotes.send.chooseTpl"))}</option>${o.templates
+        .map((t) => `<option value="${escapeHtml(t.id)}" ${String(t.id) === send.templateId ? "selected" : ""}>${escapeHtml(t.name)} (${escapeHtml(t.language)})${t.documentHeader ? escapeHtml(crmI18n.t("quotes.send.withPdf")) : ""}</option>`)
         .join("")}</select></div>
         ${templateVars(template)
           .map(([part, name, label]) => `<div class="field"><label>${escapeHtml(label)}</label><input type="text" maxlength="1024" data-part="${part}" data-send-var="${escapeHtml(name)}" value="${escapeHtml(template.suggested?.[part]?.[name] || "")}" /></div>`)
           .join("")}
-        ${template ? `<div class="q-send-preview"><div id="sendPreview">${escapeHtml(sendPreview(template))}</div></div>${template.documentHeader ? "" : '<p class="q-muted" style="margin-top:8px">This template has no PDF header: only its text goes. Put the online link in it if you can.</p>'}` : ""}`;
+        ${template ? `<div class="q-send-preview"><div id="sendPreview">${escapeHtml(sendPreview(template))}</div></div>${template.documentHeader ? "" : `<p class="q-muted" style="margin-top:8px">${escapeHtml(t("quotes.send.noPdfHeader"))}</p>`}` : ""}`;
     }
     body.innerHTML = `<div class="q-send-to">${to}</div>${modes}${detail}`;
     if (template) $("sendPreview").textContent = sendPreview(template);
@@ -816,7 +817,7 @@
     send.caption = undefined;
     send.templateId = "";
     send.mode = "document";
-    $("sendCancel").textContent = "Cancel";
+    $("sendCancel").textContent = t("common.cancel");
     $("sendOverlay").classList.add("open");
     renderSend();
     try {
@@ -824,7 +825,7 @@
       const withPdf = send.options.templates.find((t) => t.documentHeader);
       if (withPdf) send.templateId = String(withPdf.id);
     } catch (error) {
-      send.options = { blocked: apiErrorMessage(error, "Couldn't check WhatsApp.") };
+      send.options = { blocked: apiErrorMessage(error, t("quotes.send.checkFailed")) };
     }
     renderSend();
   }
@@ -870,9 +871,9 @@
       applySaved(result.quotation);
       send.done = String(result.conversationId);
       renderSend();
-      showToast("Sent on WhatsApp.", "success");
+      showToast(t("quotes.send.sent"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't send it on WhatsApp."), "error");
+      showToast(apiErrorMessage(error, t("quotes.send.failed")), "error");
     } finally {
       $("sendGo").disabled = false;
     }
@@ -886,7 +887,7 @@
     else showList();
   }
   function go(search, { replace = false } = {}) {
-    if (ed.dirty && !confirm("Leave without saving your changes?")) return;
+    if (ed.dirty && !confirm(t("quotes.leaveUnsaved"))) return;
     ed.dirty = false;
     const url = search ? `?${search}` : window.location.pathname;
     if (replace) history.replaceState(null, "", url);
@@ -902,8 +903,8 @@
   });
 
   if (!can("view")) {
-    $("qListView").innerHTML = '<div class="empty-state"><p>Quotations need access to Leads or Deals. Ask the owner of your company.</p></div>';
-    return;
+    $("qListView").innerHTML = `<div class="empty-state"><p>${escapeHtml(t("quotes.noAccess"))}</p></div>`;
+    return undefined;
   }
   crmReady(["products"], async () => {
     products = cached("products");
@@ -914,4 +915,5 @@
     }
     route();
   });
-})();
+  return undefined;
+});

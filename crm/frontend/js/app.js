@@ -599,7 +599,7 @@ function crmLabel(group, value) {
 
 // Asks why a lead was lost (required by the server). Returns null when cancelled.
 function askLostReason(name) {
-  const reason = window.prompt(`Why was "${name}" lost? (for example: price too high, bought elsewhere)`);
+  const reason = window.prompt(t("lost.prompt", { name }));
   return reason && reason.trim() ? reason.trim() : null;
 }
 
@@ -1229,7 +1229,7 @@ const crmPlan = (() => {
     return pending;
   }
 
-  const day = (iso) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const day = (iso) => new Date(iso).toLocaleDateString(crmI18n.locale(), { day: "numeric", month: "short", year: "numeric" });
   const onPlanPage = () => /settings\.html$/i.test(currentPageName()) && new URLSearchParams(window.location.search).get("tab") === "plan";
 
   function bannerOf({ plan, subscription: s, deletion }) {
@@ -1238,21 +1238,21 @@ const crmPlan = (() => {
       return {
         locked: true,
         link: "Settings.html?tab=data",
-        action: "Keep or download",
-        text: `This company will be deleted on ${day(deletion.scheduledFor)} with all its data. Download what you need before then.`,
+        action: t("plan.keepOrDownload"),
+        text: t("plan.deleting", { date: day(deletion.scheduledFor) }),
       };
     }
     if (s.locked) {
       const why = s.wasTrial && s.trialEndsAt
-        ? `Your free trial ended on ${day(s.trialEndsAt)}.`
-        : s.status === "halted" ? "The payment for your plan did not go through." : "Your plan has ended.";
-      return { locked: true, text: `${why} Your data is safe and chats keep working; choose a plan to add contacts, quotations, broadcasts and teammates again.` };
+        ? t("plan.trialEnded", { date: day(s.trialEndsAt) })
+        : t(s.status === "halted" ? "plan.halted" : "plan.ended");
+      return { locked: true, text: t("plan.locked", { why }) };
     }
-    if (s.status === "past_due") return { text: "The last payment for your plan did not go through. It will be tried again; check your card or UPI mandate to keep your plan." };
+    if (s.status === "past_due") return { text: t("plan.pastDue") };
     if (s.status === "trialing" && s.daysLeft !== null && s.daysLeft <= 7) {
-      return { dismissible: true, text: `Your free ${plan.name} trial ends on ${day(s.trialEndsAt)} (${s.daysLeft} day${s.daysLeft === 1 ? "" : "s"} left). Choose a plan to keep everything running.` };
+      return { dismissible: true, text: t(s.daysLeft === 1 ? "plan.trialEnds.one" : "plan.trialEnds.many", { plan: plan.name, date: day(s.trialEndsAt), n: s.daysLeft }) };
     }
-    if (s.status === "cancelled" && s.currentPeriodEnd) return { dismissible: true, text: `Your ${plan.name} plan is cancelled and ends on ${day(s.currentPeriodEnd)}.` };
+    if (s.status === "cancelled" && s.currentPeriodEnd) return { dismissible: true, text: t("plan.cancelled", { plan: plan.name, date: day(s.currentPeriodEnd) }) };
     return null;
   }
 
@@ -1261,6 +1261,7 @@ const crmPlan = (() => {
     if (!topbar || !isAuthenticated() || PUBLIC_PAGES.has(currentPageName())) return;
     let banner;
     try {
+      await crmI18n.ready; // its words come from the texts
       banner = bannerOf(await state());
     } catch {
       return; // the banner is a convenience
@@ -1273,10 +1274,10 @@ const crmPlan = (() => {
     el.className = `plan-banner${banner.locked ? " locked" : ""}`;
     el.setAttribute("role", "status");
     el.innerHTML = `<i class="fa-solid ${banner.locked ? "fa-lock" : "fa-gem"}"></i>
-      <span class="plan-banner-text">${escapeHtml(banner.text)}${isOrgManager() || banner.link ? "" : " Ask an owner or admin to choose a plan."}</span>
+      <span class="plan-banner-text">${escapeHtml(banner.text)}${isOrgManager() || banner.link ? "" : ` ${escapeHtml(t("plan.askOwner"))}`}</span>
       ${banner.link && isOrgManager() ? `<a class="btn btn-primary" href="${banner.link}">${escapeHtml(banner.action)}</a>` : ""}
-      ${!banner.link && isOrgManager() && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">Choose a plan</a>` : ""}
-      ${banner.dismissible ? '<button class="plan-banner-close" type="button" aria-label="Hide until tomorrow">&times;</button>' : ""}`;
+      ${!banner.link && isOrgManager() && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">${escapeHtml(t("plan.choose"))}</a>` : ""}
+      ${banner.dismissible ? `<button class="plan-banner-close" type="button" aria-label="${escapeHtml(t("plan.hideTomorrow"))}">&times;</button>` : ""}`;
     // Full-height pages (the inbox) leave room for it.
     const room = (px) => document.documentElement.style.setProperty("--plan-banner-h", `${px}px`);
     el.querySelector(".plan-banner-close")?.addEventListener("click", () => {
@@ -1298,8 +1299,8 @@ const crmPlan = (() => {
     nudgeEl.className = "upgrade-nudge";
     nudgeEl.setAttribute("role", "alert");
     nudgeEl.innerHTML = `<i class="fa-solid fa-gem"></i>
-      <div class="upgrade-nudge-body"><strong>${manager ? "Upgrade to do more" : "Your company's plan stops this"}</strong>${escapeHtml(message)}${manager ? "" : " Ask an owner or admin."}
-        <div class="upgrade-nudge-actions">${manager && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">See plans</a>` : ""}<button class="btn btn-outline" type="button">Close</button></div>
+      <div class="upgrade-nudge-body"><strong>${escapeHtml(t(manager ? "plan.upgrade" : "plan.stops"))}</strong>${escapeHtml(message)}${manager ? "" : ` ${escapeHtml(t("plan.askOwnerShort"))}`}
+        <div class="upgrade-nudge-actions">${manager && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">${escapeHtml(t("plan.seePlans"))}</a>` : ""}<button class="btn btn-outline" type="button">${escapeHtml(t("common.close"))}</button></div>
       </div>`;
     const el = nudgeEl;
     const close = () => {
@@ -1320,18 +1321,10 @@ const crmPlan = (() => {
 // it to the team again — does, before an owner confirms. Used by the Inbox and Settings →
 // WhatsApp. open() resolves to { note } when confirmed, null when cancelled.
 const crmPrivacyDialog = (() => {
+  // [icon, text key]: each point has a "<key>.title" and a "<key>.text".
   const POINTS = {
-    hide: [
-      ["fa-user-lock", "Only owners will see this chat.", "Admins and agents won't see it in the Inbox, Customers, Leads or reports."],
-      ["fa-bell-slash", "New messages stay private too.", "No automation, bot or auto-reply runs for this number, and no lead is created from it."],
-      ["fa-box-archive", "Nothing is deleted.", "The chat stays here for you, and in the WhatsApp Business app on your phone."],
-      ["fa-rotate-left", "You can undo it any time.", "Settings → WhatsApp → Private numbers → Show to team."],
-    ],
-    show: [
-      ["fa-users", "Your team will see this chat again.", "Admins and agents who see all chats will find it in the Inbox, Customers and Leads."],
-      ["fa-bolt", "New messages run your automations again.", "Assignment rules, auto-replies and the bot treat it like any customer."],
-      ["fa-clock-rotate-left", "Earlier messages stay as they are.", "Nothing that happened while it was private is sent or started now."],
-    ],
+    hide: [["fa-user-lock", "privacy.hide1"], ["fa-bell-slash", "privacy.hide2"], ["fa-box-archive", "privacy.hide3"], ["fa-rotate-left", "privacy.hide4"]],
+    show: [["fa-users", "privacy.show1"], ["fa-bolt", "privacy.show2"], ["fa-clock-rotate-left", "privacy.show3"]],
   };
 
   function open({ mode = "hide", name = "", phone = "" } = {}) {
@@ -1344,18 +1337,18 @@ const crmPrivacyDialog = (() => {
       overlay.innerHTML = `
         <div class="modal">
           <div class="modal-head">
-            <h3><i class="fa-solid ${hide ? "fa-lock" : "fa-lock-open"}"></i> ${hide ? "Make this number private?" : "Show this number to the team?"}</h3>
-            <button class="icon-btn" type="button" data-cancel aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            <h3><i class="fa-solid ${hide ? "fa-lock" : "fa-lock-open"}"></i> ${escapeHtml(t(hide ? "privacy.titleHide" : "privacy.titleShow"))}</h3>
+            <button class="icon-btn" type="button" data-cancel aria-label="${escapeHtml(t("common.close"))}"><i class="fa-solid fa-xmark"></i></button>
           </div>
           <div class="modal-body">
             <p class="privacy-who"><strong>${escapeHtml(name || formatPhoneE164(phone))}</strong>${name && phone ? ` <span>${escapeHtml(formatPhoneE164(phone))}</span>` : ""}</p>
             <ul class="privacy-points">
-              ${POINTS[hide ? "hide" : "show"].map(([icon, title, text]) => `<li><i class="fa-solid ${icon}"></i><span><strong>${escapeHtml(title)}</strong> ${escapeHtml(text)}</span></li>`).join("")}
+              ${POINTS[hide ? "hide" : "show"].map(([icon, key]) => `<li><i class="fa-solid ${icon}"></i><span><strong>${escapeHtml(t(`${key}.title`))}</strong> ${escapeHtml(t(`${key}.text`))}</span></li>`).join("")}
             </ul>
-            ${hide ? '<div class="field"><label for="privacyNote">Label (optional, only you see it)</label><input type="text" id="privacyNote" maxlength="60" placeholder="e.g. Family" /></div>' : ""}
+            ${hide ? `<div class="field"><label for="privacyNote">${escapeHtml(t("privacy.label"))}</label><input type="text" id="privacyNote" maxlength="60" placeholder="${escapeHtml(t("privacy.labelExample"))}" /></div>` : ""}
             <div class="privacy-actions">
-              <button class="btn btn-outline" type="button" data-cancel>Cancel</button>
-              <button class="btn btn-primary" type="button" data-confirm><i class="fa-solid ${hide ? "fa-lock" : "fa-lock-open"}"></i> ${hide ? "Make private" : "Show to team"}</button>
+              <button class="btn btn-outline" type="button" data-cancel>${escapeHtml(t("common.cancel"))}</button>
+              <button class="btn btn-primary" type="button" data-confirm><i class="fa-solid ${hide ? "fa-lock" : "fa-lock-open"}"></i> ${escapeHtml(t(hide ? "inbox.private.make" : "wa.priv.show"))}</button>
             </div>
           </div>
         </div>`;
@@ -1384,7 +1377,7 @@ const crmPrivacyDialog = (() => {
 // button there (hidden where a mouse can drag) that lists the columns. open() resolves to the
 // chosen value, or null when cancelled. Deals, Marketing, Support and Tasks use it.
 const kanbanMoveButton = (id) =>
-  `<button class="kanban-move" type="button" data-move="${escapeHtml(id)}" aria-label="Move to another column"><i class="fa-solid fa-arrow-right-arrow-left"></i> Move to…</button>`;
+  `<button class="kanban-move" type="button" data-move="${escapeHtml(id)}" aria-label="${escapeHtml(t("move.aria"))}"><i class="fa-solid fa-arrow-right-arrow-left"></i> ${escapeHtml(t("move.button"))}</button>`;
 
 const crmMoveMenu = (() => {
   // options: [{ value, label, color }]; current: the column the card is in now.
@@ -1399,7 +1392,7 @@ const crmMoveMenu = (() => {
         <div class="modal">
           <div class="modal-head">
             <h3 id="moveMenuTitle">${escapeHtml(title)}</h3>
-            <button class="icon-btn" type="button" data-cancel aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            <button class="icon-btn" type="button" data-cancel aria-label="${escapeHtml(t("common.close"))}"><i class="fa-solid fa-xmark"></i></button>
           </div>
           <div class="modal-body move-menu-list">
             ${options.map((option) => {
@@ -1407,7 +1400,7 @@ const crmMoveMenu = (() => {
               return `<button class="move-menu-option" type="button" data-value="${escapeHtml(option.value)}" ${here ? 'disabled aria-current="true"' : ""}>
                 <span class="kanban-dot" style="background:${escapeHtml(option.color || "var(--text-faint)")}"></span>
                 <span class="move-menu-label">${escapeHtml(option.label)}</span>
-                ${here ? '<span class="move-menu-here">Here now</span>' : '<i class="fa-solid fa-chevron-right"></i>'}
+                ${here ? `<span class="move-menu-here">${escapeHtml(t("move.here"))}</span>` : '<i class="fa-solid fa-chevron-right"></i>'}
               </button>`;
             }).join("")}
           </div>
@@ -1459,14 +1452,15 @@ async function mountWhatsAppReminder() {
     return; // a reminder only
   }
   if (!status.available || status.connected) return;
+  await crmI18n.ready;
   const el = document.createElement("div");
   el.id = "whatsappBanner";
   el.className = "plan-banner whatsapp-banner";
   el.setAttribute("role", "status");
   el.innerHTML = `<i class="fa-brands fa-whatsapp"></i>
-    <span class="plan-banner-text">Connect your WhatsApp Business number to bring your chats into the Inbox. The app keeps working on your phone.</span>
-    <a class="btn btn-primary" href="connect-whatsapp.html?add=1">Connect WhatsApp</a>
-    <button class="plan-banner-close" type="button" aria-label="Hide until tomorrow">&times;</button>`;
+    <span class="plan-banner-text">${escapeHtml(t("waBanner.text"))}</span>
+    <a class="btn btn-primary" href="connect-whatsapp.html?add=1">${escapeHtml(t("waBanner.connect"))}</a>
+    <button class="plan-banner-close" type="button" aria-label="${escapeHtml(t("plan.hideTomorrow"))}">&times;</button>`;
   el.querySelector(".plan-banner-close").addEventListener("click", () => {
     setPreference("whatsappBannerHiddenOn", today);
     el.remove();
@@ -2149,7 +2143,10 @@ function explainNoAccess() {
   const params = new URLSearchParams(window.location.search);
   const blocked = params.get("noaccess");
   if (!blocked) return;
-  showToast(`You don't have access to ${pageName(blocked)}. Ask your company's owner or admin to give it to you.`, "error");
+  crmI18n.ready.then(() => {
+    const key = NAV_KEYS[String(blocked).toLowerCase()];
+    showToast(t("access.noPage", { page: key && crmI18n.has(key) ? t(key) : pageName(blocked) }), "error");
+  });
   params.delete("noaccess");
   const rest = params.toString();
   history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);

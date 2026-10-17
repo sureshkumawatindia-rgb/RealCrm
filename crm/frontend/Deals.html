@@ -142,7 +142,7 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Deals</h2>
+            <h2 data-i18n="nav.deals">Deals</h2>
           </div>
         </header>
 
@@ -157,24 +157,24 @@
               <input
                 type="text"
                 id="searchInput"
-                placeholder="Search deals, accounts, owners..."
+                placeholder="Search deals, accounts, owners..." data-i18n-placeholder="deals.search-deals-accounts-owners"
               />
             </div>
             <div class="filter-bar">
               <select class="filter" id="filterStage">
-                <option value="all">All Stages</option>
-                <option value="New">New</option>
-                <option value="Contacted">Contacted</option>
-                <option value="Quote Sent">Quote Sent</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Won">Won</option>
-                <option value="Lost">Lost</option>
+                <option value="all" data-i18n="deals.all-stages">All Stages</option>
+                <option value="New" data-i18n="stage.New">New</option>
+                <option value="Contacted" data-i18n="stage.Contacted">Contacted</option>
+                <option value="Quote Sent" data-i18n="stage.Quote Sent">Quote Sent</option>
+                <option value="Negotiation" data-i18n="stage.Negotiation">Negotiation</option>
+                <option value="Won" data-i18n="stage.Won">Won</option>
+                <option value="Lost" data-i18n="stage.Lost">Lost</option>
               </select>
               <select class="filter" id="filterOwner">
-                <option value="all">All Owners</option>
+                <option value="all" data-i18n="deals.all-owners">All Owners</option>
               </select>
               <div class="filter-group">
-                <span>₹ min</span>
+                <span data-i18n="deals.min">₹ min</span>
                 <input
                   type="number"
                   id="filterMinValue"
@@ -183,44 +183,39 @@
                 />
               </div>
               <div class="filter-group">
-                <span>₹ max</span>
+                <span data-i18n="deals.max">₹ max</span>
                 <input
                   type="number"
                   id="filterMaxValue"
                   min="0"
-                  placeholder="Any"
+                  placeholder="Any" data-i18n-placeholder="deals.any"
                 />
               </div>
               <div class="filter-group">
-                <span>Closes by</span>
-                <input type="date" id="filterCloseDate" aria-label="Close date" title="Close date" />
+                <span data-i18n="deals.closes-by">Closes by</span>
+                <input type="date" id="filterCloseDate" aria-label="Close date" data-i18n-aria-label="deals.close-date" title="Close date" data-i18n-title="deals.close-date" />
               </div>
-              <button class="link-clear" id="clearFiltersBtn">
-                Clear filters
-              </button>
+              <button class="link-clear" id="clearFiltersBtn" data-i18n="deals.clear-filters">Clear filters</button>
             </div>
             <div style="display: flex; gap: 10px; margin-left: auto">
               <div class="view-toggle">
                 <button id="viewKanbanBtn" class="active">
-                  <i class="fa-solid fa-table-columns"></i> Kanban
-                </button>
+                  <i class="fa-solid fa-table-columns"></i> <span data-i18n="deals.kanban">Kanban</span></button>
                 <button id="viewTableBtn">
-                  <i class="fa-solid fa-list"></i> Table
-                </button>
+                  <i class="fa-solid fa-list"></i> <span data-i18n="deals.table">Table</span></button>
               </div>
               <button class="btn btn-primary" id="addBtn">
-                <i class="fa-solid fa-plus"></i> New Deal
-              </button>
+                <i class="fa-solid fa-plus"></i> <span data-i18n="dash.newDeal">New Deal</span></button>
             </div>
           </div>
 
           <div class="nav-bar-kanban-card">
-            <button data-stage="New">NEW</button>
-            <button data-stage="Contacted">CONTACTED</button>
-            <button data-stage="Quote Sent">QUOTE SENT</button>
-            <button data-stage="Negotiation">NEGOTIATION</button>
-            <button data-stage="Won">WON</button>
-            <button data-stage="Lost">LOST</button>
+            <button data-stage="New" data-i18n="deals.new">NEW</button>
+            <button data-stage="Contacted" data-i18n="deals.contacted">CONTACTED</button>
+            <button data-stage="Quote Sent" data-i18n="deals.quote-sent">QUOTE SENT</button>
+            <button data-stage="Negotiation" data-i18n="deals.negotiation">NEGOTIATION</button>
+            <button data-stage="Won" data-i18n="deals.won">WON</button>
+            <button data-stage="Lost" data-i18n="deals.lost">LOST</button>
           </div>
 
           <!-- BOARD + SIDE PANEL -->
@@ -236,14 +231,11 @@
             <aside class="side-panel">
               <div class="side-tabs">
                 <button class="side-tab active" data-tab="team">
-                  <i class="fa-solid fa-user-group"></i> Agent
-                </button>
+                  <i class="fa-solid fa-user-group"></i> <span data-i18n="role.Agent">Agent</span></button>
                 <button class="side-tab" data-tab="tasks">
-                  <i class="fa-solid fa-list-check"></i> Tasks
-                </button>
+                  <i class="fa-solid fa-list-check"></i> <span data-i18n="nav.tasks">Tasks</span></button>
                 <button class="side-tab" data-tab="calendar">
-                  <i class="fa-solid fa-calendar-days"></i> Calendar
-                </button>
+                  <i class="fa-solid fa-calendar-days"></i> <span data-i18n="nav.calendar">Calendar</span></button>
               </div>
               <div
                 class="side-tab-content active"
@@ -270,7 +262,7 @@
     <div class="modal-overlay" id="modalOverlay">
       <div class="modal modal--wide">
         <div class="modal-head">
-          <h3 id="modalTitle">New Deal</h3>
+          <h3 id="modalTitle" data-i18n="dash.newDeal">New Deal</h3>
           <button class="icon-btn" id="modalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -279,72 +271,72 @@
           <form id="dealForm">
             <input type="hidden" id="editId" />
             <div class="field">
-              <label>Deal Name</label>
+              <label data-i18n="deals.deal-name">Deal Name</label>
               <input
                 type="text"
                 id="fName"
-                placeholder="e.g. Acme Corp — Annual Renewal"
+                placeholder="e.g. Acme Corp — Annual Renewal" data-i18n-placeholder="deals.e-g-acme-corp-annual-renewal"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Account / Company</label>
+                <label data-i18n="deals.account-company">Account / Company</label>
                 <input
                   type="text"
                   id="fAccount"
                   list="accountOptions"
-                  placeholder="Associated account"
+                  placeholder="Associated account" data-i18n-placeholder="deals.associated-account"
                   required
                 />
                 <datalist id="accountOptions"></datalist>
               </div>
               <div class="field">
-                <label>Contact</label>
+                <label data-i18n="deals.contact">Contact</label>
                 <input
                   type="text"
                   id="fContact"
                   list="contactOptions"
-                  placeholder="Primary contact"
+                  placeholder="Primary contact" data-i18n-placeholder="deals.primary-contact"
                 />
                 <datalist id="contactOptions"></datalist>
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Deal Value (₹)</label>
+                <label data-i18n="deals.deal-value">Deal Value (₹)</label>
                 <input type="number" id="fValue" min="0" required />
               </div>
               <div class="field">
-                <label>Expected Close Date</label>
+                <label data-i18n="deals.expected-close-date">Expected Close Date</label>
                 <input type="date" id="fCloseDate" required />
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Stage</label>
+                <label data-i18n="deals.stage">Stage</label>
                 <select id="fStage">
-                  <option>New</option>
-                  <option>Contacted</option>
-                  <option>Quote Sent</option>
-                  <option>Negotiation</option>
-                  <option>Won</option>
-                  <option>Lost</option>
+                  <option value="New" data-i18n="stage.New">New</option>
+                  <option value="Contacted" data-i18n="stage.Contacted">Contacted</option>
+                  <option value="Quote Sent" data-i18n="stage.Quote Sent">Quote Sent</option>
+                  <option value="Negotiation" data-i18n="stage.Negotiation">Negotiation</option>
+                  <option value="Won" data-i18n="stage.Won">Won</option>
+                  <option value="Lost" data-i18n="stage.Lost">Lost</option>
                 </select>
               </div>
               <div class="field">
-                <label>Owner</label>
+                <label data-i18n="role.Owner">Owner</label>
                 <select id="fOwner" required></select>
               </div>
             </div>
             <div class="field">
-              <label>Probability to Close</label>
+              <label data-i18n="deals.probability-to-close">Probability to Close</label>
               <div class="range-field">
                 <input
                   type="range"
                   id="fProbability"
                   disabled
-                  title="Set automatically from the stage"
+                  title="Set automatically from the stage" data-i18n-title="deals.set-automatically-from-the-stage"
                   min="0"
                   max="100"
                   step="5"
@@ -364,15 +356,13 @@
                   color: var(--text-muted);
                   margin-bottom: 10px;
                 "
-              >
-                Activity &amp; Notes
-              </label>
+               data-i18n="deals.activity-notes">Activity &amp; Notes</label>
               <div class="timeline" id="timelineList"></div>
               <div class="note-input-row">
                 <input
                   type="text"
                   id="noteInput"
-                  placeholder="Add a note or log activity..."
+                  placeholder="Add a note or log activity..." data-i18n-placeholder="deals.add-a-note-or-log-activity"
                 />
                 <button type="button" class="btn btn-outline" id="addNoteBtn">
                   <i class="fa-solid fa-plus"></i>
@@ -388,19 +378,14 @@
             type="button"
             style="display: none; margin-right: auto"
           >
-            <i class="fa-solid fa-trash"></i> Delete Deal
-          </button>
-          <button class="btn btn-outline" id="cancelBtn" type="button">
-            Cancel
-          </button>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="deals.delete-deal">Delete Deal</span></button>
+          <button class="btn btn-outline" id="cancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
           <button
             class="btn btn-primary"
             id="saveBtn"
             type="submit"
             form="dealForm"
-          >
-            Save Deal
-          </button>
+           data-i18n="deals.save-deal">Save Deal</button>
         </div>
       </div>
     </div>

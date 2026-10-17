@@ -7,18 +7,20 @@
  * One global: crmPaymentLinks.open({ orderId | quotationId | contactId, onChange? }).
  */
 const crmPaymentLinks = (function paymentLinks() {
+  // [badge class, text key]
   const STATUS = {
-    created: ["badge-info", "Waiting for payment"], partially_paid: ["badge-warning", "Part paid"], paid: ["badge-success", "Paid"],
-    expired: ["badge-neutral", "Expired"], cancelled: ["badge-neutral", "Cancelled"],
+    created: ["badge-info", "pl.status.created"], partially_paid: ["badge-warning", "pl.status.partly"], paid: ["badge-success", "pl.status.paid"],
+    expired: ["badge-neutral", "pl.status.expired"], cancelled: ["badge-neutral", "pl.status.cancelled"],
   };
   const OPEN = ["created", "partially_paid"];
-  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const day = (iso) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "");
-  const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
+  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString(crmI18n.locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const day = (iso) => (iso ? new Date(iso).toLocaleDateString(crmI18n.locale(), { day: "numeric", month: "short", year: "numeric" }) : "");
+  const when = (iso) => (iso ? new Date(iso).toLocaleString(crmI18n.locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
   const badge = (status) => {
-    const [cls, label] = STATUS[status] || ["badge-neutral", status];
-    return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
+    const [cls, key] = STATUS[status] || ["badge-neutral", ""];
+    return `<span class="badge ${cls}">${escapeHtml(key ? t(key) : status)}</span>`;
   };
+  const testMark = (mode) => (mode === "test" ? ` (${t("pl.test")})` : "");
   const toPaise = (text) => {
     const value = Number(String(text || "").replace(/[₹,\s]/g, ""));
     return Number.isFinite(value) && value > 0 ? Math.round(value * 100) : 0;
@@ -38,8 +40,8 @@ const crmPaymentLinks = (function paymentLinks() {
     overlay.innerHTML = `
       <div class="modal pl-modal" role="dialog" aria-modal="true" aria-labelledby="plTitle">
         <div class="modal-head">
-          <h3 id="plTitle"><i class="fa-solid fa-indian-rupee-sign"></i> Payment link</h3>
-          <button class="icon-btn" type="button" data-pl="close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 id="plTitle"><i class="fa-solid fa-indian-rupee-sign"></i> ${escapeHtml(t("quotes.act.paylink"))}</h3>
+          <button class="icon-btn" type="button" data-pl="close" title="${escapeHtml(t("common.close"))}" aria-label="${escapeHtml(t("common.close"))}"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="plBody"></div>
         <div class="modal-foot" id="plFoot"></div>
@@ -64,24 +66,24 @@ const crmPaymentLinks = (function paymentLinks() {
     const left = Math.max(link.amountPaise - (link.amountPaidPaise || 0), 0);
     const open = OPEN.includes(link.status);
     const meta = [
-      `${escapeHtml(link.providerName || link.provider)}${link.mode === "test" ? " (test)" : ""}`,
-      link.amountPaidPaise ? `${rupees(link.amountPaidPaise)} paid of ${rupees(link.amountPaise)}` : "",
-      open && link.expiresAt ? `valid till ${escapeHtml(day(link.expiresAt))}` : "",
-      link.sentAt ? `sent on WhatsApp ${escapeHtml(when(link.sentAt))}` : "not sent yet",
-      link.paidAt ? `paid ${escapeHtml(when(link.paidAt))}` : "",
+      escapeHtml(`${link.providerName || link.provider}${testMark(link.mode)}`),
+      link.amountPaidPaise ? escapeHtml(t("pl.paidOf", { paid: rupees(link.amountPaidPaise), total: rupees(link.amountPaise) })) : "",
+      open && link.expiresAt ? escapeHtml(t("pl.validTill", { date: day(link.expiresAt) })) : "",
+      escapeHtml(link.sentAt ? t("pl.sentAt", { date: when(link.sentAt) }) : t("pl.notSent")),
+      link.paidAt ? escapeHtml(t("orders.paidOn", { date: when(link.paidAt) })) : "",
     ].filter(Boolean).join(" · ");
     return `
       <div class="pl-link">
         <div class="pl-link-top"><span class="pl-amount">${rupees(open ? left : link.amountPaise)}</span>${badge(link.status)}</div>
         <div class="pl-to">${escapeHtml(link.description || "")}</div>
-        ${link.shortUrl ? `<div class="pl-url"><input type="text" readonly value="${escapeHtml(link.shortUrl)}" aria-label="Payment link" /><button class="btn btn-outline" type="button" data-pl="copy" data-url="${escapeHtml(link.shortUrl)}"><i class="fa-regular fa-copy"></i> Copy</button></div>` : ""}
+        ${link.shortUrl ? `<div class="pl-url"><input type="text" readonly value="${escapeHtml(link.shortUrl)}" aria-label="${escapeHtml(t("quotes.act.paylink"))}" /><button class="btn btn-outline" type="button" data-pl="copy" data-url="${escapeHtml(link.shortUrl)}"><i class="fa-regular fa-copy"></i> ${escapeHtml(t("pl.copy"))}</button></div>` : ""}
         <div class="pl-meta">${meta}</div>
-        ${link.lastSyncError ? `<div class="pl-meta">Last check: ${escapeHtml(link.lastSyncError)}</div>` : ""}
-        ${(link.receipts || []).filter((r) => r.status !== "sent").map((r) => `<div class="pl-meta">Receipt not sent: ${escapeHtml(r.reason || r.status)}</div>`).join("")}
+        ${link.lastSyncError ? `<div class="pl-meta">${escapeHtml(t("pl.lastCheck", { error: link.lastSyncError }))}</div>` : ""}
+        ${(link.receipts || []).filter((r) => r.status !== "sent").map((r) => `<div class="pl-meta">${escapeHtml(t("pl.receiptNotSent", { reason: r.reason || r.status }))}</div>`).join("")}
         ${actions ? `<div class="pl-buttons">
-          ${open && canChat() && canEdit() ? '<button class="btn btn-primary" type="button" data-pl="send"><i class="fa-brands fa-whatsapp"></i> Send on WhatsApp</button>' : ""}
-          <button class="btn btn-outline" type="button" data-pl="refresh"><i class="fa-solid fa-rotate"></i> Check now</button>
-          ${link.status === "created" && canEdit() ? '<button class="btn btn-danger-outline" type="button" data-pl="cancel">Cancel link</button>' : ""}
+          ${open && canChat() && canEdit() ? `<button class="btn btn-primary" type="button" data-pl="send"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("quotes.act.whatsapp"))}</button>` : ""}
+          <button class="btn btn-outline" type="button" data-pl="refresh"><i class="fa-solid fa-rotate"></i> ${escapeHtml(t("pl.check"))}</button>
+          ${link.status === "created" && canEdit() ? `<button class="btn btn-danger-outline" type="button" data-pl="cancel">${escapeHtml(t("pl.cancelLink"))}</button>` : ""}
         </div>` : ""}
       </div>`;
   }
@@ -89,8 +91,8 @@ const crmPaymentLinks = (function paymentLinks() {
   function history() {
     const others = (state.options?.links || []).filter((l) => l.id !== state.link?.id);
     if (!others.length) return "";
-    return `<details class="pl-history"><summary>Earlier links (${others.length})</summary>${others
-      .map((l) => `<div class="pl-history-row"><span>${rupees(l.amountPaise)} · ${escapeHtml(day(l.createdAt))}${l.amountPaidPaise ? ` · ${rupees(l.amountPaidPaise)} paid` : ""}</span>${badge(l.status)}</div>`)
+    return `<details class="pl-history"><summary>${escapeHtml(t("pl.earlier", { n: others.length }))}</summary>${others
+      .map((l) => `<div class="pl-history-row"><span>${rupees(l.amountPaise)} · ${escapeHtml(day(l.createdAt))}${l.amountPaidPaise ? ` · ${escapeHtml(t("pl.paid", { amount: rupees(l.amountPaidPaise) }))}` : ""}</span>${badge(l.status)}</div>`)
       .join("")}</details>`;
   }
 
@@ -98,18 +100,18 @@ const crmPaymentLinks = (function paymentLinks() {
     const o = state.options;
     const forAmount = o.purpose === "amount";
     const gateways = o.gateways.length > 1
-      ? `<div class="field"><label for="plGateway">Through</label><select id="plGateway">${o.gateways.map((g) => `<option value="${escapeHtml(g.id)}" ${g.isDefault ? "selected" : ""}>${escapeHtml(g.name)}${g.mode === "test" ? " (test)" : ""}</option>`).join("")}</select></div>`
+      ? `<div class="field"><label for="plGateway">${escapeHtml(t("pl.through"))}</label><select id="plGateway">${o.gateways.map((g) => `<option value="${escapeHtml(g.id)}" ${g.isDefault ? "selected" : ""}>${escapeHtml(`${g.name}${testMark(g.mode)}`)}</option>`).join("")}</select></div>`
       : "";
     return `
-      <div class="pl-to">${forAmount ? `For <strong>${escapeHtml(o.customerName || "the customer")}</strong>` : `${escapeHtml(o.purpose === "order" ? "Order" : "Quotation")} <strong>${escapeHtml(o.documentNumber)}</strong> · ${escapeHtml(o.customerName || "")}`}</div>
+      <div class="pl-to">${forAmount ? t("pl.for", { name: `<strong>${escapeHtml(o.customerName || t("quotes.send.theCustomer"))}</strong>` }) : `${escapeHtml(o.purpose === "order" ? t("orders.col.order") : crmLabel("quoteType", "Quotation"))} <strong>${escapeHtml(o.documentNumber)}</strong> · ${escapeHtml(o.customerName || "")}`}</div>
       <div class="field-row">
-        <div class="field"><label for="plAmount">Amount (₹)</label><input type="text" id="plAmount" inputmode="decimal" value="${o.amountPaise ? escapeHtml((o.amountPaise / 100).toFixed(2)) : ""}" placeholder="e.g. 5000" /></div>
-        <div class="field"><label for="plDays">Valid for (days)</label><input type="number" id="plDays" min="1" max="180" value="${escapeHtml(o.expiryDays || 7)}" /></div>
+        <div class="field"><label for="plAmount">${escapeHtml(t("orders.amount"))}</label><input type="text" id="plAmount" inputmode="decimal" value="${o.amountPaise ? escapeHtml((o.amountPaise / 100).toFixed(2)) : ""}" placeholder="${escapeHtml(t("pl.eg5000"))}" /></div>
+        <div class="field"><label for="plDays">${escapeHtml(t("pl.validDays"))}</label><input type="number" id="plDays" min="1" max="180" value="${escapeHtml(o.expiryDays || 7)}" /></div>
       </div>
-      ${o.maxPaise ? `<p class="pl-hint">${o.purpose === "order" ? "Still due" : "Quotation total"}: ${rupees(o.maxPaise)}. You can ask for less (an advance).</p>` : ""}
-      <div class="field"><label for="plFor">${forAmount ? "What is it for" : "Description (the customer sees it)"}</label><input type="text" id="plFor" maxlength="500" placeholder="${forAmount ? "e.g. Advance for 50 bags of jeera" : "Leave empty for the document number"}" /></div>
-      <label class="pl-check"><input type="checkbox" id="plPartial" /> The customer may pay in parts</label>
-      <div class="field" id="plMinField" hidden><label for="plMin">Smallest part (₹)</label><input type="text" id="plMin" inputmode="decimal" placeholder="e.g. 1000" /></div>
+      ${o.maxPaise ? `<p class="pl-hint">${escapeHtml(t(o.purpose === "order" ? "pl.hint.due" : "pl.hint.quote", { amount: rupees(o.maxPaise) }))}</p>` : ""}
+      <div class="field"><label for="plFor">${escapeHtml(t(forAmount ? "pl.whatFor" : "pl.description"))}</label><input type="text" id="plFor" maxlength="500" placeholder="${escapeHtml(t(forAmount ? "pl.eg.for" : "pl.eg.doc"))}" /></div>
+      <label class="pl-check"><input type="checkbox" id="plPartial" /> <span>${escapeHtml(t("pl.partial"))}</span></label>
+      <div class="field" id="plMinField" hidden><label for="plMin">${escapeHtml(t("pl.min"))}</label><input type="text" id="plMin" inputmode="decimal" placeholder="${escapeHtml(t("pl.eg1000"))}" /></div>
       ${gateways}
       ${history()}`;
   }
@@ -117,40 +119,40 @@ const crmPaymentLinks = (function paymentLinks() {
   function sendView() {
     const s = state.send;
     const o = s.options;
-    if (!o) return '<p class="pl-to">Checking WhatsApp…</p>';
+    if (!o) return `<p class="pl-to">${escapeHtml(t("pl.checking"))}</p>`;
     if (o.blocked) return `<div class="pl-note">${escapeHtml(o.blocked)}</div>`;
     if (!o.windowOpen) s.mode = "template";
-    const template = o.templates.find((t) => String(t.id) === s.templateId) || null;
+    const template = o.templates.find((tpl) => String(tpl.id) === s.templateId) || null;
     const modes = o.windowOpen
       ? `<div class="pl-mode">
-          <label><input type="radio" name="plMode" value="text" ${s.mode === "text" ? "checked" : ""} /><span>A message<small>The customer wrote in the last 24 hours.</small></span></label>
-          <label><input type="radio" name="plMode" value="template" ${s.mode === "template" ? "checked" : ""} /><span>An approved template</span></label>
+          <label><input type="radio" name="plMode" value="text" ${s.mode === "text" ? "checked" : ""} /><span>${escapeHtml(t("orders.mode.text"))}<small>${escapeHtml(t("orders.mode.textHint"))}</small></span></label>
+          <label><input type="radio" name="plMode" value="template" ${s.mode === "template" ? "checked" : ""} /><span>${escapeHtml(t("quotes.send.tplMode"))}</span></label>
         </div>`
-      : '<div class="pl-note">The customer has not written in the last 24 hours, so WhatsApp allows only an approved template.</div>';
+      : `<div class="pl-note">${escapeHtml(t("orders.closed"))}</div>`;
     let detail;
     if (s.mode === "text") {
-      detail = `<div class="field"><label for="plText">Message</label><textarea id="plText" rows="5" maxlength="4096">${escapeHtml(s.text ?? o.text)}</textarea></div>`;
+      detail = `<div class="field"><label for="plText">${escapeHtml(t("c360.message"))}</label><textarea id="plText" rows="5" maxlength="4096">${escapeHtml(s.text ?? o.text)}</textarea></div>`;
     } else if (!o.templates.length) {
-      detail = '<p class="pl-to">No approved template on this WhatsApp number yet (Settings → WhatsApp → Message templates).</p>';
+      detail = `<p class="pl-to">${escapeHtml(t("orders.noTemplates"))}</p>`;
     } else {
       const vars = template ? [
-        ...(template.header?.variables || []).map((name) => ["header", name, `{{${name}}} in the heading`]),
-        ...template.body.variables.map((name) => ["body", name, `{{${name}}} in the message`]),
-        ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), `The end of the "${b.text}" button link`]),
+        ...(template.header?.variables || []).map((name) => ["header", name, t("quotes.var.header", { name })]),
+        ...template.body.variables.map((name) => ["body", name, t("quotes.var.body", { name })]),
+        ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), t("quotes.var.button", { text: b.text })]),
       ] : [];
-      detail = `<div class="field"><label for="plTemplate">Template</label><select id="plTemplate"><option value="">Choose a template…</option>${o.templates
-        .map((t) => `<option value="${escapeHtml(t.id)}" ${String(t.id) === s.templateId ? "selected" : ""}>${escapeHtml(t.name)} (${escapeHtml(t.language)})</option>`)
+      detail = `<div class="field"><label for="plTemplate">${escapeHtml(t("inbox.template"))}</label><select id="plTemplate"><option value="">${escapeHtml(t("quotes.send.chooseTpl"))}</option>${o.templates
+        .map((tpl) => `<option value="${escapeHtml(tpl.id)}" ${String(tpl.id) === s.templateId ? "selected" : ""}>${escapeHtml(tpl.name)} (${escapeHtml(tpl.language)})</option>`)
         .join("")}</select></div>
         ${vars.map(([part, name, label]) => `<div class="field"><label>${escapeHtml(label)}</label><input type="text" maxlength="1024" data-part="${part}" data-pl-var="${escapeHtml(name)}" value="${escapeHtml(template.suggested?.[part]?.[name] || "")}" /></div>`).join("")}
         ${template ? '<div class="pl-preview"><div id="plPreview"></div></div>' : ""}
-        ${template && !/\{\{/.test(template.body.text) && !template.buttons.some((b) => b.variables.length) ? '<p class="pl-hint">This template has no place for the link: pick one with a variable or a link button.</p>' : ""}`;
+        ${template && !/\{\{/.test(template.body.text) && !template.buttons.some((b) => b.variables.length) ? `<p class="pl-hint">${escapeHtml(t("pl.noLinkSpot"))}</p>` : ""}`;
     }
-    return `<div class="pl-to">To <strong>${escapeHtml(state.link.customerName || "the customer")}</strong> · ${rupees(state.link.amountPaise - (state.link.amountPaidPaise || 0))}</div>${modes}${detail}`;
+    return `<div class="pl-to">${t("quotes.send.to", { name: `<strong>${escapeHtml(state.link.customerName || t("quotes.send.theCustomer"))}</strong>` })} · ${rupees(state.link.amountPaise - (state.link.amountPaidPaise || 0))}</div>${modes}${detail}`;
   }
 
   function previewText() {
     const o = state.send.options;
-    const template = o.templates.find((t) => String(t.id) === state.send.templateId);
+    const template = o.templates.find((tpl) => String(tpl.id) === state.send.templateId);
     if (!template) return "";
     const values = { header: {}, body: {}, buttons: {} };
     els.body.querySelectorAll("[data-pl-var]").forEach((input) => {
@@ -164,28 +166,28 @@ const crmPaymentLinks = (function paymentLinks() {
     if (!state) return;
     const button = (action, label, cls = "btn-outline", disabled = false) => `<button class="btn ${cls}" type="button" data-pl="${action}" ${disabled || state.busy ? "disabled" : ""}>${label}</button>`;
     let body = "";
-    let foot = button("close", "Close");
+    let foot = button("close", escapeHtml(t("common.close")));
     switch (state.view) {
       case "loading":
-        body = '<p class="pl-to">Loading…</p>';
+        body = `<p class="pl-to">${escapeHtml(t("cw.loading"))}</p>`;
         break;
       case "blocked":
         body = `<div class="pl-note">${escapeHtml(state.options.blocked)}</div>${history()}`;
         break;
       case "form":
         body = formView();
-        foot = button("close", "Cancel") + (canEdit() ? button("create", '<i class="fa-solid fa-link"></i> Create link', "btn-primary") : "");
+        foot = button("close", escapeHtml(t("common.cancel"))) + (canEdit() ? button("create", `<i class="fa-solid fa-link"></i> ${escapeHtml(t("pl.create"))}`, "btn-primary") : "");
         break;
       case "link":
         body = linkCard(state.link) + history();
         break;
       case "send":
         body = sendView();
-        foot = button("back", "Back");
-        if (state.send.options && !state.send.options.blocked && (state.send.mode === "text" || state.send.templateId)) foot += button("go", '<i class="fa-brands fa-whatsapp"></i> Send', "btn-primary");
+        foot = button("back", escapeHtml(t("pl.back")));
+        if (state.send.options && !state.send.options.blocked && (state.send.mode === "text" || state.send.templateId)) foot += button("go", `<i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("pl.send"))}`, "btn-primary");
         break;
       case "done":
-        body = `<div class="pl-done"><i class="fa-solid fa-circle-check"></i><p>Payment link sent on WhatsApp.</p><p class="pl-hint">When the customer pays, the order is updated, they get a receipt and you get a note under the bell.</p>${state.conversationId ? `<a class="btn btn-outline" href="Inbox.html?c=${encodeURIComponent(state.conversationId)}"><i class="fa-solid fa-comments"></i> Open the chat</a>` : ""}</div>`;
+        body = `<div class="pl-done"><i class="fa-solid fa-circle-check"></i><p>${escapeHtml(t("pl.done"))}</p><p class="pl-hint">${escapeHtml(t("pl.doneHint"))}</p>${state.conversationId ? `<a class="btn btn-outline" href="Inbox.html?c=${encodeURIComponent(state.conversationId)}"><i class="fa-solid fa-comments"></i> ${escapeHtml(t("quotes.send.openChat"))}</a>` : ""}</div>`;
         break;
       default:
         break;
@@ -209,7 +211,7 @@ const crmPaymentLinks = (function paymentLinks() {
       state.link = state.options.openLink;
       state.view = state.link ? "link" : state.options.blocked ? "blocked" : "form";
     } catch (error) {
-      state.options = { blocked: apiErrorMessage(error, "Couldn't load the payment details."), links: [] };
+      state.options = { blocked: apiErrorMessage(error, t("pl.err.load")), links: [] };
       state.view = "blocked";
     }
     render();
@@ -225,11 +227,11 @@ const crmPaymentLinks = (function paymentLinks() {
 
   async function create() {
     const amountPaise = toPaise(els.body.querySelector("#plAmount").value);
-    if (!amountPaise) return showToast("Enter the amount to collect.", "error");
+    if (!amountPaise) return showToast(t("pl.needAmount"), "error");
     const body = { ...Object.fromEntries(Object.entries(state.subject).filter(([, v]) => v)), amountPaise };
     const description = els.body.querySelector("#plFor").value.trim();
     if (description) body.description = description;
-    if (state.options.purpose === "amount" && !description) return showToast("Say what the payment is for.", "error");
+    if (state.options.purpose === "amount" && !description) return showToast(t("pl.needFor"), "error");
     const days = Number(els.body.querySelector("#plDays").value);
     if (days) body.expiresInDays = days;
     if (els.body.querySelector("#plPartial").checked) {
@@ -247,10 +249,10 @@ const crmPaymentLinks = (function paymentLinks() {
       state.link = await crmApi("/payment-links", request);
       state.options.links = [state.link, ...(state.options.links || [])];
       state.view = "link";
-      showToast("Payment link created.", "success");
+      showToast(t("pl.created"), "success");
       changed();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't create the link."), "error");
+      showToast(apiErrorMessage(error, t("pl.err.create")), "error");
       if (error?.code === "OPEN_LINK_EXISTS") return load();
     } finally {
       if (state) state.busy = false;
@@ -265,11 +267,11 @@ const crmPaymentLinks = (function paymentLinks() {
     try {
       const options = await crmApi(`/payment-links/${state.link.id}/send-options`);
       state.send.options = options;
-      const guess = options.templates.find((t) => String(t.id) === String(options.preferredTemplateId))
-        || options.templates.find((t) => /pay|link|due|invoice/i.test(t.name));
+      const guess = options.templates.find((tpl) => String(tpl.id) === String(options.preferredTemplateId))
+        || options.templates.find((tpl) => /pay|link|due|invoice/i.test(tpl.name));
       if (guess) state.send.templateId = String(guess.id);
     } catch (error) {
-      state.send.options = { blocked: apiErrorMessage(error, "Couldn't check WhatsApp.") };
+      state.send.options = { blocked: apiErrorMessage(error, t("quotes.send.checkFailed")) };
     }
     render();
   }
@@ -296,7 +298,7 @@ const crmPaymentLinks = (function paymentLinks() {
       state.view = "done";
       changed();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't send the link."), "error");
+      showToast(apiErrorMessage(error, t("pl.err.send")), "error");
     } finally {
       if (state) state.busy = false;
       render();
@@ -308,10 +310,10 @@ const crmPaymentLinks = (function paymentLinks() {
     render();
     try {
       state.link = await crmApi(`/payment-links/${state.link.id}/refresh`, jsonRequest("POST", {}));
-      showToast(state.link.status === "paid" ? "Paid!" : "Checked with the gateway.", "success");
+      showToast(t(state.link.status === "paid" ? "pl.paidToast" : "pl.checked"), "success");
       changed();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't check the link."), "error");
+      showToast(apiErrorMessage(error, t("pl.err.check")), "error");
     } finally {
       if (state) state.busy = false;
       render();
@@ -319,16 +321,16 @@ const crmPaymentLinks = (function paymentLinks() {
   }
 
   async function cancel() {
-    if (!window.confirm("Cancel this payment link? The customer will no longer be able to pay with it.")) return;
+    if (!window.confirm(t("pl.confirmCancel"))) return;
     state.busy = true;
     render();
     try {
       state.link = await crmApi(`/payment-links/${state.link.id}/cancel`, jsonRequest("POST", {}));
-      showToast("Payment link cancelled.", "success");
+      showToast(t("pl.cancelled"), "success");
       changed();
       await load();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't cancel the link."), "error");
+      showToast(apiErrorMessage(error, t("pl.err.cancel")), "error");
     } finally {
       if (state) state.busy = false;
       render();
@@ -338,11 +340,11 @@ const crmPaymentLinks = (function paymentLinks() {
   async function copy(url) {
     try {
       await navigator.clipboard.writeText(url);
-      showToast("Link copied.", "success");
+      showToast(t("pl.copied"), "success");
     } catch {
       const input = els.body.querySelector(".pl-url input");
       input?.select();
-      showToast("Press Ctrl+C to copy the link.", "info");
+      showToast(t("pl.ctrlC"), "info");
     }
   }
 

@@ -142,7 +142,7 @@
             <button id="menu-toggle" class="icon-btn" style="display: none; font-size: 16px">
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2 id="pageTitle">Quotations</h2>
+            <h2 id="pageTitle" data-i18n="nav.quotations">Quotations</h2>
           </div>
         </header>
 
@@ -152,39 +152,39 @@
             <div class="toolbar">
               <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="search" id="qSearch" placeholder="Search number, customer, company…" autocomplete="off" />
+                <input type="search" id="qSearch" placeholder="Search number, customer, company…" data-i18n-placeholder="quotes.search-number-customer-company" autocomplete="off" />
               </div>
               <div class="filter-bar">
-                <select class="filter" id="qStatus" aria-label="Status">
-                  <option value="">All statuses</option>
-                  <option>Draft</option>
-                  <option>Sent</option>
-                  <option>Viewed</option>
-                  <option>Accepted</option>
-                  <option>Rejected</option>
-                  <option>Expired</option>
+                <select class="filter" id="qStatus" aria-label="Status" data-i18n-aria-label="col.status">
+                  <option value="" data-i18n="quotes.all-statuses">All statuses</option>
+                  <option value="Draft" data-i18n="campaign.Draft">Draft</option>
+                  <option value="Sent" data-i18n="quoteStatus.Sent">Sent</option>
+                  <option value="Viewed" data-i18n="quoteStatus.Viewed">Viewed</option>
+                  <option value="Accepted" data-i18n="quoteStatus.Accepted">Accepted</option>
+                  <option value="Rejected" data-i18n="quoteStatus.Rejected">Rejected</option>
+                  <option value="Expired" data-i18n="quoteStatus.Expired">Expired</option>
                 </select>
-                <select class="filter" id="qType" aria-label="Type">
-                  <option value="">All types</option>
-                  <option>Quotation</option>
-                  <option>Estimate</option>
-                  <option>Proforma Invoice</option>
+                <select class="filter" id="qType" aria-label="Type" data-i18n-aria-label="quotes.type">
+                  <option value="" data-i18n="quotes.all-types">All types</option>
+                  <option value="Quotation" data-i18n="quoteType.Quotation">Quotation</option>
+                  <option value="Estimate" data-i18n="quoteType.Estimate">Estimate</option>
+                  <option value="Proforma Invoice" data-i18n="quoteType.Proforma Invoice">Proforma Invoice</option>
                 </select>
               </div>
               <div style="display: flex; gap: 10px; margin-left: auto">
-                <button class="btn btn-primary" id="qNewBtn" type="button"><i class="fa-solid fa-plus"></i> New quotation</button>
+                <button class="btn btn-primary" id="qNewBtn" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="inbox.ctx.newQuote">New quotation</span></button>
               </div>
             </div>
             <div class="panel"><div class="q-table-wrap" id="qTable"></div></div>
-            <div class="q-more"><button class="btn btn-outline" id="qMore" type="button" hidden>Show more</button></div>
+            <div class="q-more"><button class="btn btn-outline" id="qMore" type="button" hidden data-i18n="quotes.show-more">Show more</button></div>
           </section>
 
           <!-- EDITOR -->
           <section id="qEditorView" hidden>
             <div class="q-editor-head">
-              <button class="btn btn-outline" id="qBack" type="button"><i class="fa-solid fa-arrow-left"></i> All quotations</button>
+              <button class="btn btn-outline" id="qBack" type="button"><i class="fa-solid fa-arrow-left"></i> <span data-i18n="quotes.all-quotations">All quotations</span></button>
               <div class="q-title">
-                <div class="q-number" id="qNumber">New quotation</div>
+                <div class="q-number" id="qNumber" data-i18n="inbox.ctx.newQuote">New quotation</div>
                 <div class="q-sub" id="qSub"></div>
               </div>
             </div>
@@ -192,62 +192,62 @@
             <div class="q-grid">
               <div class="q-main">
                 <div class="panel q-card">
-                  <div class="q-card-head"><h3>Customer</h3><span class="q-customer-link" id="qCustomerLink"></span></div>
+                  <div class="q-card-head"><h3 data-i18n="quotes.customer">Customer</h3><span class="q-customer-link" id="qCustomerLink"></span></div>
                   <div class="q-picker" id="qPicker" hidden>
                     <div class="search-box">
                       <i class="fa-solid fa-magnifying-glass"></i>
-                      <input type="search" id="qPickerInput" placeholder="Find a lead or customer by name, phone or company" autocomplete="off" />
+                      <input type="search" id="qPickerInput" placeholder="Find a lead or customer by name, phone or company" data-i18n-placeholder="quotes.find-a-lead-or-customer-by" autocomplete="off" />
                     </div>
                     <div class="q-picker-results" id="qPickerResults"></div>
                   </div>
                   <div class="q-billto" id="qBillTo">
                     <div class="field-row">
-                      <div class="field"><label for="bName">Name</label><input type="text" id="bName" maxlength="200" data-bill="name" /></div>
-                      <div class="field"><label for="bCompany">Company</label><input type="text" id="bCompany" maxlength="200" data-bill="company" /></div>
+                      <div class="field"><label for="bName" data-i18n="col.name">Name</label><input type="text" id="bName" maxlength="200" data-bill="name" /></div>
+                      <div class="field"><label for="bCompany" data-i18n="col.company">Company</label><input type="text" id="bCompany" maxlength="200" data-bill="company" /></div>
                     </div>
                     <div class="field-row">
-                      <div class="field"><label for="bGstin">GSTIN</label><input type="text" id="bGstin" maxlength="15" data-bill="gstin" placeholder="Optional, e.g. 08ABCDE1234F1Z5" /></div>
-                      <div class="field"><label for="bState">State</label><select id="bState" data-bill="stateCode"></select></div>
+                      <div class="field"><label for="bGstin">GSTIN</label><input type="text" id="bGstin" maxlength="15" data-bill="gstin" placeholder="Optional, e.g. 08ABCDE1234F1Z5" data-i18n-placeholder="quotes.optional-e-g-08abcde1234f1z5" /></div>
+                      <div class="field"><label for="bState" data-i18n="quotes.state">State</label><select id="bState" data-bill="stateCode"></select></div>
                     </div>
                     <div class="field-row">
-                      <div class="field"><label for="bAddress">Address</label><input type="text" id="bAddress" maxlength="500" data-bill="address" /></div>
-                      <div class="field"><label for="bCity">City</label><input type="text" id="bCity" maxlength="100" data-bill="city" /></div>
+                      <div class="field"><label for="bAddress" data-i18n="quotes.address">Address</label><input type="text" id="bAddress" maxlength="500" data-bill="address" /></div>
+                      <div class="field"><label for="bCity" data-i18n="quotes.city">City</label><input type="text" id="bCity" maxlength="100" data-bill="city" /></div>
                     </div>
                     <div class="field-row">
-                      <div class="field"><label for="bPhone">Phone</label><input type="text" id="bPhone" maxlength="30" data-bill="phone" /></div>
-                      <div class="field"><label for="bEmail">Email</label><input type="email" id="bEmail" maxlength="254" data-bill="email" /></div>
+                      <div class="field"><label for="bPhone" data-i18n="quotes.phone">Phone</label><input type="text" id="bPhone" maxlength="30" data-bill="phone" /></div>
+                      <div class="field"><label for="bEmail" data-i18n="quotes.email">Email</label><input type="email" id="bEmail" maxlength="254" data-bill="email" /></div>
                     </div>
                   </div>
                 </div>
 
                 <div class="panel q-card">
-                  <div class="q-card-head"><h3>Items</h3></div>
+                  <div class="q-card-head"><h3 data-i18n="quotes.items">Items</h3></div>
                   <div class="q-items" id="qItems"></div>
                   <div class="q-items-foot">
-                    <button class="btn btn-outline" id="qAddItem" type="button"><i class="fa-solid fa-plus"></i> Add item</button>
+                    <button class="btn btn-outline" id="qAddItem" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="quotes.add-item">Add item</span></button>
                   </div>
                 </div>
 
                 <div class="panel q-card">
-                  <div class="q-card-head"><h3>Terms and notes</h3></div>
-                  <div class="field"><label for="qTerms">Terms and conditions</label><textarea id="qTerms" rows="4" maxlength="5000"></textarea></div>
-                  <div class="field"><label for="qNotes">Note to the customer</label><textarea id="qNotes" rows="2" maxlength="2000" placeholder="Optional, e.g. delivery within 7 days"></textarea></div>
+                  <div class="q-card-head"><h3 data-i18n="quotes.terms-and-notes">Terms and notes</h3></div>
+                  <div class="field"><label for="qTerms" data-i18n="quotes.terms-and-conditions">Terms and conditions</label><textarea id="qTerms" rows="4" maxlength="5000"></textarea></div>
+                  <div class="field"><label for="qNotes" data-i18n="quotes.note-to-the-customer">Note to the customer</label><textarea id="qNotes" rows="2" maxlength="2000" placeholder="Optional, e.g. delivery within 7 days" data-i18n-placeholder="quotes.optional-e-g-delivery-within-7"></textarea></div>
                 </div>
 
                 <div class="panel q-card" id="qHistoryCard" hidden>
-                  <div class="q-card-head"><h3>Earlier revisions</h3></div>
+                  <div class="q-card-head"><h3 data-i18n="quotes.earlier-revisions">Earlier revisions</h3></div>
                   <div id="qHistory"></div>
                 </div>
               </div>
 
               <aside class="q-side">
                 <div class="panel q-card">
-                  <div class="field" id="qTypeField"><label for="qDocType">Type</label>
-                    <select id="qDocType"><option>Quotation</option><option>Estimate</option><option>Proforma Invoice</option></select>
+                  <div class="field" id="qTypeField"><label for="qDocType" data-i18n="quotes.type">Type</label>
+                    <select id="qDocType"><option value="Quotation" data-i18n="quoteType.Quotation">Quotation</option><option value="Estimate" data-i18n="quoteType.Estimate">Estimate</option><option value="Proforma Invoice" data-i18n="quoteType.Proforma Invoice">Proforma Invoice</option></select>
                   </div>
-                  <div class="field"><label for="qValid">Valid until</label><input type="date" id="qValid" /></div>
-                  <div class="field"><label for="qPlace">Place of supply</label><select id="qPlace"></select></div>
-                  <label class="q-check"><input type="checkbox" id="qZero" /> Export / SEZ under LUT (no GST)</label>
+                  <div class="field"><label for="qValid" data-i18n="quotes.valid-until">Valid until</label><input type="date" id="qValid" /></div>
+                  <div class="field"><label for="qPlace" data-i18n="quotes.place-of-supply">Place of supply</label><select id="qPlace"></select></div>
+                  <label class="q-check"><input type="checkbox" id="qZero" /> <span data-i18n="quotes.export-sez-under-lut-no-gst">Export / SEZ under LUT (no GST)</span></label>
                 </div>
 
                 <div class="panel q-card q-summary">
@@ -269,13 +269,13 @@
     <div class="modal-overlay" id="sendOverlay">
       <div class="modal q-send">
         <div class="modal-head">
-          <h3><i class="fa-brands fa-whatsapp"></i> Send on WhatsApp</h3>
-          <button class="icon-btn" id="sendClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3><i class="fa-brands fa-whatsapp"></i> <span data-i18n="quotes.send-on-whatsapp">Send on WhatsApp</span></h3>
+          <button class="icon-btn" id="sendClose" type="button" title="Close" data-i18n-title="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="sendBody"></div>
         <div class="modal-foot">
-          <button class="btn btn-outline" id="sendCancel" type="button">Cancel</button>
-          <button class="btn btn-primary" id="sendGo" type="button"><i class="fa-brands fa-whatsapp"></i> Send</button>
+          <button class="btn btn-outline" id="sendCancel" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" id="sendGo" type="button"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="inbox.send">Send</span></button>
         </div>
       </div>
     </div>

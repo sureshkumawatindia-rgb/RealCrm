@@ -5,9 +5,10 @@
  * notes, the history, and a WhatsApp update to the customer after a move. Payments: the
  * order's payment card (payment link through js/payment-links.js, payments entered by hand)
  * and the "Payment due" tab (GET /orders/dues).
- * Addresses: Orders.html, Orders.html?id=<order>, Orders.html?tab=dues. One IIFE: no globals.
+ * Addresses: Orders.html, Orders.html?id=<order>, Orders.html?tab=dues. One function, run once the
+ * page texts (English or Hindi) are loaded: no globals.
  */
-(function ordersPage() {
+crmI18n.ready.then(function ordersPage() {
   const $ = (id) => document.getElementById(id);
   const me = getCurrentMember() || {};
   function can(action) {
@@ -24,17 +25,22 @@
   const FLOW = ["Received", "Processing", "Dispatched", "Delivered", "Payment Collected"];
   const STAGES = [...FLOW, "Cancelled"];
   const BADGE = { Received: "badge-neutral", Processing: "badge-info", Dispatched: "badge-brand", Delivered: "badge-success", "Payment Collected": "badge-success", Cancelled: "badge-danger" };
-  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const day = (iso) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "");
-  const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
-  const badge = (stage) => `<span class="badge ${BADGE[stage] || "badge-neutral"}">${escapeHtml(stage)}</span>`;
+  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString(crmI18n.locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const day = (iso) => (iso ? new Date(iso).toLocaleDateString(crmI18n.locale(), { day: "2-digit", month: "short", year: "numeric" }) : "");
+  const when = (iso) => (iso ? new Date(iso).toLocaleString(crmI18n.locale(), { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
+  const stageName = (stage) => crmLabel("orderStage", stage);
+  const badge = (stage) => `<span class="badge ${BADGE[stage] || "badge-neutral"}">${escapeHtml(stageName(stage))}</span>`;
+  const nOrders = (n) => t(n === 1 ? "orders.n.one" : "orders.n.many", { n });
+  const nDays = (n) => t(n === 1 ? "orders.days.one" : "orders.days.many", { n });
   const DUES = "__dues";
-  const METHODS = { cash: "Cash", bank_transfer: "Bank transfer", upi: "UPI", cheque: "Cheque", card: "Card", other: "Other", netbanking: "Net banking", wallet: "Wallet", emi: "EMI" };
+  // How a payment came in: text keys (UPI and EMI are the same in every language).
+  const METHODS = { cash: "orders.cash", bank_transfer: "orders.method.bank", cheque: "orders.cheque", card: "orders.card", other: "orders.other", netbanking: "orders.method.netbanking", wallet: "orders.method.wallet" };
+  const methodName = (method) => (METHODS[method] ? t(METHODS[method]) : { upi: "UPI", emi: "EMI" }[method] || method);
   function paymentBadge(o) {
     if (o.stage === "Cancelled") return '<span class="q-muted">—</span>';
-    if (o.paymentStatus === "paid") return '<span class="badge badge-success">Paid</span>';
-    if (o.paymentStatus === "partly_paid") return `<span class="badge badge-warning">${rupees(o.duePaise)} due</span>`;
-    return '<span class="badge badge-neutral">Unpaid</span>';
+    if (o.paymentStatus === "paid") return `<span class="badge badge-success">${escapeHtml(t("orders.badge.paid"))}</span>`;
+    if (o.paymentStatus === "partly_paid") return `<span class="badge badge-warning">${escapeHtml(t("orders.badge.due", { amount: rupees(o.duePaise) }))}</span>`;
+    return `<span class="badge badge-neutral">${escapeHtml(t("orders.badge.unpaid"))}</span>`;
   }
 
   // ------------------------------------------------------------------------------------------
@@ -45,7 +51,7 @@
   async function loadTabs() {
     try {
       const [{ counts, total }, dues] = await Promise.all([crmApi("/orders/summary"), crmApi("/orders/dues").catch(() => null)]);
-      $("oTabs").innerHTML = [["", "All", total], ...STAGES.map((s) => [s, s, counts[s] || 0]), ...(dues ? [[DUES, "Payment due", dues.summary.count]] : [])]
+      $("oTabs").innerHTML = [["", t("orders.tab.all"), total], ...STAGES.map((s) => [s, stageName(s), counts[s] || 0]), ...(dues ? [[DUES, t("orders.tab.dues"), dues.summary.count]] : [])]
         .map(([value, label, count]) => `<button class="o-tab ${list.stage === value ? "active" : ""}" type="button" role="tab" data-stage="${escapeHtml(value)}">${escapeHtml(label)}<span class="count">${count}</span></button>`)
         .join("");
     } catch {
@@ -64,34 +70,34 @@
       const s = dues.summary;
       $("oDuesSummary").hidden = false;
       $("oDuesSummary").innerHTML = [
-        `<div class="dues-chip total"><span>Total due (${s.count} ${s.count === 1 ? "order" : "orders"})</span><strong>${rupees(s.duePaise)}</strong></div>`,
-        ...Object.entries(s.buckets).map(([name, b]) => `<div class="dues-chip"><span>${escapeHtml(name)} days</span><strong>${rupees(b.duePaise)}</strong> <span>${b.count} ${b.count === 1 ? "order" : "orders"}</span></div>`),
+        `<div class="dues-chip total"><span>${escapeHtml(t("orders.dues.total", { orders: nOrders(s.count) }))}</span><strong>${rupees(s.duePaise)}</strong></div>`,
+        ...Object.entries(s.buckets).map(([name, b]) => `<div class="dues-chip"><span>${escapeHtml(t("orders.dues.bucket", { range: name }))}</span><strong>${rupees(b.duePaise)}</strong> <span>${escapeHtml(nOrders(b.count))}</span></div>`),
       ].join("");
       if (!dues.items.length) {
-        $("oTable").innerHTML = `<div class="empty-state"><i class="fa-solid fa-circle-check"></i><p>${q ? "No unpaid order matches." : "Nothing is due: every order is paid."}</p></div>`;
+        $("oTable").innerHTML = `<div class="empty-state"><i class="fa-solid fa-circle-check"></i><p>${escapeHtml(t(q ? "orders.dues.noMatch" : "orders.dues.none"))}</p></div>`;
         return;
       }
       $("oTable").innerHTML = `
         <table>
-          <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Waiting</th><th class="q-amount">Paid</th><th class="q-amount">Due</th><th>Payment link</th><th></th></tr></thead>
+          <thead><tr><th>${escapeHtml(t("orders.col.order"))}</th><th>${escapeHtml(t("quotes.col.customer"))}</th><th>${escapeHtml(t("quotes.col.date"))}</th><th>${escapeHtml(t("orders.col.waiting"))}</th><th class="q-amount">${escapeHtml(t("orders.col.paid"))}</th><th class="q-amount">${escapeHtml(t("orders.col.due"))}</th><th>${escapeHtml(t("quotes.act.paylink"))}</th><th></th></tr></thead>
           <tbody>${dues.items
             .map(
               (d) => `
             <tr data-open="${escapeHtml(d.id)}" tabindex="0">
-              <td><div class="q-num">${escapeHtml(d.number)}</div><div class="q-muted">${escapeHtml(d.stage)}</div></td>
+              <td><div class="q-num">${escapeHtml(d.number)}</div><div class="q-muted">${escapeHtml(stageName(d.stage))}</div></td>
               <td><div>${escapeHtml(d.customer.name || "—")}</div>${d.customer.company && d.customer.company !== d.customer.name ? `<div class="q-muted">${escapeHtml(d.customer.company)}</div>` : ""}</td>
               <td>${escapeHtml(day(d.orderDate))}</td>
-              <td class="dues-days ${d.daysOutstanding > 30 ? "late" : ""}">${d.daysOutstanding} ${d.daysOutstanding === 1 ? "day" : "days"}</td>
+              <td class="dues-days ${d.daysOutstanding > 30 ? "late" : ""}">${escapeHtml(nDays(d.daysOutstanding))}</td>
               <td class="q-amount">${rupees(d.amountPaidPaise)}</td>
               <td class="q-amount"><strong>${rupees(d.duePaise)}</strong></td>
-              <td class="q-muted">${d.openLink ? (d.openLink.sentAt ? `Sent ${escapeHtml(day(d.openLink.sentAt))}` : "Made, not sent") : "—"}</td>
-              <td>${can("edit") ? `<button class="btn btn-outline" type="button" data-pay-link="${escapeHtml(d.id)}"><i class="fa-solid fa-indian-rupee-sign"></i> ${d.openLink ? "Send link" : "Payment link"}</button>` : ""}</td>
+              <td class="q-muted">${d.openLink ? escapeHtml(d.openLink.sentAt ? t("orders.link.sent", { date: day(d.openLink.sentAt) }) : t("orders.link.made")) : "—"}</td>
+              <td>${can("edit") ? `<button class="btn btn-outline" type="button" data-pay-link="${escapeHtml(d.id)}"><i class="fa-solid fa-indian-rupee-sign"></i> ${escapeHtml(t(d.openLink ? "orders.sendLink" : "quotes.act.paylink"))}</button>` : ""}</td>
             </tr>`,
             )
             .join("")}</tbody>
-        </table>${dues.truncated ? '<p class="q-muted">Showing the oldest 500.</p>' : ""}`;
+        </table>${dues.truncated ? `<p class="q-muted">${escapeHtml(t("orders.dues.truncated"))}</p>` : ""}`;
     } catch (error) {
-      $("oTable").innerHTML = `<div class="empty-state"><p>${escapeHtml(apiErrorMessage(error, "Couldn't load what is due."))}</p></div>`;
+      $("oTable").innerHTML = `<div class="empty-state"><p>${escapeHtml(apiErrorMessage(error, t("orders.err.dues")))}</p></div>`;
     }
   }
 
@@ -114,24 +120,24 @@
       list.more = Boolean(body.pagination?.hasNextPage);
       renderList();
     } catch (error) {
-      $("oTable").innerHTML = `<div class="empty-state"><p>${escapeHtml(apiErrorMessage(error, "Couldn't load the orders."))}</p></div>`;
+      $("oTable").innerHTML = `<div class="empty-state"><p>${escapeHtml(apiErrorMessage(error, t("orders.err.list")))}</p></div>`;
     }
   }
 
   function renderList() {
     $("oMore").hidden = !list.more;
     if (!list.items.length) {
-      $("oTable").innerHTML = `<div class="empty-state"><i class="fa-solid fa-truck-fast"></i><p>${list.stage || $("oSearch").value.trim() ? "No order matches." : "No orders yet. When a customer accepts a quotation, press “Create order” on it."}</p></div>`;
+      $("oTable").innerHTML = `<div class="empty-state"><i class="fa-solid fa-truck-fast"></i><p>${escapeHtml(t(list.stage || $("oSearch").value.trim() ? "orders.empty.filtered" : "orders.empty.none"))}</p></div>`;
       return;
     }
     $("oTable").innerHTML = `
       <table>
-        <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Dispatch</th><th class="q-amount">Amount</th><th>Stage</th><th>Payment</th></tr></thead>
+        <thead><tr><th>${escapeHtml(t("orders.col.order"))}</th><th>${escapeHtml(t("quotes.col.customer"))}</th><th>${escapeHtml(t("quotes.col.date"))}</th><th>${escapeHtml(t("orders.dispatch"))}</th><th class="q-amount">${escapeHtml(t("quotes.col.amount"))}</th><th>${escapeHtml(t("orders.stage"))}</th><th>${escapeHtml(t("orders.col.payment"))}</th></tr></thead>
         <tbody>${list.items
           .map(
             (o) => `
           <tr data-open="${escapeHtml(o.id)}" tabindex="0">
-            <td><div class="q-num">${escapeHtml(o.number)}</div><div class="q-muted">${o.source === "catalog" ? '<i class="fa-brands fa-whatsapp"></i> Catalog' : escapeHtml(o.quotationNumber || "")}</div></td>
+            <td><div class="q-num">${escapeHtml(o.number)}</div><div class="q-muted">${o.source === "catalog" ? `<i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("orders.catalog"))}` : escapeHtml(o.quotationNumber || "")}</div></td>
             <td><div>${escapeHtml(o.billTo?.name || "—")}</div>${o.billTo?.company ? `<div class="q-muted">${escapeHtml(o.billTo.company)}</div>` : ""}</td>
             <td>${escapeHtml(day(o.orderDate))}</td>
             <td class="q-muted">${escapeHtml([o.dispatch?.transporter, o.dispatch?.lrNumber].filter(Boolean).join(" · ") || "—")}</td>
@@ -179,7 +185,7 @@
 
   function renderSteps() {
     if (order.stage === "Cancelled") {
-      $("oSteps").innerHTML = `<div class="o-cancelled"><i class="fa-solid fa-ban"></i> Cancelled ${escapeHtml(day(order.cancelledAt))}${order.cancelReason ? ` — ${escapeHtml(order.cancelReason)}` : ""}</div>`;
+      $("oSteps").innerHTML = `<div class="o-cancelled"><i class="fa-solid fa-ban"></i> ${escapeHtml(t("orders.cancelledOn", { date: day(order.cancelledAt) }))}${order.cancelReason ? ` — ${escapeHtml(order.cancelReason)}` : ""}</div>`;
       return;
     }
     const at = FLOW.indexOf(order.stage);
@@ -187,46 +193,46 @@
     $("oSteps").innerHTML = FLOW.map((stage, i) => {
       const cls = i < at ? "done" : i === at ? "current" : "";
       const date = i <= at ? reached(stage) : "";
-      return `<div class="o-step ${cls}">${escapeHtml(stage)}${date ? `<small>${escapeHtml(day(date))}</small>` : ""}</div>`;
+      return `<div class="o-step ${cls}">${escapeHtml(stageName(stage))}${date ? `<small>${escapeHtml(day(date))}</small>` : ""}</div>`;
     }).join("");
   }
 
   function renderDetail() {
     const o = order;
-    $("pageTitle").textContent = "Order";
+    $("pageTitle").textContent = t("orders.col.order");
     $("oNumber").textContent = o.number;
-    $("oSub").innerHTML = [badge(o.stage), `dated ${escapeHtml(day(o.orderDate))}`, o.paidAt ? `paid ${escapeHtml(day(o.paidAt))}` : ""].filter(Boolean).join(" · ");
+    $("oSub").innerHTML = [badge(o.stage), escapeHtml(t("quotes.dated", { date: day(o.orderDate) })), o.paidAt ? escapeHtml(t("orders.paidOn", { date: day(o.paidAt) })) : ""].filter(Boolean).join(" · ");
     renderSteps();
     $("oTransporter").value = o.dispatch?.transporter || "";
     $("oLr").value = o.dispatch?.lrNumber || "";
     $("oVehicle").value = o.dispatch?.vehicleNumber || "";
     $("oExpected").value = o.dispatch?.expectedDeliveryDate ? String(o.dispatch.expectedDeliveryDate).slice(0, 10) : "";
-    $("oDispatchedAt").textContent = o.dispatch?.dispatchedAt ? `Dispatched ${when(o.dispatch.dispatchedAt)}` : "";
+    $("oDispatchedAt").textContent = o.dispatch?.dispatchedAt ? t("orders.dispatchedAt", { date: when(o.dispatch.dispatchedAt) }) : "";
     $("oNotes").value = o.notes || "";
     $("oQuoteLink").innerHTML = o.quotationId
-      ? `<a href="Quotations.html?id=${encodeURIComponent(o.quotationId)}">${escapeHtml(o.quotationNumber || "Quotation")}</a>`
+      ? `<a href="Quotations.html?id=${encodeURIComponent(o.quotationId)}">${escapeHtml(o.quotationNumber || crmLabel("quoteType", "Quotation"))}</a>`
       : o.source === "catalog"
-        ? `<a href="Inbox.html?c=${encodeURIComponent(o.catalogOrder?.conversationId || "")}"><i class="fa-brands fa-whatsapp"></i> From the WhatsApp catalog</a>`
+        ? `<a href="Inbox.html?c=${encodeURIComponent(o.catalogOrder?.conversationId || "")}"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("orders.fromCatalog"))}</a>`
         : "";
     const b = o.billTo || {};
     $("oCustomer").innerHTML = `<strong>${escapeHtml(b.name || "—")}</strong><div class="q-muted">${[b.company && b.company !== b.name ? b.company : "", b.address, [b.city, b.state].filter(Boolean).join(", "), b.gstin ? `GSTIN ${b.gstin}` : "", b.phone].filter(Boolean).map(escapeHtml).join("<br>")}</div>`;
     // A cart from the WhatsApp catalog may need a look (an unknown item, a price that changed).
     const checks = (o.catalogOrder?.warnings || []).map((w) => `<div class="q-warning">${escapeHtml(w)}</div>`).join("");
-    $("oItems").innerHTML = `${checks}<table><thead><tr><th>Item</th><th class="q-amount">Qty</th><th class="q-amount">Taxable</th><th class="q-amount">GST</th><th class="q-amount">Amount</th></tr></thead><tbody>${(o.items || [])
+    $("oItems").innerHTML = `${checks}<table><thead><tr><th>${escapeHtml(t("quotes.item"))}</th><th class="q-amount">${escapeHtml(t("quotes.qty"))}</th><th class="q-amount">${escapeHtml(t("quotes.taxableCol"))}</th><th class="q-amount">GST</th><th class="q-amount">${escapeHtml(t("quotes.col.amount"))}</th></tr></thead><tbody>${(o.items || [])
       .map((item) => `<tr><td>${escapeHtml(item.name)}${item.hsnSac ? `<div class="q-muted">HSN ${escapeHtml(item.hsnSac)}</div>` : ""}</td><td class="q-amount">${escapeHtml(String(item.quantity))} ${escapeHtml(item.unit || "")}</td><td class="q-amount">${rupees(item.taxablePaise)}</td><td class="q-amount">${escapeHtml(String(item.gstRatePct))}%</td><td class="q-amount">${rupees(item.totalPaise)}</td></tr>`)
       .join("")}</tbody></table>`;
-    const t = o.totals || {};
+    const sums = o.totals || {};
     const s = o.supply || {};
     const row = (label, value, cls = "") => `<div class="q-sum-row ${cls}"><span>${label}</span><span>${value}</span></div>`;
     $("oTotals").innerHTML = [
-      row("Taxable value", rupees(t.taxablePaise)),
-      s.interState ? row("IGST", rupees(t.igstPaise)) : row("CGST", rupees(t.cgstPaise)) + row(escapeHtml(s.taxLabel || "SGST"), rupees(t.sgstPaise)),
-      t.roundOffPaise ? row("Round off", `${t.roundOffPaise > 0 ? "+" : "−"} ${rupees(Math.abs(t.roundOffPaise))}`, "muted") : "",
-      row("Total", rupees(t.grandTotalPaise), "grand"),
+      row(escapeHtml(t("quotes.taxable")), rupees(sums.taxablePaise)),
+      s.interState ? row("IGST", rupees(sums.igstPaise)) : row("CGST", rupees(sums.cgstPaise)) + row(escapeHtml(s.taxLabel || "SGST"), rupees(sums.sgstPaise)),
+      sums.roundOffPaise ? row(escapeHtml(t("quotes.roundOff")), `${sums.roundOffPaise > 0 ? "+" : "−"} ${rupees(Math.abs(sums.roundOffPaise))}`, "muted") : "",
+      row(escapeHtml(t("quotes.total")), rupees(sums.grandTotalPaise), "grand"),
     ].join("");
     $("oHistory").innerHTML = [...(o.history || [])]
       .reverse()
-      .map((h) => `<div class="o-history"><span class="when">${escapeHtml(when(h.at))}</span><span>${h.from ? `${escapeHtml(h.from)} → ` : ""}<strong>${escapeHtml(h.stage)}</strong>${h.byName ? ` · ${escapeHtml(h.byName)}` : ""}${h.note ? `<div class="q-muted">${escapeHtml(h.note)}</div>` : ""}${h.notified ? '<div class="q-muted"><i class="fa-brands fa-whatsapp"></i> Customer updated on WhatsApp</div>' : ""}</span></div>`)
+      .map((h) => `<div class="o-history"><span class="when">${escapeHtml(when(h.at))}</span><span>${h.from ? `${escapeHtml(stageName(h.from))} → ` : ""}<strong>${escapeHtml(stageName(h.stage))}</strong>${h.byName ? ` · ${escapeHtml(h.byName)}` : ""}${h.note ? `<div class="q-muted">${escapeHtml(h.note)}</div>` : ""}${h.notified ? `<div class="q-muted"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("orders.notified"))}</div>` : ""}</span></div>`)
       .join("");
     renderPayment();
     renderActions();
@@ -239,22 +245,22 @@
     const o = order;
     const open = o.stage !== "Cancelled" && o.duePaise > 0;
     const paymentRow = (p) => {
-      const how = p.source === "link" ? `Payment link · ${p.provider === "mock" ? "test gateway" : escapeHtml(p.provider)}${p.method ? ` · ${escapeHtml(METHODS[p.method] || p.method)}` : ""}` : `${escapeHtml(METHODS[p.method] || p.method || "By hand")}${p.reference ? ` · ${escapeHtml(p.reference)}` : ""}`;
-      const remove = p.source === "manual" && can("edit") ? `<button class="icon-btn danger" type="button" data-remove-payment="${escapeHtml(p.id)}" title="Remove this payment"><i class="fa-solid fa-trash"></i></button>` : "";
+      const how = p.source === "link" ? `${escapeHtml(t("quotes.act.paylink"))} · ${p.provider === "mock" ? escapeHtml(t("orders.testGateway")) : escapeHtml(p.provider)}${p.method ? ` · ${escapeHtml(methodName(p.method))}` : ""}` : `${escapeHtml(p.method ? methodName(p.method) : t("orders.byHand"))}${p.reference ? ` · ${escapeHtml(p.reference)}` : ""}`;
+      const remove = p.source === "manual" && can("edit") ? `<button class="icon-btn danger" type="button" data-remove-payment="${escapeHtml(p.id)}" title="${escapeHtml(t("orders.removePayment"))}" aria-label="${escapeHtml(t("orders.removePayment"))}"><i class="fa-solid fa-trash"></i></button>` : "";
       return `<div class="pl-payment"><span><strong>${rupees(p.amountPaise)}</strong><small>${escapeHtml(day(p.paidAt))} · ${how}${p.recordedByName && p.source === "manual" ? ` · ${escapeHtml(p.recordedByName)}` : ""}</small></span>${remove}</div>`;
     };
     $("oPayment").innerHTML = `
-      <div class="q-card-head"><h3>Payment</h3>${paymentBadge(o)}</div>
+      <div class="q-card-head"><h3>${escapeHtml(t("orders.col.payment"))}</h3>${paymentBadge(o)}</div>
       <div class="pl-figures">
-        <div class="pl-figure"><span>Paid</span><strong>${rupees(o.amountPaidPaise)}</strong></div>
-        <div class="pl-figure"><span>Due</span><strong>${rupees(o.duePaise)}</strong></div>
+        <div class="pl-figure"><span>${escapeHtml(t("orders.col.paid"))}</span><strong>${rupees(o.amountPaidPaise)}</strong></div>
+        <div class="pl-figure"><span>${escapeHtml(t("orders.col.due"))}</span><strong>${rupees(o.duePaise)}</strong></div>
       </div>
-      ${o.stage === "Payment Collected" && o.amountPaidPaise < (o.totals?.grandTotalPaise || 0) ? '<p class="q-muted">Marked as collected outside the CRM.</p>' : ""}
+      ${o.stage === "Payment Collected" && o.amountPaidPaise < (o.totals?.grandTotalPaise || 0) ? `<p class="q-muted">${escapeHtml(t("orders.collectedOutside"))}</p>` : ""}
       ${(o.payments || []).map(paymentRow).join("")}
       ${can("edit") && open ? `<div class="pl-buttons">
-        <button class="btn btn-primary" type="button" data-pay="link"><i class="fa-solid fa-indian-rupee-sign"></i> Payment link</button>
-        <button class="btn btn-outline" type="button" data-pay="record">Record payment</button>
-      </div>` : can("view") && (o.payments || []).some((p) => p.source === "link") ? '<div class="pl-buttons"><button class="btn btn-outline" type="button" data-pay="link">Payment links</button></div>' : ""}`;
+        <button class="btn btn-primary" type="button" data-pay="link"><i class="fa-solid fa-indian-rupee-sign"></i> ${escapeHtml(t("quotes.act.paylink"))}</button>
+        <button class="btn btn-outline" type="button" data-pay="record">${escapeHtml(t("orders.record-payment"))}</button>
+      </div>` : can("view") && (o.payments || []).some((p) => p.source === "link") ? `<div class="pl-buttons"><button class="btn btn-outline" type="button" data-pay="link">${escapeHtml(t("orders.paymentLinks"))}</button></div>` : ""}`;
   }
 
   async function reloadOrder() {
@@ -267,7 +273,7 @@
   }
 
   function openRecord() {
-    $("payDue").textContent = `Still due: ${rupees(order.duePaise)} of ${rupees(order.totals?.grandTotalPaise)}.`;
+    $("payDue").textContent = t("orders.stillDue", { due: rupees(order.duePaise), total: rupees(order.totals?.grandTotalPaise) });
     $("payAmount").value = (order.duePaise / 100).toFixed(2);
     $("payDate").value = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
     $("payDate").max = $("payDate").value;
@@ -281,7 +287,7 @@
   $("payCancel").addEventListener("click", closeRecord);
   $("payGo").addEventListener("click", async () => {
     const amountPaise = Math.round(Number($("payAmount").value.replace(/[₹,\s]/g, "")) * 100);
-    if (!(amountPaise > 0)) return showToast("Enter the amount received.", "error");
+    if (!(amountPaise > 0)) return showToast(t("orders.needAmount"), "error");
     $("payGo").disabled = true;
     try {
       const body = { amountPaise, method: $("payMethod").value, reference: $("payRef").value.trim() };
@@ -292,9 +298,9 @@
       order = await crmApi(`/orders/${order.id}/payments`, request);
       closeRecord();
       renderDetail();
-      showToast(order.paymentStatus === "paid" ? "Payment recorded: the order is paid." : `Payment recorded. ${rupees(order.duePaise)} is still due.`, "success");
+      showToast(order.paymentStatus === "paid" ? t("orders.recorded.paid") : t("orders.recorded.due", { due: rupees(order.duePaise) }), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't record the payment."), "error");
+      showToast(apiErrorMessage(error, t("orders.err.record")), "error");
     } finally {
       $("payGo").disabled = false;
     }
@@ -305,13 +311,13 @@
     if (action === "link") return crmPaymentLinks.open({ orderId: order.id, onChange: reloadOrder });
     if (action === "record") return openRecord();
     const remove = e.target.closest("[data-remove-payment]");
-    if (remove && window.confirm("Remove this payment? Only do this if it was entered by mistake.")) {
+    if (remove && window.confirm(t("orders.confirmRemove"))) {
       try {
         order = await crmApi(`/orders/${order.id}/payments/${encodeURIComponent(remove.dataset.removePayment)}`, { method: "DELETE" });
         renderDetail();
-        showToast("Payment removed.", "success");
+        showToast(t("orders.removed"), "success");
       } catch (error) {
-        showToast(apiErrorMessage(error, "Couldn't remove the payment."), "error");
+        showToast(apiErrorMessage(error, t("orders.err.remove")), "error");
       }
     }
     return undefined;
@@ -322,24 +328,24 @@
     const buttons = [];
     if (can("edit") && o.stage !== "Cancelled") {
       const next = FLOW[FLOW.indexOf(o.stage) + 1];
-      if (next) buttons.push(`<button class="btn btn-primary" type="button" data-move="${escapeHtml(next)}"><i class="fa-solid fa-arrow-right"></i> Move to ${escapeHtml(next)}</button>`);
-      buttons.push('<button class="btn btn-outline" type="button" data-move="">Change stage…</button>');
-      if (o.nextStages.includes("Cancelled")) buttons.push('<button class="btn btn-danger-outline" type="button" data-move="Cancelled"><i class="fa-solid fa-ban"></i> Cancel order</button>');
+      if (next) buttons.push(`<button class="btn btn-primary" type="button" data-move="${escapeHtml(next)}"><i class="fa-solid fa-arrow-right"></i> ${escapeHtml(t("orders.moveTo", { stage: stageName(next) }))}</button>`);
+      buttons.push(`<button class="btn btn-outline" type="button" data-move="">${escapeHtml(t("orders.changeStage"))}</button>`);
+      if (o.nextStages.includes("Cancelled")) buttons.push(`<button class="btn btn-danger-outline" type="button" data-move="Cancelled"><i class="fa-solid fa-ban"></i> ${escapeHtml(t("orders.cancelOrder"))}</button>`);
     }
-    if (canChat() && can("edit")) buttons.push('<button class="btn btn-outline" type="button" data-notify><i class="fa-brands fa-whatsapp"></i> Update the customer</button>');
+    if (canChat() && can("edit")) buttons.push(`<button class="btn btn-outline" type="button" data-notify><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("orders.update-the-customer"))}</button>`);
     $("oActions").innerHTML = buttons.join("");
   }
 
   async function openOrder(id) {
     $("oListView").hidden = true;
     $("oDetailView").hidden = false;
-    $("oNumber").textContent = "Loading…";
+    $("oNumber").textContent = t("cw.loading");
     window.scrollTo(0, 0);
     try {
       order = await crmApi(`/orders/${encodeURIComponent(id)}`);
       renderDetail();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't open the order."), "error");
+      showToast(apiErrorMessage(error, t("orders.err.open")), "error");
       go("", { replace: true });
     }
   }
@@ -348,7 +354,7 @@
     order = null;
     $("oDetailView").hidden = true;
     $("oListView").hidden = false;
-    $("pageTitle").textContent = "Orders";
+    $("pageTitle").textContent = t("nav.orders");
     loadTabs();
     loadList();
   }
@@ -358,25 +364,25 @@
     try {
       order = await crmApi(`/orders/${order.id}`, jsonRequest("PATCH", { dispatch: { transporter: $("oTransporter").value.trim(), lrNumber: $("oLr").value.trim(), vehicleNumber: $("oVehicle").value.trim(), expectedDeliveryDate: $("oExpected").value || null } }));
       renderDetail();
-      showToast("Dispatch details saved.", "success");
+      showToast(t("orders.dispatchSaved"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't save."), "error");
+      showToast(apiErrorMessage(error, t("orders.err.save")), "error");
     }
   });
   $("oSaveNotes").addEventListener("click", async () => {
     try {
       order = await crmApi(`/orders/${order.id}`, jsonRequest("PATCH", { notes: $("oNotes").value }));
       renderDetail();
-      showToast("Notes saved.", "success");
+      showToast(t("orders.notesSaved"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't save."), "error");
+      showToast(apiErrorMessage(error, t("orders.err.save")), "error");
     }
   });
 
   // --- moving the order ---
   function openStage(target) {
     const options = order.nextStages;
-    $("stageSelect").innerHTML = options.map((s) => `<option ${s === target ? "selected" : ""}>${escapeHtml(s)}</option>`).join("");
+    $("stageSelect").innerHTML = options.map((s) => `<option value="${escapeHtml(s)}" ${s === target ? "selected" : ""}>${escapeHtml(stageName(s))}</option>`).join("");
     $("stTransporter").value = order.dispatch?.transporter || "";
     $("stLr").value = order.dispatch?.lrNumber || "";
     $("stageNote").value = "";
@@ -387,11 +393,11 @@
   }
   function syncStageForm() {
     const stage = $("stageSelect").value;
-    $("stageTitle").textContent = stage === "Cancelled" ? "Cancel the order" : `Move to ${stage}`;
+    $("stageTitle").textContent = stage === "Cancelled" ? t("orders.cancelTheOrder") : t("orders.moveTo", { stage: stageName(stage) });
     $("stageDispatch").hidden = stage !== "Dispatched";
     $("stageReasonField").hidden = stage !== "Cancelled";
     $("stageNoteField").hidden = stage === "Cancelled";
-    $("stageGo").textContent = stage === "Cancelled" ? "Cancel the order" : "Move";
+    $("stageGo").textContent = t(stage === "Cancelled" ? "orders.cancelTheOrder" : "orders.move");
     $("stageGo").className = `btn ${stage === "Cancelled" ? "btn-danger-outline" : "btn-primary"}`;
   }
   $("stageSelect").addEventListener("change", syncStageForm);
@@ -409,10 +415,10 @@
       order = await crmApi(`/orders/${order.id}/stage`, jsonRequest("POST", body));
       closeStage();
       renderDetail();
-      showToast(`Order moved to ${order.stage}.${order.stage === "Payment Collected" ? " The lead is won." : ""}`, "success");
+      showToast(`${t("orders.moved", { stage: stageName(order.stage) })}${order.stage === "Payment Collected" ? ` ${t("orders.leadWon")}` : ""}`, "success");
       if (canChat() && $("stageNotify").checked) openNotify();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't move the order."), "error");
+      showToast(apiErrorMessage(error, t("orders.err.move")), "error");
     } finally {
       $("stageGo").disabled = false;
     }
@@ -428,9 +434,9 @@
   function templateVars(template) {
     if (!template) return [];
     return [
-      ...(template.header?.variables || []).map((name) => ["header", name, `{{${name}}} in the heading`]),
-      ...template.body.variables.map((name) => ["body", name, `{{${name}}} in the message`]),
-      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), `The end of the "${b.text}" button link`]),
+      ...(template.header?.variables || []).map((name) => ["header", name, t("quotes.var.header", { name })]),
+      ...template.body.variables.map((name) => ["body", name, t("quotes.var.body", { name })]),
+      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), t("quotes.var.button", { text: b.text })]),
     ];
   }
   function preview(template) {
@@ -445,12 +451,12 @@
     const o = send.options;
     $("sendGo").hidden = true;
     if (send.done) {
-      $("sendBody").innerHTML = `<div class="q-send-done"><i class="fa-solid fa-circle-check"></i><p>Update sent.</p><a class="btn btn-outline" href="Inbox.html?c=${encodeURIComponent(send.done)}"><i class="fa-solid fa-comments"></i> Open the chat</a></div>`;
-      $("sendCancel").textContent = "Close";
+      $("sendBody").innerHTML = `<div class="q-send-done"><i class="fa-solid fa-circle-check"></i><p>${escapeHtml(t("orders.sent"))}</p><a class="btn btn-outline" href="Inbox.html?c=${encodeURIComponent(send.done)}"><i class="fa-solid fa-comments"></i> ${escapeHtml(t("quotes.send.openChat"))}</a></div>`;
+      $("sendCancel").textContent = t("common.close");
       return;
     }
     if (!o) {
-      $("sendBody").innerHTML = '<p class="q-muted">Loading…</p>';
+      $("sendBody").innerHTML = `<p class="q-muted">${escapeHtml(t("cw.loading"))}</p>`;
       return;
     }
     if (o.blocked) {
@@ -458,40 +464,41 @@
       return;
     }
     if (!o.windowOpen) send.mode = "template";
-    const template = o.templates.find((t) => String(t.id) === send.templateId) || null;
+    const template = o.templates.find((tpl) => String(tpl.id) === send.templateId) || null;
     const modes = o.windowOpen
       ? `<div class="q-send-mode">
-          <label><input type="radio" name="sendMode" value="text" ${send.mode === "text" ? "checked" : ""} /><span>A message<small>The customer wrote in the last 24 hours.</small></span></label>
-          <label><input type="radio" name="sendMode" value="template" ${send.mode === "template" ? "checked" : ""} /><span>An approved template</span></label>
+          <label><input type="radio" name="sendMode" value="text" ${send.mode === "text" ? "checked" : ""} /><span>${escapeHtml(t("orders.mode.text"))}<small>${escapeHtml(t("orders.mode.textHint"))}</small></span></label>
+          <label><input type="radio" name="sendMode" value="template" ${send.mode === "template" ? "checked" : ""} /><span>${escapeHtml(t("quotes.send.tplMode"))}</span></label>
         </div>`
-      : '<div class="q-warning">The customer has not written in the last 24 hours, so WhatsApp allows only an approved template.</div>';
+      : `<div class="q-warning">${escapeHtml(t("orders.closed"))}</div>`;
     let detail;
     if (send.mode === "text") {
-      detail = `<div class="field"><label for="sendText">Message</label><textarea id="sendText" rows="4" maxlength="4096">${escapeHtml(send.text ?? o.text)}</textarea></div>`;
+      detail = `<div class="field"><label for="sendText">${escapeHtml(t("c360.message"))}</label><textarea id="sendText" rows="4" maxlength="4096">${escapeHtml(send.text ?? o.text)}</textarea></div>`;
     } else if (!o.templates.length) {
-      detail = '<p class="q-muted">No approved template on this WhatsApp number yet (Settings → WhatsApp → Message templates).</p>';
+      detail = `<p class="q-muted">${escapeHtml(t("orders.noTemplates"))}</p>`;
     } else {
-      detail = `<div class="field"><label for="sendTemplate">Template</label><select id="sendTemplate"><option value="">Choose a template…</option>${o.templates
-        .map((t) => `<option value="${escapeHtml(t.id)}" ${String(t.id) === send.templateId ? "selected" : ""}>${escapeHtml(t.name)} (${escapeHtml(t.language)})</option>`)
+      detail = `<div class="field"><label for="sendTemplate">${escapeHtml(t("inbox.template"))}</label><select id="sendTemplate"><option value="">${escapeHtml(t("quotes.send.chooseTpl"))}</option>${o.templates
+        .map((tpl) => `<option value="${escapeHtml(tpl.id)}" ${String(tpl.id) === send.templateId ? "selected" : ""}>${escapeHtml(tpl.name)} (${escapeHtml(tpl.language)})</option>`)
         .join("")}</select></div>
         ${templateVars(template).map(([part, name, label]) => `<div class="field"><label>${escapeHtml(label)}</label><input type="text" maxlength="1024" data-part="${part}" data-send-var="${escapeHtml(name)}" value="${escapeHtml(template.suggested?.[part]?.[name] || "")}" /></div>`).join("")}
         ${template ? '<div class="q-send-preview"><div id="sendPreview"></div></div>' : ""}`;
     }
-    $("sendBody").innerHTML = `<div class="q-send-to">To <strong>${escapeHtml(order.billTo?.name || "")}</strong> · order ${escapeHtml(order.number)} · ${escapeHtml(order.stage)}</div>${modes}${detail}`;
+    const to = t("quotes.send.to", { name: `<strong>${escapeHtml(order.billTo?.name || "")}</strong>` });
+    $("sendBody").innerHTML = `<div class="q-send-to">${to} · ${escapeHtml(t("orders.orderNumber", { number: order.number }))} · ${escapeHtml(stageName(order.stage))}</div>${modes}${detail}`;
     if (template) $("sendPreview").textContent = preview(template);
     $("sendGo").hidden = send.mode === "template" && !template;
   }
   async function openNotify() {
     Object.assign(send, { options: null, mode: "text", templateId: "", done: "", text: undefined });
-    $("sendCancel").textContent = "Not now";
+    $("sendCancel").textContent = t("orders.not-now");
     $("sendOverlay").classList.add("open");
     renderSend();
     try {
       send.options = await crmApi(`/orders/${order.id}/notify-options`);
-      const guess = send.options.templates.find((t) => /order|dispatch|ship|deliver/i.test(t.name)) || send.options.templates[0];
+      const guess = send.options.templates.find((tpl) => /order|dispatch|ship|deliver/i.test(tpl.name)) || send.options.templates[0];
       if (guess) send.templateId = String(guess.id);
     } catch (error) {
-      send.options = { blocked: apiErrorMessage(error, "Couldn't check WhatsApp.") };
+      send.options = { blocked: apiErrorMessage(error, t("quotes.send.checkFailed")) };
     }
     renderSend();
   }
@@ -506,7 +513,7 @@
   });
   $("sendBody").addEventListener("input", (e) => {
     if (e.target.id === "sendText") send.text = e.target.value;
-    if (e.target.dataset.sendVar !== undefined) $("sendPreview").textContent = preview(send.options.templates.find((t) => String(t.id) === send.templateId));
+    if (e.target.dataset.sendVar !== undefined) $("sendPreview").textContent = preview(send.options.templates.find((tpl) => String(tpl.id) === send.templateId));
   });
   $("sendGo").addEventListener("click", async () => {
     const body = { mode: send.mode };
@@ -528,7 +535,7 @@
       send.done = String(result.conversationId);
       renderSend();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't send the update."), "error");
+      showToast(apiErrorMessage(error, t("orders.err.send")), "error");
     } finally {
       $("sendGo").disabled = false;
     }
@@ -552,8 +559,8 @@
   window.addEventListener("popstate", route);
 
   if (!can("view")) {
-    $("oListView").innerHTML = '<div class="empty-state"><p>Orders need access to Leads or Deals. Ask the owner of your company.</p></div>';
+    $("oListView").innerHTML = `<div class="empty-state"><p>${escapeHtml(t("orders.noAccess"))}</p></div>`;
     return;
   }
   route();
-})();
+});

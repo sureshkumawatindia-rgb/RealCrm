@@ -24,7 +24,7 @@ function escapeHtml(str) {
 }
 function formatCurrency(n) {
   const num = Number(n) || 0;
-  return "₹" + num.toLocaleString("en-IN");
+  return "₹" + num.toLocaleString(crmI18n.locale());
 }
 function qtyOf(p) {
   return p.quantity === "" || p.quantity == null ? null : Number(p.quantity);
@@ -32,25 +32,25 @@ function qtyOf(p) {
 function stockBadge(p) {
   const qty = qtyOf(p);
   if (qty === null) return '<span class="badge badge-neutral">—</span>';
-  if (qty === 0) return `<span class="badge badge-danger">Out of stock</span>`;
-  if (qty <= 5) return `<span class="badge badge-warning">Low · ${qty}</span>`;
-  return `<span class="badge badge-success">In stock · ${qty}</span>`;
+  if (qty === 0) return `<span class="badge badge-danger">${escapeHtml(t("products.stock.out"))}</span>`;
+  if (qty <= 5) return `<span class="badge badge-warning">${escapeHtml(t("products.stock.low", { qty }))}</span>`;
+  return `<span class="badge badge-success">${escapeHtml(t("products.stock.in", { qty }))}</span>`;
 }
 function productPriceSummary(p) {
   const pricing = getProductPricing(p);
   return `<div class="product-price-summary">
-    <span>Price: ${formatCurrency(pricing.basePrice)}</span>
+    <span>${escapeHtml(t("products.sum.price", { amount: formatCurrency(pricing.basePrice) }))}</span>
     <span>GST (${pricing.gstPercentage}%): ${formatCurrency(pricing.gstAmount)}</span>
-    <strong>Total: ${formatCurrency(pricing.finalPrice)}</strong>
+    <strong>${escapeHtml(t("products.sum.total", { amount: formatCurrency(pricing.finalPrice) }))}</strong>
   </div>`;
 }
 // The WhatsApp catalog (Phase 8C): where each product stands with Meta.
 function catalogBadge(p) {
   if (!p.inCatalog) return '<span class="text-muted">—</span>';
   const state = p.catalog || {};
-  if (state.status === "synced") return '<span class="badge badge-success" title="Customers can see it in WhatsApp">In catalog</span>';
-  if (state.status === "error") return `<span class="badge badge-danger" title="${escapeHtml(state.error || "")}">Needs attention</span>`;
-  return '<span class="badge badge-warning" title="Goes to WhatsApp at the next sync">Waiting for sync</span>';
+  if (state.status === "synced") return `<span class="badge badge-success" title="${escapeHtml(t("products.cat.inTitle"))}">${escapeHtml(t("products.cat.in"))}</span>`;
+  if (state.status === "error") return `<span class="badge badge-danger" title="${escapeHtml(state.error || "")}">${escapeHtml(t("products.cat.attention"))}</span>`;
+  return `<span class="badge badge-warning" title="${escapeHtml(t("products.cat.waitingTitle"))}">${escapeHtml(t("products.cat.waiting"))}</span>`;
 }
 async function loadCatalogBar() {
   const bar = document.getElementById("catalogBar");
@@ -68,21 +68,24 @@ async function loadCatalogBar() {
   }
   bar.hidden = false;
   if (!state.catalogs.length) {
-    bar.innerHTML = '<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> Show your products in WhatsApp: connect your Meta catalog in <a href="Settings.html?tab=whatsapp">Settings → WhatsApp</a>, then tick “Show in the WhatsApp catalog” on the products.</span>';
+    const link = `<a href="Settings.html?tab=whatsapp">${escapeHtml(t("products.bar.settingsLink"))}</a>`;
+    bar.innerHTML = `<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> ${t("products.bar.connect", { link })}</span>`;
     return;
   }
   const c = state.catalogs[0];
   const p = state.products;
-  bar.innerHTML = `<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> WhatsApp catalog <strong>${escapeHtml(c.name || c.catalogId)}</strong>: ${p.synced} of ${p.included} chosen products are in it${p.failed ? ` · <span style="color:var(--danger)">${p.failed} need attention</span>` : ""}${c.lastSyncAt ? ` · last sync ${escapeHtml(new Date(c.lastSyncAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}` : ""}. Prices go with GST.</span>
-    ${manager ? '<button class="btn btn-outline" type="button" id="catalogSyncBtn"><i class="fa-solid fa-rotate"></i> Sync now</button>' : ""}`;
+  const name = `<strong>${escapeHtml(c.name || c.catalogId)}</strong>`;
+  const lastSync = c.lastSyncAt ? new Date(c.lastSyncAt).toLocaleString(crmI18n.locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+  bar.innerHTML = `<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> ${t("products.bar.catalog", { name, synced: p.synced, included: p.included })}${p.failed ? ` · <span style="color:var(--danger)">${escapeHtml(t("products.bar.failed", { n: p.failed }))}</span>` : ""}${lastSync ? ` · ${escapeHtml(t("products.bar.lastSync", { date: lastSync }))}` : ""} · ${escapeHtml(t("products.bar.gst"))}</span>
+    ${manager ? `<button class="btn btn-outline" type="button" id="catalogSyncBtn"><i class="fa-solid fa-rotate"></i> ${escapeHtml(t("products.bar.sync"))}</button>` : ""}`;
   document.getElementById("catalogSyncBtn")?.addEventListener("click", async (event) => {
     event.target.disabled = true;
     try {
       await crmApi("/products/whatsapp-catalog/sync", jsonRequest("POST", {}));
       await crmLoad(["products"], { force: true });
-      showToast("Catalog synced with WhatsApp.", "success");
+      showToast(t("products.synced"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't sync the catalog."), "error");
+      showToast(apiErrorMessage(error, t("products.err.sync")), "error");
     }
     renderAll();
     loadCatalogBar();
@@ -117,15 +120,15 @@ function startInlineProductEdit(cell) {
     finished = true;
     const value = input.value.trim();
     if (field === "name" && !value) {
-      showToast("Product name is required.", "error");
+      showToast(t("products.needName"), "error");
       renderTable();
       return;
     }
     try {
       await saveProduct(product.id, { [field]: value });
-      showToast("Product updated.", "success");
+      showToast(t("products.updated"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't update the product."), "error");
+      showToast(apiErrorMessage(error, t("products.err.update")), "error");
     }
     renderAll();
   };
@@ -168,7 +171,7 @@ function populateFilterCategories() {
   const sel = document.getElementById("filterCategory");
   const current = sel.value;
   sel.innerHTML =
-    `<option value="all">All Categories</option>` +
+    `<option value="all">${escapeHtml(t("products.all-categories"))}</option>` +
     categoryList()
       .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
       .join("");
@@ -196,18 +199,18 @@ function renderKpis() {
   const outOfStock = products.filter((p) => qtyOf(p) === 0).length;
 
   const cards = [
-    { label: "Total Products", value: products.length, cls: "" },
-    { label: "Total Stock Value", value: formatCurrency(stockValue), cls: "info" },
-    { label: "Low Stock", value: lowStock, cls: "warning" },
-    { label: "Out of Stock", value: outOfStock, cls: outOfStock ? "warning" : "" },
+    { label: t("products.kpi.total"), value: products.length, cls: "" },
+    { label: t("products.kpi.stockValue"), value: formatCurrency(stockValue), cls: "info" },
+    { label: t("products.kpi.low"), value: lowStock, cls: "warning" },
+    { label: t("products.out-of-stock"), value: outOfStock, cls: outOfStock ? "warning" : "" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
     .map(
       (c) => `
       <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>
       </div>`,
     )
     .join("");
@@ -225,7 +228,7 @@ function renderTable() {
     wrap.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-box-open"></i>
-        <p>No products found. Add your first one.</p>
+        <p>${escapeHtml(t("products.empty"))}</p>
       </div>`;
     return;
   }
@@ -234,11 +237,11 @@ function renderTable() {
     <table>
       <thead>
         <tr>
-          <th>Product</th>
-          <th>Category</th>
-          <th>Price</th>
-          <th>Stock</th>
-          <th>Leads</th>
+          <th>${escapeHtml(t("col.product"))}</th>
+          <th>${escapeHtml(t("products.col.category"))}</th>
+          <th>${escapeHtml(t("products.col.price"))}</th>
+          <th>${escapeHtml(t("products.col.stock"))}</th>
+          <th>${escapeHtml(t("nav.leads"))}</th>
           <th>WhatsApp</th>
           <th></th>
         </tr>
@@ -257,8 +260,8 @@ function renderTable() {
             <td>${catalogBadge(p)}</td>
             <td>
               <div class="row-actions">
-                <button class="icon-btn edit-row" data-id="${p.id}"><i class="fa-solid fa-pen"></i></button>
-                <button class="icon-btn danger delete-row" data-id="${p.id}"><i class="fa-solid fa-trash"></i></button>
+                <button class="icon-btn edit-row" data-id="${p.id}" title="${escapeHtml(t("common.edit"))}" aria-label="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn danger delete-row" data-id="${p.id}" title="${escapeHtml(t("common.delete"))}" aria-label="${escapeHtml(t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>`;
@@ -302,7 +305,7 @@ function openModal(id) {
   if (id) {
     const product = getProducts().find((p) => p.id === id);
     if (!product) return;
-    document.getElementById("modalTitle").textContent = "Edit Product";
+    document.getElementById("modalTitle").textContent = t("products.edit");
     document.getElementById("editId").value = product.id;
     document.getElementById("pName").value = product.name;
     document.getElementById("pCategory").value = product.category || "";
@@ -317,11 +320,11 @@ function openModal(id) {
     document.getElementById("pInCatalog").checked = Boolean(product.inCatalog);
     const state = product.catalog || {};
     document.getElementById("pCatalogState").textContent = !product.inCatalog ? ""
-      : state.status === "synced" ? "In the WhatsApp catalog."
-        : state.status === "error" ? `Not in the WhatsApp catalog: ${state.error}` : "Goes to the WhatsApp catalog at the next sync.";
+      : state.status === "synced" ? t("products.state.in")
+        : state.status === "error" ? t("products.state.error", { error: state.error }) : t("products.state.waiting");
     deleteBtn.style.display = "inline-flex";
   } else {
-    document.getElementById("modalTitle").textContent = "New Product";
+    document.getElementById("modalTitle").textContent = t("products.new-product");
     document.getElementById("editId").value = "";
     document.getElementById("pCatalogState").textContent = "";
     deleteBtn.style.display = "none";
@@ -339,15 +342,15 @@ async function confirmDelete(id) {
   if (!product) return;
   const leadCount = getLeads().filter((l) => l.product === id).length;
   const warning = leadCount
-    ? ` ${leadCount} lead${leadCount === 1 ? " is" : "s are"} linked to it and will show as unassigned.`
+    ? ` ${t(leadCount === 1 ? "products.del.one" : "products.del.many", { n: leadCount })}`
     : "";
-  if (!confirm(`Delete "${product.name}"? This can't be undone.${warning}`)) return;
+  if (!confirm(`${t("products.confirmDelete", { name: product.name })}${warning}`)) return;
   try {
     await removeProduct(id);
-    showToast("Product deleted.", "success");
+    showToast(t("products.deleted"), "success");
     renderAll();
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't delete the product."), "error");
+    showToast(apiErrorMessage(error, t("products.err.delete")), "error");
   }
 }
 
@@ -416,15 +419,15 @@ productForm.addEventListener("submit", async (e) => {
     inCatalog: document.getElementById("pInCatalog").checked,
   };
   if (!data.name) {
-    showToast("Product name is required.", "error");
+    showToast(t("products.needName"), "error");
     return;
   }
   try {
     await saveProduct(id || null, data);
-    showToast(id ? "Product updated." : "Product added.", "success");
+    showToast(t(id ? "products.updated" : "products.added"), "success");
     closeModal();
     renderAll();
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't save the product."), "error");
+    showToast(apiErrorMessage(error, t("products.err.save")), "error");
   }
 });

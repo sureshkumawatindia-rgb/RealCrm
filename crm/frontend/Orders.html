@@ -146,30 +146,30 @@
             <button id="menu-toggle" class="icon-btn" style="display: none; font-size: 16px">
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2 id="pageTitle">Orders</h2>
+            <h2 id="pageTitle" data-i18n="nav.orders">Orders</h2>
           </div>
         </header>
 
         <div class="page">
           <!-- LIST -->
           <section id="oListView">
-            <div class="o-tabs" id="oTabs" role="tablist" aria-label="Stage"></div>
+            <div class="o-tabs" id="oTabs" role="tablist" aria-label="Stage" data-i18n-aria-label="orders.stage"></div>
             <div class="toolbar">
               <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="search" id="oSearch" placeholder="Search order, quotation, customer or LR number…" autocomplete="off" />
+                <input type="search" id="oSearch" placeholder="Search order, quotation, customer or LR number…" data-i18n-placeholder="orders.search-order-quotation-customer-or-lr" autocomplete="off" />
               </div>
-              <p class="q-muted" style="margin: 0">Orders are made from accepted quotations (Quotations → “Create order”) and from carts customers send from your WhatsApp catalog.</p>
+              <p class="q-muted" style="margin: 0" data-i18n="orders.orders-are-made-from-accepted-quotations">Orders are made from accepted quotations (Quotations → “Create order”) and from carts customers send from your WhatsApp catalog.</p>
             </div>
             <div class="dues-summary" id="oDuesSummary" hidden></div>
             <div class="panel"><div class="q-table-wrap" id="oTable"></div></div>
-            <div class="q-more"><button class="btn btn-outline" id="oMore" type="button" hidden>Show more</button></div>
+            <div class="q-more"><button class="btn btn-outline" id="oMore" type="button" hidden data-i18n="orders.show-more">Show more</button></div>
           </section>
 
           <!-- DETAIL -->
           <section id="oDetailView" hidden>
             <div class="q-editor-head">
-              <button class="btn btn-outline" id="oBack" type="button"><i class="fa-solid fa-arrow-left"></i> All orders</button>
+              <button class="btn btn-outline" id="oBack" type="button"><i class="fa-solid fa-arrow-left"></i> <span data-i18n="orders.all-orders">All orders</span></button>
               <div class="q-title">
                 <div class="q-number" id="oNumber"></div>
                 <div class="q-sub" id="oSub"></div>
@@ -180,43 +180,43 @@
             <div class="q-grid">
               <div class="q-main">
                 <div class="panel q-card">
-                  <div class="q-card-head"><h3>Dispatch</h3></div>
+                  <div class="q-card-head"><h3 data-i18n="orders.dispatch">Dispatch</h3></div>
                   <form id="oDispatchForm" autocomplete="off">
                     <div class="field-row">
-                      <div class="field"><label for="oTransporter">Transporter / courier</label><input type="text" id="oTransporter" maxlength="120" placeholder="e.g. VRL Logistics" /></div>
-                      <div class="field"><label for="oLr">LR / docket / AWB number</label><input type="text" id="oLr" maxlength="60" /></div>
+                      <div class="field"><label for="oTransporter" data-i18n="orders.transporter-courier">Transporter / courier</label><input type="text" id="oTransporter" maxlength="120" placeholder="e.g. VRL Logistics" data-i18n-placeholder="orders.e-g-vrl-logistics" /></div>
+                      <div class="field"><label for="oLr" data-i18n="orders.lr-docket-awb-number">LR / docket / AWB number</label><input type="text" id="oLr" maxlength="60" /></div>
                     </div>
                     <div class="field-row">
-                      <div class="field"><label for="oVehicle">Vehicle number</label><input type="text" id="oVehicle" maxlength="20" placeholder="e.g. RJ14 GB 1234" /></div>
-                      <div class="field"><label for="oExpected">Expected delivery</label><input type="date" id="oExpected" /></div>
+                      <div class="field"><label for="oVehicle" data-i18n="orders.vehicle-number">Vehicle number</label><input type="text" id="oVehicle" maxlength="20" placeholder="e.g. RJ14 GB 1234" data-i18n-placeholder="orders.e-g-rj14-gb-1234" /></div>
+                      <div class="field"><label for="oExpected" data-i18n="orders.expected-delivery">Expected delivery</label><input type="date" id="oExpected" /></div>
                     </div>
                     <div class="data-actions" style="justify-content: space-between; align-items: center">
                       <span class="q-muted" id="oDispatchedAt"></span>
-                      <button class="btn btn-outline" type="submit">Save dispatch details</button>
+                      <button class="btn btn-outline" type="submit" data-i18n="orders.save-dispatch-details">Save dispatch details</button>
                     </div>
                   </form>
                 </div>
 
                 <div class="panel q-card">
-                  <div class="q-card-head"><h3>Items</h3><span class="q-customer-link" id="oQuoteLink"></span></div>
+                  <div class="q-card-head"><h3 data-i18n="orders.items">Items</h3><span class="q-customer-link" id="oQuoteLink"></span></div>
                   <div class="q-table-wrap" id="oItems"></div>
                 </div>
 
                 <div class="panel q-card">
-                  <div class="q-card-head"><h3>Notes</h3></div>
-                  <div class="field"><textarea id="oNotes" rows="3" maxlength="2000" placeholder="Internal notes about this order"></textarea></div>
-                  <div class="data-actions" style="justify-content: flex-end"><button class="btn btn-outline" id="oSaveNotes" type="button">Save notes</button></div>
+                  <div class="q-card-head"><h3 data-i18n="orders.notes">Notes</h3></div>
+                  <div class="field"><textarea id="oNotes" rows="3" maxlength="2000" placeholder="Internal notes about this order" data-i18n-placeholder="orders.internal-notes-about-this-order"></textarea></div>
+                  <div class="data-actions" style="justify-content: flex-end"><button class="btn btn-outline" id="oSaveNotes" type="button" data-i18n="orders.save-notes">Save notes</button></div>
                 </div>
 
                 <div class="panel q-card">
-                  <div class="q-card-head"><h3>History</h3></div>
+                  <div class="q-card-head"><h3 data-i18n="orders.history">History</h3></div>
                   <div id="oHistory"></div>
                 </div>
               </div>
 
               <aside class="q-side">
                 <div class="panel q-card">
-                  <div class="q-card-head"><h3>Customer</h3></div>
+                  <div class="q-card-head"><h3 data-i18n="orders.customer">Customer</h3></div>
                   <div id="oCustomer"></div>
                 </div>
                 <div class="panel q-card q-summary"><div id="oTotals"></div></div>
@@ -233,24 +233,24 @@
     <div class="modal-overlay" id="stageOverlay">
       <div class="modal">
         <div class="modal-head">
-          <h3 id="stageTitle">Move order</h3>
-          <button class="icon-btn" id="stageClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 id="stageTitle" data-i18n="orders.move-order">Move order</h3>
+          <button class="icon-btn" id="stageClose" type="button" title="Close" data-i18n-title="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-          <div class="field"><label for="stageSelect">New stage</label><select id="stageSelect"></select></div>
+          <div class="field"><label for="stageSelect" data-i18n="orders.new-stage">New stage</label><select id="stageSelect"></select></div>
           <div id="stageDispatch" hidden>
             <div class="field-row">
-              <div class="field"><label for="stTransporter">Transporter / courier</label><input type="text" id="stTransporter" maxlength="120" /></div>
-              <div class="field"><label for="stLr">LR / docket / AWB number</label><input type="text" id="stLr" maxlength="60" /></div>
+              <div class="field"><label for="stTransporter" data-i18n="orders.transporter-courier">Transporter / courier</label><input type="text" id="stTransporter" maxlength="120" /></div>
+              <div class="field"><label for="stLr" data-i18n="orders.lr-docket-awb-number">LR / docket / AWB number</label><input type="text" id="stLr" maxlength="60" /></div>
             </div>
           </div>
-          <div class="field" id="stageReasonField" hidden><label for="stageReason">Why is it cancelled?</label><input type="text" id="stageReason" maxlength="500" /></div>
-          <div class="field" id="stageNoteField"><label for="stageNote">Note (optional)</label><input type="text" id="stageNote" maxlength="500" /></div>
-          <label class="q-check" id="stageNotifyRow"><input type="checkbox" id="stageNotify" checked /> Then send the customer a WhatsApp update</label>
+          <div class="field" id="stageReasonField" hidden><label for="stageReason" data-i18n="orders.why-is-it-cancelled">Why is it cancelled?</label><input type="text" id="stageReason" maxlength="500" /></div>
+          <div class="field" id="stageNoteField"><label for="stageNote" data-i18n="orders.note-optional">Note (optional)</label><input type="text" id="stageNote" maxlength="500" /></div>
+          <label class="q-check" id="stageNotifyRow"><input type="checkbox" id="stageNotify" checked /> <span data-i18n="orders.then-send-the-customer-a-whatsapp">Then send the customer a WhatsApp update</span></label>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-outline" id="stageCancel" type="button">Cancel</button>
-          <button class="btn btn-primary" id="stageGo" type="button">Move</button>
+          <button class="btn btn-outline" id="stageCancel" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" id="stageGo" type="button" data-i18n="orders.move">Move</button>
         </div>
       </div>
     </div>
@@ -259,13 +259,13 @@
     <div class="modal-overlay" id="sendOverlay">
       <div class="modal q-send">
         <div class="modal-head">
-          <h3><i class="fa-brands fa-whatsapp"></i> Update the customer</h3>
-          <button class="icon-btn" id="sendClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3><i class="fa-brands fa-whatsapp"></i> <span data-i18n="orders.update-the-customer">Update the customer</span></h3>
+          <button class="icon-btn" id="sendClose" type="button" title="Close" data-i18n-title="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="sendBody"></div>
         <div class="modal-foot">
-          <button class="btn btn-outline" id="sendCancel" type="button">Not now</button>
-          <button class="btn btn-primary" id="sendGo" type="button"><i class="fa-brands fa-whatsapp"></i> Send</button>
+          <button class="btn btn-outline" id="sendCancel" type="button" data-i18n="orders.not-now">Not now</button>
+          <button class="btn btn-primary" id="sendGo" type="button"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="inbox.send">Send</span></button>
         </div>
       </div>
     </div>
@@ -274,33 +274,33 @@
     <div class="modal-overlay" id="payOverlay">
       <div class="modal">
         <div class="modal-head">
-          <h3>Record a payment</h3>
-          <button class="icon-btn" id="payClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 data-i18n="orders.record-a-payment">Record a payment</h3>
+          <button class="icon-btn" id="payClose" type="button" title="Close" data-i18n-title="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
           <p class="q-muted" id="payDue" style="margin-top: 0"></p>
           <div class="field-row">
-            <div class="field"><label for="payAmount">Amount (₹)</label><input type="text" id="payAmount" inputmode="decimal" /></div>
-            <div class="field"><label for="payDate">Received on</label><input type="date" id="payDate" /></div>
+            <div class="field"><label for="payAmount" data-i18n="orders.amount">Amount (₹)</label><input type="text" id="payAmount" inputmode="decimal" /></div>
+            <div class="field"><label for="payDate" data-i18n="orders.received-on">Received on</label><input type="date" id="payDate" /></div>
           </div>
           <div class="field-row">
             <div class="field">
-              <label for="payMethod">How</label>
+              <label for="payMethod" data-i18n="orders.how">How</label>
               <select id="payMethod">
-                <option value="bank_transfer">Bank transfer (NEFT / RTGS / IMPS)</option>
+                <option value="bank_transfer" data-i18n="orders.bank-transfer-neft-rtgs-imps">Bank transfer (NEFT / RTGS / IMPS)</option>
                 <option value="upi">UPI</option>
-                <option value="cash">Cash</option>
-                <option value="cheque">Cheque</option>
-                <option value="card">Card</option>
-                <option value="other">Other</option>
+                <option value="cash" data-i18n="orders.cash">Cash</option>
+                <option value="cheque" data-i18n="orders.cheque">Cheque</option>
+                <option value="card" data-i18n="orders.card">Card</option>
+                <option value="other" data-i18n="orders.other">Other</option>
               </select>
             </div>
-            <div class="field"><label for="payRef">Reference (UTR, cheque no.)</label><input type="text" id="payRef" maxlength="120" /></div>
+            <div class="field"><label for="payRef" data-i18n="orders.reference-utr-cheque-no">Reference (UTR, cheque no.)</label><input type="text" id="payRef" maxlength="120" /></div>
           </div>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-outline" id="payCancel" type="button">Cancel</button>
-          <button class="btn btn-primary" id="payGo" type="button">Record payment</button>
+          <button class="btn btn-outline" id="payCancel" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" id="payGo" type="button" data-i18n="orders.record-payment">Record payment</button>
         </div>
       </div>
     </div>

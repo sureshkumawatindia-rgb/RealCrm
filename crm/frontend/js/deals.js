@@ -54,12 +54,12 @@ function getDealTasks() {
 // ---------------------------------------------------------------
 function formatCurrency(n) {
   const num = Number(n) || 0;
-  return "₹" + num.toLocaleString("en-IN");
+  return "₹" + num.toLocaleString(crmI18n.locale());
 }
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", {
+  return d.toLocaleDateString(crmI18n.locale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -138,26 +138,26 @@ function renderKpis() {
   );
 
   const cards = [
-    { label: "Total Deals", value: deals.length, cls: "" },
+    { label: t("deals.kpi.total"), value: deals.length, cls: "" },
     {
-      label: "Total Pipeline Value",
+      label: t("deals.kpi.pipeline"),
       value: formatCurrency(pipelineValue),
       cls: "info",
     },
     {
-      label: "Won This Month",
+      label: t("deals.kpi.won"),
       value: `${wonThisMonth.length} · ${formatCurrency(wonValue)}`,
       cls: "success",
     },
-    { label: "Deals in Progress", value: open.length, cls: "warning" },
+    { label: t("deals.kpi.progress"), value: open.length, cls: "warning" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
     .map(
       (c) => `
       <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>
       </div>`,
     )
     .join("");
@@ -183,14 +183,14 @@ function renderKanban() {
 
       const cardsHtml = stageDeals.length
         ? stageDeals.map((d) => dealCardHtml(d)).join("")
-        : `<div class="kanban-col-empty">No deals</div>`;
+        : `<div class="kanban-col-empty">${escapeHtml(t("deals.noDeals"))}</div>`;
 
       return `
       <div class="kanban-col" data-stage="${stage}">
         <div class="kanban-col-head">
           <div class="kanban-col-head-title">
             <span class="kanban-dot" style="background:${STAGE_DOT[stage]}"></span>
-            <h4>${stage}</h4>
+            <h4>${escapeHtml(crmLabel("stage", stage))}</h4>
           </div>
           <span class="kanban-count">${stageDeals.length}</span>
         </div>
@@ -261,8 +261,8 @@ function moveDeal(id, newStage) {
   const lostReason = newStage === "Lost" ? askLostReason(deal.name) : null;
   if (newStage === "Lost" && !lostReason) return;
   changeLeadStage(deal.id, newStage, lostReason)
-    .then(() => showToast(`Moved "${deal.name}" to ${newStage}`, "success"))
-    .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the deal."), "error"))
+    .then(() => showToast(t("deals.moved", { name: deal.name, stage: crmLabel("stage", newStage) }), "success"))
+    .catch((error) => showToast(apiErrorMessage(error, t("deals.err.move")), "error"))
     .finally(renderAll);
 }
 
@@ -274,8 +274,8 @@ function attachDragEvents() {
       const deal = getDeal(card.dataset.id);
       if (!deal) return;
       const stage = await crmMoveMenu.open({
-        title: `Move "${deal.name}" to`, current: deal.stage, returnFocus: event.currentTarget,
-        options: STAGES.map((s) => ({ value: s, label: s, color: STAGE_DOT[s] })),
+        title: t("deals.moveTo", { name: deal.name }), current: deal.stage, returnFocus: event.currentTarget,
+        options: STAGES.map((s) => ({ value: s, label: crmLabel("stage", s), color: STAGE_DOT[s] })),
       });
       if (stage) moveDeal(deal.id, stage);
     });
@@ -315,7 +315,7 @@ function renderTable() {
     wrap.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-handshake"></i>
-        <div>No deals match your filters.</div>
+        <div>${escapeHtml(t("deals.empty.filtered"))}</div>
       </div>`;
     return;
   }
@@ -324,13 +324,13 @@ function renderTable() {
     <table>
       <thead>
         <tr>
-          <th>Deal</th>
-          <th>Account</th>
-          <th>Value</th>
-          <th>Stage</th>
-          <th>Probability</th>
-          <th>Close Date</th>
-          <th>Owner</th>
+          <th>${escapeHtml(t("dash.add.deal"))}</th>
+          <th>${escapeHtml(t("deals.col.account"))}</th>
+          <th>${escapeHtml(t("col.value"))}</th>
+          <th>${escapeHtml(t("deals.col.stage"))}</th>
+          <th>${escapeHtml(t("deals.col.probability"))}</th>
+          <th>${escapeHtml(t("deals.col.closeDate"))}</th>
+          <th>${escapeHtml(t("leads.col.owner"))}</th>
           <th></th>
         </tr>
       </thead>
@@ -342,14 +342,14 @@ function renderTable() {
             <td><strong>${escapeHtml(d.name)}</strong></td>
             <td>${escapeHtml(d.account)}</td>
             <td>${formatCurrency(d.value)}</td>
-            <td><span class="badge ${STAGE_BADGE_CLASS[d.stage]}">${escapeHtml(d.stage)}</span></td>
+            <td><span class="badge ${STAGE_BADGE_CLASS[d.stage]}">${escapeHtml(crmLabel("stage", d.stage))}</span></td>
             <td>${d.probability}%</td>
             <td>${formatDate(d.closeDate)}</td>
             <td>${escapeHtml(d.owner)}</td>
             <td>
               <div class="row-actions">
-                <button class="icon-btn edit-row" data-id="${d.id}"><i class="fa-solid fa-pen"></i></button>
-                <button class="icon-btn danger delete-row" data-id="${d.id}"><i class="fa-solid fa-trash"></i></button>
+                <button class="icon-btn edit-row" data-id="${d.id}" title="${escapeHtml(t("common.edit"))}" aria-label="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn danger delete-row" data-id="${d.id}" title="${escapeHtml(t("common.delete"))}" aria-label="${escapeHtml(t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>`,
@@ -389,7 +389,7 @@ function renderTeamTab() {
 
   const el = document.getElementById("teamTabContent");
   if (!names.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-user-group"></i><div>No agents yet.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-user-group"></i><div>${escapeHtml(t("deals.noAgents"))}</div></div>`;
     return;
   }
 
@@ -407,7 +407,7 @@ function renderTeamTab() {
           <div class="avatar">${initials(name)}</div>
           <div class="info">
             <div class="name">${escapeHtml(name)}</div>
-            <div class="sub">${agent ? escapeHtml(agent.role) : "Deal Owner"} · ${formatCurrency(value)} open</div>
+            <div class="sub">${escapeHtml(agent ? crmLabel("role", agent.role) : t("deals.owner"))} · ${escapeHtml(t("deals.openValue", { value: formatCurrency(value) }))}</div>
           </div>
           <span class="count">${count}</span>
         </div>`;
@@ -432,30 +432,30 @@ function renderTasksTab() {
           ${escapeHtml(t.text)}
           ${t.due ? `<span class="task-due"><i class="fa-regular fa-clock"></i> ${formatDate(t.due)}</span>` : ""}
         </div>
-        <button class="icon-btn danger task-delete" data-id="${t.id}"><i class="fa-solid fa-xmark"></i></button>
+        <button class="icon-btn danger task-delete" data-id="${t.id}" title="${escapeHtml(crmI18n.t("common.delete"))}" aria-label="${escapeHtml(crmI18n.t("common.delete"))}"><i class="fa-solid fa-xmark"></i></button>
       </div>`,
         )
         .join("")
-    : `<div class="empty-state" style="padding:20px 10px"><i class="fa-solid fa-list-check"></i><div>No tasks yet.</div></div>`;
+    : `<div class="empty-state" style="padding:20px 10px"><i class="fa-solid fa-list-check"></i><div>${escapeHtml(t("deals.noTasks"))}</div></div>`;
 
   el.innerHTML = `
     ${list}
     <div class="task-add-row">
-      <input type="text" id="newTaskInput" placeholder="Add a follow-up task..." />
-      <button class="btn btn-outline" id="addTaskBtn"><i class="fa-solid fa-plus"></i></button>
+      <input type="text" id="newTaskInput" placeholder="${escapeHtml(t("deals.addTaskPlaceholder"))}" />
+      <button class="btn btn-outline" id="addTaskBtn" title="${escapeHtml(t("common.add"))}" aria-label="${escapeHtml(t("common.add"))}"><i class="fa-solid fa-plus"></i></button>
     </div>`;
 
   el.querySelectorAll(".task-toggle").forEach((cb) =>
     cb.addEventListener("change", () => {
       saveTask(cb.dataset.id, { status: cb.checked ? "Done" : "To Do" })
-        .catch((error) => showToast(apiErrorMessage(error, "Couldn't update the task."), "error"))
+        .catch((error) => showToast(apiErrorMessage(error, t("inbox.ctx.taskFailed")), "error"))
         .finally(renderTasksTab);
     }),
   );
   el.querySelectorAll(".task-delete").forEach((btn) =>
     btn.addEventListener("click", () => {
       removeTask(btn.dataset.id)
-        .catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the task."), "error"))
+        .catch((error) => showToast(apiErrorMessage(error, t("deals.err.deleteTask")), "error"))
         .finally(renderTasksTab);
     }),
   );
@@ -475,7 +475,7 @@ async function addTaskFromInput() {
     await saveTask(null, { title: text, status: "To Do", origin: "deal_followup", assignee: getCurrentUser()?.name || "" });
     input.value = "";
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't add the task."), "error");
+    showToast(apiErrorMessage(error, t("deals.err.addTask")), "error");
   }
   renderTasksTab();
 }
@@ -491,7 +491,7 @@ function renderCalendarTab() {
 
   const el = document.getElementById("calendarTabContent");
   if (!deals.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:20px 10px"><i class="fa-solid fa-calendar-days"></i><div>No upcoming close dates.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:20px 10px"><i class="fa-solid fa-calendar-days"></i><div>${escapeHtml(t("deals.noCloseDates"))}</div></div>`;
     return;
   }
 
@@ -502,11 +502,11 @@ function renderCalendarTab() {
       <div class="calendar-row">
         <div class="calendar-date-chip">
           <span class="d">${dt.getDate()}</span>
-          <span class="m">${dt.toLocaleDateString("en-IN", { month: "short" })}</span>
+          <span class="m">${dt.toLocaleDateString(crmI18n.locale(), { month: "short" })}</span>
         </div>
         <div class="info">
           <div class="name">${escapeHtml(d.name)}</div>
-          <div class="sub">${escapeHtml(d.account)} · ${d.stage}</div>
+          <div class="sub">${escapeHtml(d.account)} · ${escapeHtml(crmLabel("stage", d.stage))}</div>
         </div>
       </div>`;
     })
@@ -529,7 +529,7 @@ function populateFilterOwners() {
   const sel = document.getElementById("filterOwner");
   const current = sel.value;
   sel.innerHTML =
-    `<option value="all">All Owners</option>` +
+    `<option value="all">${escapeHtml(t("deals.allOwners"))}</option>` +
     ownerNames()
       .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
       .join("");
@@ -557,7 +557,7 @@ function openModal(id) {
   if (id) {
     const deal = getDeal(id);
     if (!deal) return;
-    document.getElementById("modalTitle").textContent = "Edit Deal";
+    document.getElementById("modalTitle").textContent = t("deals.edit");
     document.getElementById("editId").value = deal.id;
     document.getElementById("fName").value = deal.name;
     document.getElementById("fAccount").value = deal.account;
@@ -573,7 +573,7 @@ function openModal(id) {
     timelineSection.style.display = "block";
     renderTimeline(deal);
   } else {
-    document.getElementById("modalTitle").textContent = "New Deal";
+    document.getElementById("modalTitle").textContent = t("dash.newDeal");
     document.getElementById("editId").value = "";
     document.getElementById("fStage").value = "New";
     document.getElementById("fProbability").value = STAGE_DEFAULT_PROB.New;
@@ -592,12 +592,12 @@ function closeModal() {
 
 async function renderTimeline(deal) {
   const el = document.getElementById("timelineList");
-  el.innerHTML = `<div class="text-muted" style="font-size:12.5px">Loading activity…</div>`;
+  el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(t("deals.loadingActivity"))}</div>`;
   let activities = [];
   try {
     activities = await getLeadActivities(deal.id);
   } catch (error) {
-    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, "Couldn't load activity."))}</div>`;
+    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, t("deals.err.activity")))}</div>`;
     return;
   }
   el.innerHTML = activities.length
@@ -607,13 +607,13 @@ async function renderTimeline(deal) {
       <div class="timeline-item">
         <span class="dot"></span>
         <div class="body">
-          <div class="text">${escapeHtml(n.text || n.type)}</div>
+          <div class="text">${escapeHtml(n.text || crmLabel("leadHistory", n.type))}</div>
           <div class="meta">${escapeHtml(n.actorName || "")} · ${formatDate(n.createdAt)}</div>
         </div>
       </div>`,
         )
         .join("")
-    : `<div class="text-muted" style="font-size:12.5px">No activity yet.</div>`;
+    : `<div class="text-muted" style="font-size:12.5px">${escapeHtml(t("deals.noActivity"))}</div>`;
 }
 
 async function addNoteToDeal() {
@@ -626,21 +626,21 @@ async function addNoteToDeal() {
     await addLeadNote(id, text);
     input.value = "";
     renderTimeline(getDeal(id));
-    showToast("Note added", "success");
+    showToast(t("c360.noteAdded"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+    showToast(apiErrorMessage(error, t("inbox.err.note")), "error");
   }
 }
 
 async function confirmDelete(id) {
   const deal = getDeal(id);
   if (!deal) return;
-  if (!confirm(`Delete "${deal.name}"? This can't be undone.`)) return;
+  if (!confirm(t("deals.confirmDelete", { name: deal.name }))) return;
   try {
     await removeLead(id);
-    showToast("Deal deleted", "success");
+    showToast(t("deals.deleted"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't delete the deal."), "error");
+    showToast(apiErrorMessage(error, t("deals.err.delete")), "error");
   }
   renderAll();
 }
@@ -796,7 +796,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const stage = document.getElementById("fStage").value;
 
     if (!name || !account || !closeDate) {
-      showToast("Please fill in all required fields", "error");
+      showToast(t("deals.required"), "error");
       return;
     }
     const existing = id ? getDeal(id) : null;
@@ -815,9 +815,9 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       if (id) await updateLeadRecord(id, payload);
       else await createLead(payload);
-      showToast(id ? "Deal updated" : "Deal created", "success");
+      showToast(t(id ? "deals.updated" : "deals.created"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't save the deal."), "error");
+      showToast(apiErrorMessage(error, t("deals.err.save")), "error");
       return;
     }
     closeModal();
@@ -829,7 +829,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // so refreshing the page doesn't reopen it.
   const params = new URLSearchParams(window.location.search);
   if (params.get("new") === "1") {
-    openModal(null);
+    crmI18n.ready.then(() => openModal(null)); // its title comes from the texts
     window.history.replaceState({}, "", window.location.pathname);
   }
 });

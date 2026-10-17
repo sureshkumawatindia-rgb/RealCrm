@@ -4,11 +4,12 @@
  * (the server's guess first), checks it (dry run), then imports and shows the report. Uses
  * app.js: crmApi, crmLoad, escapeHtml, showToast, apiErrorMessage; customers.js: renderTable.
  */
-(function customersImport() {
+// Starts once the page's texts are in (i18n/*.json, CP5).
+crmI18n.ready.then(function customersImport() {
   const $ = (id) => document.getElementById(id);
   const FIELD_LABELS = {
-    "": "— skip —", name: "Name", phone: "Mobile number", email: "Email", company: "Company", gstin: "GSTIN",
-    state: "State", city: "City", address: "Address", tags: "Tags", source: "Source", notes: "Notes",
+    "": t("import.skip"), name: t("col.name"), phone: t("wa.priv.phone"), email: t("leads.email"), company: t("col.company"), gstin: "GSTIN",
+    state: t("import.state"), city: t("import.city"), address: t("import.address"), tags: t("customers.col.tags"), source: t("leads.col.source"), notes: t("leads.notes"),
   };
   let file = null;
   let preview = null;
@@ -25,13 +26,13 @@
 
   function renderPreview() {
     const columns = preview.headers.map((header, index) => `
-      <th><div class="import-col">${escapeHtml(header || `Column ${index + 1}`)}</div>
-        <select data-col="${index}" aria-label="What column ${index + 1} is">${Object.entries(FIELD_LABELS)
+      <th><div class="import-col">${escapeHtml(header || t("import.column", { n: index + 1 }))}</div>
+        <select data-col="${index}" aria-label="${escapeHtml(t("import.columnIs", { n: index + 1 }))}">${Object.entries(FIELD_LABELS)
           .map(([value, text]) => `<option value="${value}" ${preview.mapping[index] === value ? "selected" : ""}>${escapeHtml(text)}</option>`)
           .join("")}</select></th>`).join("");
     const rows = preview.rows.map((row) => `<tr>${preview.headers.map((_, i) => `<td>${escapeHtml(row[i] || "")}</td>`).join("")}</tr>`).join("");
     $("importPreview").innerHTML = `<thead><tr>${columns}</tr></thead><tbody>${rows}</tbody>`;
-    $("importCount").textContent = `${preview.totalRows.toLocaleString("en-IN")} customers in the file. Check what each column is (the first rows are shown).`;
+    $("importCount").textContent = t("import.count", { n: preview.totalRows.toLocaleString(crmI18n.locale()) });
     $("importMapping").hidden = false;
     $("importCheck").disabled = false;
     $("importRun").disabled = false;
@@ -41,13 +42,13 @@
 
   function renderReport(report) {
     const lines = [
-      report.dryRun ? "<strong>Checked — nothing was saved yet.</strong>" : "<strong>Imported.</strong>",
-      `${report.created} new · ${report.updated} filled in or tagged · ${report.unchanged} already up to date${report.mergedInFile ? ` · ${report.mergedInFile} repeated rows merged` : ""}`,
-      report.rejected ? `${report.rejected} rows left out:` : "",
+      `<strong>${escapeHtml(t(report.dryRun ? "import.checked" : "import.imported"))}</strong>`,
+      escapeHtml(t("import.summary", { created: report.created, updated: report.updated, unchanged: report.unchanged }) + (report.mergedInFile ? t("import.merged", { n: report.mergedInFile }) : "")),
+      report.rejected ? escapeHtml(t("import.rejected", { n: report.rejected })) : "",
     ].filter(Boolean);
-    const rejected = report.rejectedRows.map((r) => `<li>Row ${r.row}: ${escapeHtml(r.text)}</li>`).join("");
-    const warnings = report.warnings.map((w) => `<li>Row ${w.row}: ${escapeHtml(w.text)}</li>`).join("");
-    $("importReport").innerHTML = `${lines.map((l) => `<div>${l}</div>`).join("")}${rejected ? `<ul>${rejected}</ul>` : ""}${warnings ? `<div>Notes:</div><ul>${warnings}</ul>` : ""}`;
+    const rejected = report.rejectedRows.map((r) => `<li>${escapeHtml(t("import.row", { n: r.row }))}: ${escapeHtml(r.text)}</li>`).join("");
+    const warnings = report.warnings.map((w) => `<li>${escapeHtml(t("import.row", { n: w.row }))}: ${escapeHtml(w.text)}</li>`).join("");
+    $("importReport").innerHTML = `${lines.map((l) => `<div>${l}</div>`).join("")}${rejected ? `<ul>${rejected}</ul>` : ""}${warnings ? `<div>${escapeHtml(t("import.notes"))}</div><ul>${warnings}</ul>` : ""}`;
     $("importReport").hidden = false;
   }
 
@@ -55,7 +56,7 @@
     if (!file || !preview) return;
     const fields = mapping();
     if (!fields.includes("phone") && !fields.includes("email")) {
-      showToast("Choose which column has the mobile number (or the email).", "error");
+      showToast(t("import.needPhone"), "error");
       return;
     }
     const form = new FormData();
@@ -72,12 +73,12 @@
       const report = await crmApi("/contacts/import", { method: "POST", body: form });
       renderReport(report);
       if (!dryRun) {
-        showToast(`${report.created} customers added, ${report.updated} updated`, "success");
+        showToast(t("import.done", { created: report.created, updated: report.updated }), "success");
         await crmLoad(["contacts"], { force: true });
         renderTable();
       }
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't import the file."), "error");
+      showToast(apiErrorMessage(error, t("import.err.import")), "error");
     } finally {
       $("importCheck").disabled = false;
       $("importRun").disabled = false;
@@ -96,7 +97,7 @@
       renderPreview();
     } catch (error) {
       preview = null;
-      showToast(apiErrorMessage(error, "Couldn't read the file."), "error");
+      showToast(apiErrorMessage(error, t("import.err.read")), "error");
     }
   });
   $("importBtn").addEventListener("click", () => {
@@ -111,4 +112,4 @@
   });
   $("importCheck").addEventListener("click", () => send(true));
   $("importRun").addEventListener("click", () => send(false));
-})();
+});

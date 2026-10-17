@@ -472,24 +472,20 @@
         <header class="topbar">
           <div style="display:flex;align-items:center;gap:12px">
             <a class="c360-back" href="customers.html">
-              <i class="fa-solid fa-arrow-left"></i> Customers
-            </a>
+              <i class="fa-solid fa-arrow-left"></i> <span data-i18n="nav.customers">Customers</span></a>
           </div>
-          <h2>Customer 360°</h2>
+          <h2 data-i18n="lp.customer-360">Customer 360°</h2>
         </header>
 
         <div class="page">
           <!-- PICKER: shown when no ?id= is in the URL -->
           <div id="pickerView" class="c360-picker" style="display:none">
             <i class="fa-solid fa-address-card"></i>
-            <h3 style="margin:0 0 6px">Open a customer's 360° profile</h3>
-            <p class="text-muted" style="font-size:13px;margin:0">
-              Search for a customer to see every deal, task, ticket, document
-              and note in one place.
-            </p>
+            <h3 style="margin:0 0 6px" data-i18n="c360.open-a-customer-s-360-profile">Open a customer's 360° profile</h3>
+            <p class="text-muted" style="font-size:13px;margin:0" data-i18n="c360.search-for-a-customer-to-see">Search for a customer to see every deal, task, ticket, document and note in one place.</p>
             <div class="search-box">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" id="pickerSearch" placeholder="Search customers..." />
+              <input type="text" id="pickerSearch" placeholder="Search customers..." data-i18n-placeholder="c360.search-customers" />
             </div>
             <div class="c360-picker-list" id="pickerList"></div>
           </div>
@@ -509,7 +505,7 @@
               <div class="c360-header-actions">
                 <div class="c360-health" id="c360Health">
                   <span class="num">—</span>
-                  <span class="lbl">Health</span>
+                  <span class="lbl" data-i18n="c360.health">Health</span>
                 </div>
               </div>
             </div>
@@ -519,19 +515,19 @@
             <div class="c360-layout">
               <aside class="c360-side">
                 <div class="panel">
-                  <div class="panel-head"><h3>Overview</h3></div>
+                  <div class="panel-head"><h3 data-i18n="c360.overview">Overview</h3></div>
                   <div style="padding:4px 16px 12px" id="c360Fields"></div>
                 </div>
               </aside>
 
               <div class="c360-main">
                 <div class="c360-tabs" id="c360Tabs">
-                  <button class="c360-tab active" data-tab="timeline">Activity Timeline</button>
-                  <button class="c360-tab" data-tab="deals">Deals</button>
-                  <button class="c360-tab" data-tab="tasks">Tasks &amp; Events</button>
-                  <button class="c360-tab" data-tab="tickets">Support Tickets</button>
-                  <button class="c360-tab" data-tab="documents">Documents</button>
-                  <button class="c360-tab" data-tab="notes">Notes</button>
+                  <button class="c360-tab active" data-tab="timeline" data-i18n="c360.activity-timeline">Activity Timeline</button>
+                  <button class="c360-tab" data-tab="deals" data-i18n="nav.deals">Deals</button>
+                  <button class="c360-tab" data-tab="tasks" data-i18n="c360.tasks-events">Tasks &amp; Events</button>
+                  <button class="c360-tab" data-tab="tickets" data-i18n="c360.support-tickets">Support Tickets</button>
+                  <button class="c360-tab" data-tab="documents" data-i18n="nav.documents">Documents</button>
+                  <button class="c360-tab" data-tab="notes" data-i18n="c360.notes">Notes</button>
                   <button class="c360-tab" data-tab="whatsapp" id="c360WhatsAppTab" hidden><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
                 </div>
 
@@ -557,7 +553,7 @@
                 <div class="panel c360-panel" data-panel="notes">
                   <div id="c360NotesList"></div>
                   <div class="note-input-row">
-                    <input type="text" id="c360NoteInput" placeholder="Add a note about this customer..." />
+                    <input type="text" id="c360NoteInput" placeholder="Add a note about this customer..." data-i18n-placeholder="c360.add-a-note-about-this-customer" />
                     <button class="btn btn-outline" id="c360AddNoteBtn" type="button">
                       <i class="fa-solid fa-plus"></i>
                     </button>

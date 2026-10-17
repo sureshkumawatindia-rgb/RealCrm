@@ -141,7 +141,7 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Products</h2>
+            <h2 data-i18n="dash.products">Products</h2>
           </div>
         </header>
 
@@ -156,27 +156,24 @@
               <input
                 type="text"
                 id="searchInput"
-                placeholder="Search products, categories..."
+                placeholder="Search products, categories..." data-i18n-placeholder="products.search-products-categories"
               />
             </div>
             <div class="filter-bar">
               <select class="filter" id="filterCategory">
-                <option value="all">All Categories</option>
+                <option value="all" data-i18n="products.all-categories">All Categories</option>
               </select>
               <select class="filter" id="filterStock">
-                <option value="all">All Stock</option>
-                <option value="in">In Stock</option>
-                <option value="low">Low Stock (≤5)</option>
-                <option value="out">Out of Stock</option>
+                <option value="all" data-i18n="products.all-stock">All Stock</option>
+                <option value="in" data-i18n="products.in-stock">In Stock</option>
+                <option value="low" data-i18n="products.low-stock-5">Low Stock (≤5)</option>
+                <option value="out" data-i18n="products.out-of-stock">Out of Stock</option>
               </select>
-              <button class="link-clear" id="clearFiltersBtn">
-                Clear filters
-              </button>
+              <button class="link-clear" id="clearFiltersBtn" data-i18n="products.clear-filters">Clear filters</button>
             </div>
             <div style="display: flex; gap: 10px; margin-left: auto">
               <button class="btn btn-primary" id="addBtn">
-                <i class="fa-solid fa-plus"></i> New Product
-              </button>
+                <i class="fa-solid fa-plus"></i> <span data-i18n="products.new-product">New Product</span></button>
             </div>
           </div>
 
@@ -190,7 +187,7 @@
     <div class="modal-overlay" id="modalOverlay">
       <div class="modal">
         <div class="modal-head">
-          <h3 id="modalTitle">New Product</h3>
+          <h3 id="modalTitle" data-i18n="products.new-product">New Product</h3>
           <button class="icon-btn" id="modalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -199,33 +196,33 @@
           <form id="productForm">
             <input type="hidden" id="editId" />
             <div class="field">
-              <label>Product Name</label>
+              <label data-i18n="products.product-name">Product Name</label>
               <input
                 type="text"
                 id="pName"
-                placeholder="e.g. Starter Plan — 10 Seats"
+                placeholder="e.g. Starter Plan — 10 Seats" data-i18n-placeholder="products.e-g-starter-plan-10-seats"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Category</label>
+                <label data-i18n="wa.tpl.category">Category</label>
                 <input
                   type="text"
                   id="pCategory"
                   list="categoryOptions"
-                  placeholder="e.g. Software, Hardware, Services"
+                  placeholder="e.g. Software, Hardware, Services" data-i18n-placeholder="products.e-g-software-hardware-services"
                 />
                 <datalist id="categoryOptions"></datalist>
               </div>
               <div class="field">
-                <label>Price (₹)</label>
+                <label data-i18n="products.price">Price (₹)</label>
                 <input type="number" id="pPrice" min="0" />
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label for="pQuantity">Quantity in Stock</label>
+                <label for="pQuantity" data-i18n="products.quantity-in-stock">Quantity in Stock</label>
                 <input
                   type="number"
                   id="pQuantity"
@@ -235,7 +232,7 @@
                 />
               </div>
               <div class="field">
-                <label for="pGst">GST / Tax (%)</label>
+                <label for="pGst" data-i18n="products.gst-tax">GST / Tax (%)</label>
                 <input
                   type="number"
                   id="pGst"
@@ -247,37 +244,36 @@
             </div>
             <div class="field-row">
               <div class="field">
-                <label for="pHsn">HSN / SAC code</label>
+                <label for="pHsn" data-i18n="products.hsn-sac-code">HSN / SAC code</label>
                 <input type="text" id="pHsn" inputmode="numeric" maxlength="8" placeholder="e.g. 0909" />
               </div>
               <div class="field">
-                <label for="pUnit">Unit</label>
-                <input type="text" id="pUnit" maxlength="20" list="unitOptions" placeholder="pcs" />
+                <label for="pUnit" data-i18n="products.unit">Unit</label>
+                <input type="text" id="pUnit" maxlength="20" list="unitOptions" placeholder="pcs" data-i18n-placeholder="products.pcs" />
                 <datalist id="unitOptions"><option value="pcs"></option><option value="kg"></option><option value="g"></option><option value="ltr"></option><option value="m"></option><option value="box"></option><option value="set"></option><option value="ton"></option><option value="hr"></option><option value="nos"></option></datalist>
               </div>
             </div>
             <div class="field">
-              <label>Description</label>
+              <label data-i18n="products.description">Description</label>
               <textarea
                 id="pDescription"
                 rows="3"
-                placeholder="Optional notes about this product..."
+                placeholder="Optional notes about this product..." data-i18n-placeholder="products.optional-notes-about-this-product"
               ></textarea>
             </div>
             <!-- WhatsApp catalog (Phase 8C) -->
             <div class="field-row">
               <div class="field">
-                <label for="pSku">SKU / item code</label>
-                <input type="text" id="pSku" maxlength="100" placeholder="e.g. JEERA-25" />
+                <label for="pSku" data-i18n="products.sku-item-code">SKU / item code</label>
+                <input type="text" id="pSku" maxlength="100" placeholder="e.g. JEERA-25" data-i18n-placeholder="products.e-g-jeera-25" />
               </div>
               <div class="field">
-                <label for="pImage">Photo link (https)</label>
-                <input type="url" id="pImage" maxlength="1000" placeholder="https://…/photo.jpg" />
+                <label for="pImage" data-i18n="products.photo-link-https">Photo link (https)</label>
+                <input type="url" id="pImage" maxlength="1000" placeholder="https://…/photo.jpg" data-i18n-placeholder="products.https-photo-jpg" />
               </div>
             </div>
             <label class="ls-check" style="display: flex; gap: 8px; align-items: center">
-              <input type="checkbox" id="pInCatalog" style="width: auto" /> Show in the WhatsApp catalog (needs a price and a photo link)
-            </label>
+              <input type="checkbox" id="pInCatalog" style="width: auto" /> <span data-i18n="products.show-in-the-whatsapp-catalog-needs">Show in the WhatsApp catalog (needs a price and a photo link)</span></label>
             <p class="settings-hint" id="pCatalogState" style="margin: 6px 0 0"></p>
           </form>
         </div>
@@ -288,19 +284,14 @@
             type="button"
             style="display: none; margin-right: auto"
           >
-            <i class="fa-solid fa-trash"></i> Delete Product
-          </button>
-          <button class="btn btn-outline" id="cancelBtn" type="button">
-            Cancel
-          </button>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="products.delete-product">Delete Product</span></button>
+          <button class="btn btn-outline" id="cancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
           <button
             class="btn btn-primary"
             id="saveBtn"
             type="submit"
             form="productForm"
-          >
-            Save Product
-          </button>
+           data-i18n="products.save-product">Save Product</button>
         </div>
       </div>
     </div>

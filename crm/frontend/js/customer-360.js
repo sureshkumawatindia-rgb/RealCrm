@@ -61,13 +61,13 @@ function initials(name) {
 }
 function formatCurrency(n) {
   const num = Number(n) || 0;
-  return "₹" + num.toLocaleString("en-IN");
+  return "₹" + num.toLocaleString(crmI18n.locale());
 }
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d)) return "—";
-  return d.toLocaleDateString("en-IN", {
+  return d.toLocaleDateString(crmI18n.locale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -173,7 +173,7 @@ function renderPicker() {
     );
     const el = document.getElementById("pickerList");
     if (!list.length) {
-      el.innerHTML = `<div class="text-muted" style="text-align:center;padding:20px;font-size:12.5px">No customers found.</div>`;
+      el.innerHTML = `<div class="text-muted" style="text-align:center;padding:20px;font-size:12.5px">${escapeHtml(t("c360.noCustomers"))}</div>`;
       return;
     }
     el.innerHTML = list
@@ -218,7 +218,7 @@ function renderHeader(customer) {
   const score = computeHealth(customer);
   const healthEl = document.getElementById("c360Health");
   healthEl.className = "c360-health " + healthClass(score);
-  healthEl.innerHTML = `<span class="num">${score}</span><span class="lbl">Health</span>`;
+  healthEl.innerHTML = `<span class="num">${score}</span><span class="lbl">${escapeHtml(t("c360.health"))}</span>`;
 }
 
 function renderKpis(customer) {
@@ -233,18 +233,18 @@ function renderKpis(customer) {
   const openTasks = tasks.filter((t) => t.status !== "Done");
 
   const cards = [
-    { label: "Open Deals", value: `${openDeals.length} · ${formatCurrency(openValue)}`, cls: "success" },
-    { label: "Open Tickets", value: openTickets.length, cls: openTickets.length ? "warning" : "" },
-    { label: "Open Tasks", value: openTasks.length, cls: "info" },
-    { label: "Documents", value: relatedDocuments(customer).length, cls: "" },
+    { label: t("c360.openDeals"), value: `${openDeals.length} · ${formatCurrency(openValue)}`, cls: "success" },
+    { label: t("c360.openTickets"), value: openTickets.length, cls: openTickets.length ? "warning" : "" },
+    { label: t("c360.openTasks"), value: openTasks.length, cls: "info" },
+    { label: t("nav.documents"), value: relatedDocuments(customer).length, cls: "" },
   ];
 
   document.getElementById("c360Kpis").innerHTML = cards
     .map(
       (c) => `
       <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>
       </div>`,
     )
     .join("");
@@ -252,17 +252,17 @@ function renderKpis(customer) {
 
 function renderFields(customer) {
   const fields = [
-    ["Status", customer.status || "—"],
-    ["Company", customer.company || "—"],
-    ["Email", customer.email || "—"],
-    ["Phone", customer.phone || "—"],
-    ["Customer Since", formatDate(customer.createdAt)],
+    [t("col.status"), customer.status ? crmLabel("stage", customer.status) : "—"],
+    [t("col.company"), customer.company || "—"],
+    [t("leads.email"), customer.email || "—"],
+    [t("leads.phone"), customer.phone || "—"],
+    [t("c360.since"), formatDate(customer.createdAt)],
   ];
   document.getElementById("c360Fields").innerHTML = fields
     .map(
       ([k, v]) => `
       <div class="c360-field">
-        <span class="k">${k}</span>
+        <span class="k">${escapeHtml(k)}</span>
         <span class="v">${escapeHtml(v)}</span>
       </div>`,
     )
@@ -276,7 +276,7 @@ function renderDealsTab(customer) {
   const deals = relatedDeals(customer);
   const el = document.getElementById("c360Deals");
   if (!deals.length) {
-    el.innerHTML = relEmptyBlock("fa-handshake", "No deals linked to this customer yet.");
+    el.innerHTML = relEmptyBlock("fa-handshake", t("c360.empty.deals"));
     return;
   }
   el.innerHTML = deals
@@ -286,7 +286,7 @@ function renderDealsTab(customer) {
         <span class="c360-list-icon" style="background:var(--brand-light);color:var(--brand-darker)"><i class="fa-solid fa-handshake"></i></span>
         <div class="c360-list-body">
           <div class="c360-list-title">${escapeHtml(d.name)} · ${formatCurrency(d.value)}</div>
-          <div class="c360-list-meta">${escapeHtml(d.stage)} · closes ${formatDate(d.closeDate)} · ${escapeHtml(d.owner || "Unassigned")}</div>
+          <div class="c360-list-meta">${escapeHtml(crmLabel("stage", d.stage))} · ${escapeHtml(t("c360.closes", { date: formatDate(d.closeDate) }))} · ${escapeHtml(d.owner || t("dash.unassigned"))}</div>
         </div>
       </div>`,
     )
@@ -298,7 +298,7 @@ function renderTasksTab(customer) {
   const events = relatedEvents(customer);
   const el = document.getElementById("c360Tasks");
   if (!tasks.length && !events.length) {
-    el.innerHTML = relEmptyBlock("fa-list-check", "No tasks or events linked to this customer yet.");
+    el.innerHTML = relEmptyBlock("fa-list-check", t("c360.empty.tasks"));
     return;
   }
   const taskRows = tasks.map(
@@ -307,7 +307,7 @@ function renderTasksTab(customer) {
         <span class="c360-list-icon ${t.status === "Done" ? "success" : "info"}" style="background:${t.status === "Done" ? "var(--success-bg)" : "var(--info-bg)"};color:${t.status === "Done" ? "var(--success)" : "var(--info)"}"><i class="fa-solid fa-list-check"></i></span>
         <div class="c360-list-body">
           <div class="c360-list-title">${escapeHtml(t.title)}</div>
-          <div class="c360-list-meta">Task · ${escapeHtml(t.status)} · due ${formatDate(t.dueDate)} · ${escapeHtml(t.assignee || "Unassigned")}</div>
+          <div class="c360-list-meta">${escapeHtml(crmI18n.t("dash.add.task"))} · ${escapeHtml(crmLabel("taskStatus", t.status))} · ${escapeHtml(crmI18n.t("c360.due", { date: formatDate(t.dueDate) }))} · ${escapeHtml(t.assignee || crmI18n.t("dash.unassigned"))}</div>
         </div>
       </div>`,
   );
@@ -317,7 +317,7 @@ function renderTasksTab(customer) {
         <span class="c360-list-icon" style="background:var(--info-bg);color:var(--info)"><i class="fa-solid fa-calendar-day"></i></span>
         <div class="c360-list-body">
           <div class="c360-list-title">${escapeHtml(e.title)}</div>
-          <div class="c360-list-meta">${escapeHtml(e.type)} · ${formatDate(e.date)}</div>
+          <div class="c360-list-meta">${escapeHtml(crmLabel("event", e.type))} · ${formatDate(e.date)}</div>
         </div>
       </div>`,
   );
@@ -328,7 +328,7 @@ function renderTicketsTab(customer) {
   const tickets = relatedTickets(customer);
   const el = document.getElementById("c360Tickets");
   if (!tickets.length) {
-    el.innerHTML = relEmptyBlock("fa-headset", "No support tickets from this customer yet.");
+    el.innerHTML = relEmptyBlock("fa-headset", t("c360.empty.tickets"));
     return;
   }
   el.innerHTML = tickets
@@ -338,7 +338,7 @@ function renderTicketsTab(customer) {
         <span class="c360-list-icon" style="background:var(--warning-bg);color:var(--warning)"><i class="fa-solid fa-headset"></i></span>
         <div class="c360-list-body">
           <div class="c360-list-title">#${t.number} · ${escapeHtml(t.subject)}</div>
-          <div class="c360-list-meta">${escapeHtml(t.status)} · ${escapeHtml(t.priority)} priority · ${escapeHtml(t.assignee || "Unassigned")}</div>
+          <div class="c360-list-meta">${escapeHtml(crmLabel("ticketStatus", t.status))} · ${escapeHtml(crmI18n.t("dash.priority", { p: crmLabel("priority", t.priority) }))} · ${escapeHtml(t.assignee || crmI18n.t("dash.unassigned"))}</div>
         </div>
       </div>`,
     )
@@ -349,7 +349,7 @@ function renderDocumentsTab(customer) {
   const docs = relatedDocuments(customer);
   const el = document.getElementById("c360Documents");
   if (!docs.length) {
-    el.innerHTML = relEmptyBlock("fa-file-lines", "No documents linked to this customer yet.");
+    el.innerHTML = relEmptyBlock("fa-file-lines", t("c360.empty.documents"));
     return;
   }
   el.innerHTML = docs
@@ -359,7 +359,7 @@ function renderDocumentsTab(customer) {
         <span class="c360-list-icon" style="background:var(--bg);color:var(--text-muted)"><i class="fa-solid fa-file-lines"></i></span>
         <div class="c360-list-body">
           <div class="c360-list-title">${escapeHtml(d.name)}</div>
-          <div class="c360-list-meta">${escapeHtml(d.category)} · ${formatDate(d.createdAt)}</div>
+          <div class="c360-list-meta">${escapeHtml(crmLabel("docCategory", d.category))} · ${formatDate(d.createdAt)}</div>
         </div>
       </div>`,
     )
@@ -382,7 +382,7 @@ function renderNotesTab(customer) {
       </div>`,
         )
         .join("")
-    : relEmptyBlock("fa-note-sticky", "No notes yet — add the first one below.");
+    : relEmptyBlock("fa-note-sticky", t("c360.empty.notes"));
 }
 
 async function addNote(customer) {
@@ -392,13 +392,13 @@ async function addNote(customer) {
   try {
     customerNoteList.unshift(await addContactNote(customer.id, text));
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+    showToast(apiErrorMessage(error, t("inbox.err.note")), "error");
     return;
   }
   input.value = "";
   renderNotesTab(customer);
   renderTimelineTab(customer);
-  showToast("Note added", "success");
+  showToast(t("c360.noteAdded"), "success");
 }
 
 // ---------------------------------------------------------------
@@ -408,16 +408,16 @@ function renderTimelineTab(customer) {
   const items = [];
 
   relatedDeals(customer).forEach((d) =>
-    items.push({ date: d.createdAt, icon: "fa-handshake", cls: "brand", title: `Deal: ${d.name}`, meta: `${d.stage} · ${formatCurrency(d.value)}` }),
+    items.push({ date: d.createdAt, icon: "fa-handshake", cls: "brand", title: t("c360.tl.deal", { name: d.name }), meta: `${crmLabel("stage", d.stage)} · ${formatCurrency(d.value)}` }),
   );
-  relatedTasks(customer).forEach((t) =>
-    items.push({ date: t.createdAt, icon: "fa-list-check", cls: "info", title: `Task: ${t.title}`, meta: `${t.status} · due ${formatDate(t.dueDate)}` }),
+  relatedTasks(customer).forEach((task) =>
+    items.push({ date: task.createdAt, icon: "fa-list-check", cls: "info", title: t("c360.tl.task", { title: task.title }), meta: `${crmLabel("taskStatus", task.status)} · ${t("c360.due", { date: formatDate(task.dueDate) })}` }),
   );
-  relatedTickets(customer).forEach((t) =>
-    items.push({ date: t.createdAt, icon: "fa-headset", cls: "warning", title: `Ticket #${t.number}: ${t.subject}`, meta: t.status }),
+  relatedTickets(customer).forEach((ticket) =>
+    items.push({ date: ticket.createdAt, icon: "fa-headset", cls: "warning", title: t("c360.tl.ticket", { number: ticket.number, subject: ticket.subject }), meta: crmLabel("ticketStatus", ticket.status) }),
   );
   relatedDocuments(customer).forEach((d) =>
-    items.push({ date: d.createdAt, icon: "fa-file-lines", cls: "", title: `Document: ${d.name}`, meta: d.category }),
+    items.push({ date: d.createdAt, icon: "fa-file-lines", cls: "", title: t("c360.tl.document", { name: d.name }), meta: crmLabel("docCategory", d.category) }),
   );
   customerNotes(customer).forEach((n) =>
     items.push({ date: n.at, icon: "fa-note-sticky", cls: "brand", title: n.text, meta: n.author || "" }),
@@ -427,7 +427,7 @@ function renderTimelineTab(customer) {
 
   const el = document.getElementById("c360Timeline");
   if (!items.length) {
-    el.innerHTML = relEmptyBlock("fa-clock-rotate-left", "No activity recorded for this customer yet.");
+    el.innerHTML = relEmptyBlock("fa-clock-rotate-left", t("c360.empty.timeline"));
     return;
   }
   const colorMap = {
@@ -455,34 +455,35 @@ function renderTimelineTab(customer) {
 // WhatsApp — the customer's chat (latest messages, read-only) and a
 // way to start one. Only for members who can open the Inbox.
 // ---------------------------------------------------------------
-const WA_KIND = { image: "Photo", video: "Video", audio: "Audio", document: "Document", sticker: "Sticker", location: "Location", contacts: "Contact card", reaction: "Reaction", unsupported: "Message" };
+// The kind of a WhatsApp message, in the person's language (looked up when shown).
+const WA_KIND_KEYS = { image: "inbox.media.image", video: "inbox.media.video", audio: "inbox.media.audio", document: "inbox.media.document", sticker: "inbox.media.sticker", location: "inbox.location", contacts: "inbox.contactCard", reaction: "c360.reaction", unsupported: "c360.message" };
 
 function canUseInbox() {
   return isOrgManager() || (getCurrentMember()?.modules || []).includes("inbox");
 }
 
 function whatsappLine(m) {
-  const time = new Date(m.at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" });
-  const label = m.type === "document" && m.media?.fileName ? m.media.fileName : m.type === "audio" && m.media?.voice ? "Voice message" : WA_KIND[m.type];
-  const kind = WA_KIND[m.type] ? `<span class="kind">${escapeHtml(label)}</span>${m.text ? "\n" : ""}` : "";
-  const sender = m.automation ? "Auto-reply" : memberName(m.sentByMemberId) || "Team";
-  const who = m.direction === "out" ? `${m.type === "template" ? "Template · " : ""}${escapeHtml(sender)} · ` : "";
-  const failed = m.status === "failed" ? " · not sent" : "";
+  const time = new Date(m.at).toLocaleString(crmI18n.locale(), { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" });
+  const label = m.type === "document" && m.media?.fileName ? m.media.fileName : m.type === "audio" && m.media?.voice ? t("inbox.voiceMessage") : WA_KIND_KEYS[m.type] && t(WA_KIND_KEYS[m.type]);
+  const kind = WA_KIND_KEYS[m.type] ? `<span class="kind">${escapeHtml(label)}</span>${m.text ? "\n" : ""}` : "";
+  const sender = m.automation ? t("inbox.auto.auto-reply") : memberName(m.sentByMemberId) || t("c360.team");
+  const who = m.direction === "out" ? `${m.type === "template" ? `${escapeHtml(t("inbox.template"))} · ` : ""}${escapeHtml(sender)} · ` : "";
+  const failed = m.status === "failed" ? ` · ${t("c360.notSent")}` : "";
   return `<div class="c360-wa-msg ${m.direction === "out" ? "out" : ""}">${kind}${escapeHtml(m.text || "")}<span class="meta">${who}${escapeHtml(time)}${failed}</span></div>`;
 }
 
 async function showWhatsAppChat(chat) {
   const list = document.getElementById("c360WaMessages");
-  list.innerHTML = relEmptyBlock("fa-spinner", "Loading messages…");
+  list.innerHTML = relEmptyBlock("fa-spinner", t("inbox.loadingMessages"));
   try {
     const page = await crmRequest(`/conversations/${chat.id}/messages?limit=30`);
     list.innerHTML = page.data.length
       ? `<div class="c360-wa-list">${page.data.map(whatsappLine).join("")}</div>`
-      : relEmptyBlock("fa-comments", "No messages in this chat yet. Open it in the Inbox to send a template.");
+      : relEmptyBlock("fa-comments", t("c360.wa.noMessages"));
     const box = list.querySelector(".c360-wa-list");
     if (box) box.scrollTop = box.scrollHeight;
   } catch (error) {
-    list.innerHTML = relEmptyBlock("fa-triangle-exclamation", apiErrorMessage(error, "Couldn't load the chat."));
+    list.innerHTML = relEmptyBlock("fa-triangle-exclamation", apiErrorMessage(error, t("c360.wa.loadChat")));
   }
 }
 
@@ -493,7 +494,7 @@ async function startWhatsAppChat(customer, button) {
     window.location.href = `Inbox.html?c=${encodeURIComponent(chat.id)}`;
   } catch (error) {
     button.disabled = false;
-    showToast(apiErrorMessage(error, "Couldn't open a WhatsApp chat."), "error");
+    showToast(apiErrorMessage(error, t("c360.wa.openFailed")), "error");
   }
 }
 
@@ -506,24 +507,24 @@ async function renderWhatsAppTab(customer) {
   try {
     chats = await crmApi(`/conversations?contactId=${encodeURIComponent(customer.id)}&status=any&limit=10`);
   } catch (error) {
-    list.innerHTML = relEmptyBlock("fa-triangle-exclamation", apiErrorMessage(error, "Couldn't load WhatsApp chats."));
+    list.innerHTML = relEmptyBlock("fa-triangle-exclamation", apiErrorMessage(error, t("c360.wa.loadChats")));
     return;
   }
   if (!chats.length) {
     head.innerHTML = "";
-    list.innerHTML = `${relEmptyBlock("fa-comments", customer.phone ? "No WhatsApp chat with this customer yet." : "Add a mobile number to this customer to chat on WhatsApp.")}${
-      customer.phone ? '<div style="text-align:center;padding:0 16px 24px"><button class="btn btn-primary" type="button" id="c360WaStart"><i class="fa-brands fa-whatsapp"></i> Message on WhatsApp</button></div>' : ""
+    list.innerHTML = `${relEmptyBlock("fa-comments", t(customer.phone ? "c360.wa.noChat" : "c360.wa.noPhone"))}${
+      customer.phone ? `<div style="text-align:center;padding:0 16px 24px"><button class="btn btn-primary" type="button" id="c360WaStart"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("c360.wa.message"))}</button></div>` : ""
     }`;
     const start = document.getElementById("c360WaStart");
     if (start) start.addEventListener("click", () => startWhatsAppChat(customer, start));
     return;
   }
   const label = (c) => `${c.account?.verifiedName || c.account?.name || "WhatsApp"}${c.account?.displayPhone ? ` · ${c.account.displayPhone}` : ""}`;
-  const describe = (c) => `${c.status} · ${c.assigneeId ? `with ${memberName(c.assigneeId) || "a teammate"}` : "in the queue"}`;
+  const describe = (c) => `${t(`inbox.status.${c.status}`)} · ${c.assigneeId ? t("c360.wa.with", { name: memberName(c.assigneeId) || t("inbox.teammate") }) : t("inbox.inQueue")}`;
   head.innerHTML = `
-    ${chats.length > 1 ? `<select id="c360WaPick" aria-label="WhatsApp number">${chats.map((c, i) => `<option value="${i}">${escapeHtml(label(c))}</option>`).join("")}</select>` : `<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> ${escapeHtml(label(chats[0]))}</span>`}
+    ${chats.length > 1 ? `<select id="c360WaPick" aria-label="${escapeHtml(t("wa.number"))}">${chats.map((c, i) => `<option value="${i}">${escapeHtml(label(c))}</option>`).join("")}</select>` : `<span><i class="fa-brands fa-whatsapp" style="color:var(--wa)"></i> ${escapeHtml(label(chats[0]))}</span>`}
     <span id="c360WaState">${escapeHtml(describe(chats[0]))}</span>
-    <a class="btn btn-outline" id="c360WaOpen" href="Inbox.html?c=${encodeURIComponent(chats[0].id)}"><i class="fa-solid fa-comments"></i> Open in Inbox</a>`;
+    <a class="btn btn-outline" id="c360WaOpen" href="Inbox.html?c=${encodeURIComponent(chats[0].id)}"><i class="fa-solid fa-comments"></i> ${escapeHtml(t("c360.wa.openInbox"))}</a>`;
   const pick = document.getElementById("c360WaPick");
   if (pick) {
     pick.addEventListener("change", () => {
@@ -564,7 +565,7 @@ crmReady(["leads", "contacts", "products", "members", "tasks", "events", "ticket
       customerNoteList = await getContactNotes(customer.id);
     } catch (error) {
       customerNoteList = [];
-      showToast(apiErrorMessage(error, "Couldn't load this customer's notes."), "error");
+      showToast(apiErrorMessage(error, t("c360.err.notes")), "error");
     }
     document.getElementById("pickerView").style.display = "none";
     document.getElementById("profileView").style.display = "block";

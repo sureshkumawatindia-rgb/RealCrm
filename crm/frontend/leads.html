@@ -239,10 +239,10 @@
       <div class="main">
         <header class="topbar">
           <div style="display: flex; align-items: center; gap: 12px">
-            <button id="menu-toggle" class="icon-btn" style="display: none" type="button" aria-label="Open navigation">
+            <button id="menu-toggle" class="icon-btn" style="display: none" type="button" aria-label="Open navigation" data-i18n-aria-label="leads.open-navigation">
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Leads</h2>
+            <h2 data-i18n="nav.leads">Leads</h2>
           </div>
         </header>
 
@@ -253,45 +253,42 @@
               <input
                 type="text"
                 id="searchInput"
-                placeholder="Search leads..."
+                placeholder="Search leads..." data-i18n-placeholder="leads.search-leads"
               />
             </div>
             <div style="display: flex; gap: 10px">
               <select class="filter" id="filterStatus">
-                <option value="all">All Status</option>
-                <option value="New">New</option>
-                <option value="Contacted">Contacted</option>
-                <option value="Quote Sent">Quote Sent</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Won">Won</option>
-                <option value="Lost">Lost</option>
+                <option value="all" data-i18n="leads.all-status">All Status</option>
+                <option value="New" data-i18n="stage.New">New</option>
+                <option value="Contacted" data-i18n="stage.Contacted">Contacted</option>
+                <option value="Quote Sent" data-i18n="stage.Quote Sent">Quote Sent</option>
+                <option value="Negotiation" data-i18n="stage.Negotiation">Negotiation</option>
+                <option value="Won" data-i18n="stage.Won">Won</option>
+                <option value="Lost" data-i18n="stage.Lost">Lost</option>
               </select>
-              <button class="btn btn-outline" id="awaitingBtn" type="button" title="Leads whose quotation got no reply">
-                <i class="fa-solid fa-hourglass-half"></i> Quote sent, no reply
-              </button>
+              <button class="btn btn-outline" id="awaitingBtn" type="button" title="Leads whose quotation got no reply" data-i18n-title="leads.leads-whose-quotation-got-no-reply">
+                <i class="fa-solid fa-hourglass-half"></i> <span data-i18n="leads.quote-sent-no-reply">Quote sent, no reply</span></button>
               <button class="btn btn-primary" id="addBtn">
-                <i class="fa-solid fa-plus"></i> New Lead
-              </button>
+                <i class="fa-solid fa-plus"></i> <span data-i18n="leads.new-lead">New Lead</span></button>
 
               <button class="btn btn-outline" id="addProductBtn" type="button">
-                <i class="fa-solid fa-box-open"></i> Add Product
-              </button>
+                <i class="fa-solid fa-box-open"></i> <span data-i18n="leads.add-product">Add Product</span></button>
             </div>
           </div>
 
           <div class="panel awaiting" id="awaitingPanel" hidden>
             <div class="awaiting-head">
-              <h3><i class="fa-solid fa-hourglass-half"></i> Quote sent, no reply</h3>
+              <h3><i class="fa-solid fa-hourglass-half"></i> <span data-i18n="leads.quote-sent-no-reply">Quote sent, no reply</span></h3>
               <label class="text-muted" style="display: flex; align-items: center; gap: 8px; font-size: 13px">
-                for at least
+                <span data-i18n="leads.for-at-least">for at least</span>
                 <select class="filter" id="awaitingDays">
-                  <option value="2">2 days</option>
-                  <option value="3" selected>3 days</option>
-                  <option value="5">5 days</option>
-                  <option value="7">7 days</option>
-                  <option value="14">14 days</option>
+                  <option value="2" data-i18n="leads.2-days">2 days</option>
+                  <option value="3" selected data-i18n="leads.3-days">3 days</option>
+                  <option value="5" data-i18n="leads.5-days">5 days</option>
+                  <option value="7" data-i18n="leads.7-days">7 days</option>
+                  <option value="14" data-i18n="leads.14-days">14 days</option>
                 </select>
-                <button class="icon-btn" id="awaitingClose" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button>
+                <button class="icon-btn" id="awaitingClose" type="button" title="Close" data-i18n-title="common.close"><i class="fa-solid fa-xmark"></i></button>
               </label>
             </div>
             <div id="awaitingList"></div>
@@ -301,16 +298,14 @@
 
           <div class="panel" style="margin-top: 18px">
             <div class="panel-head">
-              <h3>Products</h3>
+              <h3 data-i18n="dash.products">Products</h3>
               <div style="display: flex; gap: 8px; align-items: center">
                 <span
                   class="badge badge-neutral"
                   style="font-weight: 600; padding: 6px 10px"
-                  >Leads per product</span
-                >
+                   data-i18n="leads.leads-per-product">Leads per product</span>
                 <a href="Products.html" class="btn btn-outline">
-                  <i class="fa-solid fa-arrow-up-right-from-square"></i> Manage in Products
-                </a>
+                  <i class="fa-solid fa-arrow-up-right-from-square"></i> <span data-i18n="leads.manage-in-products">Manage in Products</span></a>
               </div>
             </div>
             <div id="productsPanel"></div>
@@ -323,7 +318,7 @@
     <div class="modal-overlay" id="modalOverlay">
       <div class="modal">
         <div class="modal-head">
-          <h3 id="modalTitle">New Lead</h3>
+          <h3 id="modalTitle" data-i18n="leads.new-lead">New Lead</h3>
           <button class="icon-btn" id="modalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -332,36 +327,35 @@
           <form id="leadForm">
             <input type="hidden" id="editId" />
             <div class="field">
-              <label>Full Name</label><input type="text" id="fName" required />
+              <label data-i18n="leads.full-name">Full Name</label><input type="text" id="fName" required />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Email</label><input type="email" id="fEmail" />
+                <label data-i18n="leads.email">Email</label><input type="email" id="fEmail" />
               </div>
               <div class="field">
-                <label>Phone</label><input type="text" id="fPhone" />
+                <label data-i18n="leads.phone">Phone</label><input type="text" id="fPhone" />
               </div>
             </div>
             <div class="field">
-              <label>Company</label><input type="text" id="fCompany" />
+              <label data-i18n="col.company">Company</label><input type="text" id="fCompany" />
             </div>
             <div class="field">
-              <label>Interested Product</label>
+              <label data-i18n="leads.interested-product">Interested Product</label>
               <div class="field-with-action">
                 <select id="fProduct">
-                  <option value="">— Add Product —</option>
+                  <option value="" data-i18n="leads.add-product-2">— Add Product —</option>
                 </select>
                 <button
                   type="button"
                   class="btn btn-outline"
                   id="addProductFromLeadBtn"
                 >
-                  <i class="fa-solid fa-plus"></i> Add Product
-                </button>
+                  <i class="fa-solid fa-plus"></i> <span data-i18n="leads.add-product">Add Product</span></button>
               </div>
             </div>
             <div class="field" id="fQuantityWrap" style="display: none">
-              <label>Quantity</label>
+              <label data-i18n="leads.quantity">Quantity</label>
               <input
                 type="number"
                 id="fQuantity"
@@ -372,47 +366,39 @@
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Status</label>
+                <label data-i18n="col.status">Status</label>
                 <select id="fStatus">
-                  <option>New</option>
-                  <option>Contacted</option>
-                  <option>Quote Sent</option>
-                  <option>Negotiation</option>
-                  <option>Won</option>
-                  <option>Lost</option>
+                  <option value="New" data-i18n="stage.New">New</option>
+                  <option value="Contacted" data-i18n="stage.Contacted">Contacted</option>
+                  <option value="Quote Sent" data-i18n="stage.Quote Sent">Quote Sent</option>
+                  <option value="Negotiation" data-i18n="stage.Negotiation">Negotiation</option>
+                  <option value="Won" data-i18n="stage.Won">Won</option>
+                  <option value="Lost" data-i18n="stage.Lost">Lost</option>
                 </select>
               </div>
               <div class="field">
-                <label>Value (₹)</label
-                ><input type="number" id="fValue" min="0" />
+                <label data-i18n="leads.value">Value (₹)</label><input type="number" id="fValue" min="0" />
               </div>
             </div>
             <div class="field">
-              <label>Follow-up Date</label><input type="date" id="fFollowUp" />
+              <label data-i18n="leads.follow-up-date">Follow-up Date</label><input type="date" id="fFollowUp" />
             </div>
             <div class="field">
-              <label>Notes</label><textarea id="fNotes" rows="3"></textarea>
+              <label data-i18n="leads.notes">Notes</label><textarea id="fNotes" rows="3"></textarea>
             </div>
-            <p class="lead-quote-hint" id="leadQuoteHint" hidden>
-              Quotations with items, discounts and GST are made on the Quotations page: use “Create quotation” below.
-            </p>
+            <p class="lead-quote-hint" id="leadQuoteHint" hidden data-i18n="leads.quotations-with-items-discounts-and-gst">Quotations with items, discounts and GST are made on the Quotations page: use “Create quotation” below.</p>
           </form>
         </div>
         <div class="modal-foot">
           <button class="btn btn-outline" id="leadQuoteBtn" type="button" hidden style="margin-right: auto">
-            <i class="fa-solid fa-file-invoice"></i> Create quotation
-          </button>
-          <button class="btn btn-outline" id="cancelBtn" type="button">
-            Cancel
-          </button>
+            <i class="fa-solid fa-file-invoice"></i> <span data-i18n="leads.create-quotation">Create quotation</span></button>
+          <button class="btn btn-outline" id="cancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
           <button
             class="btn btn-primary"
             id="saveBtn"
             type="submit"
             form="leadForm"
-          >
-            Save Lead
-          </button>
+           data-i18n="leads.save-lead">Save Lead</button>
         </div>
       </div>
     </div>
@@ -421,7 +407,7 @@
     <div class="modal-overlay" id="productModalOverlay">
       <div class="modal">
         <div class="modal-head">
-          <h3 id="productModalTitle">New Product</h3>
+          <h3 id="productModalTitle" data-i18n="leads.new-product">New Product</h3>
           <button class="icon-btn" id="productModalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -430,24 +416,21 @@
           <form id="productForm">
             <input type="hidden" id="editProductId" />
             <div class="field">
-              <label>Product Name</label
-              ><input type="text" id="pName" required />
+              <label data-i18n="leads.product-name">Product Name</label><input type="text" id="pName" required />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Category</label>
+                <label data-i18n="wa.tpl.category">Category</label>
                 <input type="text" id="pCategory" list="categoryOptions" />
                 <datalist id="categoryOptions"></datalist>
               </div>
               <div class="field">
-                <label>Price (₹)</label
-                ><input type="number" id="pPrice" min="0" />
+                <label data-i18n="leads.price">Price (₹)</label><input type="number" id="pPrice" min="0" />
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label for="pQuantity">Quantity in Stock</label
-                ><input
+                <label for="pQuantity" data-i18n="leads.quantity-in-stock">Quantity in Stock</label><input
                   type="number"
                   id="pQuantity"
                   min="0"
@@ -456,8 +439,7 @@
                 />
               </div>
               <div class="field">
-                <label for="pGst">GST / Tax (%)</label
-                ><input
+                <label for="pGst" data-i18n="leads.gst-tax">GST / Tax (%)</label><input
                   type="number"
                   id="pGst"
                   min="0"
@@ -467,23 +449,18 @@
               </div>
             </div>
             <div class="field">
-              <label>Description</label
-              ><textarea id="pDescription" rows="3"></textarea>
+              <label data-i18n="leads.description">Description</label><textarea id="pDescription" rows="3"></textarea>
             </div>
           </form>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-outline" id="productCancelBtn" type="button">
-            Cancel
-          </button>
+          <button class="btn btn-outline" id="productCancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
           <button
             class="btn btn-primary"
             id="productSaveBtn"
             type="submit"
             form="productForm"
-          >
-            Save Product
-          </button>
+           data-i18n="leads.save-product">Save Product</button>
         </div>
       </div>
     </div>  
@@ -492,7 +469,7 @@
     <div class="modal-overlay" id="notesModalOverlay">
       <div class="modal notes-modal">
         <div class="modal-head">
-          <h3 id="notesModalTitle">Notes</h3>
+          <h3 id="notesModalTitle" data-i18n="leads.notes">Notes</h3>
           <button class="icon-btn" id="notesModalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -512,17 +489,15 @@
                 d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v268q-19-9-39-15.5t-41-9.5v-243H200v560h242q3 22 9.5 42t15.5 38H200Zm0-120v40-560 243-3 280Zm80-40h163q3-21 9.5-41t14.5-39H280v80Zm0-160h244q32-30 71.5-50t84.5-27v-3H280v80Zm0-160h400v-80H280v80ZM720-40q-83 0-141.5-58.5T520-240q0-83 58.5-141.5T720-440q83 0 141.5 58.5T920-240q0 83-58.5 141.5T720-40Zm-20-80h40v-100h100v-40H740v-100h-40v100H600v40h100v100Z"
               />
             </svg>
-            Note
+            <span data-i18n="leads.noteButton">Note</span>
           </button>
           <div class="lead-history">
-            <h4>History</h4>
+            <h4 data-i18n="leads.history">History</h4>
             <div id="leadHistoryList"></div>
           </div>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-primary" id="notesDoneBtn" type="button">
-            Done
-          </button>
+          <button class="btn btn-primary" id="notesDoneBtn" type="button" data-i18n="dash.setup.done">Done</button>
         </div>
       </div>
     </div>
