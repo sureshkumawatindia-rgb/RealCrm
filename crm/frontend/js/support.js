@@ -62,7 +62,7 @@ function todayStr() {
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", {
+  return d.toLocaleDateString(crmI18n.locale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -153,11 +153,11 @@ function renderKpis() {
   });
 
   const cards = [
-    { label: "Total Tickets", value: tickets.length, cls: "" },
-    { label: "Open Tickets", value: open.length, cls: "info" },
-    { label: "Overdue", value: overdue.length, cls: "warning" },
+    { label: crmI18n.t("sup.kpi.total"), value: tickets.length, cls: "" },
+    { label: crmI18n.t("c360.openTickets"), value: open.length, cls: "info" },
+    { label: crmI18n.t("dash.overdue"), value: overdue.length, cls: "warning" },
     {
-      label: "Resolved This Month",
+      label: crmI18n.t("sup.kpi.resolved"),
       value: resolvedThisMonth.length,
       cls: "success",
     },
@@ -167,8 +167,8 @@ function renderKpis() {
     .map(
       (c) => `
       <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>
       </div>`,
     )
     .join("");
@@ -194,14 +194,14 @@ function renderKanban() {
 
       const cardsHtml = statusTickets.length
         ? statusTickets.map((t) => ticketCardHtml(t)).join("")
-        : `<div class="kanban-col-empty">No tickets</div>`;
+        : `<div class="kanban-col-empty">${escapeHtml(crmI18n.t("sup.noTickets"))}</div>`;
 
       return `
       <div class="kanban-col" data-status="${status}">
         <div class="kanban-col-head">
           <div class="kanban-col-head-title">
             <span class="kanban-dot" style="background:${STATUS_DOT[status]}"></span>
-            <h4>${status}</h4>
+            <h4>${escapeHtml(crmLabel("ticketStatus", status))}</h4>
           </div>
           <span class="kanban-count">${statusTickets.length}</span>
         </div>
@@ -225,7 +225,7 @@ function ticketCardHtml(t) {
     <div class="ticket-card ${t.priority === "Urgent" ? "is-urgent" : ""}" draggable="true" data-id="${t.id}">
       <div class="ticket-card__top">
         <span class="ticket-card__id">#${t.number}</span>
-        <span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${t.priority}</span>
+        <span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${escapeHtml(crmLabel("priority", t.priority))}</span>
       </div>
       <div class="ticket-card__subject">${escapeHtml(t.subject)}</div>
       ${
@@ -234,15 +234,15 @@ function ticketCardHtml(t) {
           : ""
       }
       <div class="ticket-card__tags">
-        <span class="ticket-tag">${escapeHtml(t.category || "General")}</span>
+        <span class="ticket-tag">${escapeHtml(crmLabel("ticketCategory", t.category || "General"))}</span>
       </div>
       <div class="ticket-card__foot">
         <div class="ticket-card__assignee">
           <span class="ticket-card__avatar">${initials(t.assignee)}</span>
-          ${escapeHtml((t.assignee || "").split(" ")[0] || "Unassigned")}
+          ${escapeHtml((t.assignee || "").split(" ")[0] || crmI18n.t("dash.unassigned"))}
         </div>
         <div class="ticket-card__date ${overdue ? "overdue" : ""}">
-          ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${t.dueDate ? formatDate(t.dueDate) : "No due date"}
+          ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${t.dueDate ? formatDate(t.dueDate) : escapeHtml(crmI18n.t("sup.noDue"))}
         </div>
       </div>
       ${kanbanMoveButton(t.id)}
@@ -254,8 +254,8 @@ function moveTicket(id, newStatus) {
   const ticket = getTicket(id);
   if (!ticket || ticket.status === newStatus) return;
   saveTicket(ticket.id, { status: newStatus })
-    .then(() => showToast(`Moved #${ticket.number} to ${newStatus}`, "success"))
-    .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the ticket."), "error"))
+    .then(() => showToast(crmI18n.t("sup.moved", { number: ticket.number, status: crmLabel("ticketStatus", newStatus) }), "success"))
+    .catch((error) => showToast(apiErrorMessage(error, crmI18n.t("sup.err.move")), "error"))
     .finally(renderAll);
 }
 
@@ -267,8 +267,8 @@ function attachDragEvents() {
       const ticket = getTicket(card.dataset.id);
       if (!ticket) return;
       const status = await crmMoveMenu.open({
-        title: `Move #${ticket.number} to`, current: ticket.status, returnFocus: event.currentTarget,
-        options: STATUSES.map((s) => ({ value: s, label: s, color: STATUS_DOT[s] })),
+        title: crmI18n.t("sup.moveTo", { number: ticket.number }), current: ticket.status, returnFocus: event.currentTarget,
+        options: STATUSES.map((s) => ({ value: s, label: crmLabel("ticketStatus", s), color: STATUS_DOT[s] })),
       });
       if (status) moveTicket(ticket.id, status);
     });
@@ -331,7 +331,7 @@ function renderTable() {
     wrap.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-headset"></i>
-        <div>No tickets match your filters.</div>
+        <div>${escapeHtml(crmI18n.t("sup.empty.filtered"))}</div>
       </div>`;
     return;
   }
@@ -341,12 +341,12 @@ function renderTable() {
       <thead>
         <tr>
           <th>#</th>
-          <th>Subject</th>
-          <th>Customer</th>
-          <th>Priority</th>
-          <th>Status</th>
-          <th>Assignee</th>
-          <th>Due Date</th>
+          <th>${escapeHtml(crmI18n.t("sup.subject"))}</th>
+          <th>${escapeHtml(crmI18n.t("orders.customer"))}</th>
+          <th>${escapeHtml(crmI18n.t("tasks.priority"))}</th>
+          <th>${escapeHtml(crmI18n.t("col.status"))}</th>
+          <th>${escapeHtml(crmI18n.t("sup.col.assignee"))}</th>
+          <th>${escapeHtml(crmI18n.t("tasks.due-date"))}</th>
           <th></th>
         </tr>
       </thead>
@@ -358,14 +358,14 @@ function renderTable() {
             <td>#${t.number}</td>
             <td><strong>${escapeHtml(t.subject)}</strong></td>
             <td>${escapeHtml(t.customer || "—")}</td>
-            <td><span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${t.priority}</span></td>
-            <td><span class="badge ${STATUS_BADGE_CLASS[t.status]}">${t.status}</span></td>
+            <td><span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${escapeHtml(crmLabel("priority", t.priority))}</span></td>
+            <td><span class="badge ${STATUS_BADGE_CLASS[t.status]}">${escapeHtml(crmLabel("ticketStatus", t.status))}</span></td>
             <td>${escapeHtml(t.assignee || "—")}</td>
             <td>${t.dueDate ? formatDate(t.dueDate) : "—"}</td>
             <td>
               <div class="row-actions">
-                <button class="icon-btn edit-row" data-id="${t.id}"><i class="fa-solid fa-pen"></i></button>
-                <button class="icon-btn danger delete-row" data-id="${t.id}"><i class="fa-solid fa-trash"></i></button>
+                <button class="icon-btn edit-row" data-id="${t.id}" title="${escapeHtml(crmI18n.t("common.edit"))}" aria-label="${escapeHtml(crmI18n.t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn danger delete-row" data-id="${t.id}" title="${escapeHtml(crmI18n.t("common.delete"))}" aria-label="${escapeHtml(crmI18n.t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>`,
@@ -402,7 +402,7 @@ function renderAgentsTab() {
   const el = document.getElementById("agentsTabContent");
 
   if (!agents.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-user-group"></i><div>No agents yet. Add one from Account Champions.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-user-group"></i><div>${escapeHtml(crmI18n.t("tasks.noAgents", { link: crmI18n.t("nav.accounts") }))}</div></div>`;
     return;
   }
 
@@ -416,7 +416,7 @@ function renderAgentsTab() {
           <div class="avatar">${initials(a.name)}</div>
           <div class="info">
             <div class="name">${escapeHtml(a.name)}</div>
-            <div class="sub">${escapeHtml(a.role || "Agent")}</div>
+            <div class="sub">${escapeHtml(crmLabel("role", a.role || "Agent"))}</div>
           </div>
           <span class="count">${openCount}</span>
         </div>`;
@@ -441,7 +441,7 @@ function renderOverdueTab() {
 
   const el = document.getElementById("overdueTabContent");
   if (!overdue.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-circle-check"></i><div>Nothing overdue. Nice work.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-circle-check"></i><div>${escapeHtml(crmI18n.t("sup.nothingOverdue"))}</div></div>`;
     return;
   }
 
@@ -452,7 +452,7 @@ function renderOverdueTab() {
           <span class="dot"></span>
           <div class="info">
             <div class="name">#${t.number} · ${escapeHtml(t.subject)}</div>
-            <div class="sub">Due ${formatDate(t.dueDate)}${t.assignee ? " · " + escapeHtml(t.assignee) : ""}</div>
+            <div class="sub">${escapeHtml(crmI18n.t("sup.dueOn", { date: formatDate(t.dueDate) }))}${t.assignee ? " · " + escapeHtml(t.assignee) : ""}</div>
           </div>
         </div>`,
     )
@@ -472,11 +472,11 @@ function setAssigneeValue(name, role) {
   const labelEl = document.getElementById("assigneeTriggerLabel");
   if (name) {
     avatarEl.textContent = initials(name);
-    labelEl.textContent = role ? `${name} · ${role}` : name;
+    labelEl.textContent = role ? `${name} · ${crmLabel("role", role)}` : name;
     labelEl.classList.remove("is-placeholder");
   } else {
     avatarEl.textContent = "?";
-    labelEl.textContent = "Select agent";
+    labelEl.textContent = crmI18n.t("cal.select-agent");
     labelEl.classList.add("is-placeholder");
   }
 }
@@ -486,7 +486,8 @@ function buildAssigneeMenu() {
   const selected = document.getElementById("fAssignee").value;
 
   if (!agents.length) {
-    menu.innerHTML = `<div class="assignee-picker__empty">No agents yet. Add one from <a href="accounts.html">Account Champions</a>.</div>`;
+    const link = `<a href="accounts.html">${escapeHtml(crmI18n.t("nav.accounts"))}</a>`;
+    menu.innerHTML = `<div class="assignee-picker__empty">${crmI18n.t("tasks.noAgents", { link })}</div>`;
     return;
   }
 
@@ -497,7 +498,7 @@ function buildAssigneeMenu() {
         <span class="avatar">${initials(a.name)}</span>
         <div class="info">
           <div class="name">${escapeHtml(a.name)}</div>
-          <div class="role">${escapeHtml(a.role || "Agent")}</div>
+          <div class="role">${escapeHtml(crmLabel("role", a.role || "Agent"))}</div>
         </div>
         <i class="fa-solid fa-check check"></i>
       </div>`,
@@ -540,7 +541,7 @@ function populateFilterAssignee() {
   const sel = document.getElementById("filterAssignee");
   const current = sel.value;
   sel.innerHTML =
-    `<option value="all">All Agents</option>` +
+    `<option value="all">${escapeHtml(crmI18n.t("tasks.all-agents"))}</option>` +
     assigneeNames()
       .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
       .join("");
@@ -569,7 +570,7 @@ function openModal(id) {
     const ticket = getTicket(id);
     if (!ticket) return;
     document.getElementById("modalTitle").textContent =
-      `Edit Ticket #${ticket.number}`;
+      crmI18n.t("sup.edit", { number: ticket.number });
     document.getElementById("editId").value = ticket.id;
     document.getElementById("fSubject").value = ticket.subject;
     document.getElementById("fCustomer").value = ticket.customer || "";
@@ -585,7 +586,7 @@ function openModal(id) {
     renderTimeline(null);
     loadTimeline(ticket.id);
   } else {
-    document.getElementById("modalTitle").textContent = "New Ticket";
+    document.getElementById("modalTitle").textContent = crmI18n.t("sup.new-ticket");
     document.getElementById("editId").value = "";
     document.getElementById("fCategory").value = "Technical";
     document.getElementById("fPriority").value = "Medium";
@@ -608,7 +609,7 @@ async function loadTimeline(id) {
     if (document.getElementById("editId").value === String(id)) renderTimeline(notes);
   } catch (error) {
     document.getElementById("timelineList").innerHTML =
-      `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, "Couldn't load the replies."))}</div>`;
+      `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, crmI18n.t("sup.err.replies")))}</div>`;
   }
 }
 
@@ -616,7 +617,7 @@ async function loadTimeline(id) {
 function renderTimeline(notes) {
   const el = document.getElementById("timelineList");
   if (!notes) {
-    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">Loading replies…</div>`;
+    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(crmI18n.t("sup.loadingReplies"))}</div>`;
     return;
   }
   el.innerHTML = notes.length
@@ -632,7 +633,7 @@ function renderTimeline(notes) {
       </div>`,
         )
         .join("")
-    : `<div class="text-muted" style="font-size:12.5px">No replies yet.</div>`;
+    : `<div class="text-muted" style="font-size:12.5px">${escapeHtml(crmI18n.t("sup.noReplies"))}</div>`;
 }
 
 async function addNoteToTicket() {
@@ -644,21 +645,21 @@ async function addNoteToTicket() {
   try {
     await addTicketNote(id, text);
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+    showToast(apiErrorMessage(error, crmI18n.t("inbox.err.note")), "error");
     return;
   }
   input.value = "";
-  showToast("Note added", "success");
+  showToast(crmI18n.t("c360.noteAdded"), "success");
   await loadTimeline(id);
 }
 
 function confirmDelete(id) {
   const ticket = getTicket(id);
   if (!ticket) return;
-  if (confirm(`Delete ticket #${ticket.number}? This can't be undone.`)) {
+  if (confirm(crmI18n.t("sup.confirmDelete", { number: ticket.number }))) {
     removeTicket(id)
-      .then(() => showToast("Ticket deleted", "success"))
-      .catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the ticket."), "error"))
+      .then(() => showToast(crmI18n.t("sup.deleted"), "success"))
+      .catch((error) => showToast(apiErrorMessage(error, crmI18n.t("sup.err.delete")), "error"))
       .finally(renderAll);
   }
 }
@@ -809,15 +810,15 @@ document.getElementById("ticketForm").addEventListener("submit", async (e) => {
   };
 
   if (!payload.subject || !payload.customer) {
-    showToast("Please fill in all required fields", "error");
+    showToast(crmI18n.t("deals.required"), "error");
     return;
   }
 
   try {
     const saved = await saveTicket(id || null, payload);
-    showToast(id ? "Ticket updated" : `Ticket #${saved.number} created`, "success");
+    showToast(id ? crmI18n.t("sup.updated") : crmI18n.t("sup.created", { number: saved.number }), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't save the ticket."), "error");
+    showToast(apiErrorMessage(error, crmI18n.t("sup.err.save")), "error");
     return;
   }
   closeModal();

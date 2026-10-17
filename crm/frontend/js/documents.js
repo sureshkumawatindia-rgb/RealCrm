@@ -37,6 +37,11 @@ const CATEGORY_BADGE_CLASS = {
   Other: "badge-cat-other",
 };
 
+// What a document is linked to: the server keeps the English type, the page shows the word.
+const RELATED_KEYS = { Customer: "orders.customer", Lead: "dash.add.lead", Account: "deals.col.account", Deal: "dash.add.deal" };
+const relatedLabel = (type) => (RELATED_KEYS[type] ? crmI18n.t(RELATED_KEYS[type]) : type);
+const categoryLabel = (category) => crmLabel("docCategory", category);
+
 let currentView = "grid";
 let activeCategoryFilter = null; // set by the nav-bar-kanban-card pills
 let sourceMode = "file"; // "file" | "link" — modal toggle
@@ -55,7 +60,7 @@ function todayStr() {
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", {
+  return d.toLocaleDateString(crmI18n.locale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -170,18 +175,18 @@ function renderKpis() {
   const linked = docs.filter((d) => d.relatedType);
 
   const cards = [
-    { label: "Total Documents", value: docs.length, cls: "" },
-    { label: "Storage Used", value: formatBytes(totalBytes), cls: "info" },
-    { label: "Uploaded This Week", value: uploadedThisWeek.length, cls: "success" },
-    { label: "Linked to Records", value: linked.length, cls: "warning" },
+    { label: crmI18n.t("docs.kpi.total"), value: docs.length, cls: "" },
+    { label: crmI18n.t("docs.kpi.storage"), value: formatBytes(totalBytes), cls: "info" },
+    { label: crmI18n.t("docs.kpi.week"), value: uploadedThisWeek.length, cls: "success" },
+    { label: crmI18n.t("docs.kpi.linked"), value: linked.length, cls: "warning" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
     .map(
       (c) => `
       <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>
       </div>`,
     )
     .join("");
@@ -198,7 +203,7 @@ function renderGrid() {
     grid.innerHTML = `
       <div class="empty-state doc-grid-empty">
         <i class="fa-solid fa-file-lines"></i>
-        <p>No documents match your filters.</p>
+        <p>${escapeHtml(crmI18n.t("docs.empty.filtered"))}</p>
       </div>`;
     return;
   }
@@ -228,7 +233,7 @@ function renderGrid() {
 function docCardHtml(d) {
   const { cls, icon } = getFileIcon(d.fileName, d.fileType, !!d.linkUrl);
   const sizeLabel = d.linkUrl
-    ? "External link"
+    ? escapeHtml(crmI18n.t("docs.externalLink"))
     : d.fileSize
       ? formatBytes(d.fileSize)
       : "—";
@@ -243,21 +248,21 @@ function docCardHtml(d) {
       </div>
       ${
         d.relatedName
-          ? `<div class="doc-card__related"><i class="fa-solid fa-link"></i> ${escapeHtml(d.relatedType)}: ${escapeHtml(d.relatedName)}</div>`
+          ? `<div class="doc-card__related"><i class="fa-solid fa-link"></i> ${escapeHtml(relatedLabel(d.relatedType))}: ${escapeHtml(d.relatedName)}</div>`
           : ""
       }
       <div class="doc-card__tags">
-        <span class="doc-tag" style="color:${CATEGORY_DOT[d.category]}">${escapeHtml(d.category)}</span>
+        <span class="doc-tag" style="color:${CATEGORY_DOT[d.category]}">${escapeHtml(categoryLabel(d.category))}</span>
         ${(d.tags || []).map((t) => `<span class="doc-tag">${escapeHtml(t)}</span>`).join("")}
       </div>
       <div class="doc-card__foot">
         <div class="doc-card__owner">
           <span class="doc-card__owner-avatar">${initials(d.owner)}</span>
-          ${escapeHtml((d.owner || "").split(" ")[0] || "Unassigned")}
+          ${escapeHtml((d.owner || "").split(" ")[0] || crmI18n.t("dash.unassigned"))}
         </div>
         <div class="doc-card__actions">
-          <button class="icon-btn" data-action="open" data-id="${d.id}" title="Open"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-          <button class="icon-btn danger" data-action="delete" data-id="${d.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          <button class="icon-btn" data-action="open" data-id="${d.id}" title="${escapeHtml(crmI18n.t("docs.open"))}" aria-label="${escapeHtml(crmI18n.t("docs.open"))}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+          <button class="icon-btn danger" data-action="delete" data-id="${d.id}" title="${escapeHtml(crmI18n.t("common.delete"))}" aria-label="${escapeHtml(crmI18n.t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>
     </div>`;
@@ -296,7 +301,7 @@ function renderTable() {
     wrap.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-file-lines"></i>
-        <div>No documents match your filters.</div>
+        <div>${escapeHtml(crmI18n.t("docs.empty.filtered"))}</div>
       </div>`;
     return;
   }
@@ -305,12 +310,12 @@ function renderTable() {
     <table>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Category</th>
-          <th>Related To</th>
-          <th>Owner</th>
-          <th>Size</th>
-          <th>Uploaded</th>
+          <th>${escapeHtml(crmI18n.t("col.name"))}</th>
+          <th>${escapeHtml(crmI18n.t("leads.col.category"))}</th>
+          <th>${escapeHtml(crmI18n.t("tasks.related-to"))}</th>
+          <th>${escapeHtml(crmI18n.t("leads.col.owner"))}</th>
+          <th>${escapeHtml(crmI18n.t("docs.col.size"))}</th>
+          <th>${escapeHtml(crmI18n.t("docs.col.uploaded"))}</th>
           <th></th>
         </tr>
       </thead>
@@ -320,16 +325,16 @@ function renderTable() {
             (d) => `
           <tr data-id="${d.id}">
             <td><strong>${escapeHtml(d.name)}</strong></td>
-            <td><span class="badge ${CATEGORY_BADGE_CLASS[d.category]}">${d.category}</span></td>
-            <td>${d.relatedName ? `${escapeHtml(d.relatedType)}: ${escapeHtml(d.relatedName)}` : "—"}</td>
+            <td><span class="badge ${CATEGORY_BADGE_CLASS[d.category]}">${escapeHtml(categoryLabel(d.category))}</span></td>
+            <td>${d.relatedName ? `${escapeHtml(relatedLabel(d.relatedType))}: ${escapeHtml(d.relatedName)}` : "—"}</td>
             <td>${escapeHtml(d.owner || "—")}</td>
-            <td>${d.linkUrl ? "External link" : d.fileSize ? formatBytes(d.fileSize) : "—"}</td>
+            <td>${d.linkUrl ? escapeHtml(crmI18n.t("docs.externalLink")) : d.fileSize ? formatBytes(d.fileSize) : "—"}</td>
             <td>${formatDate(d.createdAt)}</td>
             <td>
               <div class="row-actions">
-                <button class="icon-btn open-row" data-id="${d.id}" title="Open"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-                <button class="icon-btn edit-row" data-id="${d.id}" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                <button class="icon-btn danger delete-row" data-id="${d.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                <button class="icon-btn open-row" data-id="${d.id}" title="${escapeHtml(crmI18n.t("docs.open"))}" aria-label="${escapeHtml(crmI18n.t("docs.open"))}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                <button class="icon-btn edit-row" data-id="${d.id}" title="${escapeHtml(crmI18n.t("common.edit"))}" aria-label="${escapeHtml(crmI18n.t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn danger delete-row" data-id="${d.id}" title="${escapeHtml(crmI18n.t("common.delete"))}" aria-label="${escapeHtml(crmI18n.t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>`,
@@ -375,11 +380,11 @@ function openDocument(id) {
   }
   if (doc.hasFile) {
     downloadDocument(doc).catch((error) =>
-      showToast(apiErrorMessage(error, "Couldn't download the file."), "error"),
+      showToast(apiErrorMessage(error, crmI18n.t("docs.err.download")), "error"),
     );
     return;
   }
-  showToast("This document has no file or link attached.", "error");
+  showToast(crmI18n.t("docs.noFile"), "error");
 }
 
 // ---------------------------------------------------------------
@@ -398,8 +403,8 @@ function renderCategoriesTab() {
       <div class="category-row" data-cat="${cat}">
         <span class="dot" style="background:${CATEGORY_DOT[cat]}"></span>
         <div class="info">
-          <div class="name">${cat}</div>
-          <div class="sub">${bytes ? formatBytes(bytes) : "No files"}</div>
+          <div class="name">${escapeHtml(categoryLabel(cat))}</div>
+          <div class="sub">${bytes ? formatBytes(bytes) : escapeHtml(crmI18n.t("docs.noFiles"))}</div>
         </div>
         <span class="count">${count}</span>
       </div>`;
@@ -434,7 +439,7 @@ function renderRecentTab() {
 
   const el = document.getElementById("recentTabContent");
   if (!docs.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-file-lines"></i><div>No documents yet.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-file-lines"></i><div>${escapeHtml(crmI18n.t("docs.none"))}</div></div>`;
     return;
   }
 
@@ -446,7 +451,7 @@ function renderRecentTab() {
           <div class="icon ${cls}"><i class="fa-solid ${icon}"></i></div>
           <div class="info">
             <div class="name">${escapeHtml(d.name)}</div>
-            <div class="sub">${d.category} · ${formatDate(d.createdAt)}</div>
+            <div class="sub">${escapeHtml(categoryLabel(d.category))} · ${formatDate(d.createdAt)}</div>
           </div>
         </div>`;
     })
@@ -504,13 +509,13 @@ function populateOwnerSelect() {
           (n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`,
         )
         .join("")
-    : `<option value="" disabled selected>Add an agent first (Account Champions)</option>`;
+    : `<option value="" disabled selected>${escapeHtml(crmI18n.t("docs.addAgentFirst"))}</option>`;
 }
 function populateFilterOwners() {
   const sel = document.getElementById("filterOwner");
   const current = sel.value;
   sel.innerHTML =
-    `<option value="all">All Owners</option>` +
+    `<option value="all">${escapeHtml(crmI18n.t("deals.allOwners"))}</option>` +
     ownerNames()
       .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
       .join("");
@@ -540,7 +545,7 @@ function openModal(id) {
   if (id) {
     const doc = getDocumentById(id);
     if (!doc) return;
-    document.getElementById("modalTitle").textContent = "Edit Document";
+    document.getElementById("modalTitle").textContent = crmI18n.t("docs.edit");
     document.getElementById("editId").value = doc.id;
     document.getElementById("fName").value = doc.name;
     document.getElementById("fCategory").value = doc.category;
@@ -561,7 +566,7 @@ function openModal(id) {
     }
     deleteBtn.style.display = "inline-flex";
   } else {
-    document.getElementById("modalTitle").textContent = "New Document";
+    document.getElementById("modalTitle").textContent = crmI18n.t("docs.new-document");
     document.getElementById("editId").value = "";
     document.getElementById("fCategory").value = "Contract";
     setSourceMode("file");
@@ -578,10 +583,10 @@ function closeModal() {
 function confirmDelete(id) {
   const doc = getDocumentById(id);
   if (!doc) return;
-  if (confirm(`Delete "${doc.name}"? This can't be undone.`)) {
+  if (confirm(crmI18n.t("deals.confirmDelete", { name: doc.name }))) {
     removeDocument(id)
-      .then(() => showToast("Document deleted", "success"))
-      .catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the document."), "error"))
+      .then(() => showToast(crmI18n.t("docs.deleted"), "success"))
+      .catch((error) => showToast(apiErrorMessage(error, crmI18n.t("docs.err.delete")), "error"))
       .finally(renderAll);
   }
 }
@@ -680,9 +685,7 @@ document.querySelectorAll(".side-tab").forEach((tab) => {
 document.getElementById("fRelatedType").addEventListener("change", (e) => {
   populateRelatedOptions(e.target.value);
   document.getElementById("fRelatedName").value = "";
-  document.getElementById("fRelatedName").placeholder = e.target.value
-    ? `Select a ${e.target.value.toLowerCase()}...`
-    : "Select a type first";
+  document.getElementById("fRelatedName").placeholder = crmI18n.t(e.target.value ? `tasks.select.${e.target.value}` : "tasks.select-a-type-first");
 });
 
 // Modal open/close
@@ -727,7 +730,7 @@ document.getElementById("documentForm").addEventListener("submit", async (e) => 
   if (!payload.relatedType) payload.relatedName = "";
 
   if (!payload.name) {
-    showToast("Document name is required.", "error");
+    showToast(crmI18n.t("docs.needName"), "error");
     return;
   }
 
@@ -735,7 +738,7 @@ document.getElementById("documentForm").addEventListener("submit", async (e) => 
   if (sourceMode === "link") {
     const linkUrl = document.getElementById("fLinkUrl").value.trim();
     if (!linkUrl) {
-      showToast("Add a link, or switch to Upload File.", "error");
+      showToast(crmI18n.t("docs.needLink"), "error");
       return;
     }
     payload.linkUrl = linkUrl;
@@ -743,7 +746,7 @@ document.getElementById("documentForm").addEventListener("submit", async (e) => 
     file = pendingFile;
   } else if (!id || !getDocumentById(id)?.hasFile) {
     // Editing without picking a new file keeps the current one.
-    showToast("Attach a file, or switch to External Link.", "error");
+    showToast(crmI18n.t("docs.needFile"), "error");
     return;
   }
 
@@ -751,9 +754,9 @@ document.getElementById("documentForm").addEventListener("submit", async (e) => 
   if (saveBtn) saveBtn.disabled = true;
   try {
     await saveDocument(id || null, payload, file);
-    showToast(id ? "Document updated" : "Document created", "success");
+    showToast(crmI18n.t(id ? "docs.updated" : "docs.created"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't save the document."), "error");
+    showToast(apiErrorMessage(error, crmI18n.t("docs.err.save")), "error");
     return;
   } finally {
     if (saveBtn) saveBtn.disabled = false;

@@ -140,7 +140,7 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Documents</h2>
+            <h2 data-i18n="nav.documents">Documents</h2>
           </div>
         </header>
 
@@ -155,56 +155,51 @@
               <input
                 type="text"
                 id="searchInput"
-                placeholder="Search documents, tags, related records..."
+                placeholder="Search documents, tags, related records..." data-i18n-placeholder="docs.search-documents-tags-related-records"
               />
             </div>
             <div class="filter-bar">
               <select class="filter" id="filterCategory">
-                <option value="all">All Categories</option>
-                <option>Contract</option>
-                <option>Invoice</option>
-                <option>Proposal</option>
-                <option>Report</option>
-                <option>Template</option>
-                <option>Other</option>
+                <option value="all" data-i18n="products.all-categories">All Categories</option>
+                <option value="Contract" data-i18n="docCategory.Contract">Contract</option>
+                <option value="Invoice" data-i18n="docCategory.Invoice">Invoice</option>
+                <option value="Proposal" data-i18n="docCategory.Proposal">Proposal</option>
+                <option value="Report" data-i18n="docCategory.Report">Report</option>
+                <option value="Template" data-i18n="docCategory.Template">Template</option>
+                <option value="Other" data-i18n="docCategory.Other">Other</option>
               </select>
               <select class="filter" id="filterRelatedType">
-                <option value="all">All Records</option>
-                <option value="Customer">Customer</option>
-                <option value="Lead">Lead</option>
-                <option value="Account">Account</option>
-                <option value="Deal">Deal</option>
-                <option value="">Unlinked</option>
+                <option value="all" data-i18n="docs.all-records">All Records</option>
+                <option value="Customer" data-i18n="orders.customer">Customer</option>
+                <option value="Lead" data-i18n="dash.add.lead">Lead</option>
+                <option value="Account" data-i18n="deals.col.account">Account</option>
+                <option value="Deal" data-i18n="dash.add.deal">Deal</option>
+                <option value="" data-i18n="docs.unlinked">Unlinked</option>
               </select>
               <select class="filter" id="filterOwner">
-                <option value="all">All Owners</option>
+                <option value="all" data-i18n="deals.all-owners">All Owners</option>
               </select>
-              <button class="link-clear" id="clearFiltersBtn">
-                Clear filters
-              </button>
+              <button class="link-clear" id="clearFiltersBtn" data-i18n="deals.clear-filters">Clear filters</button>
             </div>
             <div style="display: flex; gap: 10px; margin-left: auto">
               <div class="view-toggle">
                 <button id="viewGridBtn" class="active">
-                  <i class="fa-solid fa-table-cells-large"></i> Grid
-                </button>
+                  <i class="fa-solid fa-table-cells-large"></i> <span data-i18n="docs.grid">Grid</span></button>
                 <button id="viewTableBtn">
-                  <i class="fa-solid fa-list"></i> Table
-                </button>
+                  <i class="fa-solid fa-list"></i> <span data-i18n="deals.table">Table</span></button>
               </div>
               <button class="btn btn-primary" id="addBtn">
-                <i class="fa-solid fa-plus"></i> New Document
-              </button>
+                <i class="fa-solid fa-plus"></i> <span data-i18n="docs.new-document">New Document</span></button>
             </div>
           </div>
 
           <div class="nav-bar-kanban-card">
-            <button data-cat="Contract">Contract</button>
-            <button data-cat="Invoice">Invoice</button>
-            <button data-cat="Proposal">Proposal</button>
-            <button data-cat="Report">Report</button>
-            <button data-cat="Template">Template</button>
-            <button data-cat="Other">Other</button>
+            <button data-cat="Contract" data-i18n="docCategory.Contract">Contract</button>
+            <button data-cat="Invoice" data-i18n="docCategory.Invoice">Invoice</button>
+            <button data-cat="Proposal" data-i18n="docCategory.Proposal">Proposal</button>
+            <button data-cat="Report" data-i18n="docCategory.Report">Report</button>
+            <button data-cat="Template" data-i18n="docCategory.Template">Template</button>
+            <button data-cat="Other" data-i18n="docCategory.Other">Other</button>
           </div>
 
           <!-- LAYOUT: MAIN + SIDE PANEL -->
@@ -219,11 +214,9 @@
             <aside class="side-panel">
               <div class="side-tabs">
                 <button class="side-tab active" data-tab="categories">
-                  <i class="fa-solid fa-layer-group"></i> Categories
-                </button>
+                  <i class="fa-solid fa-layer-group"></i> <span data-i18n="docs.categories">Categories</span></button>
                 <button class="side-tab" data-tab="recent">
-                  <i class="fa-solid fa-clock-rotate-left"></i> Recent
-                </button>
+                  <i class="fa-solid fa-clock-rotate-left"></i> <span data-i18n="docs.recent">Recent</span></button>
               </div>
               <div
                 class="side-tab-content active"
@@ -245,7 +238,7 @@
     <div class="modal-overlay" id="modalOverlay">
       <div class="modal modal--wide">
         <div class="modal-head">
-          <h3 id="modalTitle">New Document</h3>
+          <h3 id="modalTitle" data-i18n="docs.new-document">New Document</h3>
           <button class="icon-btn" id="modalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -254,68 +247,66 @@
           <form id="documentForm">
             <input type="hidden" id="editId" />
             <div class="field">
-              <label>Document Name</label>
+              <label data-i18n="docs.document-name">Document Name</label>
               <input
                 type="text"
                 id="fName"
-                placeholder="e.g. Acme Corp — Master Service Agreement"
+                placeholder="e.g. Acme Corp — Master Service Agreement" data-i18n-placeholder="docs.e-g-acme-corp-master-service"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Category</label>
+                <label data-i18n="leads.col.category">Category</label>
                 <select id="fCategory">
-                  <option>Contract</option>
-                  <option>Invoice</option>
-                  <option>Proposal</option>
-                  <option>Report</option>
-                  <option>Template</option>
-                  <option>Other</option>
+                  <option value="Contract" data-i18n="docCategory.Contract">Contract</option>
+                  <option value="Invoice" data-i18n="docCategory.Invoice">Invoice</option>
+                  <option value="Proposal" data-i18n="docCategory.Proposal">Proposal</option>
+                  <option value="Report" data-i18n="docCategory.Report">Report</option>
+                  <option value="Template" data-i18n="docCategory.Template">Template</option>
+                  <option value="Other" data-i18n="docCategory.Other">Other</option>
                 </select>
               </div>
               <div class="field">
-                <label>Owner</label>
+                <label data-i18n="leads.col.owner">Owner</label>
                 <select id="fOwner"></select>
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Related To</label>
+                <label data-i18n="tasks.related-to">Related To</label>
                 <select id="fRelatedType">
-                  <option value="">None</option>
-                  <option value="Customer">Customer</option>
-                  <option value="Lead">Lead</option>
-                  <option value="Account">Account</option>
-                  <option value="Deal">Deal</option>
+                  <option value="" data-i18n="tasks.none">None</option>
+                  <option value="Customer" data-i18n="orders.customer">Customer</option>
+                  <option value="Lead" data-i18n="dash.add.lead">Lead</option>
+                  <option value="Account" data-i18n="deals.col.account">Account</option>
+                  <option value="Deal" data-i18n="dash.add.deal">Deal</option>
                 </select>
               </div>
               <div class="field">
-                <label>Related Record</label>
+                <label data-i18n="tasks.related-record">Related Record</label>
                 <input
                   type="text"
                   id="fRelatedName"
                   list="relatedOptions"
-                  placeholder="Select a type first"
+                  placeholder="Select a type first" data-i18n-placeholder="tasks.select-a-type-first"
                 />
                 <datalist id="relatedOptions"></datalist>
               </div>
             </div>
 
             <div class="field">
-              <label>Source</label>
+              <label data-i18n="leads.col.source">Source</label>
               <div class="source-toggle" id="sourceToggle">
                 <button type="button" class="source-toggle__btn active" data-mode="file">
-                  <i class="fa-solid fa-upload"></i> Upload File
-                </button>
+                  <i class="fa-solid fa-upload"></i> <span data-i18n="docs.upload-file">Upload File</span></button>
                 <button type="button" class="source-toggle__btn" data-mode="link">
-                  <i class="fa-solid fa-link"></i> External Link
-                </button>
+                  <i class="fa-solid fa-link"></i> <span data-i18n="docs.external-link">External Link</span></button>
               </div>
             </div>
 
             <div class="field" id="fileFieldWrap">
-              <label>File</label>
+              <label data-i18n="docs.file">File</label>
               <input type="file" id="fFile" />
               <div class="file-preview" id="filePreview" style="display: none">
                 <i class="fa-solid fa-file"></i>
@@ -325,36 +316,32 @@
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               </div>
-              <p class="field-hint">
-                Up to 10 MB (your admin can change this). Files are stored
-                privately on the CRM server; programs (.exe, .bat, ...) are
-                not accepted. Use an external link for bigger files.
-              </p>
+              <p class="field-hint" data-i18n="docs.up-to-10-mb-your-admin">Up to 10 MB (your admin can change this). Files are stored privately on the CRM server; programs (.exe, .bat, ...) are not accepted. Use an external link for bigger files.</p>
             </div>
 
             <div class="field" id="linkFieldWrap" style="display: none">
-              <label>External Link</label>
+              <label data-i18n="docs.external-link">External Link</label>
               <input
                 type="text"
                 id="fLinkUrl"
-                placeholder="https://drive.google.com/..."
+                placeholder="https://drive.google.com/..." data-i18n-placeholder="docs.https-drive-google-com"
               />
             </div>
 
             <div class="field">
-              <label>Tags</label>
+              <label data-i18n="customers.col.tags">Tags</label>
               <input
                 type="text"
                 id="fTags"
-                placeholder="e.g. urgent, renewal, Q3 (comma separated)"
+                placeholder="e.g. urgent, renewal, Q3 (comma separated)" data-i18n-placeholder="docs.e-g-urgent-renewal-q3-comma"
               />
             </div>
             <div class="field">
-              <label>Description</label>
+              <label data-i18n="customers.description">Description</label>
               <textarea
                 id="fDescription"
                 rows="3"
-                placeholder="Optional notes about this document..."
+                placeholder="Optional notes about this document..." data-i18n-placeholder="docs.optional-notes-about-this-document"
               ></textarea>
             </div>
           </form>
@@ -366,19 +353,14 @@
             type="button"
             style="display: none; margin-right: auto"
           >
-            <i class="fa-solid fa-trash"></i> Delete Document
-          </button>
-          <button class="btn btn-outline" id="cancelBtn" type="button">
-            Cancel
-          </button>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="docs.delete-document">Delete Document</span></button>
+          <button class="btn btn-outline" id="cancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
           <button
             class="btn btn-primary"
             id="saveBtn"
             type="submit"
             form="documentForm"
-          >
-            Save Document
-          </button>
+           data-i18n="docs.save-document">Save Document</button>
         </div>
       </div>
     </div>

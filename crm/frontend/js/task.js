@@ -25,6 +25,9 @@ const PRIORITY_BADGE_CLASS = {
   High: "badge-priority-high",
 };
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
+// What a task is linked to: the server keeps the English type, the page shows the word.
+const RELATED_KEYS = { Customer: "orders.customer", Lead: "dash.add.lead", Account: "deals.col.account", Deal: "dash.add.deal" };
+const relatedLabel = (type) => (RELATED_KEYS[type] ? crmI18n.t(RELATED_KEYS[type]) : type);
 
 let currentView = "kanban";
 let draggingId = null;
@@ -42,7 +45,7 @@ function todayStr() {
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", {
+  return d.toLocaleDateString(crmI18n.locale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -133,18 +136,18 @@ function renderKpis() {
   const completed = tasks.filter((t) => t.status === "Done");
 
   const cards = [
-    { label: "Total Tasks", value: tasks.length, cls: "" },
-    { label: "Due Today", value: dueToday.length, cls: "info" },
-    { label: "Overdue", value: overdue.length, cls: "warning" },
-    { label: "Completed", value: completed.length, cls: "success" },
+    { label: crmI18n.t("tasks.kpi.total"), value: tasks.length, cls: "" },
+    { label: crmI18n.t("tasks.kpi.dueToday"), value: dueToday.length, cls: "info" },
+    { label: crmI18n.t("dash.overdue"), value: overdue.length, cls: "warning" },
+    { label: crmI18n.t("tasks.kpi.completed"), value: completed.length, cls: "success" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
     .map(
       (c) => `
       <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>
       </div>`,
     )
     .join("");
@@ -164,14 +167,14 @@ function renderKanban() {
 
     const cardsHtml = statusTasks.length
       ? statusTasks.map((t) => taskCardHtml(t)).join("")
-      : `<div class="kanban-col-empty">No tasks</div>`;
+      : `<div class="kanban-col-empty">${escapeHtml(crmI18n.t("tasks.noTasks"))}</div>`;
 
     return `
       <div class="kanban-col" data-status="${status}">
         <div class="kanban-col-head">
           <div class="kanban-col-head-title">
             <span class="kanban-dot" style="background:${STATUS_DOT[status]}"></span>
-            <h4>${status}</h4>
+            <h4>${escapeHtml(crmLabel("taskStatus", status))}</h4>
           </div>
           <span class="kanban-count">${statusTasks.length}</span>
         </div>
@@ -190,17 +193,17 @@ function taskCardHtml(t) {
     <div class="task-card ${t.status === "Done" ? "is-done" : ""}" draggable="true" data-id="${t.id}">
       <div class="task-card__top">
         <div class="task-card__title">${escapeHtml(t.title)}</div>
-        <span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${t.priority}</span>
+        <span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${escapeHtml(crmLabel("priority", t.priority))}</span>
       </div>
       ${
         t.relatedName
-          ? `<div class="task-card__related"><i class="fa-solid fa-link"></i> ${escapeHtml(t.relatedType)}: ${escapeHtml(t.relatedName)}</div>`
+          ? `<div class="task-card__related"><i class="fa-solid fa-link"></i> ${escapeHtml(relatedLabel(t.relatedType))}: ${escapeHtml(t.relatedName)}</div>`
           : ""
       }
       <div class="task-card__foot">
         <div class="task-card__assignee">
           <span class="task-card__avatar">${initials(t.assignee)}</span>
-          ${escapeHtml((t.assignee || "").split(" ")[0] || "Unassigned")}
+          ${escapeHtml((t.assignee || "").split(" ")[0] || crmI18n.t("dash.unassigned"))}
         </div>
         <div class="task-card__date ${overdue ? "overdue" : ""}">
           ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${formatDate(t.dueDate)}
@@ -215,8 +218,8 @@ function moveTask(id, newStatus) {
   const task = getTask(id);
   if (!task || task.status === newStatus) return;
   saveTask(task.id, { status: newStatus })
-    .then(() => showToast(`Moved "${task.title}" to ${newStatus}`, "success"))
-    .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the task."), "error"))
+    .then(() => showToast(crmI18n.t("deals.moved", { name: task.title, stage: crmLabel("taskStatus", newStatus) }), "success"))
+    .catch((error) => showToast(apiErrorMessage(error, crmI18n.t("tasks.err.move")), "error"))
     .finally(renderAll);
 }
 
@@ -228,8 +231,8 @@ function attachDragEvents() {
       const task = getTask(card.dataset.id);
       if (!task) return;
       const status = await crmMoveMenu.open({
-        title: `Move "${task.title}" to`, current: task.status, returnFocus: event.currentTarget,
-        options: STATUSES.map((s) => ({ value: s, label: s, color: STATUS_DOT[s] })),
+        title: crmI18n.t("deals.moveTo", { name: task.title }), current: task.status, returnFocus: event.currentTarget,
+        options: STATUSES.map((s) => ({ value: s, label: crmLabel("taskStatus", s), color: STATUS_DOT[s] })),
       });
       if (status) moveTask(task.id, status);
     });
@@ -269,7 +272,7 @@ function renderTable() {
     wrap.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-list-check"></i>
-        <div>No tasks match your filters.</div>
+        <div>${escapeHtml(crmI18n.t("tasks.empty.filtered"))}</div>
       </div>`;
     return;
   }
@@ -278,12 +281,12 @@ function renderTable() {
     <table>
       <thead>
         <tr>
-          <th>Task</th>
-          <th>Agents</th>
-          <th>Priority</th>
-          <th>Status</th>
-          <th>Due Date</th>
-          <th>Related To</th>
+          <th>${escapeHtml(crmI18n.t("dash.add.task"))}</th>
+          <th>${escapeHtml(crmI18n.t("tasks.agents"))}</th>
+          <th>${escapeHtml(crmI18n.t("tasks.priority"))}</th>
+          <th>${escapeHtml(crmI18n.t("col.status"))}</th>
+          <th>${escapeHtml(crmI18n.t("tasks.due-date"))}</th>
+          <th>${escapeHtml(crmI18n.t("tasks.related-to"))}</th>
           <th></th>
         </tr>
       </thead>
@@ -294,14 +297,14 @@ function renderTable() {
           <tr data-id="${t.id}">
             <td><strong>${escapeHtml(t.title)}</strong></td>
             <td>${escapeHtml(t.assignee || "—")}</td>
-            <td><span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${t.priority}</span></td>
-            <td><span class="badge ${STATUS_BADGE_CLASS[t.status]}">${t.status}</span></td>
+            <td><span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${escapeHtml(crmLabel("priority", t.priority))}</span></td>
+            <td><span class="badge ${STATUS_BADGE_CLASS[t.status]}">${escapeHtml(crmLabel("taskStatus", t.status))}</span></td>
             <td>${formatDate(t.dueDate)}</td>
-            <td>${t.relatedName ? `${escapeHtml(t.relatedType)}: ${escapeHtml(t.relatedName)}` : "—"}</td>
+            <td>${t.relatedName ? `${escapeHtml(relatedLabel(t.relatedType))}: ${escapeHtml(t.relatedName)}` : "—"}</td>
             <td>
               <div class="row-actions">
-                <button class="icon-btn edit-row" data-id="${t.id}"><i class="fa-solid fa-pen"></i></button>
-                <button class="icon-btn danger delete-row" data-id="${t.id}"><i class="fa-solid fa-trash"></i></button>
+                <button class="icon-btn edit-row" data-id="${t.id}" title="${escapeHtml(crmI18n.t("common.edit"))}" aria-label="${escapeHtml(crmI18n.t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn danger delete-row" data-id="${t.id}" title="${escapeHtml(crmI18n.t("common.delete"))}" aria-label="${escapeHtml(crmI18n.t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>`,
@@ -338,11 +341,11 @@ function setAssigneeValue(name, role) {
   const labelEl = document.getElementById("assigneeTriggerLabel");
   if (name) {
     avatarEl.textContent = initials(name);
-    labelEl.textContent = role ? `${name} · ${role}` : name;
+    labelEl.textContent = role ? `${name} · ${crmLabel("role", role)}` : name;
     labelEl.classList.remove("is-placeholder");
   } else {
     avatarEl.textContent = "?";
-    labelEl.textContent = "Select assignee";
+    labelEl.textContent = crmI18n.t("tasks.select-assignee");
     labelEl.classList.add("is-placeholder");
   }
 }
@@ -353,7 +356,8 @@ function buildAssigneeMenu() {
   const selected = document.getElementById("fAssignee").value;
 
   if (!agents.length) {
-    menu.innerHTML = `<div class="assignee-picker__empty">No agents yet. Add one from <a href="accounts.html">Account Champions</a>.</div>`;
+    const link = `<a href="accounts.html">${escapeHtml(t("nav.accounts"))}</a>`;
+    menu.innerHTML = `<div class="assignee-picker__empty">${t("tasks.noAgents", { link })}</div>`;
     return;
   }
 
@@ -364,7 +368,7 @@ function buildAssigneeMenu() {
         <span class="avatar">${initials(a.name)}</span>
         <div class="info">
           <div class="name">${escapeHtml(a.name)}</div>
-          <div class="role">${escapeHtml(a.role || "Agent")}</div>
+          <div class="role">${escapeHtml(crmLabel("role", a.role || "Agent"))}</div>
         </div>
         <i class="fa-solid fa-check check"></i>
       </div>`,
@@ -406,7 +410,7 @@ function populateFilterAssignee() {
   const sel = document.getElementById("filterAssignee");
   const current = sel.value;
   sel.innerHTML =
-    `<option value="all">All Agents</option>` +
+    `<option value="all">${escapeHtml(t("tasks.all-agents"))}</option>` +
     assigneeNames()
       .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
       .join("");
@@ -435,7 +439,7 @@ function openModal(id) {
   if (id) {
     const task = getTask(id);
     if (!task) return;
-    document.getElementById("modalTitle").textContent = "Edit Task";
+    document.getElementById("modalTitle").textContent = t("tasks.edit");
     document.getElementById("editId").value = task.id;
     document.getElementById("fTitle").value = task.title;
     document.getElementById("fDescription").value = task.description || "";
@@ -449,7 +453,7 @@ function openModal(id) {
     document.getElementById("fRelatedName").value = task.relatedName || "";
     deleteBtn.style.display = "inline-flex";
   } else {
-    document.getElementById("modalTitle").textContent = "New Task";
+    document.getElementById("modalTitle").textContent = t("tasks.new-task");
     document.getElementById("editId").value = "";
     setAssigneeValue("", "");
     document.getElementById("fPriority").value = "Medium";
@@ -466,9 +470,9 @@ function closeModal() {
 function confirmDelete(id) {
   const task = getTask(id);
   if (!task) return;
-  if (confirm(`Delete "${task.title}"? This can't be undone.`)) {
-    removeTask(id).catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the task."), "error")).finally(renderAll);
-    showToast("Task deleted", "success");
+  if (confirm(t("deals.confirmDelete", { name: task.title }))) {
+    removeTask(id).catch((error) => showToast(apiErrorMessage(error, t("deals.err.deleteTask")), "error")).finally(renderAll);
+    showToast(t("tasks.deleted"), "success");
     renderAll();
   }
 }
@@ -552,9 +556,7 @@ document.getElementById("modalOverlay").addEventListener("click", (e) => {
 document.getElementById("fRelatedType").addEventListener("change", (e) => {
   populateRelatedOptions(e.target.value);
   document.getElementById("fRelatedName").value = "";
-  document.getElementById("fRelatedName").placeholder = e.target.value
-    ? `Select a ${e.target.value.toLowerCase()}...`
-    : "Select a type first";
+  document.getElementById("fRelatedName").placeholder = t(e.target.value ? `tasks.select.${e.target.value}` : "tasks.select-a-type-first");
 });
 
 // Delete from modal
@@ -582,16 +584,16 @@ document.getElementById("taskForm").addEventListener("submit", async (e) => {
   };
 
   if (!payload.title || !payload.assignee || !payload.dueDate) {
-    showToast("Please fill in all required fields", "error");
+    showToast(t("deals.required"), "error");
     return;
   }
   if (!payload.relatedType) payload.relatedName = "";
 
   try {
     await saveTask(id || null, payload);
-    showToast(id ? "Task updated" : "Task created", "success");
+    showToast(t(id ? "tasks.updated" : "tasks.created"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't save the task."), "error");
+    showToast(apiErrorMessage(error, t("tasks.err.save")), "error");
     return;
   }
   closeModal();

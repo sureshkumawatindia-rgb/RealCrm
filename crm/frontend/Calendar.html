@@ -142,7 +142,7 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Calendar</h2>
+            <h2 data-i18n="nav.calendar">Calendar</h2>
           </div>
         </header>
 
@@ -156,28 +156,27 @@
               <button class="icon-btn" id="prevMonthBtn">
                 <i class="fa-solid fa-chevron-left"></i>
               </button>
-              <h3 id="monthLabel">Month Year</h3>
+              <h3 id="monthLabel" data-i18n="cal.month-year">Month Year</h3>
               <button class="icon-btn" id="nextMonthBtn">
                 <i class="fa-solid fa-chevron-right"></i>
               </button>
-              <button class="btn btn-outline" id="todayBtn">Today</button>
+              <button class="btn btn-outline" id="todayBtn" data-i18n="dash.today">Today</button>
             </div>
             <div style="display: flex; gap: 10px; margin-left: auto">
               <select class="filter" id="filterType">
-                <option value="all">All Types</option>
-                <option value="Meeting">Meeting</option>
-                <option value="Call">Call</option>
-                <option value="Follow-up">Follow-up</option>
-                <option value="Demo">Demo</option>
-                <option value="Deadline">Deadline</option>
-                <option value="Reminder">Reminder</option>
+                <option value="all" data-i18n="cal.all-types">All Types</option>
+                <option value="Meeting" data-i18n="event.Meeting">Meeting</option>
+                <option value="Call" data-i18n="event.Call">Call</option>
+                <option value="Follow-up" data-i18n="event.Follow-up">Follow-up</option>
+                <option value="Demo" data-i18n="event.Demo">Demo</option>
+                <option value="Deadline" data-i18n="event.Deadline">Deadline</option>
+                <option value="Reminder" data-i18n="event.Reminder">Reminder</option>
               </select>
               <select class="filter" id="filterAssignee">
-                <option value="all">All Agents</option>
+                <option value="all" data-i18n="tasks.all-agents">All Agents</option>
               </select>
               <button class="btn btn-primary" id="addBtn">
-                <i class="fa-solid fa-plus"></i> New Event
-              </button>
+                <i class="fa-solid fa-plus"></i> <span data-i18n="cal.new-event">New Event</span></button>
             </div>
           </div>
 
@@ -185,8 +184,7 @@
           <div class="calendar-layout">
             <div class="calendar-main">
               <div class="calendar-weekdays">
-                <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span
-                ><span>Thu</span><span>Fri</span><span>Sat</span>
+                <span data-i18n="cal.sun">Sun</span><span data-i18n="cal.mon">Mon</span><span data-i18n="cal.tue">Tue</span><span data-i18n="cal.wed">Wed</span><span data-i18n="cal.thu">Thu</span><span data-i18n="cal.fri">Fri</span><span data-i18n="cal.sat">Sat</span>
               </div>
               <div class="calendar-grid" id="calendarGrid"></div>
               <!-- Phones: the chosen day's events under the month (calendar.js renderInlineAgenda) -->
@@ -196,11 +194,9 @@
             <aside class="side-panel">
               <div class="side-tabs">
                 <button class="side-tab active" data-tab="upcoming">
-                  <i class="fa-solid fa-clock-rotate-left"></i> Upcoming
-                </button>
+                  <i class="fa-solid fa-clock-rotate-left"></i> <span data-i18n="cal.upcoming">Upcoming</span></button>
                 <button class="side-tab" data-tab="team">
-                  <i class="fa-solid fa-user-group"></i> Team
-                </button>
+                  <i class="fa-solid fa-user-group"></i> <span data-i18n="c360.team">Team</span></button>
               </div>
               <div
                 class="side-tab-content active"
@@ -222,7 +218,7 @@
     <div class="modal-overlay" id="modalOverlay">
       <div class="modal modal--wide">
         <div class="modal-head">
-          <h3 id="modalTitle">New Event</h3>
+          <h3 id="modalTitle" data-i18n="cal.new-event">New Event</h3>
           <button class="icon-btn" id="modalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -231,43 +227,43 @@
           <form id="eventForm">
             <input type="hidden" id="editId" />
             <div class="field">
-              <label>Event Title</label>
+              <label data-i18n="cal.event-title">Event Title</label>
               <input
                 type="text"
                 id="fTitle"
-                placeholder="e.g. Demo call with Acme Corp"
+                placeholder="e.g. Demo call with Acme Corp" data-i18n-placeholder="cal.e-g-demo-call-with-acme"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Type</label>
+                <label data-i18n="quotes.type">Type</label>
                 <select id="fType">
-                  <option>Meeting</option>
-                  <option>Call</option>
-                  <option>Follow-up</option>
-                  <option>Demo</option>
-                  <option>Deadline</option>
-                  <option>Reminder</option>
+                  <option value="Meeting" data-i18n="event.Meeting">Meeting</option>
+                  <option value="Call" data-i18n="event.Call">Call</option>
+                  <option value="Follow-up" data-i18n="event.Follow-up">Follow-up</option>
+                  <option value="Demo" data-i18n="event.Demo">Demo</option>
+                  <option value="Deadline" data-i18n="event.Deadline">Deadline</option>
+                  <option value="Reminder" data-i18n="event.Reminder">Reminder</option>
                 </select>
               </div>
               <div class="field">
-                <label>Date</label>
+                <label data-i18n="quotes.col.date">Date</label>
                 <input type="date" id="fDate" required />
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Start Time</label>
+                <label data-i18n="cal.start-time">Start Time</label>
                 <input type="time" id="fStartTime" />
               </div>
               <div class="field">
-                <label>End Time</label>
+                <label data-i18n="cal.end-time">End Time</label>
                 <input type="time" id="fEndTime" />
               </div>
             </div>
             <div class="field">
-              <label>Assign to Agent</label>
+              <label data-i18n="cal.assign-to-agent">Assign to Agent</label>
               <div class="assignee-picker" id="assigneePicker">
                 <button
                   type="button"
@@ -277,13 +273,11 @@
                   <span
                     class="assignee-picker__avatar"
                     id="assigneeTriggerAvatar"
-                    >?</span
-                  >
+                    >?</span>
                   <span
                     class="assignee-picker__label is-placeholder"
                     id="assigneeTriggerLabel"
-                    >Select agent</span
-                  >
+                     data-i18n="cal.select-agent">Select agent</span>
                   <i class="fa-solid fa-chevron-down"></i>
                 </button>
                 <div class="assignee-picker__menu" id="assigneeMenu"></div>
@@ -292,32 +286,32 @@
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Related To</label>
+                <label data-i18n="tasks.related-to">Related To</label>
                 <select id="fRelatedType">
-                  <option value="">None</option>
-                  <option value="Customer">Customer</option>
-                  <option value="Lead">Lead</option>
-                  <option value="Account">Account</option>
-                  <option value="Deal">Deal</option>
+                  <option value="" data-i18n="tasks.none">None</option>
+                  <option value="Customer" data-i18n="orders.customer">Customer</option>
+                  <option value="Lead" data-i18n="dash.add.lead">Lead</option>
+                  <option value="Account" data-i18n="deals.col.account">Account</option>
+                  <option value="Deal" data-i18n="dash.add.deal">Deal</option>
                 </select>
               </div>
               <div class="field">
-                <label>Related Record</label>
+                <label data-i18n="tasks.related-record">Related Record</label>
                 <input
                   type="text"
                   id="fRelatedName"
                   list="relatedOptions"
-                  placeholder="Select a type first"
+                  placeholder="Select a type first" data-i18n-placeholder="tasks.select-a-type-first"
                 />
                 <datalist id="relatedOptions"></datalist>
               </div>
             </div>
             <div class="field">
-              <label>Description</label>
+              <label data-i18n="customers.description">Description</label>
               <textarea
                 id="fDescription"
                 rows="3"
-                placeholder="Optional notes..."
+                placeholder="Optional notes..." data-i18n-placeholder="cal.optional-notes"
               ></textarea>
             </div>
           </form>
@@ -329,19 +323,14 @@
             type="button"
             style="display: none; margin-right: auto"
           >
-            <i class="fa-solid fa-trash"></i> Delete Event
-          </button>
-          <button class="btn btn-outline" id="cancelBtn" type="button">
-            Cancel
-          </button>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="cal.delete-event">Delete Event</span></button>
+          <button class="btn btn-outline" id="cancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
           <button
             class="btn btn-primary"
             id="saveBtn"
             type="submit"
             form="eventForm"
-          >
-            Save Event
-          </button>
+           data-i18n="cal.save-event">Save Event</button>
         </div>
       </div>
     </div>
@@ -350,7 +339,7 @@
     <div class="modal-overlay" id="dayModalOverlay">
       <div class="modal">
         <div class="modal-head">
-          <h3 id="dayModalTitle">Agenda</h3>
+          <h3 id="dayModalTitle" data-i18n="cal.agenda">Agenda</h3>
           <button class="icon-btn" id="dayModalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -359,12 +348,9 @@
           <div id="dayAgendaList"></div>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-outline" id="dayModalCloseBtn" type="button">
-            Close
-          </button>
+          <button class="btn btn-outline" id="dayModalCloseBtn" type="button" data-i18n="common.close">Close</button>
           <button class="btn btn-primary" id="dayModalAddBtn" type="button">
-            <i class="fa-solid fa-plus"></i> Add Event
-          </button>
+            <i class="fa-solid fa-plus"></i> <span data-i18n="cal.add-event">Add Event</span></button>
         </div>
       </div>
     </div>

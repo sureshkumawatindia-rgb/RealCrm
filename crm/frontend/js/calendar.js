@@ -66,7 +66,7 @@ function todayStr() {
 function formatDateLong(iso) {
   if (!iso) return "—";
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-IN", {
+  return d.toLocaleDateString(crmI18n.locale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -201,10 +201,10 @@ function chipHtml(item) {
   if (item.kind === "task") {
     const t = item.data;
     const overdue = t.status !== "Done" && t.dueDate < todayStr();
-    return `<div class="day-chip chip-task ${overdue ? "overdue" : ""}" data-kind="task" data-id="${t.id}" title="Task: ${escapeHtml(t.title)}"><i class="fa-solid fa-list-check"></i><span class="chip-label">${escapeHtml(t.title)}</span></div>`;
+    return `<div class="day-chip chip-task ${overdue ? "overdue" : ""}" data-kind="task" data-id="${t.id}" title="${escapeHtml(crmI18n.t("c360.tl.task", { title: t.title }))}"><i class="fa-solid fa-list-check"></i><span class="chip-label">${escapeHtml(t.title)}</span></div>`;
   }
   const d = item.data;
-  return `<div class="day-chip chip-deal" data-kind="deal" data-id="${d.id}" title="Deal close: ${escapeHtml(d.name)}"><i class="fa-solid fa-handshake"></i><span class="chip-label">${escapeHtml(d.name)}</span></div>`;
+  return `<div class="day-chip chip-deal" data-kind="deal" data-id="${d.id}" title="${escapeHtml(crmI18n.t("cal.dealClose", { name: d.name }))}"><i class="fa-solid fa-handshake"></i><span class="chip-label">${escapeHtml(d.name)}</span></div>`;
 }
 
 // ---------------------------------------------------------------
@@ -242,18 +242,18 @@ function renderKpis() {
   const upcomingEvents = events.filter((e) => e.date >= today);
 
   const cards = [
-    { label: "Today's Events", value: todayEvents.length, cls: "info" },
-    { label: "This Week", value: thisWeekEvents.length, cls: "" },
-    { label: "Overdue Tasks", value: overdueTasks.length, cls: "warning" },
-    { label: "Upcoming Events", value: upcomingEvents.length, cls: "success" },
+    { label: crmI18n.t("cal.kpi.today"), value: todayEvents.length, cls: "info" },
+    { label: crmI18n.t("cal.kpi.week"), value: thisWeekEvents.length, cls: "" },
+    { label: crmI18n.t("cal.kpi.overdue"), value: overdueTasks.length, cls: "warning" },
+    { label: crmI18n.t("cal.kpi.upcoming"), value: upcomingEvents.length, cls: "success" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
     .map(
       (c) => `
       <div class="stat-card ${c.cls}">
-        <div class="label">${c.label}</div>
-        <div class="value">${c.value}</div>
+        <div class="label">${escapeHtml(c.label)}</div>
+        <div class="value">${escapeHtml(String(c.value))}</div>
       </div>`,
     )
     .join("");
@@ -267,7 +267,7 @@ function renderCalendar() {
     viewYear,
     viewMonth,
     1,
-  ).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  ).toLocaleDateString(crmI18n.locale(), { month: "long", year: "numeric" });
 
   const firstDay = new Date(viewYear, viewMonth, 1);
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -312,10 +312,10 @@ function renderCalendar() {
       return `
       <div class="calendar-cell ${otherMonth ? "other-month" : ""} ${dateStr === today ? "is-today" : ""}" data-date="${dateStr}">
         <span class="day-number">${d}</span>
-        <button type="button" class="day-add" data-date="${dateStr}" title="Add event"><i class="fa-solid fa-plus"></i></button>
+        <button type="button" class="day-add" data-date="${dateStr}" title="${escapeHtml(crmI18n.t("cal.addEventTitle"))}" aria-label="${escapeHtml(crmI18n.t("cal.addEventTitle"))}"><i class="fa-solid fa-plus"></i></button>
         ${visible.map((it) => chipHtml(it)).join("")}
-        ${extra > 0 ? `<div class="day-chip-more">+${extra} more</div>` : ""}
-        ${items.length ? `<span class="day-dots" aria-label="${items.length} ${items.length === 1 ? "item" : "items"}">${items.slice(0, 3).map((it) => `<i style="background:${dotColor(it)}"></i>`).join("")}</span>` : ""}
+        ${extra > 0 ? `<div class="day-chip-more">${escapeHtml(crmI18n.t("cal.more", { n: extra }))}</div>` : ""}
+        ${items.length ? `<span class="day-dots" aria-label="${escapeHtml(crmI18n.t(items.length === 1 ? "cal.items.one" : "cal.items.many", { n: items.length }))}">${items.slice(0, 3).map((it) => `<i style="background:${dotColor(it)}"></i>`).join("")}</span>` : ""}
       </div>`;
     })
     .join("");
@@ -360,14 +360,14 @@ function attachGridEvents() {
   document.querySelectorAll('.day-chip[data-kind="task"]').forEach((chip) =>
     chip.addEventListener("click", (e) => {
       e.stopPropagation();
-      showToast("Task details open on the Tasks page", "info");
+      showToast(crmI18n.t("cal.toTasks"), "info");
       window.location.href = "Tasks.html";
     }),
   );
   document.querySelectorAll('.day-chip[data-kind="deal"]').forEach((chip) =>
     chip.addEventListener("click", (e) => {
       e.stopPropagation();
-      showToast("Lead pipeline details open on the Leads page", "info");
+      showToast(crmI18n.t("cal.toLeads"), "info");
       window.location.href = "leads.html?focus=pipeline";
     }),
   );
@@ -393,9 +393,9 @@ function renderInlineAgenda() {
   box.innerHTML = `
     <div class="day-agenda-inline-head">
       <strong>${escapeHtml(formatDateLong(selectedDate))}</strong>
-      <button type="button" class="btn btn-primary" id="inlineAddBtn"><i class="fa-solid fa-plus"></i> New event</button>
+      <button type="button" class="btn btn-primary" id="inlineAddBtn"><i class="fa-solid fa-plus"></i> ${escapeHtml(crmI18n.t("cal.inlineNew"))}</button>
     </div>
-    ${items.length ? `<div class="day-agenda-list">${agendaItemsHtml(items)}</div>` : '<p class="day-agenda-empty">Nothing on this day.</p>'}`;
+    ${items.length ? `<div class="day-agenda-list">${agendaItemsHtml(items)}</div>` : `<p class="day-agenda-empty">${escapeHtml(crmI18n.t("cal.nothingDay"))}</p>`}`;
   box.hidden = false;
   bindAgendaItems(box, () => {});
   box.querySelector("#inlineAddBtn").addEventListener("click", () => openModal(null, selectedDate));
@@ -411,7 +411,7 @@ function agendaItemsHtml(items) {
           <span class="dot" style="background:${TYPE_DOT[e.type]}"></span>
           <div class="info">
             <div class="title">${escapeHtml(e.title)}</div>
-            <div class="meta">${e.type}${e.startTime ? " · " + formatTime(e.startTime) : ""}${e.assignee ? " · " + escapeHtml(e.assignee) : ""}</div>
+            <div class="meta">${escapeHtml(crmLabel("event", e.type))}${e.startTime ? " · " + formatTime(e.startTime) : ""}${e.assignee ? " · " + escapeHtml(e.assignee) : ""}</div>
           </div>
         </div>`;
       }
@@ -422,7 +422,7 @@ function agendaItemsHtml(items) {
           <span class="dot" style="background:var(--text-faint)"></span>
           <div class="info">
             <div class="title">${escapeHtml(t.title)}</div>
-            <div class="meta">Task · ${t.priority} priority${t.assignee ? " · " + escapeHtml(t.assignee) : ""}</div>
+            <div class="meta">${escapeHtml(crmI18n.t("cal.taskMeta", { priority: crmLabel("priority", t.priority) }))}${t.assignee ? " · " + escapeHtml(t.assignee) : ""}</div>
           </div>
         </div>`;
       }
@@ -432,7 +432,7 @@ function agendaItemsHtml(items) {
         <span class="dot" style="background:var(--brand-darker)"></span>
         <div class="info">
           <div class="title">${escapeHtml(d.name)}</div>
-          <div class="meta">Deal close · ${d.stage}${d.owner ? " · " + escapeHtml(d.owner) : ""}</div>
+          <div class="meta">${escapeHtml(crmI18n.t("cal.dealMeta", { stage: crmLabel("stage", d.stage) }))}${d.owner ? " · " + escapeHtml(d.owner) : ""}</div>
         </div>
       </div>`;
     })
@@ -479,11 +479,11 @@ function setAssigneeValue(name, role) {
   const labelEl = document.getElementById("assigneeTriggerLabel");
   if (name) {
     avatarEl.textContent = initials(name);
-    labelEl.textContent = role ? `${name} · ${role}` : name;
+    labelEl.textContent = role ? `${name} · ${crmLabel("role", role)}` : name;
     labelEl.classList.remove("is-placeholder");
   } else {
     avatarEl.textContent = "?";
-    labelEl.textContent = "Select agent";
+    labelEl.textContent = crmI18n.t("cal.select-agent");
     labelEl.classList.add("is-placeholder");
   }
 }
@@ -493,7 +493,8 @@ function buildAssigneeMenu() {
   const selected = document.getElementById("fAssignee").value;
 
   if (!agents.length) {
-    menu.innerHTML = `<div class="assignee-picker__empty">No agents yet. Add one from <a href="accounts.html">Account Champions</a>.</div>`;
+    const link = `<a href="accounts.html">${escapeHtml(crmI18n.t("nav.accounts"))}</a>`;
+    menu.innerHTML = `<div class="assignee-picker__empty">${crmI18n.t("tasks.noAgents", { link })}</div>`;
     return;
   }
 
@@ -504,7 +505,7 @@ function buildAssigneeMenu() {
         <span class="avatar">${initials(a.name)}</span>
         <div class="info">
           <div class="name">${escapeHtml(a.name)}</div>
-          <div class="role">${escapeHtml(a.role || "Agent")}</div>
+          <div class="role">${escapeHtml(crmLabel("role", a.role || "Agent"))}</div>
         </div>
         <i class="fa-solid fa-check check"></i>
       </div>`,
@@ -547,7 +548,7 @@ function populateFilterAssignee() {
   const sel = document.getElementById("filterAssignee");
   const current = sel.value;
   sel.innerHTML =
-    `<option value="all">All Agents</option>` +
+    `<option value="all">${escapeHtml(crmI18n.t("tasks.all-agents"))}</option>` +
     assigneeNames()
       .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
       .join("");
@@ -588,7 +589,7 @@ function renderUpcomingTab() {
 
   const el = document.getElementById("upcomingTabContent");
   if (!merged.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-calendar-check"></i><div>Nothing scheduled yet.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-calendar-check"></i><div>${escapeHtml(crmI18n.t("cal.nothing"))}</div></div>`;
     return;
   }
 
@@ -596,17 +597,17 @@ function renderUpcomingTab() {
     .map((it) => {
       const dt = new Date(it.date + "T00:00:00");
       const d = dt.getDate();
-      const m = dt.toLocaleDateString("en-IN", { month: "short" });
+      const m = dt.toLocaleDateString(crmI18n.locale(), { month: "short" });
       let name, sub;
       if (it.kind === "event") {
         name = it.data.title;
-        sub = `${it.data.type}${it.data.startTime ? " · " + formatTime(it.data.startTime) : ""}`;
+        sub = `${crmLabel("event", it.data.type)}${it.data.startTime ? " · " + formatTime(it.data.startTime) : ""}`;
       } else if (it.kind === "task") {
         name = it.data.title;
-        sub = `Task · ${it.data.priority} priority`;
+        sub = crmI18n.t("cal.taskMeta", { priority: crmLabel("priority", it.data.priority) });
       } else {
         name = it.data.name;
-        sub = `Deal close · ${it.data.stage}`;
+        sub = crmI18n.t("cal.dealMeta", { stage: crmLabel("stage", it.data.stage) });
       }
       return `
         <div class="agenda-row" data-kind="${it.kind}" data-id="${it.data.id}">
@@ -639,7 +640,7 @@ function renderTeamTab() {
   const el = document.getElementById("teamTabContent");
 
   if (!agents.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-user-group"></i><div>No agents yet.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-user-group"></i><div>${escapeHtml(crmI18n.t("deals.noAgents"))}</div></div>`;
     return;
   }
 
@@ -654,7 +655,7 @@ function renderTeamTab() {
           <div class="avatar">${initials(a.name)}</div>
           <div class="info">
             <div class="name">${escapeHtml(a.name)}</div>
-            <div class="sub">${escapeHtml(a.role || "Agent")}</div>
+            <div class="sub">${escapeHtml(crmLabel("role", a.role || "Agent"))}</div>
           </div>
           <span class="count">${upcoming}</span>
         </div>`;
@@ -677,7 +678,7 @@ function openModal(id, prefillDate) {
   if (id) {
     const ev = getEvent(id);
     if (!ev) return;
-    document.getElementById("modalTitle").textContent = "Edit Event";
+    document.getElementById("modalTitle").textContent = crmI18n.t("cal.edit");
     document.getElementById("editId").value = ev.id;
     document.getElementById("fTitle").value = ev.title;
     document.getElementById("fType").value = ev.type;
@@ -692,7 +693,7 @@ function openModal(id, prefillDate) {
     document.getElementById("fDescription").value = ev.description || "";
     deleteBtn.style.display = "inline-flex";
   } else {
-    document.getElementById("modalTitle").textContent = "New Event";
+    document.getElementById("modalTitle").textContent = crmI18n.t("cal.new-event");
     document.getElementById("editId").value = "";
     document.getElementById("fType").value = "Meeting";
     document.getElementById("fDate").value =
@@ -709,9 +710,9 @@ function closeModal() {
 function confirmDelete(id) {
   const ev = getEvent(id);
   if (!ev) return;
-  if (confirm(`Delete "${ev.title}"? This can't be undone.`)) {
-    removeEvent(id).catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the event."), "error")).finally(renderAll);
-    showToast("Event deleted", "success");
+  if (confirm(crmI18n.t("deals.confirmDelete", { name: ev.title }))) {
+    removeEvent(id).catch((error) => showToast(apiErrorMessage(error, crmI18n.t("cal.err.delete")), "error")).finally(renderAll);
+    showToast(crmI18n.t("cal.deleted"), "success");
     renderAll();
   }
 }
@@ -811,9 +812,7 @@ document.getElementById("dayModalAddBtn").addEventListener("click", () => {
 document.getElementById("fRelatedType").addEventListener("change", (e) => {
   populateRelatedOptions(e.target.value);
   document.getElementById("fRelatedName").value = "";
-  document.getElementById("fRelatedName").placeholder = e.target.value
-    ? `Select a ${e.target.value.toLowerCase()}...`
-    : "Select a type first";
+  document.getElementById("fRelatedName").placeholder = crmI18n.t(e.target.value ? `tasks.select.${e.target.value}` : "tasks.select-a-type-first");
 });
 
 // Delete from modal
@@ -842,16 +841,16 @@ document.getElementById("eventForm").addEventListener("submit", async (e) => {
   };
 
   if (!payload.title || !payload.date) {
-    showToast("Please fill in all required fields", "error");
+    showToast(crmI18n.t("deals.required"), "error");
     return;
   }
   if (!payload.relatedType) payload.relatedName = "";
 
   try {
     await saveEvent(id || null, payload);
-    showToast(id ? "Event updated" : "Event created", "success");
+    showToast(crmI18n.t(id ? "cal.updated" : "cal.created"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't save the event."), "error");
+    showToast(apiErrorMessage(error, crmI18n.t("cal.err.save")), "error");
     return;
   }
   closeModal();
