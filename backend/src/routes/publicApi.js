@@ -16,6 +16,10 @@ const send = (res, data, status = 200) => res.status(status).json({ success: tru
 
 router.get('/me', async (req, res) => send(res, await api.me(req)));
 
+// The company's own fields (D74): contacts' with contacts:read, leads' with leads:read.
+const fieldScope = (req, res, next) => requireScope(req.valid.query.object === 'lead' ? 'leads:read' : 'contacts:read')(req, res, next);
+router.get('/custom-fields', validate({ query: schemas.customFieldList }), fieldScope, async (req, res) => send(res, await api.listCustomFields(req, req.valid.query)));
+
 router.get('/contacts', requireScope('contacts:read'), validate({ query: schemas.contactList }), async (req, res) => send(res, await api.listContacts(req, req.valid.query)));
 router.get('/contacts/:id', requireScope('contacts:read'), byId, async (req, res) => send(res, await api.getContact(req, req.valid.params.id)));
 router.post('/contacts', requireScope('contacts:write'), validate({ body: schemas.contactCreate }), async (req, res) => send(res, await api.createContact(req, req.body), 201));

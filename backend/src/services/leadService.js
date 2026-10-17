@@ -10,6 +10,8 @@ const { searchFilter, sortSpec } = require('../utils/listQuery');
 const { STAGE_PROBABILITY } = require('../constants/crm');
 const { visibilityFilter, privacyFilter, resolveOwnerId, ownerPatch } = require('./access');
 const contactService = require('./contactService');
+const customFieldService = require('./customFieldService');
+const customFieldFilters = require('./customFieldFilters');
 const automationEvents = require('./automation/events');
 
 // Leads are shown on the Leads page and, as a Kanban, on the Deals page (D13).
@@ -23,7 +25,8 @@ function contactSummary(contact) {
   return { id: contact._id, name: contact.name, email: contact.email, phone: contact.phone, company: contact.company, lifecycle: contact.lifecycle };
 }
 
-function serializeLead(lead) {
+// keys: the active custom fields (customFieldService.activeKeys); without them, every stored value.
+function serializeLead(lead, keys) {
   const contact = contactSummary(lead.contactId);
   return {
     id: lead._id,
@@ -46,6 +49,7 @@ function serializeLead(lead) {
     convertedAt: lead.convertedAt || null,
     lastActivityAt: lead.lastActivityAt || null,
     version: lead.version,
+    customFields: customFieldService.visibleValues(lead.customFields, keys),
     createdAt: lead.createdAt,
     updatedAt: lead.updatedAt,
   };
@@ -62,7 +66,7 @@ async function findVisible(req, id, session) {
 async function loadSerialized(req, id) {
   const lead = await Lead.findOne({ _id: id, ...scope(req) }).populate({ path: 'contactId', select: CONTACT_SELECT });
   if (!lead) throw httpError(404, 'NOT_FOUND', 'Lead not found');
-  return serializeLead(lead);
+  return serializeLead(lead, await customFieldService.activeKeys(req, 'lead'));
 }
 
 async function assertProduct(req, productId, session) {
@@ -122,21 +126,34 @@ async function list(req, query) {
   if (query.followUpFrom || query.followUpTo) {
     filter.followUpAt = { ...(query.followUpFrom && { $gte: query.followUpFrom }), ...(query.followUpTo && { $lte: query.followUpTo }) };
   }
+  // cf filters on the lead's own fields must all match (D74).
+  const fieldFilters = await customFieldFilters.conditions(req, 'lead', query.cf);
+  if (fieldFilters.length) filter.$and = fieldFilters;
   if (query.q) {
-    const contacts = await Contact.find({ organizationId, ...searchFilter(query.q, ['name', 'email', 'phone', 'phoneE164', 'company']) }).select('_id').limit(1000);
+    // Search also looks in the company's own text and dropdown fields, the lead's and its contact's.
+    const [leadFields, contactFields] = await Promise.all([
+      customFieldFilters.searchClauses(req, 'lead', query.q),
+      customFieldFilters.searchClauses(req, 'contact', query.q),
+    ]);
+    const contactSearch = searchFilter(query.q, ['name', 'email', 'phone', 'phoneE164', 'company']).$or;
+    const contacts = await Contact.find({ organizationId, $or: [...contactSearch, ...contactFields] }).select('_id').limit(1000);
     const text = searchFilter(query.q, ['title', 'notes']).$or;
-    filter.$or = [...text, { contactId: { $in: contacts.map((contact) => contact._id) } }];
+    filter.$or = [...text, ...leadFields, { contactId: { $in: contacts.map((contact) => contact._id) } }];
   }
   const page = toPage(query);
-  const [items, total] = await Promise.all([
+  const [items, total, keys] = await Promise.all([
     Lead.find(filter).sort(sortSpec(query.sort, SORTS)).skip(page.skip).limit(page.limit).populate({ path: 'contactId', select: CONTACT_SELECT }),
     Lead.countDocuments(filter),
+    customFieldService.activeKeys(req, 'lead'),
   ]);
-  return { items: items.map(serializeLead), pagination: paginationMeta(page, total) };
+  return { items: items.map((lead) => serializeLead(lead, keys)), pagination: paginationMeta(page, total) };
 }
 
 async function create(req, body) {
   let created;
+  const customFields = body.customFields === undefined
+    ? undefined
+    : await customFieldService.applyValues(req, 'lead', body.customFields, undefined, { isNew: true });
   const leadId = await mongoose.connection.transaction(async (session) => {
     let contact;
     if (body.contactId) {
@@ -151,6 +168,7 @@ async function create(req, body) {
       organizationId: req.tenant.organizationId,
       contactId: contact._id,
       ...Object.fromEntries(EDITABLE.filter((key) => key in body).map((key) => [key, body[key]])),
+      customFields,
       ownerId: await resolveOwnerId(req, body.ownerId),
       lastActivityAt: new Date(),
       createdById: req.user._id,
@@ -181,6 +199,10 @@ async function update(req, id, body) {
     if ('productId' in body) await assertProduct(req, body.productId, session);
 
     for (const key of EDITABLE) if (key in body) lead[key] = body[key];
+    if (body.customFields !== undefined) {
+      lead.customFields = await customFieldService.applyValues(req, 'lead', body.customFields, lead.customFields);
+      lead.markModified('customFields');
+    }
     Object.assign(lead, await ownerPatch(req, body));
     const from = lead.stage;
     if (applyStage(lead, body.stage, body.lostReason)) {

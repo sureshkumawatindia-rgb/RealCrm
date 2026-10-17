@@ -40,7 +40,7 @@ const importOptions = (body) => {
   return value;
 };
 router.post('/import/preview', can('create'), upload, async (req, res) => {
-  res.json({ success: true, data: contactImportService.preview(req.file) });
+  res.json({ success: true, data: await contactImportService.preview(req, req.file) });
 });
 router.post('/import', can('create'), upload, async (req, res) => {
   const report = await contactImportService.run(req, req.file, importOptions(req.body));

@@ -8,6 +8,8 @@ const {
   TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, DOCUMENT_CATEGORIES,
   CAMPAIGN_TYPES, CAMPAIGN_STATUSES,
 } = require('../constants/crm');
+// The company's own fields (D73, D74): values on records, and ?cf= filters on the lists.
+const { fieldFilters, customFieldValues } = require('./customFields');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
 // null clears the reference (e.g. "no product").
@@ -34,6 +36,7 @@ const contactFields = {
   ownerId: objectId.allow(null),
   // WhatsApp offers (Phase 7, D35): broadcasts never go to "opted_out".
   marketingConsent: Joi.string().valid('unknown', 'opted_in', 'opted_out'),
+  customFields: customFieldValues,
 };
 
 const noteEntry = Joi.object({
@@ -56,6 +59,7 @@ const leadFields = {
   ownerId: objectId.allow(null),
   notes: text(5000),
   noteEntries: Joi.array().items(noteEntry).max(200),
+  customFields: customFieldValues,
 };
 
 const calendarDate = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).messages({ 'string.pattern.base': 'Use a date like 2026-10-05' });
@@ -143,6 +147,7 @@ module.exports = {
     ownerId: objectId,
     tag: Joi.string().trim().max(50),
     consent: Joi.string().valid('unknown', 'opted_in', 'opted_out'),
+    cf: fieldFilters,
   }),
 
   productCreate: Joi.object({
@@ -182,6 +187,7 @@ module.exports = {
     contactId: objectId,
     followUpFrom: Joi.date(),
     followUpTo: Joi.date(),
+    cf: fieldFilters,
   }),
   leadNote: Joi.object({ text: Joi.string().trim().min(1).max(5000).required(), type: Joi.string().trim().max(40).default('Note') }),
 

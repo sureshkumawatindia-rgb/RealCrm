@@ -91,6 +91,18 @@ function contactNames() {
 // ---------------------------------------------------------------
 // Filters
 // ---------------------------------------------------------------
+// Filters on the company's own fields (D74), for the board and the table.
+const dealFieldFilters = cfFilterBar({
+  container: document.getElementById("dealCfFilters"),
+  object: "lead",
+  storageKey: "dealsFieldFilters",
+  onChange: () => {
+    if (!crmCache.leads) return;
+    if (currentView === "kanban") renderKanban();
+    else renderTable();
+  },
+});
+
 function getFilteredDeals() {
   const q = (document.getElementById("searchInput").value || "")
     .toLowerCase()
@@ -101,10 +113,11 @@ function getFilteredDeals() {
   const max = parseFloat(document.getElementById("filterMaxValue").value);
   const closeBy = document.getElementById("filterCloseDate").value;
 
-  return getDeals().filter((d) => {
+  const fields = cfFields("lead");
+  const deals = getDeals().filter((d) => {
     if (q) {
       const hay =
-        `${d.name} ${d.account} ${d.owner} ${d.contact || ""}`.toLowerCase();
+        `${d.name} ${d.account} ${d.owner} ${d.contact || ""} ${cfSearchText(fields, d.customFields)}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     if (stage !== "all" && d.stage !== stage) return false;
@@ -114,6 +127,7 @@ function getFilteredDeals() {
     if (closeBy && d.closeDate && d.closeDate > closeBy) return false;
     return true;
   });
+  return cfApplyFilters(deals, dealFieldFilters.filters(), fields);
 }
 
 // ---------------------------------------------------------------
@@ -310,6 +324,7 @@ function attachDragEvents() {
 function renderTable() {
   const deals = getFilteredDeals();
   const wrap = document.getElementById("dealsTable");
+  const columns = cfListColumns(cfFields("lead"));
 
   if (!deals.length) {
     wrap.innerHTML = `
@@ -331,6 +346,7 @@ function renderTable() {
           <th>${escapeHtml(t("deals.col.probability"))}</th>
           <th>${escapeHtml(t("deals.col.closeDate"))}</th>
           <th>${escapeHtml(t("leads.col.owner"))}</th>
+          ${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}
           <th></th>
         </tr>
       </thead>
@@ -346,6 +362,7 @@ function renderTable() {
             <td>${d.probability}%</td>
             <td>${formatDate(d.closeDate)}</td>
             <td>${escapeHtml(d.owner)}</td>
+            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, d.customFields?.[field.key])) || "—"}</td>`).join("")}
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-row" data-id="${d.id}" title="${escapeHtml(t("common.edit"))}" aria-label="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
@@ -553,10 +570,11 @@ function openModal(id) {
 
   const deleteBtn = document.getElementById("deleteBtn");
   const timelineSection = document.getElementById("timelineSection");
+  const deal = id ? getDeal(id) : null;
+  if (id && !deal) return;
+  cfMount(document.getElementById("dealCustomFields"), "lead", deal?.customFields);
 
-  if (id) {
-    const deal = getDeal(id);
-    if (!deal) return;
+  if (deal) {
     document.getElementById("modalTitle").textContent = t("deals.edit");
     document.getElementById("editId").value = deal.id;
     document.getElementById("fName").value = deal.name;
@@ -812,12 +830,15 @@ document.addEventListener("DOMContentLoaded", () => {
       ...(lostReason && { lostReason }),
       ownerId: document.getElementById("fOwner").value || null,
     };
+    const customFieldsBox = document.getElementById("dealCustomFields");
+    const customFields = cfRead(customFieldsBox);
+    if (customFields) payload.customFields = customFields;
     try {
       if (id) await updateLeadRecord(id, payload);
       else await createLead(payload);
       showToast(t(id ? "deals.updated" : "deals.created"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, t("deals.err.save")), "error");
+      showToast(cfShowErrors(customFieldsBox, error) ? t("cf.fixFields") : apiErrorMessage(error, t("deals.err.save")), "error");
       return;
     }
     closeModal();

@@ -171,6 +171,8 @@
                 <i class="fa-solid fa-plus"></i> <span data-i18n="customers.new-customer">New Customer</span></button>
             </div>
           </div>
+          <!-- Filters on the company's own fields (D74, js/custom-fields.js) -->
+          <div class="cf-filter-bar" id="customerCfFilters" hidden></div>
 
           <div class="panel"><div id="customersTable"></div></div>
         </div>
@@ -246,6 +248,8 @@
                 </select>
               </div>
             </div>
+            <!-- The company's own fields (D73, js/custom-fields.js) -->
+            <div class="cf-section" id="customerCustomFields" hidden></div>
           </form>
         </div>
         <div class="modal-foot">
@@ -362,6 +366,7 @@
     <div class="toast-stack" id="toast-stack"></div>
 
     <script src="./js/app.js"></script>
+    <script src="js/custom-fields.js"></script>
     <script src="js/customers.js"></script>
     <script src="js/customers-import.js"></script>
   </body>

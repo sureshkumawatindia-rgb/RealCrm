@@ -29,6 +29,8 @@ const SECTIONS = [
   ['contacts', Contact], ['products', Product], ['leads', Lead], ['leadActivities', LeadActivity],
   ['quotations', Quotation], ['orders', Order], ['tasks', Task], ['events', CalendarEvent], ['tickets', Ticket], ['notes', Note],
   ['documents', Document], ['campaigns', Campaign], ['workflows', Workflow], ['sequences', Sequence], ['paymentLinks', PaymentLink],
+  // The company's own fields (D73); their values are inside contacts and leads (customFields).
+  ['customFields', model('CustomFieldDefinition')],
   // WhatsApp and the inbox
   ['whatsappNumbers', model('WhatsAppAccount')], ['conversations', model('Conversation')], ['messages', model('Message')],
   ['quickReplies', model('QuickReply')], ['messageTemplates', model('MessageTemplate')],

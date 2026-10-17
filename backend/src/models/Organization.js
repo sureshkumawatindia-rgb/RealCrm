@@ -99,6 +99,9 @@ const organizationSchema = new mongoose.Schema(
       linkTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'MessageTemplate' },
       receiptTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'MessageTemplate' },
     },
+    // Custom fields (D73): raised inside the transaction that adds or restores a field, so two
+    // admins doing it at the same moment are taken one after the other and the limit holds.
+    customFieldsRevision: { type: Number },
   },
   // strict:false keeps fields written by older versions until a migration moves them.
   { timestamps: true, strict: false },

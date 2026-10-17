@@ -7,6 +7,8 @@ const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { searchFilter, sortSpec } = require('../utils/listQuery');
 const { visibilityFilter, privacyFilter, resolveOwnerId, ownerPatch } = require('./access');
 const planService = require('./planService');
+const customFieldService = require('./customFieldService');
+const customFieldFilters = require('./customFieldFilters');
 const automationEvents = require('./automation/events');
 
 const MODULE = 'customers';
@@ -14,7 +16,8 @@ const SEARCH_FIELDS = ['name', 'email', 'phone', 'phoneE164', 'company', 'city']
 const SORTS = ['name', 'createdAt', 'updatedAt', 'company'];
 const EDITABLE = ['name', 'email', 'phone', 'company', 'gstin', 'state', 'city', 'address', 'tags', 'source', 'lifecycle', 'status', 'productIds', 'notes'];
 
-function serializeContact(contact) {
+// keys: the active custom fields (customFieldService.activeKeys); without them, every stored value.
+function serializeContact(contact, keys) {
   return {
     id: contact._id,
     name: contact.name,
@@ -36,6 +39,7 @@ function serializeContact(contact) {
     notes: contact.notes,
     consent: { marketing: contact.consent?.marketing || 'unknown', changedAt: contact.consent?.changedAt || null, method: contact.consent?.method || '' },
     becameCustomerAt: contact.becameCustomerAt || null,
+    customFields: customFieldService.visibleValues(contact.customFields, keys),
     createdAt: contact.createdAt,
     updatedAt: contact.updatedAt,
   };
@@ -74,8 +78,15 @@ async function assertPhoneFree(req, phoneE164, exceptId, session) {
 }
 
 async function list(req, query) {
+  // Search also looks in the company's own text and dropdown fields; cf filters must all match (D74).
+  const [extraSearch, fieldFilters] = await Promise.all([
+    customFieldFilters.searchClauses(req, 'contact', query.q),
+    customFieldFilters.conditions(req, 'contact', query.cf),
+  ]);
+  const search = searchFilter(query.q, SEARCH_FIELDS);
   const filter = {
-    ...searchFilter(query.q, SEARCH_FIELDS),
+    ...(search.$or && { $or: [...search.$or, ...extraSearch] }),
+    ...(fieldFilters.length && { $and: fieldFilters }),
     ...visibilityFilter(req, MODULE),
     ...privacyFilter(req),
     ...(query.lifecycle && { lifecycle: query.lifecycle }),
@@ -85,7 +96,8 @@ async function list(req, query) {
     ...(query.consent && (query.consent === 'unknown' ? { 'consent.marketing': { $nin: ['opted_in', 'opted_out'] } } : { 'consent.marketing': query.consent })),
   };
   const { items, pagination } = await repo(req).paginate(filter, query, { sort: sortSpec(query.sort, SORTS) });
-  return { items: items.map(serializeContact), pagination };
+  const keys = await customFieldService.activeKeys(req, 'contact');
+  return { items: items.map((contact) => serializeContact(contact, keys)), pagination };
 }
 
 async function findVisible(req, id, session) {
@@ -94,14 +106,16 @@ async function findVisible(req, id, session) {
   return contact;
 }
 
-async function create(req, body, { session } = {}) {
+// enforceRequired: false for the public API (D73).
+async function create(req, body, { session, enforceRequired = true } = {}) {
   const data = normalizeFields(body);
   await assertPhoneFree(req, data.phoneE164, undefined, session);
   // Contacts added by hand count against the plan; WhatsApp messages and lead sources never stop.
   await planService.assertRoom(req.tenant.organizationId, 'contacts', { action: 'add contacts' });
-  const { marketingConsent, ...fields } = data;
+  const { marketingConsent, customFields, ...fields } = data;
   const contact = await repo(req).create({
     ...fields,
+    ...(customFields !== undefined && { customFields: await customFieldService.applyValues(req, 'contact', customFields, undefined, { isNew: true, enforceRequired }) }),
     ...(marketingConsent && { consent: consentOf(marketingConsent, 'manual') }),
     ownerId: await resolveOwnerId(req, body.ownerId),
     becameCustomerAt: data.lifecycle === 'customer' ? new Date() : undefined,
@@ -125,7 +139,7 @@ async function findOrCreate(req, input, { source = 'Manual', session } = {}) {
 
 // skipVisibility: the caller already checked access through a related record (a lead the
 // member may edit), so the contact itself does not have to be owned by them.
-async function update(req, id, patch, { session, skipVisibility = false } = {}) {
+async function update(req, id, patch, { session, skipVisibility = false, enforceRequired = true } = {}) {
   const contact = skipVisibility
     ? await repo(req).findById(id).session(session || null)
     : await findVisible(req, id, session);
@@ -136,8 +150,13 @@ async function update(req, id, patch, { session, skipVisibility = false } = {}) 
   Object.assign(contact, data, await ownerPatch(req, patch));
   if (patch.marketingConsent && patch.marketingConsent !== (contact.consent?.marketing || 'unknown')) contact.consent = consentOf(patch.marketingConsent, 'manual');
   if ('phoneE164' in data && !data.phoneE164) contact.phoneE164 = undefined;
+  if (patch.customFields !== undefined) {
+    contact.customFields = await customFieldService.applyValues(req, 'contact', patch.customFields, contact.customFields, { enforceRequired });
+    contact.markModified('customFields');
+  }
   await contact.save({ session });
-  await audit(req, { action: 'contact.updated', entityType: 'Contact', entityId: contact._id, changes: Object.keys(data) });
+  const changes = [...Object.keys(data), ...(patch.customFields !== undefined ? ['customFields'] : [])];
+  await audit(req, { action: 'contact.updated', entityType: 'Contact', entityId: contact._id, changes });
   return contact;
 }
 
@@ -150,9 +169,9 @@ async function remove(req, id) {
 
 module.exports = {
   list,
-  get: async (req, id) => serializeContact(await findVisible(req, id)),
-  create: async (req, body) => serializeContact(await create(req, body)),
-  update: async (req, id, patch) => serializeContact(await update(req, id, patch)),
+  get: async (req, id) => serializeContact(await findVisible(req, id), await customFieldService.activeKeys(req, 'contact')),
+  create: async (req, body, options) => serializeContact(await create(req, body, options), await customFieldService.activeKeys(req, 'contact')),
+  update: async (req, id, patch, options) => serializeContact(await update(req, id, patch, options), await customFieldService.activeKeys(req, 'contact')),
   remove,
   findOrCreate,
   consentOf,

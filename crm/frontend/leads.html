@@ -275,6 +275,8 @@
                 <i class="fa-solid fa-box-open"></i> <span data-i18n="leads.add-product">Add Product</span></button>
             </div>
           </div>
+          <!-- Filters on the company's own fields (D74, js/custom-fields.js) -->
+          <div class="cf-filter-bar" id="leadCfFilters" hidden></div>
 
           <div class="panel awaiting" id="awaitingPanel" hidden>
             <div class="awaiting-head">
@@ -386,6 +388,8 @@
             <div class="field">
               <label data-i18n="leads.notes">Notes</label><textarea id="fNotes" rows="3"></textarea>
             </div>
+            <!-- The company's own fields (D73, js/custom-fields.js) -->
+            <div class="cf-section" id="leadCustomFields" hidden></div>
             <p class="lead-quote-hint" id="leadQuoteHint" hidden data-i18n="leads.quotations-with-items-discounts-and-gst">Quotations with items, discounts and GST are made on the Quotations page: use “Create quotation” below.</p>
           </form>
         </div>
@@ -504,6 +508,7 @@
     <div class="toast-stack" id="toast-stack"></div>
 
     <script src="./js/app.js"></script>
+    <script src="./js/custom-fields.js"></script>
     <script src="./js/leads.js"></script>
   </body>
 </html>

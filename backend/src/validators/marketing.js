@@ -29,7 +29,11 @@ const segmentFields = {
 
 // The import form arrives as multipart fields (strings); mapping is a JSON list, one field per column.
 const contactImport = Joi.object({
-  mapping: Joi.array().items(Joi.string().valid('', 'name', 'phone', 'email', 'company', 'gstin', 'state', 'city', 'address', 'tags', 'source', 'notes')).min(1).max(200).required(),
+  // A built-in field, or "cf:<key>" for one of the company's own fields (D74).
+  mapping: Joi.array().items(Joi.alternatives().try(
+    Joi.string().valid('', 'name', 'phone', 'email', 'company', 'gstin', 'state', 'city', 'address', 'tags', 'source', 'notes'),
+    Joi.string().pattern(/^cf:[a-z][a-z0-9_]{1,39}$/),
+  )).min(1).max(200).required(),
   tags: words(),
   consent: Joi.string().valid('unknown', 'opted_in').default('unknown'),
   lifecycle: Joi.string().valid(...CONTACT_LIFECYCLES).default('customer'),

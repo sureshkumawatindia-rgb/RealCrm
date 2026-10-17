@@ -3821,3 +3821,249 @@ body.search-open {
     display: none;
   }
 }
+
+/* ============================================================
+   Custom fields (D73): "More details" in the customer, lead and deal forms (js/custom-fields.js),
+   and Settings → Custom fields (js/settings-fields.js).
+   ============================================================ */
+.cf-section {
+  border-top: 1px dashed var(--border);
+  margin-top: 4px;
+  padding-top: 14px;
+}
+.cf-section[hidden] {
+  display: none;
+}
+.cf-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 10px;
+}
+.field label.cf-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.field label.cf-check input {
+  width: auto;
+  flex-shrink: 0;
+}
+.cf-required {
+  color: var(--danger);
+}
+.cf-help {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+.cf-error {
+  font-size: 12px;
+  color: var(--danger);
+}
+.cf-error:not(:empty) {
+  margin-top: 4px;
+}
+.field.cf-invalid input,
+.field.cf-invalid select,
+.field.cf-invalid textarea {
+  border-color: var(--danger);
+}
+.cf-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+.cf-switch .btn.active {
+  background: var(--brand-light);
+  border-color: var(--brand-dark);
+  color: var(--ink);
+}
+.cf-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cf-form {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.cf-form h4 {
+  margin: 0 0 12px;
+}
+.cf-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.cf-option-row input {
+  flex: 1;
+  min-width: 0;
+}
+.cf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.cf-move {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cf-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.cf-row-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.cf-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.cf-row-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+.cf-archived {
+  margin-top: 18px;
+}
+.cf-archived summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .cf-row {
+    flex-wrap: wrap;
+  }
+  .cf-row-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Custom fields in lists (D74): "Filter by field" chips and their small form on the Customers,
+   Leads and Deals pages (js/custom-fields.js cfFilterBar). */
+.cf-filter-bar {
+  margin: -6px 0 14px;
+}
+.cf-filter-bar[hidden] {
+  display: none;
+}
+.cf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--brand-light);
+  color: var(--ink);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.cf-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.cf-chip-x:hover {
+  background: var(--surface);
+}
+.cf-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.cf-filter-form[hidden] {
+  display: none;
+}
+.cf-filter-form select,
+.cf-filter-form input[type="text"],
+.cf-filter-form input[type="date"] {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.cf-f-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.cf-f-value:empty {
+  display: none;
+}
+.cf-check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cf-f-actions {
+  display: flex;
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .cf-filter-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cf-filter-form select,
+  .cf-filter-form input[type="text"],
+  .cf-filter-form input[type="date"] {
+    width: 100%;
+  }
+  .cf-f-actions .btn {
+    flex: 1;
+  }
+}

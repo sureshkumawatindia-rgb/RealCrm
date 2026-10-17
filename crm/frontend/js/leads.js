@@ -305,6 +305,7 @@ function openModal(lead = null) {
   if (lead) document.getElementById("fValue").value = lead.value || "";
   document.getElementById("leadQuoteBtn").hidden = !lead;
   document.getElementById("leadQuoteHint").hidden = !lead;
+  cfMount(document.getElementById("leadCustomFields"), "lead", lead?.customFields);
   modalOverlay.classList.add("open");
 }
 function closeModal() {
@@ -356,12 +357,15 @@ leadForm.addEventListener("submit", async (e) => {
     followUpAt: document.getElementById("fFollowUp").value || null,
     notes: document.getElementById("fNotes").value.trim(),
   };
+  const customFieldsBox = document.getElementById("leadCustomFields");
+  const customFields = cfRead(customFieldsBox);
+  if (customFields) payload.customFields = customFields;
   try {
     await (id ? updateLeadRecord(id, payload) : createLead(payload));
     closeModal();
     showToast(t(id ? "leads.updated" : "leads.created"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, t("leads.err.save")), "error");
+    showToast(cfShowErrors(customFieldsBox, error) ? t("cf.fixFields") : apiErrorMessage(error, t("leads.err.save")), "error");
     return;
   }
   renderProductsPanel();
@@ -697,21 +701,35 @@ notesModalOverlay.addEventListener("click", (e) => {
 // ---------------------------------------------------------------
 // Leads table
 // ---------------------------------------------------------------
+// Filters on the company's own fields (D74); the table is drawn again once the fields are in.
+const leadFieldFilters = cfFilterBar({
+  container: document.getElementById("leadCfFilters"),
+  object: "lead",
+  storageKey: "leadsFieldFilters",
+  onChange: () => {
+    if (crmCache.leads) renderTable();
+  },
+});
+
 function renderTable() {
   const searchTerm = document.getElementById("searchInput").value.toLowerCase();
   const statusFilter = document.getElementById("filterStatus").value;
   const container = document.getElementById("leadsTable");
+  const fields = cfFields("lead");
+  const columns = cfListColumns(fields);
 
-  const filtered = getLeads().filter((l) => {
+  const searched = getLeads().filter((l) => {
     const matchesSearch =
       l.name.toLowerCase().includes(searchTerm) ||
       (l.email || "").toLowerCase().includes(searchTerm) ||
       (l.company || "").toLowerCase().includes(searchTerm) ||
       (l.source || "").toLowerCase().includes(searchTerm) ||
-      (l.title || "").toLowerCase().includes(searchTerm);
+      (l.title || "").toLowerCase().includes(searchTerm) ||
+      cfSearchText(fields, l.customFields).includes(searchTerm);
     const matchesStatus = statusFilter === "all" || l.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+  const filtered = cfApplyFilters(searched, leadFieldFilters.filters(), fields);
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>${escapeHtml(t("leads.empty.leads"))}</p></div>`;
@@ -720,7 +738,7 @@ function renderTable() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("leads.col.source"))}</th><th>${escapeHtml(t("leads.col.owner"))}</th><th>${escapeHtml(t("col.status"))}</th><th>${escapeHtml(t("col.value"))}</th><th>${escapeHtml(t("leads.col.followUp"))}</th><th></th></tr></thead>
+      <thead><tr><th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("leads.col.source"))}</th><th>${escapeHtml(t("leads.col.owner"))}</th><th>${escapeHtml(t("col.status"))}</th><th>${escapeHtml(t("col.value"))}</th><th>${escapeHtml(t("leads.col.followUp"))}</th>${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}<th></th></tr></thead>
       <tbody>
         ${filtered
           .map((l) => {
@@ -738,6 +756,7 @@ function renderTable() {
             <td class="inline-edit-cell" data-field="status">${statusBadge(l.status)}</td>
             <td class="inline-edit-cell" data-field="value">${l.value ? "₹" + Number(l.value).toLocaleString(crmI18n.locale()) : "—"}</td>
             <td class="inline-edit-cell" data-field="followUp">${l.followUp || "—"}</td>
+            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, l.customFields?.[field.key])) || "—"}</td>`).join("")}
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-btn" data-id="${l.id}" title="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>

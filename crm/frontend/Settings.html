@@ -896,6 +896,9 @@
             <button class="settings-tab" data-panel="leadrules" id="leadRulesTab" style="display: none">
               <i class="fa-solid fa-route"></i> <span data-i18n="set.tab.leadrules">Lead rules</span>
             </button>
+            <button class="settings-tab" data-panel="fields" id="fieldsTab" style="display: none">
+              <i class="fa-solid fa-sliders"></i> <span data-i18n="set.tab.fields">Custom fields</span>
+            </button>
             <button class="settings-tab" data-panel="ai" id="aiTab" style="display: none">
               <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="set.tab.ai">AI assistant</span>
             </button>
@@ -2033,6 +2036,73 @@
             </div>
           </div>
 
+          <!-- CUSTOM FIELDS (D73, owners and admins) -->
+          <div class="settings-panel" data-settings-panel="fields">
+            <div class="panel">
+              <div class="panel-head">
+                <h3 data-i18n="cf.title">Custom fields</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint" data-i18n="cf.intro">Add your own fields to customers and to leads &amp; deals, for example a machine model, credit days or a visit date. Your team fills them in the same forms they use today.</p>
+                <div class="cf-switch" role="group" aria-label="Where the fields go" data-i18n-aria-label="cf.where">
+                  <button type="button" class="btn btn-outline active" data-cf-object="contact" aria-pressed="true" data-i18n="cf.obj.contact">Customers</button>
+                  <button type="button" class="btn btn-outline" data-cf-object="lead" aria-pressed="false" data-i18n="cf.obj.lead">Leads &amp; Deals</button>
+                </div>
+                <div class="cf-toolbar">
+                  <span class="settings-hint" id="cfCount" style="margin: 0"></span>
+                  <button type="button" class="btn btn-primary" id="cfAdd"><i class="fa-solid fa-plus"></i> <span data-i18n="cf.addField">Add field</span></button>
+                </div>
+                <form class="cf-form" id="cfForm" hidden autocomplete="off">
+                  <h4 id="cfFormTitle" data-i18n="cf.addTitle">Add a field</h4>
+                  <div class="field">
+                    <label for="cfLabel" data-i18n="cf.name">Name</label>
+                    <input type="text" id="cfLabel" maxlength="60" required placeholder="e.g. Machine model" data-i18n-placeholder="cf.namePlaceholder" />
+                  </div>
+                  <div class="field">
+                    <label for="cfType" data-i18n="cf.typeLabel">Type</label>
+                    <select id="cfType">
+                      <option value="text" data-i18n="cf.type.text">Text</option>
+                      <option value="textarea" data-i18n="cf.type.textarea">Long text</option>
+                      <option value="number" data-i18n="cf.type.number">Number</option>
+                      <option value="date" data-i18n="cf.type.date">Date</option>
+                      <option value="dropdown" data-i18n="cf.type.dropdown">Dropdown</option>
+                      <option value="checkbox" data-i18n="cf.type.checkbox">Checkbox (tick)</option>
+                    </select>
+                    <div class="cf-help" id="cfTypeFixed" hidden data-i18n="cf.typeFixed">The type cannot change. To change it, add a new field.</div>
+                  </div>
+                  <div class="field" id="cfOptionsField" hidden>
+                    <label data-i18n="cf.choices">Choices</label>
+                    <div id="cfOptionRows"></div>
+                    <button type="button" class="btn btn-outline" id="cfAddOption"><i class="fa-solid fa-plus"></i> <span data-i18n="cf.addChoice">Add a choice</span></button>
+                    <div class="cf-help" data-i18n="cf.choicesHelp">Up to 100. A choice you remove stays on the records that already have it.</div>
+                  </div>
+                  <div class="field">
+                    <label for="cfHelp" data-i18n="cf.helpLabel">Help text (optional)</label>
+                    <input type="text" id="cfHelp" maxlength="200" placeholder="Shown under the field" data-i18n-placeholder="cf.helpPlaceholder" />
+                  </div>
+                  <div class="field">
+                    <label class="cf-check" for="cfRequired"><input type="checkbox" id="cfRequired" /> <span data-i18n="cf.requiredLabel">Required when someone adds or edits a record in the CRM</span></label>
+                    <div class="cf-help" data-i18n="cf.requiredHelp">WhatsApp chats, lead sources, imports and the API are never stopped by it.</div>
+                  </div>
+                  <div class="field">
+                    <label class="cf-check" for="cfListColumn"><input type="checkbox" id="cfListColumn" /> <span data-i18n="cf.listColumnLabel">Show as a column in the list</span></label>
+                    <div class="cf-help" data-i18n="cf.listColumnHelp">Up to 3 per list, the same for the whole team.</div>
+                  </div>
+                  <div class="data-actions">
+                    <button type="submit" class="btn btn-primary" id="cfSave" data-i18n="cf.save">Save field</button>
+                    <button type="button" class="btn btn-outline" id="cfCancel" data-i18n="common.cancel">Cancel</button>
+                  </div>
+                </form>
+                <div id="cfList"><p class="settings-hint" data-i18n="cf.loading">Loading…</p></div>
+                <details class="cf-archived" id="cfArchivedBox" hidden>
+                  <summary id="cfArchivedTitle"></summary>
+                  <p class="settings-hint" data-i18n="cf.archivedHelp">Archived fields are hidden from the forms. Their values are kept; restore a field to see them again.</p>
+                  <div id="cfArchived"></div>
+                </details>
+              </div>
+            </div>
+          </div>
+
           <!-- AUDIT LOG (Phase 10F, owners and admins) -->
           <div class="settings-panel" data-settings-panel="audit">
             <div class="panel">
@@ -2204,6 +2274,7 @@
     <script src="./js/settings-phone.js"></script>
     <script src="./js/settings-devices.js"></script>
     <script src="./js/settings-audit.js"></script>
+    <script src="./js/settings-fields.js"></script>
     <script src="./js/settings-deletion.js"></script>
   </body>
 </html>

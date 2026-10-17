@@ -25,11 +25,15 @@ crmI18n.ready.then(function customersImport() {
   }
 
   function renderPreview() {
+    const choice = (index, value, text) => `<option value="${escapeHtml(value)}" ${preview.mapping[index] === value ? "selected" : ""}>${escapeHtml(text)}</option>`;
+    // The company's own customer fields (D74), as "cf:<key>".
+    const own = preview.customFields || [];
+    const ownGroup = (index) => (own.length ? `<optgroup label="${escapeHtml(t("import.yourFields"))}">${own.map((field) => choice(index, field.value, field.label)).join("")}</optgroup>` : "");
     const columns = preview.headers.map((header, index) => `
       <th><div class="import-col">${escapeHtml(header || t("import.column", { n: index + 1 }))}</div>
         <select data-col="${index}" aria-label="${escapeHtml(t("import.columnIs", { n: index + 1 }))}">${Object.entries(FIELD_LABELS)
-          .map(([value, text]) => `<option value="${value}" ${preview.mapping[index] === value ? "selected" : ""}>${escapeHtml(text)}</option>`)
-          .join("")}</select></th>`).join("");
+          .map(([value, text]) => choice(index, value, text))
+          .join("")}${ownGroup(index)}</select></th>`).join("");
     const rows = preview.rows.map((row) => `<tr>${preview.headers.map((_, i) => `<td>${escapeHtml(row[i] || "")}</td>`).join("")}</tr>`).join("");
     $("importPreview").innerHTML = `<thead><tr>${columns}</tr></thead><tbody>${rows}</tbody>`;
     $("importCount").textContent = t("import.count", { n: preview.totalRows.toLocaleString(crmI18n.locale()) });
@@ -45,6 +49,7 @@ crmI18n.ready.then(function customersImport() {
       `<strong>${escapeHtml(t(report.dryRun ? "import.checked" : "import.imported"))}</strong>`,
       escapeHtml(t("import.summary", { created: report.created, updated: report.updated, unchanged: report.unchanged }) + (report.mergedInFile ? t("import.merged", { n: report.mergedInFile }) : "")),
       report.rejected ? escapeHtml(t("import.rejected", { n: report.rejected })) : "",
+      report.customLeftOut ? escapeHtml(t("import.customLeftOut", { n: report.customLeftOut })) : "",
     ].filter(Boolean);
     const rejected = report.rejectedRows.map((r) => `<li>${escapeHtml(t("import.row", { n: r.row }))}: ${escapeHtml(r.text)}</li>`).join("");
     const warnings = report.warnings.map((w) => `<li>${escapeHtml(t("import.row", { n: w.row }))}: ${escapeHtml(w.text)}</li>`).join("");

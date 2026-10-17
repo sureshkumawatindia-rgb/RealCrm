@@ -49,11 +49,12 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
 | Method | Path | Scope | What |
 |---|---|---|---|
 | GET | `/me` | any | The company and the key's scopes |
-| GET | `/contacts` | contacts:read | `?search=` (name, company, email, phone), `?phone=`, `?email=`, `?updatedSince=` |
+| GET | `/custom-fields` | contacts:read (`?object=contact`) or leads:read (`?object=lead`) | The company's own fields: `key`, `label`, `type`, `required`, `helpText`, and `options` (`value`, `label`) for dropdowns. See "Custom fields" below. |
+| GET | `/contacts` | contacts:read | `?search=` (name, company, email, phone), `?phone=`, `?email=`, `?cf=` (custom fields), `?updatedSince=` |
 | GET | `/contacts/:id` | contacts:read | One customer |
-| POST | `/contacts` | contacts:write | `{ name, phone?, email?, company?, gstin?, city?, state?, address?, tags?, lifecycle?, marketingConsent?, notes? }` → 201. `409` if the phone already belongs to a customer; `403 PLAN_LIMIT` at the plan's contact limit |
+| POST | `/contacts` | contacts:write | `{ name, phone?, email?, company?, gstin?, city?, state?, address?, tags?, lifecycle?, marketingConsent?, notes?, customFields? }` → 201. `409` if the phone already belongs to a customer; `403 PLAN_LIMIT` at the plan's contact limit |
 | PATCH | `/contacts/:id` | contacts:write | The same fields |
-| GET | `/leads` | leads:read | `?stage=`, `?source=`, `?updatedSince=` |
+| GET | `/leads` | leads:read | `?stage=`, `?source=`, `?cf=` (custom fields), `?updatedSince=` |
 | GET | `/leads/:id` | leads:read | One lead with its customer |
 | POST | `/leads` | leads:write | An enquiry: `{ contact: { name?, phone?, email?, company?, city?, state? }, title? or product?, quantity?, message?, externalId? }`. See the notes below the table. |
 | POST | `/leads/:id/stage` | leads:write | `{ stage: New / Contacted / Quote Sent / Negotiation / Won / Lost, lostReason? }` |
@@ -80,11 +81,34 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
 - A new number becomes a customer.
 - Refused when the customer has opted out (`OPTED_OUT`), when there is no WhatsApp number (`NO_WHATSAPP_NUMBER`), and for an unknown or unapproved template (`TEMPLATE_NOT_FOUND` / `TEMPLATE_NOT_SENDABLE`).
 
+**Custom fields (D74).** These are the fields a company adds in Settings → Custom fields.
+
+- **Reading.** Contacts and leads (and the contact inside a lead) carry `customFields: { key: value }`, active fields only. The value depends on the type:
+  - text and long text: a string;
+  - number: a number;
+  - date: `YYYY-MM-DD`;
+  - checkbox: `true` (an unticked box is absent);
+  - dropdown: **the choice's name** (`"Wholesale"`). If someone renames a choice, the new name is sent from then on.
+- **Writing** (`POST`/`PATCH /contacts`): the same `customFields` object. A dropdown takes a choice's name (capitals ignored) or its value (`o2`). `null` or `""` clears a field. A wrong value gets `400 VALIDATION_ERROR` with `field: "customFields.<key>"`. A field marked required never stops the API.
+  - Leads' fields cannot be written through the API yet.
+- **Filtering** (`GET /contacts`, `GET /leads`): `?cf=<key>:<operator>[:<value>]`, up to 5 times. Every filter must match. Operators by type:
+  - text and long text: `has`, `is`, `empty`, `filled`;
+  - number: `eq`, `gt`, `gte`, `lt`, `lte`, `empty`, `filled`;
+  - date: `eq`, `before`, `after`, `from`, `to`, `empty`, `filled`;
+  - dropdown: `in` with choice values separated by commas (`o1,o3`), `empty`, `filled`;
+  - checkbox: `yes`, `no`.
+
+  A filter the CRM cannot run gets `400 VALIDATION_ERROR` with code `INVALID_FILTER`.
+
 ### Example
 
 ```bash
 curl -H "Authorization: Bearer ycrm_1a2b3c4d5e_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   "https://crm.example.in/api/public/v1/leads?stage=Won&limit=50"
+
+# Customers whose "credit_days" is at least 30 and whose "dealer_type" is the first or third choice
+curl -G -H "Authorization: Bearer ycrm_…" "https://crm.example.in/api/public/v1/contacts" \
+  --data-urlencode "cf=credit_days:gte:30" --data-urlencode "cf=dealer_type:in:o1,o3"
 ```
 
 ## 2. Outbound webhooks
@@ -104,7 +128,7 @@ curl -H "Authorization: Bearer ycrm_1a2b3c4d5e_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 | `order.stage_changed` | An order moves stage | `order`, `from`, `to` |
 | `payment.received` | A payment is recorded (link or by hand) | `amountPaise`, `orderId`, `leadId`, `order`, `contact` |
 
-The `data` objects use the same shapes as the public API.
+The `data` objects use the same shapes as the public API, so every `contact` and `lead` includes its `customFields` (D74).
 
 ### Each call
 

@@ -4,6 +4,7 @@ const { paginationQuery } = require('../utils/pagination');
 const { GSTIN_PATTERN } = require('../utils/gstin');
 const { LEAD_STAGES, QUOTATION_STATUSES, ORDER_STAGES } = require('../constants/crm');
 const { API_SCOPE_KEYS, WEBHOOK_EVENT_KEYS } = require('../constants/api');
+const { fieldFilters, customFieldValues, publicFieldList } = require('./customFields');
 
 // The public API and its settings (Phase 10C).
 const text = (max) => Joi.string().trim().max(max).allow('');
@@ -24,6 +25,7 @@ const contactFields = {
   lifecycle: Joi.string().valid('lead', 'customer'),
   marketingConsent: Joi.string().valid('unknown', 'opted_in', 'opted_out'),
   notes: text(5000),
+  customFields: customFieldValues, // D74: a dropdown by its choice's name or value
 };
 
 module.exports = {
@@ -53,10 +55,11 @@ module.exports = {
   deliveryList: Joi.object({ ...paginationQuery, status: Joi.string().valid('pending', 'delivered', 'failed') }),
 
   // --- /api/public/v1 ---
-  contactList: list({ search: Joi.string().trim().max(100), phone: Joi.string().trim().max(30), email: Joi.string().trim().max(254) }),
+  customFieldList: publicFieldList,
+  contactList: list({ search: Joi.string().trim().max(100), phone: Joi.string().trim().max(30), email: Joi.string().trim().max(254), cf: fieldFilters }),
   contactCreate: Joi.object({ ...contactFields, name: contactFields.name.required() }),
   contactPatch: Joi.object(contactFields).min(1),
-  leadList: list({ stage: Joi.string().valid(...LEAD_STAGES), source: Joi.string().trim().max(50) }),
+  leadList: list({ stage: Joi.string().valid(...LEAD_STAGES), source: Joi.string().trim().max(50), cf: fieldFilters }),
   leadCreate: Joi.object({
     contact: Joi.object({ name: text(200), phone: text(30), email: text(254), company: text(200), city: text(100), state: text(100), address: text(500) }).required(),
     title: text(200),

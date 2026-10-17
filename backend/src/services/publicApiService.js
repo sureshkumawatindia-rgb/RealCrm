@@ -13,6 +13,9 @@ const { normalizePhone } = require('../utils/phone');
 const { API_SCOPES } = require('../constants/api');
 const contactService = require('./contactService');
 const leadService = require('./leadService');
+const customFieldService = require('./customFieldService');
+const customFieldFilters = require('./customFieldFilters');
+const CustomFieldDefinition = require('../models/CustomFieldDefinition');
 const leadIntake = require('./leadIntakeService');
 const conversationService = require('./conversationService');
 const templateService = require('./templateService');
@@ -25,20 +28,33 @@ const { paymentStatusOf, duePaise } = require('./orderService');
 // oldest first (for polling). Writes go through the CRM's own services, with their checks.
 const ref = (doc) => (doc?._id ? String(doc._id) : doc ? String(doc) : null);
 
-const publicContact = (c) => ({
+// The company's own fields (D74): fields = customFieldShapes(organizationId), the active fields of
+// contacts and of leads. customFields is { key: value }, a dropdown as its choice's name.
+async function customFieldShapes(organizationId) {
+  const fields = await CustomFieldDefinition.find({ organizationId, status: 'active' }).sort({ order: 1 }).lean();
+  return { contact: fields.filter((f) => f.object === 'contact'), lead: fields.filter((f) => f.object === 'lead') };
+}
+
+const publicContact = (c, fields) => ({
   id: String(c._id), name: c.name || '', phone: c.phoneE164 || '', email: c.email || '', company: c.company || '',
   gstin: c.gstin || '', city: c.city || '', state: c.state || '', address: c.address || '', tags: c.tags || [],
   source: c.source || '', lifecycle: c.lifecycle || '', marketingConsent: c.consent?.marketing || 'unknown',
+  customFields: customFieldService.publicValues(c.customFields, fields?.contact),
   createdAt: c.createdAt, updatedAt: c.updatedAt,
 });
 
-const contactBrief = (c) => (c?._id ? { id: String(c._id), name: c.name || '', phone: c.phoneE164 || '', email: c.email || '', company: c.company || '' } : null);
+const contactBrief = (c, fields) => (c?._id ? {
+  id: String(c._id), name: c.name || '', phone: c.phoneE164 || '', email: c.email || '', company: c.company || '',
+  customFields: customFieldService.publicValues(c.customFields, fields?.contact),
+} : null);
 
-const publicLead = (l) => ({
+const publicLead = (l, fields) => ({
   id: String(l._id), title: l.title || '', stage: l.stage, lostReason: l.lostReason || '', source: l.source || '',
-  contactId: ref(l.contactId), contact: contactBrief(l.contactId), ownerId: ref(l.ownerId),
+  contactId: ref(l.contactId), contact: contactBrief(l.contactId, fields), ownerId: ref(l.ownerId),
   expectedValuePaise: l.expectedValuePaise ?? null, probability: l.probability ?? null, quantity: l.quantity ?? null,
-  notes: l.notes || '', stageChangedAt: l.stageChangedAt || null, createdAt: l.createdAt, updatedAt: l.updatedAt,
+  notes: l.notes || '', stageChangedAt: l.stageChangedAt || null,
+  customFields: customFieldService.publicValues(l.customFields, fields?.lead),
+  createdAt: l.createdAt, updatedAt: l.updatedAt,
 });
 
 const publicItem = (i) => ({
@@ -90,7 +106,16 @@ async function one(Model, req, id, serialize, populate) {
   return serialize(doc);
 }
 
-const CONTACT_FIELDS = 'name phoneE164 email company';
+const CONTACT_FIELDS = 'name phoneE164 email company customFields';
+// Serializers with the company's fields (D74), and the cf filters as extra conditions.
+const withFields = async (req, serialize) => {
+  const fields = await customFieldShapes(req.tenant.organizationId);
+  return (doc) => serialize(doc, fields);
+};
+const fieldFilters = async (req, object, cf) => {
+  const conditions = await customFieldFilters.conditions(req, object, cf);
+  return conditions.length ? { $and: conditions } : {};
+};
 const org = (req) => req.tenant.organizationId;
 
 function contactFilter(req, { search, phone, email }) {
@@ -111,20 +136,34 @@ module.exports = {
     return { organization: { id: String(organization._id), name: organization.name }, key: { name: req.apiKey.name, scopes: req.apiKey.scopes.map((scope) => ({ scope, label: API_SCOPES[scope] })) } };
   },
 
-  listContacts: (req, query) => page(Contact, contactFilter(req, query), query, publicContact),
-  getContact: (req, id) => one(Contact, req, id, publicContact),
-  async createContact(req, body) {
-    const created = await contactService.create(req, { ...body, source: 'API' });
-    return one(Contact, req, created.id, publicContact);
-  },
-  async updateContact(req, id, body) {
-    await one(Contact, req, id, publicContact);
-    await contactService.update(req, id, body);
-    return one(Contact, req, id, publicContact);
+  // GET /custom-fields?object=contact|lead — the company's own fields (D74), active ones only.
+  async listCustomFields(req, { object }) {
+    const fields = (await customFieldShapes(org(req)))[object];
+    return fields.map((f) => ({
+      key: f.key, label: f.label, type: f.type, required: Boolean(f.required), helpText: f.helpText || '',
+      options: f.type === 'dropdown' ? f.options.filter((o) => !o.archived).map((o) => ({ value: o.value, label: o.label })) : [],
+    }));
   },
 
-  listLeads: (req, query) => page(Lead, { organizationId: org(req), private: { $ne: true }, ...(query.stage && { stage: query.stage }), ...(query.source && { source: query.source }) }, query, publicLead, { path: 'contactId', select: CONTACT_FIELDS }),
-  getLead: (req, id) => one(Lead, req, id, publicLead, { path: 'contactId', select: CONTACT_FIELDS }),
+  listContacts: async (req, query) => page(Contact, { ...contactFilter(req, query), ...(await fieldFilters(req, 'contact', query.cf)) }, query, await withFields(req, publicContact)),
+  getContact: async (req, id) => one(Contact, req, id, await withFields(req, publicContact)),
+  // customFields as in the CRM, a dropdown by its choice's name or value; a required field never
+  // stops the API (D73).
+  async createContact(req, body) {
+    const customFields = await customFieldService.fromPublicValues(req, 'contact', body.customFields);
+    const created = await contactService.create(req, { ...body, customFields, source: 'API' }, { enforceRequired: false });
+    return one(Contact, req, created.id, await withFields(req, publicContact));
+  },
+  async updateContact(req, id, body) {
+    const serialize = await withFields(req, publicContact);
+    await one(Contact, req, id, serialize);
+    const customFields = await customFieldService.fromPublicValues(req, 'contact', body.customFields);
+    await contactService.update(req, id, { ...body, customFields }, { enforceRequired: false });
+    return one(Contact, req, id, serialize);
+  },
+
+  listLeads: async (req, query) => page(Lead, { organizationId: org(req), private: { $ne: true }, ...(query.stage && { stage: query.stage }), ...(query.source && { source: query.source }), ...(await fieldFilters(req, 'lead', query.cf)) }, query, await withFields(req, publicLead), { path: 'contactId', select: CONTACT_FIELDS }),
+  getLead: async (req, id) => one(Lead, req, id, await withFields(req, publicLead), { path: 'contactId', select: CONTACT_FIELDS }),
 
   // POST /leads — an enquiry, like a lead source: the same customer's open lead gets it, else a
   // new lead; assignment and auto-reply rules run; externalId makes a repeat harmless.
@@ -134,13 +173,14 @@ module.exports = {
       person: body.contact, enquiry: { product: body.product || body.title, quantity: body.quantity, message: body.message }, raw: body,
     });
     if (result.outcome === 'rejected') throw httpError(400, 'VALIDATION_ERROR', 'A lead needs a valid mobile number or email.', [{ field: 'contact.phone', message: 'Give a valid mobile number or email.' }]);
-    const lead = await one(Lead, req, result.leadId, publicLead, { path: 'contactId', select: CONTACT_FIELDS });
+    const lead = await one(Lead, req, result.leadId, await withFields(req, publicLead), { path: 'contactId', select: CONTACT_FIELDS });
     return { outcome: result.outcome, lead };
   },
   async changeLeadStage(req, id, body) {
-    await one(Lead, req, id, publicLead);
+    const serialize = await withFields(req, publicLead);
+    await one(Lead, req, id, serialize);
     await leadService.changeStage(req, id, body);
-    return one(Lead, req, id, publicLead, { path: 'contactId', select: CONTACT_FIELDS });
+    return one(Lead, req, id, serialize, { path: 'contactId', select: CONTACT_FIELDS });
   },
 
   listQuotations: (req, query) => page(Quotation, { organizationId: org(req), ...(query.status && { status: query.status }), ...(query.contactId && { contactId: query.contactId }) }, query, publicQuotation),
@@ -173,5 +213,5 @@ module.exports = {
     return { messageId: ref(message?.id || message?._id), status: message?.status || 'queued', contactId: String(contact._id), conversationId: String(conversation._id) };
   },
 
-  publicContact, publicLead, publicQuotation, publicOrder, publicProduct,
+  publicContact, publicLead, publicQuotation, publicOrder, publicProduct, customFieldShapes,
 };

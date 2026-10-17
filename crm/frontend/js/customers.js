@@ -132,6 +132,7 @@ function openModal(customer = null) {
   document.getElementById("fState").value = customer ? customer.state || "" : "";
   document.getElementById("fTags").value = customer ? (customer.tags || []).join(", ") : "";
   document.getElementById("fConsent").value = customer ? customer.consent?.marketing || "unknown" : "unknown";
+  cfMount(document.getElementById("customerCustomFields"), "contact", customer?.customFields);
   modalOverlay.classList.add("open");
 }
 function closeModal() {
@@ -163,6 +164,9 @@ customerForm.addEventListener("submit", async (e) => {
       .filter((t, i, all) => all.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i),
     marketingConsent: document.getElementById("fConsent").value,
   };
+  const customFieldsBox = document.getElementById("customerCustomFields");
+  const customFields = cfRead(customFieldsBox);
+  if (customFields) data.customFields = customFields;
   if (!data.name || !data.email) {
     showToast(t("customers.nameEmailRequired"), "error");
     return;
@@ -174,24 +178,38 @@ customerForm.addEventListener("submit", async (e) => {
     closeModal();
     renderTable();
   } catch (error) {
-    showToast(apiErrorMessage(error, t("customers.err.save")), "error");
+    showToast(cfShowErrors(customFieldsBox, error) ? t("cf.fixFields") : apiErrorMessage(error, t("customers.err.save")), "error");
   }
+});
+
+// Filters on the company's own fields (D74); the table is drawn again once the fields are in.
+const customerFieldFilters = cfFilterBar({
+  container: document.getElementById("customerCfFilters"),
+  object: "contact",
+  storageKey: "customersFieldFilters",
+  onChange: () => {
+    if (crmCache.contacts) renderTable();
+  },
 });
 
 function renderTable() {
   const searchTerm = document.getElementById("searchInput").value.toLowerCase();
   const statusFilter = document.getElementById("filterStatus").value;
   const container = document.getElementById("customersTable");
+  const fields = cfFields("contact");
+  const columns = cfListColumns(fields);
 
-  const filtered = getCustomers().filter((c) => {
+  const searched = getCustomers().filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(searchTerm) ||
       c.email.toLowerCase().includes(searchTerm) ||
       (c.company || "").toLowerCase().includes(searchTerm) ||
-      (c.tags || []).some((t) => t.toLowerCase().includes(searchTerm));
+      (c.tags || []).some((t) => t.toLowerCase().includes(searchTerm)) ||
+      cfSearchText(fields, c.customFields).includes(searchTerm);
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+  const filtered = cfApplyFilters(searched, customerFieldFilters.filters(), fields);
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-users"></i><p>${escapeHtml(t("customers.empty"))}</p></div>`;
@@ -200,7 +218,7 @@ function renderTable() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("leads.phone"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("customers.col.tags"))}</th><th>${escapeHtml(t("col.status"))}</th><th></th></tr></thead>
+      <thead><tr><th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("leads.phone"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("customers.col.tags"))}</th><th>${escapeHtml(t("col.status"))}</th>${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}<th></th></tr></thead>
       <tbody>
         ${filtered
           .map(
@@ -213,6 +231,7 @@ function renderTable() {
             <td>${escapeHtml(getProductName(c.product))}</td>
             <td>${(c.tags || []).map((t) => `<span class="badge badge-neutral">${escapeHtml(t)}</span>`).join(" ") || "—"}${c.consent?.marketing === "opted_out" ? ` <span class="badge badge-danger" title="${escapeHtml(crmI18n.t("customers.noOffersTitle"))}">${escapeHtml(crmI18n.t("customers.noOffers"))}</span>` : ""}</td>
             <td>${statusBadge(c.status)}</td>
+            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, c.customFields?.[field.key])) || "—"}</td>`).join("")}
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-btn" data-id="${c.id}" title="${escapeHtml(crmI18n.t("common.edit"))}" aria-label="${escapeHtml(crmI18n.t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>

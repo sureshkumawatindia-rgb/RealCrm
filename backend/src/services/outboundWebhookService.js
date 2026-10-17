@@ -202,17 +202,18 @@ async function deliver({ deliveryId }, job, queue = require('../jobs/queue')) {
 }
 
 // --- events → deliveries -------------------------------------------------------------------------
-const POPULATE_CONTACT = { path: 'contactId', select: 'name phoneE164 email company' };
+const POPULATE_CONTACT = { path: 'contactId', select: 'name phoneE164 email company customFields' };
 const byId = (Model, id, populate) => (id && mongoose.isValidObjectId(id) ? (populate ? Model.findById(id).populate(populate) : Model.findById(id)) : null);
 
-// What each event carries (the public API's shapes).
+// What each event carries (the public API's shapes, with the company's own fields, D74).
 async function dataOf(event) {
-  const contact = async () => { const c = await byId(Contact, event.contactId); return c ? publicApi.publicContact(c) : null; };
+  const fields = await publicApi.customFieldShapes(event.organizationId);
+  const contact = async () => { const c = await byId(Contact, event.contactId); return c ? publicApi.publicContact(c, fields) : null; };
   switch (event.type) {
     case 'lead.created':
     case 'lead.stage_changed': {
       const lead = await byId(Lead, event.leadId, POPULATE_CONTACT);
-      return { lead: lead ? publicApi.publicLead(lead) : null, ...(event.type === 'lead.stage_changed' && { from: event.from, to: event.to }) };
+      return { lead: lead ? publicApi.publicLead(lead, fields) : null, ...(event.type === 'lead.stage_changed' && { from: event.from, to: event.to }) };
     }
     case 'contact.created':
       return { contact: await contact() };
@@ -300,5 +301,5 @@ const meta = () => ({ events: Object.entries(WEBHOOK_EVENTS).map(([event, label]
 
 module.exports = {
   JOBS, list, create, update, remove, rotateSecret, listDeliveries, test, retry, fanout, deliver, register, meta,
-  serialize, serializeDelivery, eventIdOf, RETRY_AFTER_MS, DISABLE_AFTER_FAILURES,
+  serialize, serializeDelivery, eventIdOf, dataOf, RETRY_AFTER_MS, DISABLE_AFTER_FAILURES,
 };

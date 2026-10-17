@@ -39,6 +39,8 @@ const leadSchema = new mongoose.Schema(
     lastQuoteSentAt: { type: Date },
     lastCustomerReplyAt: { type: Date },
     version: { type: Number, default: 0 },
+    // The company's own fields (D73): { key: value }, checked by services/customFieldService.js.
+    customFields: { type: mongoose.Schema.Types.Mixed },
     legacyIds: { type: [String], default: undefined },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },

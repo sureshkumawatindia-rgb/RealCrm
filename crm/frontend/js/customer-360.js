@@ -258,15 +258,19 @@ function renderFields(customer) {
     [t("leads.phone"), customer.phone || "—"],
     [t("c360.since"), formatDate(customer.createdAt)],
   ];
-  document.getElementById("c360Fields").innerHTML = fields
-    .map(
-      ([k, v]) => `
+  const row = ([k, v]) => `
       <div class="c360-field">
         <span class="k">${escapeHtml(k)}</span>
         <span class="v">${escapeHtml(v)}</span>
-      </div>`,
-    )
-    .join("");
+      </div>`;
+  const box = document.getElementById("c360Fields");
+  box.innerHTML = fields.map(row).join("");
+  // The company's own fields (D73) that this customer has filled, under the built-in ones.
+  box.dataset.customerId = customer.id;
+  cfFilledValues("contact", customer.customFields).then((filled) => {
+    if (box.dataset.customerId !== String(customer.id) || !filled.length) return;
+    box.insertAdjacentHTML("beforeend", filled.map(({ label, text }) => row([label, text])).join(""));
+  });
 }
 
 // ---------------------------------------------------------------

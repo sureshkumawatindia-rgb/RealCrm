@@ -208,6 +208,8 @@
                 <i class="fa-solid fa-plus"></i> <span data-i18n="dash.newDeal">New Deal</span></button>
             </div>
           </div>
+          <!-- Filters on the company's own fields (D74, js/custom-fields.js): board and table -->
+          <div class="cf-filter-bar" id="dealCfFilters" hidden></div>
 
           <div class="nav-bar-kanban-card">
             <button data-stage="New" data-i18n="deals.new">NEW</button>
@@ -346,6 +348,9 @@
               </div>
             </div>
 
+            <!-- The company's own fields (D73, js/custom-fields.js): leads and deals share them -->
+            <div class="cf-section" id="dealCustomFields" hidden></div>
+
             <div id="timelineSection" style="display: none">
               <hr class="timeline-divider" />
               <label
@@ -393,6 +398,7 @@
     <div class="toast-stack" id="toast-stack"></div>
 
     <script src="./js/app.js"></script>
+    <script src="./js/custom-fields.js"></script>
     <script src="./js/deals.js"></script>
   </body>
 </html>

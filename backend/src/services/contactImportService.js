@@ -7,12 +7,16 @@ const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { LEAD_SOURCES } = require('../constants/crm');
 const { visibilityFilter, resolveOwnerId } = require('./access');
 const planService = require('./planService');
+const customFieldService = require('./customFieldService');
 
 // Customers from a CSV file (Phase 7): the person maps the file's columns to CRM fields, phones
 // become +91… numbers, and nobody is added twice — rows of the same file with the same phone
 // (or email) merge, and someone already in the CRM is updated (blank fields filled, tags added)
 // or left alone. "Agreed to WhatsApp offers" marks everyone imported as opted in, but never
 // someone who opted out (D35). A dry run reports without saving.
+// The company's own fields (D74) are targets too ("cf:<key>"): read forgivingly (Indian numbers and
+// dates, a dropdown choice by name), only filling a field someone already in the CRM has empty,
+// never stopped by a required field; a value that cannot be read is left out with a warning.
 const MAX_ROWS = 10000;
 const REPORT_LIMIT = 200;
 const FIELDS = ['name', 'phone', 'email', 'company', 'gstin', 'state', 'city', 'address', 'tags', 'source', 'notes'];
@@ -44,24 +48,49 @@ function readFile(file) {
   return { headers: rows[0], data: rows.slice(1) };
 }
 
-// Column index → field, from the header names (each field once).
-function suggestMapping(headers) {
+// Column index → field, from the header names (each field once). The built-in fields first; a
+// column left over goes to a custom field with the same name or key.
+function suggestMapping(headers, customTargets = []) {
   const taken = new Set();
-  return headers.map((header) => {
+  const mapping = headers.map((header) => {
     const name = label(header);
     const field = FIELDS.find((f) => !taken.has(f) && (GUESSES[f].map(label).includes(name) || name === f));
     if (field) taken.add(field);
     return field || '';
   });
+  return mapping.map((field, index) => {
+    if (field) return field;
+    const name = customFieldService.loose(headers[index]);
+    const target = customTargets.find((t) => !taken.has(t.value) && name && (customFieldService.loose(t.label) === name || customFieldService.loose(t.key) === name));
+    if (target) taken.add(target.value);
+    return target ? target.value : '';
+  });
 }
 
-function preview(file) {
+// The company's active customer fields as import targets.
+async function customTargetsOf(req) {
+  const fields = await customFieldService.fieldsFor(req, 'contact');
+  return fields
+    .filter((field) => field.status === 'active')
+    .sort((a, b) => a.order - b.order)
+    .map((field) => ({ value: `cf:${field.key}`, key: field.key, label: field.label, type: field.type }));
+}
+
+async function preview(req, file) {
   const { headers, data } = readFile(file);
-  return { headers, rows: data.slice(0, 5), totalRows: data.length, mapping: suggestMapping(headers), fields: FIELDS };
+  const customTargets = await customTargetsOf(req);
+  return {
+    headers,
+    rows: data.slice(0, 5),
+    totalRows: data.length,
+    mapping: suggestMapping(headers, customTargets),
+    fields: FIELDS,
+    customFields: customTargets.map(({ value, label: name, type }) => ({ value, label: name, type })),
+  };
 }
 
-// One file row → contact fields, or { reject }.
-function recordOf(row, mapping) {
+// One file row → contact fields, or { reject }. customFields: key → field, for the cf: columns.
+function recordOf(row, mapping, customFields = new Map()) {
   const value = (field) => {
     const index = mapping.indexOf(field);
     return index === -1 ? '' : String(row[index] || '').trim();
@@ -90,15 +119,26 @@ function recordOf(row, mapping) {
   };
   record.stateCode = stateCodeFromGstin(record.gstin);
   const warnings = [];
+  record.customFields = {};
+  let leftOut = 0;
+  mapping.forEach((target, index) => {
+    const field = target.startsWith('cf:') && mapping.indexOf(target) === index ? customFields.get(target.slice(3)) : null;
+    if (!field) return;
+    const { value, warning } = customFieldService.readImportValue(field, row[index]);
+    if (warning) warnings.push(warning);
+    if (warning && value === undefined) leftOut += 1;
+    if (value !== undefined) record.customFields[field.key] = value;
+  });
   if (emailText && !email) warnings.push(`email "${emailText}" was left out`);
   if (value('gstin') && !record.gstin) warnings.push(`GSTIN "${value('gstin')}" was left out`);
-  return { record, warnings };
+  return { record, warnings, leftOut };
 }
 
 // Rows of the same file for the same person: later rows fill what earlier ones left blank.
 function merge(into, from) {
   for (const [key, value] of Object.entries(from)) {
-    if (key === 'tags') into.tags = [...new Set([...into.tags, ...value])];
+    if (key === 'customFields') into.customFields = { ...value, ...into.customFields };
+    else if (key === 'tags') into.tags = [...new Set([...into.tags, ...value])];
     else if (!into[key] && value) into[key] = value;
   }
 }
@@ -113,7 +153,12 @@ async function run(req, file, options) {
     throw httpError(400, 'VALIDATION_ERROR', 'Choose which column has the phone number (or the email).', [{ field: 'mapping', code: 'PHONE_REQUIRED', message: 'Choose which column has the phone number (or the email).' }]);
   }
   const organizationId = req.tenant.organizationId;
-  const report = { totalRows: data.length, created: 0, updated: 0, unchanged: 0, mergedInFile: 0, rejected: 0, rejectedRows: [], warnings: [], dryRun };
+  const customFields = new Map((await customFieldService.fieldsFor(req, 'contact')).map((field) => [field.key, field]));
+  const unknown = mapping.find((target) => target.startsWith('cf:') && customFields.get(target.slice(3))?.status !== 'active');
+  if (unknown) {
+    throw httpError(400, 'VALIDATION_ERROR', 'A column goes to a field that no longer exists; open the file again.', [{ field: 'mapping', code: 'UNKNOWN_FIELD', message: unknown }]);
+  }
+  const report = { totalRows: data.length, created: 0, updated: 0, unchanged: 0, mergedInFile: 0, rejected: 0, rejectedRows: [], warnings: [], customLeftOut: 0, dryRun };
   const note = (list, row, text) => {
     if (report[list].length < REPORT_LIMIT) report[list].push({ row, text });
   };
@@ -122,13 +167,14 @@ async function run(req, file, options) {
   const people = new Map();
   data.forEach((row, index) => {
     const rowNumber = index + 2; // as in the spreadsheet (row 1 is the header)
-    const { record, reject, warnings } = recordOf(row, mapping);
+    const { record, reject, warnings, leftOut } = recordOf(row, mapping, customFields);
     if (reject) {
       report.rejected += 1;
       note('rejectedRows', rowNumber, reject);
       return;
     }
     warnings.forEach((w) => note('warnings', rowNumber, w));
+    report.customLeftOut += leftOut;
     record.tags = unique([...record.tags, ...extraTags]);
     const key = record.phoneE164 || `email:${record.email}`;
     if (people.has(key)) {
@@ -153,12 +199,13 @@ async function run(req, file, options) {
   const writes = [];
   for (const { record } of list) {
     const found = (record.phoneE164 && byPhone.get(record.phoneE164)) || (!record.phoneE164 && byEmail.get(record.email));
+    const { customFields: values, ...fields } = record;
     if (!found) {
       report.created += 1;
       writes.push({
         insertOne: {
           document: {
-            ...record, organizationId, lifecycle, status: 'Active', ownerId, createdById: req.user._id,
+            ...fields, ...(Object.keys(values).length && { customFields: values }), organizationId, lifecycle, status: 'Active', ownerId, createdById: req.user._id,
             ...(lifecycle === 'customer' && { becameCustomerAt: now }),
             consent: consent === 'opted_in' ? { marketing: 'opted_in', changedAt: now, method: 'import' } : { marketing: 'unknown' },
           },
@@ -173,6 +220,8 @@ async function run(req, file, options) {
     const set = {};
     for (const field of ['email', 'company', 'gstin', 'stateCode', 'state', 'city', 'address']) if (!found[field] && record[field]) set[field] = record[field];
     if (!found.phoneE164 && record.phoneE164) Object.assign(set, { phone: record.phone, phoneE164: record.phoneE164 });
+    // Their own fields: only the empty ones are filled, nothing is overwritten.
+    for (const [key, value] of Object.entries(values)) if (found.customFields?.[key] === undefined) set[`customFields.${key}`] = value;
     if (consent === 'opted_in' && (found.consent?.marketing || 'unknown') === 'unknown') Object.assign(set, { consent: { marketing: 'opted_in', changedAt: now, method: 'import' } });
     const newTags = record.tags.filter((t) => !found.tags.some((x) => x.toLowerCase() === t.toLowerCase()));
     if (!Object.keys(set).length && !newTags.length) {
