@@ -132,7 +132,7 @@ function openModal(customer = null) {
   document.getElementById("fState").value = customer ? customer.state || "" : "";
   document.getElementById("fTags").value = customer ? (customer.tags || []).join(", ") : "";
   document.getElementById("fConsent").value = customer ? customer.consent?.marketing || "unknown" : "unknown";
-  cfMount(document.getElementById("customerCustomFields"), "contact", customer?.customFields);
+  cfMount(document.getElementById("customerCustomFields"), "contact", customer?.customFields, customer?.customFieldLinks);
   modalOverlay.classList.add("open");
 }
 function closeModal() {
@@ -231,7 +231,7 @@ function renderTable() {
             <td>${escapeHtml(getProductName(c.product))}</td>
             <td>${(c.tags || []).map((t) => `<span class="badge badge-neutral">${escapeHtml(t)}</span>`).join(" ") || "—"}${c.consent?.marketing === "opted_out" ? ` <span class="badge badge-danger" title="${escapeHtml(crmI18n.t("customers.noOffersTitle"))}">${escapeHtml(crmI18n.t("customers.noOffers"))}</span>` : ""}</td>
             <td>${statusBadge(c.status)}</td>
-            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, c.customFields?.[field.key])) || "—"}</td>`).join("")}
+            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, c.customFields?.[field.key], c.customFieldLinks?.[field.key])) || "—"}</td>`).join("")}
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-btn" data-id="${c.id}" title="${escapeHtml(crmI18n.t("common.edit"))}" aria-label="${escapeHtml(crmI18n.t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>

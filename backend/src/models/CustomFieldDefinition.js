@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { CUSTOM_FIELD_OBJECTS, CUSTOM_FIELD_TYPES, CUSTOM_FIELD_STATUSES } = require('../constants/customFields');
+const { isObjectKey, CUSTOM_FIELD_TYPES, CUSTOM_FIELD_STATUSES } = require('../constants/customFields');
 
 // A field a company added to its customers or leads (Phase 1A, D73). The values live on the
 // record (Contact.customFields / Lead.customFields, key → value). object, key and type never
@@ -16,12 +16,15 @@ const optionSchema = new mongoose.Schema(
 const customFieldDefinitionSchema = new mongoose.Schema(
   {
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
-    object: { type: String, enum: CUSTOM_FIELD_OBJECTS, required: true },
+    // contact, lead, or one of the company's own objects (x_machines, D75).
+    object: { type: String, required: true, validate: { validator: isObjectKey, message: 'Unknown object' } },
     key: { type: String, required: true },
     label: { type: String, required: true, trim: true },
     helpText: { type: String, trim: true, default: '' },
     type: { type: String, enum: CUSTOM_FIELD_TYPES, required: true },
     options: { type: [optionSchema], default: undefined }, // dropdown only
+    // lookup only (D75): what it links to — contact, lead or an object's key. Never changes.
+    lookupTarget: { type: String, validate: { validator: isObjectKey, message: 'Unknown link target' } },
     required: { type: Boolean, default: false },
     // Shown as a column in the Customers / Leads / Deals lists, for the whole company (D74, max 3).
     listColumn: { type: Boolean, default: false },

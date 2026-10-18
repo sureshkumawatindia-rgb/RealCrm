@@ -2,13 +2,24 @@
 // that can have them, the field types and the limits. The values live on the record itself
 // (Contact.customFields, Lead.customFields: key → value).
 
+// The built-in objects; a company's own objects (Phase 1C, D75) have keys like x_machines.
 const CUSTOM_FIELD_OBJECTS = Object.freeze(['contact', 'lead']);
-const CUSTOM_FIELD_TYPES = Object.freeze(['text', 'textarea', 'number', 'date', 'dropdown', 'checkbox']);
+const OBJECT_KEY_PATTERN = /^x_[a-z][a-z0-9_]{1,37}$/;
+const isObjectKey = (object) => CUSTOM_FIELD_OBJECTS.includes(object) || OBJECT_KEY_PATTERN.test(String(object));
+// lookup (D75): a link to one record — a customer, a lead or a record of an object (lookupTarget).
+const CUSTOM_FIELD_TYPES = Object.freeze(['text', 'textarea', 'number', 'date', 'dropdown', 'checkbox', 'lookup']);
 const CUSTOM_FIELD_STATUSES = Object.freeze(['active', 'archived']);
 
 // Which modules' "view" lets a member read an object's fields (to fill in the forms). Leads are
 // also the deals (D13).
 const OBJECT_MODULES = Object.freeze({ contact: ['customers'], lead: ['leads', 'deals'] });
+// A company's own objects and their records follow the Customers module (D75).
+const modulesOf = (object) => OBJECT_MODULES[object] || ['customers'];
+
+// Custom objects (D75): every plan, the trial too; archived ones do not count.
+const MAX_CUSTOM_OBJECTS = 10;
+const OBJECT_NAME_MAX = 40;
+const OBJECT_ICONS = Object.freeze(['box', 'gear', 'truck', 'building', 'location-dot', 'file-contract', 'shield-halved', 'wrench', 'bolt', 'tag', 'user-gear', 'warehouse']);
 
 // Every plan, the trial too (D73). Archived fields do not count.
 const MAX_ACTIVE_FIELDS = 50;
@@ -26,6 +37,7 @@ const FILTER_OPERATORS = Object.freeze({
   date: ['eq', 'before', 'after', 'from', 'to', 'empty', 'filled'],
   dropdown: ['in', 'empty', 'filled'],
   checkbox: ['yes', 'no'],
+  lookup: ['is', 'empty', 'filled'],
 });
 const MAX_FILTERS = 5;
 const MAX_FILTER_CHOICES = 20;
@@ -42,6 +54,12 @@ const RESERVED_KEYS = Object.freeze(new Set([
 
 module.exports = {
   CUSTOM_FIELD_OBJECTS,
+  OBJECT_KEY_PATTERN,
+  isObjectKey,
+  modulesOf,
+  MAX_CUSTOM_OBJECTS,
+  OBJECT_NAME_MAX,
+  OBJECT_ICONS,
   CUSTOM_FIELD_TYPES,
   CUSTOM_FIELD_STATUSES,
   OBJECT_MODULES,

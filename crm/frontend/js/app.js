@@ -2071,6 +2071,8 @@ const PAGE_MODULES = {
   "Inbox.html": "inbox",
   "customer-360.html": "customers",
   "customers.html": "customers",
+  // The company's own objects (D75): one page for all, with the Customers module's access.
+  "records.html": "customers",
   "leads.html": "leads",
   "accounts.html": "accounts",
   "Deals.html": "deals",
@@ -2344,12 +2346,70 @@ function injectGlobalNavItems() {
   });
 }
 
+// ---------------------------------------------------------------
+// "Your records" (D75): the company's own objects (Machines, Sites …), one menu item each, in a
+// group after Sales. Asked from the server on every page (business data never stays in the
+// browser); Settings → Custom fields calls crmRefreshRecordNav again after a change.
+// ---------------------------------------------------------------
+function renderRecordNav(objects) {
+  const navGroup = document.querySelector(".sidebar .nav-group");
+  if (!navGroup) return;
+  let parent = navGroup.querySelector('.nav-parent[data-group="records"]');
+  let submenu = navGroup.querySelector('.nav-submenu[data-submenu="records"]');
+  if (!objects.length || !canOpenPage("records.html")) {
+    parent?.remove();
+    submenu?.remove();
+    return;
+  }
+  const label = crmI18n.has("nav.group.records") ? t("nav.group.records") : "Your records";
+  if (!parent) {
+    parent = document.createElement("div");
+    parent.className = "nav-parent";
+    parent.dataset.group = "records";
+    parent.innerHTML = '<i class="fa-solid fa-layer-group"></i> <span></span> <i class="fa-solid fa-chevron-down chevron"></i>';
+    submenu = document.createElement("div");
+    submenu.className = "nav-submenu";
+    submenu.dataset.submenu = "records";
+    const after = navGroup.querySelector('.nav-submenu[data-submenu="sales"]') || navGroup.lastElementChild;
+    after.insertAdjacentElement("afterend", parent);
+    parent.insertAdjacentElement("afterend", submenu);
+    // Made after the menu was set up: it opens and closes by itself.
+    parent.addEventListener("click", () => {
+      const open = !parent.classList.contains("open");
+      parent.classList.toggle("open", open);
+      submenu.classList.toggle("open", open);
+      submenu.style.maxHeight = open ? `${submenu.scrollHeight}px` : null;
+    });
+    // On a records page the group starts open, like the group of any open page.
+    if (currentPageName() === "records.html") {
+      parent.classList.add("open");
+      submenu.classList.add("open");
+    }
+  }
+  parent.querySelector("span").textContent = label;
+  const current = currentPageName() === "records.html" ? new URLSearchParams(window.location.search).get("object") : null;
+  submenu.innerHTML = objects
+    .map((o) => `<a href="records.html?object=${encodeURIComponent(o.key)}" class="nav-item${o.key === current ? " active" : ""}"><i class="fa-solid fa-${escapeHtml(o.icon)}"></i> ${escapeHtml(o.plural)}</a>`)
+    .join("");
+  if (submenu.classList.contains("open")) submenu.style.maxHeight = `${submenu.scrollHeight}px`;
+}
+async function crmRefreshRecordNav() {
+  if (!isAuthenticated() || !document.querySelector(".sidebar")) return;
+  if (!canOpenPage("records.html")) return renderRecordNav([]);
+  try {
+    renderRecordNav(await crmApi("/custom-objects"));
+  } catch {
+    /* the menu keeps what it had */
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   injectGlobalNavItems();
   hideUnavailableModules();
   renderSidebarBrand();
   renderSidebarUser(); // Quotations, Orders, Team live and My performance never called it
   if (isAuthenticated() && document.querySelector(".sidebar")) syncMembership();
+  crmRefreshRecordNav();
   explainNoAccess();
   // The top bar's buttons and the menu once the texts are in (i18n/*.json).
   crmI18n.ready.then(() => {

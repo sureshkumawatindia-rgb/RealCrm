@@ -362,7 +362,7 @@ function renderTable() {
             <td>${d.probability}%</td>
             <td>${formatDate(d.closeDate)}</td>
             <td>${escapeHtml(d.owner)}</td>
-            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, d.customFields?.[field.key])) || "—"}</td>`).join("")}
+            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, d.customFields?.[field.key], d.customFieldLinks?.[field.key])) || "—"}</td>`).join("")}
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-row" data-id="${d.id}" title="${escapeHtml(t("common.edit"))}" aria-label="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
@@ -572,7 +572,7 @@ function openModal(id) {
   const timelineSection = document.getElementById("timelineSection");
   const deal = id ? getDeal(id) : null;
   if (id && !deal) return;
-  cfMount(document.getElementById("dealCustomFields"), "lead", deal?.customFields);
+  cfMount(document.getElementById("dealCustomFields"), "lead", deal?.customFields, deal?.customFieldLinks);
 
   if (deal) {
     document.getElementById("modalTitle").textContent = t("deals.edit");

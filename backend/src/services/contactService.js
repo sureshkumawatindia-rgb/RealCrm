@@ -9,6 +9,7 @@ const { visibilityFilter, privacyFilter, resolveOwnerId, ownerPatch } = require(
 const planService = require('./planService');
 const customFieldService = require('./customFieldService');
 const customFieldFilters = require('./customFieldFilters');
+const lookupService = require('./lookupService');
 const automationEvents = require('./automation/events');
 
 const MODULE = 'customers';
@@ -17,7 +18,8 @@ const SORTS = ['name', 'createdAt', 'updatedAt', 'company'];
 const EDITABLE = ['name', 'email', 'phone', 'company', 'gstin', 'state', 'city', 'address', 'tags', 'source', 'lifecycle', 'status', 'productIds', 'notes'];
 
 // keys: the active custom fields (customFieldService.activeKeys); without them, every stored value.
-function serializeContact(contact, keys) {
+// links: lookupService.linksFor — the names of the records its link fields point to (D75).
+function serializeContact(contact, keys, links) {
   return {
     id: contact._id,
     name: contact.name,
@@ -40,6 +42,7 @@ function serializeContact(contact, keys) {
     consent: { marketing: contact.consent?.marketing || 'unknown', changedAt: contact.consent?.changedAt || null, method: contact.consent?.method || '' },
     becameCustomerAt: contact.becameCustomerAt || null,
     customFields: customFieldService.visibleValues(contact.customFields, keys),
+    customFieldLinks: links?.get(String(contact._id)) || {},
     createdAt: contact.createdAt,
     updatedAt: contact.updatedAt,
   };
@@ -96,8 +99,8 @@ async function list(req, query) {
     ...(query.consent && (query.consent === 'unknown' ? { 'consent.marketing': { $nin: ['opted_in', 'opted_out'] } } : { 'consent.marketing': query.consent })),
   };
   const { items, pagination } = await repo(req).paginate(filter, query, { sort: sortSpec(query.sort, SORTS) });
-  const keys = await customFieldService.activeKeys(req, 'contact');
-  return { items: items.map((contact) => serializeContact(contact, keys)), pagination };
+  const [keys, links] = await Promise.all([customFieldService.activeKeys(req, 'contact'), lookupService.linksFor(req, 'contact', items)]);
+  return { items: items.map((contact) => serializeContact(contact, keys, links)), pagination };
 }
 
 async function findVisible(req, id, session) {
@@ -167,11 +170,17 @@ async function remove(req, id) {
   await audit(req, { action: 'contact.deleted', entityType: 'Contact', entityId: contact._id });
 }
 
+// One contact as the API shows it: active fields and link names.
+async function present(req, contact) {
+  const [keys, links] = await Promise.all([customFieldService.activeKeys(req, 'contact'), lookupService.linksFor(req, 'contact', [contact])]);
+  return serializeContact(contact, keys, links);
+}
+
 module.exports = {
   list,
-  get: async (req, id) => serializeContact(await findVisible(req, id), await customFieldService.activeKeys(req, 'contact')),
-  create: async (req, body, options) => serializeContact(await create(req, body, options), await customFieldService.activeKeys(req, 'contact')),
-  update: async (req, id, patch, options) => serializeContact(await update(req, id, patch, options), await customFieldService.activeKeys(req, 'contact')),
+  get: async (req, id) => present(req, await findVisible(req, id)),
+  create: async (req, body, options) => present(req, await create(req, body, options)),
+  update: async (req, id, patch, options) => present(req, await update(req, id, patch, options)),
   remove,
   findOrCreate,
   consentOf,

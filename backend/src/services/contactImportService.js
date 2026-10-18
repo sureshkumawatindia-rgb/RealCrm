@@ -71,7 +71,7 @@ function suggestMapping(headers, customTargets = []) {
 async function customTargetsOf(req) {
   const fields = await customFieldService.fieldsFor(req, 'contact');
   return fields
-    .filter((field) => field.status === 'active')
+    .filter((field) => field.status === 'active' && field.type !== 'lookup') // links are not imported (D75)
     .sort((a, b) => a.order - b.order)
     .map((field) => ({ value: `cf:${field.key}`, key: field.key, label: field.label, type: field.type }));
 }

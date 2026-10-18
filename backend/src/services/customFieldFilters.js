@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Contact = require('../models/Contact');
 const Lead = require('../models/Lead');
+const CustomRecord = require('../models/CustomRecord');
 const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
 const { escapeRegex } = require('../utils/listQuery');
@@ -55,6 +56,10 @@ function condition(field, operator, value) {
     }
     case 'checkbox':
       return operator === 'yes' ? { [path]: true } : { [path]: { $ne: true } };
+    case 'lookup':
+      // is: the linked record's id (D75; the pages pick it with the link picker).
+      if (!/^[a-f0-9]{24}$/.test(value)) throw invalid(`Pick a record to filter ${field.label} by.`);
+      return { [path]: value };
     default:
       throw invalid(`${field.label} cannot be filtered.`);
   }
@@ -95,7 +100,7 @@ async function searchClauses(req, object, q) {
   return clauses;
 }
 
-// { organizationId, customFields.<any key> } on Contact and Lead: a compound wildcard index, which
+// { organizationId, customFields.<any key> } on Contact, Lead and CustomRecord: a compound wildcard index, which
 // needs MongoDB 7.0 or newer. On an older server the filters work without it (slower).
 const VALUE_INDEX = { organizationId: 1, 'customFields.$**': 1 };
 async function ensureValueIndexes() {
@@ -105,7 +110,7 @@ async function ensureValueIndexes() {
       logger.warn(`MongoDB ${version}: custom field filters run without an index (it needs MongoDB 7.0 or newer).`);
       return false;
     }
-    await Promise.all([Contact, Lead].map((Model) => Model.collection.createIndex(VALUE_INDEX, { name: 'organizationId_1_customFields_wildcard' })));
+    await Promise.all([Contact, Lead, CustomRecord].map((Model) => Model.collection.createIndex(VALUE_INDEX, { name: 'organizationId_1_customFields_wildcard' })));
     return true;
   } catch (error) {
     logger.warn(`The custom field index was not created: ${error.message}`);

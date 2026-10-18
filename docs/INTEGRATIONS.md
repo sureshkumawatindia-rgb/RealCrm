@@ -89,6 +89,7 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
   - date: `YYYY-MM-DD`;
   - checkbox: `true` (an unticked box is absent);
   - dropdown: **the choice's name** (`"Wholesale"`). If someone renames a choice, the new name is sent from then on.
+  - link (D75): the linked record's id (a customer, a lead, or a record of one of the company's own objects). The objects' records themselves are not in the public API yet.
 - **Writing** (`POST`/`PATCH /contacts`): the same `customFields` object. A dropdown takes a choice's name (capitals ignored) or its value (`o2`). `null` or `""` clears a field. A wrong value gets `400 VALIDATION_ERROR` with `field: "customFields.<key>"`. A field marked required never stops the API.
   - Leads' fields cannot be written through the API yet.
 - **Filtering** (`GET /contacts`, `GET /leads`): `?cf=<key>:<operator>[:<value>]`, up to 5 times. Every filter must match. Operators by type:

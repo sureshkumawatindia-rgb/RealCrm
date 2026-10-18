@@ -2044,7 +2044,43 @@
               </div>
               <div style="padding: 20px">
                 <p class="settings-hint" data-i18n="cf.intro">Add your own fields to customers and to leads &amp; deals, for example a machine model, credit days or a visit date. Your team fills them in the same forms they use today.</p>
-                <div class="cf-switch" role="group" aria-label="Where the fields go" data-i18n-aria-label="cf.where">
+                <!-- The company's own objects (D75): Machines, Sites … each with a page under "Your records" -->
+                <div class="settings-section co-section">
+                  <div class="settings-section-label" data-i18n="co.title">Your objects</div>
+                  <p class="settings-hint" data-i18n="co.intro">Keep your own kinds of records next to your customers, for example machines, sites or AMC contracts. Each one gets a page under "Your records" in the menu, its own fields below, and a tab on Customer 360.</p>
+                  <div class="cf-toolbar">
+                    <span class="settings-hint" id="coCount" style="margin: 0"></span>
+                    <button type="button" class="btn btn-primary" id="coAdd"><i class="fa-solid fa-plus"></i> <span data-i18n="co.add">Add object</span></button>
+                  </div>
+                  <form class="cf-form" id="coForm" hidden autocomplete="off">
+                    <h4 id="coFormTitle" data-i18n="co.addTitle">Add an object</h4>
+                    <div class="field-row">
+                      <div class="field">
+                        <label for="coSingular" data-i18n="co.singular">Name for one</label>
+                        <input type="text" id="coSingular" maxlength="40" required placeholder="e.g. Machine" data-i18n-placeholder="co.singularPlaceholder" />
+                      </div>
+                      <div class="field">
+                        <label for="coPlural" data-i18n="co.plural">Name for many</label>
+                        <input type="text" id="coPlural" maxlength="40" required placeholder="e.g. Machines" data-i18n-placeholder="co.pluralPlaceholder" />
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label data-i18n="co.icon">Icon</label>
+                      <div class="co-icons" id="coIcons" role="radiogroup" aria-label="Icon" data-i18n-aria-label="co.icon"></div>
+                    </div>
+                    <div class="data-actions">
+                      <button type="submit" class="btn btn-primary" id="coSave" data-i18n="co.save">Save object</button>
+                      <button type="button" class="btn btn-outline" id="coCancel" data-i18n="common.cancel">Cancel</button>
+                    </div>
+                  </form>
+                  <div id="coList"><p class="settings-hint" data-i18n="cf.loading">Loading…</p></div>
+                  <details class="cf-archived" id="coArchivedBox" hidden>
+                    <summary id="coArchivedTitle"></summary>
+                    <div id="coArchived"></div>
+                  </details>
+                </div>
+                <div class="settings-section-label co-fields-label" data-i18n="co.fieldsTitle">Fields</div>
+                <div class="cf-switch" id="cfObjectSwitch" role="group" aria-label="Where the fields go" data-i18n-aria-label="cf.where">
                   <button type="button" class="btn btn-outline active" data-cf-object="contact" aria-pressed="true" data-i18n="cf.obj.contact">Customers</button>
                   <button type="button" class="btn btn-outline" data-cf-object="lead" aria-pressed="false" data-i18n="cf.obj.lead">Leads &amp; Deals</button>
                 </div>
@@ -2059,16 +2095,24 @@
                     <input type="text" id="cfLabel" maxlength="60" required placeholder="e.g. Machine model" data-i18n-placeholder="cf.namePlaceholder" />
                   </div>
                   <div class="field">
-                    <label for="cfType" data-i18n="cf.typeLabel">Type</label>
-                    <select id="cfType">
-                      <option value="text" data-i18n="cf.type.text">Text</option>
-                      <option value="textarea" data-i18n="cf.type.textarea">Long text</option>
-                      <option value="number" data-i18n="cf.type.number">Number</option>
-                      <option value="date" data-i18n="cf.type.date">Date</option>
-                      <option value="dropdown" data-i18n="cf.type.dropdown">Dropdown</option>
-                      <option value="checkbox" data-i18n="cf.type.checkbox">Checkbox (tick)</option>
-                    </select>
+                    <label id="cfTypeLabel" data-i18n="cf.typeLabel">Type</label>
+                    <!-- One click per type (D75 follow-up: fewer clicks than a dropdown) -->
+                    <div class="cf-type-picker" id="cfTypePicker" role="radiogroup" aria-labelledby="cfTypeLabel">
+                      <button type="button" class="cf-type-option" role="radio" data-type="text"><i class="fa-solid fa-font"></i> <span data-i18n="cf.type.text">Text</span></button>
+                      <button type="button" class="cf-type-option" role="radio" data-type="textarea"><i class="fa-solid fa-align-left"></i> <span data-i18n="cf.type.textarea">Long text</span></button>
+                      <button type="button" class="cf-type-option" role="radio" data-type="number"><i class="fa-solid fa-hashtag"></i> <span data-i18n="cf.type.number">Number</span></button>
+                      <button type="button" class="cf-type-option" role="radio" data-type="date"><i class="fa-solid fa-calendar-days"></i> <span data-i18n="cf.type.date">Date</span></button>
+                      <button type="button" class="cf-type-option" role="radio" data-type="dropdown"><i class="fa-solid fa-list-ul"></i> <span data-i18n="cf.type.dropdown">Dropdown</span></button>
+                      <button type="button" class="cf-type-option" role="radio" data-type="checkbox"><i class="fa-solid fa-square-check"></i> <span data-i18n="cf.type.checkbox">Checkbox (tick)</span></button>
+                      <button type="button" class="cf-type-option" role="radio" data-type="lookup"><i class="fa-solid fa-link"></i> <span data-i18n="cf.type.lookup">Link to a record</span></button>
+                    </div>
+                    <input type="hidden" id="cfType" value="text" />
                     <div class="cf-help" id="cfTypeFixed" hidden data-i18n="cf.typeFixed">The type cannot change. To change it, add a new field.</div>
+                  </div>
+                  <div class="field" id="cfTargetField" hidden>
+                    <label for="cfTarget" data-i18n="cf.linksTo">Links to</label>
+                    <select id="cfTarget"></select>
+                    <div class="cf-help" data-i18n="cf.linksToHelp">Each record links to one of these. What it links to cannot change later.</div>
                   </div>
                   <div class="field" id="cfOptionsField" hidden>
                     <label data-i18n="cf.choices">Choices</label>

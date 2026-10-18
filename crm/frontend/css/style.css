@@ -598,10 +598,63 @@ button {
   flex-shrink: 0;
   opacity: 0.38;
 }
+/* "New to Yellow CRM? Create your company" / "Already on Yellow CRM? Log in to your company":
+   a soft box with the switch as a yellow pill and an arrow (the text comes from js/login.js). */
 .login-signup {
   flex-wrap: wrap;
-  gap: 4px 6px;
-  margin-top: 4px;
+  gap: 8px 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--brand-light);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.login-signup .login-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--brand-dark);
+  border-radius: var(--radius-pill);
+  background: var(--brand);
+  color: #2c2c2e; /* dark text on yellow, in both themes */
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition:
+    background 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    transform 0.2s var(--ease);
+}
+.login-signup .login-link::after {
+  content: "\f061"; /* Font Awesome arrow-right */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 11px;
+  transition: transform 0.2s var(--ease);
+}
+.login-signup .login-link:hover {
+  background: var(--brand-dark);
+  box-shadow: 0 4px 12px rgba(255, 199, 0, 0.35);
+}
+.login-signup .login-link:hover::after {
+  transform: translateX(3px);
+}
+.login-signup .login-link:active {
+  transform: translateY(1px);
+}
+.login-signup .login-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-signup .login-link,
+  .login-signup .login-link::after {
+    transition: none;
+  }
 }
 .login-who {
   margin: 0 0 4px;
@@ -4066,4 +4119,183 @@ body.search-open {
   .cf-f-actions .btn {
     flex: 1;
   }
+}
+
+/* Custom objects and links (D75): the link picker (js/custom-fields.js), the objects in
+   Settings → Custom fields, the records page (js/records.js) and the object tabs on Customer 360. */
+.cf-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cf-link .cf-link-search {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+}
+.cf-link-clear[hidden] {
+  display: none;
+}
+.cf-link-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 240px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+.cf-link-list[hidden] {
+  display: none;
+}
+.cf-link-list li {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  color: var(--text);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.cf-link-list li small {
+  display: block;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.cf-link-list li[data-id]:hover,
+.cf-link-list li.active {
+  background: var(--brand-light);
+  color: var(--ink);
+}
+.cf-link-list li.cf-link-none {
+  color: var(--text-faint);
+  cursor: default;
+}
+.cf-filter-form .cf-link {
+  min-width: 200px;
+}
+.co-section {
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.co-fields-label {
+  margin-bottom: 8px;
+}
+.co-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--brand-light);
+  color: var(--ink);
+}
+.co-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.co-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.field .co-icon input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.co-icon:has(input:checked) {
+  border-color: var(--brand-dark);
+  background: var(--brand-light);
+  color: var(--ink);
+}
+.co-icon:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.rec-row {
+  cursor: pointer;
+}
+.modal-foot .rec-delete {
+  margin-right: auto;
+  color: var(--danger);
+}
+.c360-record-head {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px 4px;
+}
+a.c360-list-item.c360-record {
+  color: inherit;
+  text-decoration: none;
+}
+a.c360-list-item.c360-record:hover .c360-list-title {
+  text-decoration: underline;
+}
+
+/* Settings → Custom fields: the field type as buttons, one click each (D75 follow-up). */
+.cf-type-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cf-type-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cf-type-option:hover:not(:disabled) {
+  border-color: var(--brand-dark);
+  color: var(--text);
+}
+.cf-type-option.active {
+  border-color: var(--brand-dark);
+  background: var(--brand-light);
+  color: var(--ink);
+  font-weight: 600;
+}
+.cf-type-option:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.cf-type-option.active:disabled {
+  opacity: 1;
+}
+.cf-type-option:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-ring);
 }

@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
 const CustomFieldDefinition = require('../models/CustomFieldDefinition');
+const CustomObjectDefinition = require('../models/CustomObjectDefinition');
 const Organization = require('../models/Organization');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { can, isManager } = require('../constants/permissions');
 const {
-  OBJECT_MODULES, MAX_ACTIVE_FIELDS, MAX_OPTIONS, TEXT_MAX, NUMBER_MAX, RESERVED_KEYS, MAX_LIST_COLUMNS,
+  modulesOf, OBJECT_KEY_PATTERN, MAX_ACTIVE_FIELDS, MAX_OPTIONS, TEXT_MAX, NUMBER_MAX, RESERVED_KEYS, MAX_LIST_COLUMNS,
 } = require('../constants/customFields');
 
 // Custom fields (Phase 1A, D73): owners and admins define them in Settings → Custom fields; the
@@ -24,6 +25,7 @@ function serialize(field) {
     helpText: field.helpText || '',
     type: field.type,
     options: field.type === 'dropdown' ? (field.options || []).map((o) => ({ value: o.value, label: o.label, archived: Boolean(o.archived) })) : [],
+    lookupTarget: field.type === 'lookup' ? field.lookupTarget : null,
     required: Boolean(field.required),
     listColumn: Boolean(field.listColumn),
     order: field.order,
@@ -44,10 +46,11 @@ const columnLimitError = () => httpError(422, 'COLUMN_LIMIT', `Up to ${MAX_LIST_
 const takeTurn = (req, session) => Organization.updateOne({ _id: req.tenant.organizationId }, { $inc: { customFieldsRevision: 1 } }, { session });
 
 // "Visit date" → visit_date. Labels in Hindi (or anything without a-z) become field, field_2 …
-function keyFromLabel(label, taken) {
+// (fallback: the word used then, e.g. object for a custom object's key).
+function keyFromLabel(label, taken, fallback = 'field') {
   let base = String(label).normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 34).replace(/_+$/, '');
-  if (!/^[a-z]/.test(base)) base = base ? `field_${base}`.slice(0, 34).replace(/_+$/, '') : 'field';
-  if (base.length < 2) base = 'field';
+  if (!/^[a-z]/.test(base)) base = base ? `${fallback}_${base}`.slice(0, 34).replace(/_+$/, '') : fallback;
+  if (base.length < 2) base = fallback;
   let key = base;
   for (let n = 2; taken.has(key) || RESERVED_KEYS.has(key); n += 1) key = `${base}_${n}`;
   return key;
@@ -84,14 +87,32 @@ async function findField(req, id, session) {
 
 // Everyone who can view customers (or leads/deals) reads the active fields, to fill in the forms;
 // archived ones are for owners and admins (Settings).
+// A company's own object (D75) must exist; an archived one only for owners and admins (Settings).
+async function assertObject(req, object, { activeOnly = true } = {}) {
+  if (!OBJECT_KEY_PATTERN.test(object)) return;
+  const found = await CustomObjectDefinition.exists(scope(req, { key: object, ...(activeOnly && { status: 'active' }) }));
+  if (!found) throw httpError(404, 'NOT_FOUND', 'Object not found');
+}
+
 async function list(req, { object, status = 'active' }) {
-  if (!OBJECT_MODULES[object].some((module) => can(req.member, module, 'view'))) throw forbidden();
+  if (!modulesOf(object).some((module) => can(req.member, module, 'view'))) throw forbidden();
   if (status === 'all' && !isManager(req.member)) throw forbidden();
+  await assertObject(req, object, { activeOnly: status !== 'all' });
   const filter = scope(req, { object, ...(status === 'active' && { status: 'active' }) });
   return (await CustomFieldDefinition.find(filter).sort({ status: 1, order: 1, createdAt: 1 })).map(serialize);
 }
 
+// A link field (D75) points to customers, leads or one of the company's active objects.
+async function assertLinkTarget(req, body) {
+  if (body.type !== 'lookup') return;
+  const target = body.lookupTarget;
+  const ok = ['contact', 'lead'].includes(target) || (OBJECT_KEY_PATTERN.test(target) && await CustomObjectDefinition.exists(scope(req, { key: target, status: 'active' })));
+  if (!ok) throw httpError(400, 'VALIDATION_ERROR', 'Choose what this field links to.', [{ field: 'lookupTarget', code: 'INVALID_LINK_TARGET', message: 'Choose what this field links to.' }]);
+}
+
 async function create(req, body) {
+  await assertObject(req, body.object);
+  await assertLinkTarget(req, body);
   let field;
   await mongoose.connection.transaction(async (session) => {
     field = null;
@@ -108,6 +129,7 @@ async function create(req, body) {
       helpText: body.helpText || '',
       type: body.type,
       options: body.type === 'dropdown' ? buildOptions(body.options || []) : undefined,
+      lookupTarget: body.type === 'lookup' ? body.lookupTarget : undefined,
       required: Boolean(body.required),
       listColumn: Boolean(body.listColumn),
       order: Math.max(-1, ...existing.map((f) => f.order)) + 1,
@@ -264,6 +286,10 @@ function convert(field, raw, previous) {
       if (raw === true || raw === 'true') return { value: true };
       if (raw === false || raw === 'false') return { value: undefined };
       return fail('INVALID_TYPE', `${field.label} must be ticked or not.`);
+    case 'lookup':
+      // The record's id; whether it may be linked is checked in applyValues (it needs the database).
+      if (typeof raw !== 'string' || !/^[a-f0-9]{24}$/.test(raw)) return fail('INVALID_LINK', `Pick a record for ${field.label}.`);
+      return { value: raw };
     default:
       return fail('INVALID_TYPE', `${field.label} cannot be saved.`);
   }
@@ -287,6 +313,12 @@ async function applyValues(req, object, input, existing, { isNew = false, enforc
     if (field.status !== 'active') { fail(key, 'FIELD_ARCHIVED', `${field.label} was archived. Reload the page.`); continue; }
     const { value, error } = convert(field, raw, values[key]);
     if (error) { fail(key, error.code, error.message); continue; }
+    // A new link must point to a record of the right kind this member may see (D75); one the record
+    // already has is kept as it is.
+    if (field.type === 'lookup' && value !== undefined && value !== values[key]) {
+      const lookupService = require('./lookupService'); // eslint-disable-line global-require
+      if (!(await lookupService.check(req, field.lookupTarget, value))) { fail(key, 'INVALID_LINK', `Pick a record for ${field.label} from the list.`); continue; }
+    }
     if (value === undefined) delete values[key];
     else values[key] = value;
   }
@@ -398,6 +430,8 @@ module.exports = {
   keyFromLabel,
   serialize,
   fieldsFor: definitionsFor,
+  takeTurn,
+  assertObject,
   validDate,
   readNumber,
   readDate,

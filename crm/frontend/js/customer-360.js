@@ -267,7 +267,7 @@ function renderFields(customer) {
   box.innerHTML = fields.map(row).join("");
   // The company's own fields (D73) that this customer has filled, under the built-in ones.
   box.dataset.customerId = customer.id;
-  cfFilledValues("contact", customer.customFields).then((filled) => {
+  cfFilledValues("contact", customer.customFields, customer.customFieldLinks).then((filled) => {
     if (box.dataset.customerId !== String(customer.id) || !filled.length) return;
     box.insertAdjacentHTML("beforeend", filled.map(({ label, text }) => row([label, text])).join(""));
   });
@@ -542,17 +542,53 @@ async function renderWhatsAppTab(customer) {
 }
 
 // ---------------------------------------------------------------
+// The company's own objects (D75): one tab each, with this customer's records
+// ---------------------------------------------------------------
+async function renderRecordTabs(customer) {
+  let objects = [];
+  let records = [];
+  try {
+    [objects, records] = await Promise.all([crmApi("/custom-objects"), crmApi(`/records?contactId=${encodeURIComponent(customer.id)}&limit=100`)]);
+  } catch {
+    return; // the other tabs work without them
+  }
+  const tabs = document.getElementById("c360Tabs");
+  const lastPanel = [...document.querySelectorAll(".c360-panel")].pop();
+  for (const o of [...objects].reverse()) {
+    const mine = records.filter((r) => r.object === o.key);
+    const columns = cfListColumns((await cfLoad(o.key)) || []);
+    const items = mine
+      .map((r) => {
+        const meta = columns.map((field) => cfDisplayValue(field, r.customFields?.[field.key], r.customFieldLinks?.[field.key])).filter(Boolean).join(" · ");
+        return `<a class="c360-list-item c360-record" href="records.html?object=${encodeURIComponent(o.key)}&open=${encodeURIComponent(r.id)}">
+          <span class="c360-list-icon" style="background:var(--brand-light);color:var(--brand-darker)"><i class="fa-solid fa-${escapeHtml(o.icon)}"></i></span>
+          <div class="c360-list-body"><div class="c360-list-title">${escapeHtml(r.name)}</div>${meta ? `<div class="c360-list-meta">${escapeHtml(meta)}</div>` : ""}</div>
+        </a>`;
+      })
+      .join("");
+    const add = `<div class="c360-record-head"><a class="btn btn-outline" href="records.html?object=${encodeURIComponent(o.key)}&new=1&contactId=${encodeURIComponent(customer.id)}"><i class="fa-solid fa-plus"></i> ${escapeHtml(t("c360.addRecord", { name: o.singular }))}</a></div>`;
+    lastPanel.insertAdjacentHTML("afterend", `<div class="panel c360-panel" data-panel="obj-${escapeHtml(o.key)}">${add}${items || relEmptyBlock("fa-" + o.icon, t("c360.empty.records", { name: o.plural }))}</div>`);
+    tabs.insertAdjacentHTML("beforeend", `<button class="c360-tab" data-tab="obj-${escapeHtml(o.key)}"><i class="fa-solid fa-${escapeHtml(o.icon)}"></i> ${escapeHtml(o.plural)} (${mine.length})</button>`);
+  }
+  // Back in the order the company set (they were added in reverse after the last panel).
+  const added = [...tabs.querySelectorAll('.c360-tab[data-tab^="obj-"]')];
+  added.reverse().forEach((tab) => tabs.appendChild(tab));
+  added.forEach(wireTab);
+}
+
+// ---------------------------------------------------------------
 // Tabs wiring
 // ---------------------------------------------------------------
-function initTabs() {
-  document.querySelectorAll(".c360-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".c360-tab").forEach((t) => t.classList.remove("active"));
-      document.querySelectorAll(".c360-panel").forEach((p) => p.classList.remove("active"));
-      tab.classList.add("active");
-      document.querySelector(`.c360-panel[data-panel="${tab.dataset.tab}"]`).classList.add("active");
-    });
+function wireTab(tab) {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".c360-tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".c360-panel").forEach((p) => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.querySelector(`.c360-panel[data-panel="${tab.dataset.tab}"]`).classList.add("active");
   });
+}
+function initTabs() {
+  document.querySelectorAll(".c360-tab").forEach(wireTab);
 }
 
 // ---------------------------------------------------------------
@@ -584,6 +620,7 @@ crmReady(["leads", "contacts", "products", "members", "tasks", "events", "ticket
     renderDocumentsTab(customer);
     renderNotesTab(customer);
     initTabs();
+    renderRecordTabs(customer);
     renderWhatsAppTab(customer);
 
     document.getElementById("c360AddNoteBtn").addEventListener("click", () => addNote(customer));

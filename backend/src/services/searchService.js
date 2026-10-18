@@ -8,6 +8,7 @@ const orderService = require('./orderService');
 const productService = require('./productService');
 const taskService = require('./taskService');
 const ticketService = require('./ticketService');
+const customRecordService = require('./customRecordService');
 const { maskPhone } = require('../utils/phoneMask');
 
 // One search box for the whole CRM (top bar, Ctrl+K). Each group searches through its own
@@ -126,6 +127,20 @@ const GROUPS = [
       title: ticket.subject,
       subtitle: join(ticket.number && `#${ticket.number}`, ticket.status, ticket.customerName),
       url: `Support.html?open=${ticket.id}`,
+    }),
+  },
+  {
+    // The company's own records (D75): Machines, Sites … with the Customers module's access.
+    type: 'records',
+    label: 'Records',
+    modules: ['customers'],
+    page: () => 'records.html',
+    search: (req, query) => customRecordService.searchAll(req, query),
+    item: (record) => ({
+      id: record.id,
+      title: record.name,
+      subtitle: join(record.objectName, record.contact?.name),
+      url: `records.html?object=${encodeURIComponent(record.object)}&open=${record.id}`,
     }),
   },
 ];

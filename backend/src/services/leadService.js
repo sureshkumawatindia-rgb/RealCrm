@@ -12,6 +12,7 @@ const { visibilityFilter, privacyFilter, resolveOwnerId, ownerPatch } = require(
 const contactService = require('./contactService');
 const customFieldService = require('./customFieldService');
 const customFieldFilters = require('./customFieldFilters');
+const lookupService = require('./lookupService');
 const automationEvents = require('./automation/events');
 
 // Leads are shown on the Leads page and, as a Kanban, on the Deals page (D13).
@@ -26,7 +27,8 @@ function contactSummary(contact) {
 }
 
 // keys: the active custom fields (customFieldService.activeKeys); without them, every stored value.
-function serializeLead(lead, keys) {
+// links: lookupService.linksFor — the names of the records its link fields point to (D75).
+function serializeLead(lead, keys, links) {
   const contact = contactSummary(lead.contactId);
   return {
     id: lead._id,
@@ -50,6 +52,7 @@ function serializeLead(lead, keys) {
     lastActivityAt: lead.lastActivityAt || null,
     version: lead.version,
     customFields: customFieldService.visibleValues(lead.customFields, keys),
+    customFieldLinks: links?.get(String(lead._id)) || {},
     createdAt: lead.createdAt,
     updatedAt: lead.updatedAt,
   };
@@ -66,7 +69,8 @@ async function findVisible(req, id, session) {
 async function loadSerialized(req, id) {
   const lead = await Lead.findOne({ _id: id, ...scope(req) }).populate({ path: 'contactId', select: CONTACT_SELECT });
   if (!lead) throw httpError(404, 'NOT_FOUND', 'Lead not found');
-  return serializeLead(lead, await customFieldService.activeKeys(req, 'lead'));
+  const [keys, links] = await Promise.all([customFieldService.activeKeys(req, 'lead'), lookupService.linksFor(req, 'lead', [lead])]);
+  return serializeLead(lead, keys, links);
 }
 
 async function assertProduct(req, productId, session) {
@@ -146,7 +150,8 @@ async function list(req, query) {
     Lead.countDocuments(filter),
     customFieldService.activeKeys(req, 'lead'),
   ]);
-  return { items: items.map((lead) => serializeLead(lead, keys)), pagination: paginationMeta(page, total) };
+  const links = await lookupService.linksFor(req, 'lead', items);
+  return { items: items.map((lead) => serializeLead(lead, keys, links)), pagination: paginationMeta(page, total) };
 }
 
 async function create(req, body) {

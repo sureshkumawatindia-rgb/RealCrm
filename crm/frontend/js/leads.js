@@ -305,7 +305,7 @@ function openModal(lead = null) {
   if (lead) document.getElementById("fValue").value = lead.value || "";
   document.getElementById("leadQuoteBtn").hidden = !lead;
   document.getElementById("leadQuoteHint").hidden = !lead;
-  cfMount(document.getElementById("leadCustomFields"), "lead", lead?.customFields);
+  cfMount(document.getElementById("leadCustomFields"), "lead", lead?.customFields, lead?.customFieldLinks);
   modalOverlay.classList.add("open");
 }
 function closeModal() {
@@ -756,7 +756,7 @@ function renderTable() {
             <td class="inline-edit-cell" data-field="status">${statusBadge(l.status)}</td>
             <td class="inline-edit-cell" data-field="value">${l.value ? "₹" + Number(l.value).toLocaleString(crmI18n.locale()) : "—"}</td>
             <td class="inline-edit-cell" data-field="followUp">${l.followUp || "—"}</td>
-            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, l.customFields?.[field.key])) || "—"}</td>`).join("")}
+            ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, l.customFields?.[field.key], l.customFieldLinks?.[field.key])) || "—"}</td>`).join("")}
             <td>
               <div class="row-actions">
                 <button class="icon-btn edit-btn" data-id="${l.id}" title="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>

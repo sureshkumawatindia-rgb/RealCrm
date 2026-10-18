@@ -9,7 +9,8 @@
  *   cfFilterBar({ container, object, storageKey, onChange })  "Filter by field" with up to 3 chips
  *   cfApplyFilters(records, filters, fields, valuesOf)        the records every filter matches
  *   cfSearchText(fields, values)          the words the page's search box finds a record by
- *   cfListColumns(fields), cfDisplayValue(field, value)       the chosen columns and their cells
+ *   cfListColumns(fields), cfDisplayValue(field, value, link) the chosen columns and their cells
+ * Phase 1C (D75): link fields — cfLinkPickerHtml / cfWireLinks (search and pick one record).
  * Loads after app.js. Names start with cf: page scripts share one global scope.
  */
 const cfFieldsByObject = {};
@@ -42,7 +43,8 @@ function cfOptionLabel(field, value) {
   return option.archived ? t("cf.removedChoice", { label: option.label }) : option.label;
 }
 
-function cfInputHtml(field, value, idPrefix) {
+// link: for a link field, { id, name } | { id, hidden } | { id, missing } of the record it points to.
+function cfInputHtml(field, value, idPrefix, link) {
   const id = `${idPrefix}_${field.key}`;
   const star = field.required ? ' <span class="cf-required" aria-hidden="true">*</span>' : "";
   const required = field.required ? ' aria-required="true"' : "";
@@ -70,6 +72,10 @@ function cfInputHtml(field, value, idPrefix) {
         .join("")}</select>`;
       break;
     }
+    case "lookup":
+      // A deleted record is not kept: the next save clears the link.
+      input = cfLinkPickerHtml(id, field.lookupTarget, link?.missing ? "" : current, cfLinkText(link), `${required}${described}`);
+      break;
     case "checkbox":
       return `<div class="field" data-cf-key="${escapeHtml(field.key)}"><label class="cf-check" for="${id}"><input type="checkbox" id="${id}"${value === true ? " checked" : ""}${described} /> <span>${escapeHtml(field.label)}${star}</span></label>${help}<div class="cf-error" role="alert"></div></div>`;
     default:
@@ -78,7 +84,7 @@ function cfInputHtml(field, value, idPrefix) {
   return `<div class="field" data-cf-key="${escapeHtml(field.key)}">${label}${input}${help}<div class="cf-error" role="alert"></div></div>`;
 }
 
-function cfRender(container, fields, values) {
+function cfRender(container, fields, values, links) {
   container.cfFields = fields;
   container.hidden = !fields || !fields.length;
   if (container.hidden) {
@@ -86,17 +92,19 @@ function cfRender(container, fields, values) {
     return;
   }
   const prefix = container.id || "cf";
-  container.innerHTML = `<div class="cf-section-title">${escapeHtml(t("cf.moreDetails"))}</div>${fields.map((field) => cfInputHtml(field, values?.[field.key], prefix)).join("")}`;
+  container.innerHTML = `<div class="cf-section-title">${escapeHtml(t("cf.moreDetails"))}</div>${fields.map((field) => cfInputHtml(field, values?.[field.key], prefix, links?.[field.key])).join("")}`;
+  cfWireLinks(container);
 }
 
-async function cfMount(container, object, values = {}) {
+// links: the record's customFieldLinks, for the names of the records its link fields point to.
+async function cfMount(container, object, values = {}, links = {}) {
   if (!container) return;
   container.cfFields = undefined; // until loaded, the form sends no custom fields at all
   const ticket = Symbol("cf");
   container.cfTicket = ticket;
   const fields = await cfLoad(object);
   if (container.cfTicket !== ticket) return; // the form was opened again meanwhile
-  cfRender(container, fields, values);
+  cfRender(container, fields, values, links);
 }
 
 // Every active field, so an emptied one is cleared (and a required one is asked for).
@@ -108,6 +116,7 @@ function cfRead(container) {
     const el = container.querySelector(`[data-cf-key="${CSS.escape(field.key)}"] input, [data-cf-key="${CSS.escape(field.key)}"] select, [data-cf-key="${CSS.escape(field.key)}"] textarea`);
     if (!el) continue;
     if (field.type === "checkbox") values[field.key] = el.checked;
+    else if (field.type === "lookup") values[field.key] = el.closest(".cf-link").querySelector(".cf-link-value").value || null;
     else values[field.key] = el.value.trim() === "" ? null : el.value.trim();
   }
   return values;
@@ -139,9 +148,11 @@ function cfShowErrors(container, error) {
   return Boolean(first);
 }
 
-function cfDisplayValue(field, value) {
+function cfDisplayValue(field, value, link) {
   if (value == null || value === "") return "";
   switch (field.type) {
+    case "lookup":
+      return cfLinkText(link);
     case "dropdown":
       return cfOptionLabel(field, value);
     case "checkbox":
@@ -156,10 +167,10 @@ function cfDisplayValue(field, value) {
 }
 
 // The filled values, in the fields' order, as [{ label, text }] (read-only views such as Customer 360).
-async function cfFilledValues(object, values = {}) {
+async function cfFilledValues(object, values = {}, links = {}) {
   const fields = (await cfLoad(object)) || [];
   return fields
-    .map((field) => ({ label: field.label, text: cfDisplayValue(field, values?.[field.key]) }))
+    .map((field) => ({ label: field.label, text: cfDisplayValue(field, values?.[field.key], links?.[field.key]) }))
     .filter((row) => row.text);
 }
 
@@ -212,6 +223,8 @@ function cfMatches(field, stored, operator, raw = "") {
       return !empty && want.split(",").map((value) => value.trim()).includes(stored);
     case "checkbox":
       return operator === "yes" ? stored === true : stored !== true;
+    case "lookup":
+      return !empty && String(stored) === want;
     default:
       return false;
   }
@@ -263,6 +276,7 @@ function cfFilterBar({ container, object, storageKey, onChange }) {
     let value = "";
     if (!CF_NO_VALUE.has(filter.operator)) {
       if (field.type === "dropdown") value = filter.value.split(",").map((v) => cfOptionLabel(field, v) || v).join(", ");
+      else if (field.type === "lookup") value = filter.label || t("cf.hidden");
       else if (field.type === "date") value = cfDisplayValue(field, filter.value);
       else value = filter.value;
     }
@@ -316,6 +330,9 @@ function cfFilterBar({ container, object, storageKey, onChange }) {
         .filter((o) => !o.archived)
         .map((o) => `<label class="cf-check-inline"><input type="checkbox" value="${escapeHtml(o.value)}" /> <span>${escapeHtml(o.label)}</span></label>`)
         .join("");
+    } else if (field.type === "lookup") {
+      box.innerHTML = cfLinkPickerHtml(`${container.id || "cf"}_filterLink`, field.lookupTarget, "", "", ` aria-label="${label}"`);
+      cfWireLinks(box);
     } else if (field.type === "date") box.innerHTML = `<input type="date" class="cf-f-input" aria-label="${label}" />`;
     else if (field.type === "number") box.innerHTML = `<input type="text" inputmode="decimal" class="cf-f-input" aria-label="${label}" placeholder="${label}" />`;
     else box.innerHTML = `<input type="text" class="cf-f-input" maxlength="100" aria-label="${label}" placeholder="${label}" />`;
@@ -348,16 +365,22 @@ function cfFilterBar({ container, object, storageKey, onChange }) {
     const field = fieldOf(form.querySelector(".cf-f-field").value);
     const operator = form.querySelector(".cf-f-op").value;
     let value = "";
+    let label = "";
     if (!CF_NO_VALUE.has(operator)) {
-      value = field.type === "dropdown"
-        ? [...form.querySelectorAll(".cf-f-value input:checked")].map((input) => input.value).join(",")
-        : (form.querySelector(".cf-f-input")?.value || "").trim();
+      if (field.type === "lookup") {
+        value = form.querySelector(".cf-link-value")?.value || "";
+        label = form.querySelector(".cf-link-search")?.value || "";
+      } else {
+        value = field.type === "dropdown"
+          ? [...form.querySelectorAll(".cf-f-value input:checked")].map((input) => input.value).join(",")
+          : (form.querySelector(".cf-f-input")?.value || "").trim();
+      }
       if (!value || (field.type === "number" && !Number.isFinite(cfReadNumber(value)))) {
         showToast(t("cf.err.filterValue"), "error");
         return;
       }
     }
-    filters = [...valid(), { key: field.key, operator, value }].slice(0, CF_MAX_PAGE_FILTERS);
+    filters = [...valid(), { key: field.key, operator, value, ...(label && { label }) }].slice(0, CF_MAX_PAGE_FILTERS);
     changed();
   });
 
@@ -368,4 +391,124 @@ function cfFilterBar({ container, object, storageKey, onChange }) {
     onChange();
   });
   return { filters: () => (fields.length ? valid() : []) };
+}
+
+// --- Phase 1C (D75): link fields — a search-and-pick box for one record -----------------------
+// The name a link shows: the record's name, "Hidden" for one this member may not see, "" when
+// the record was deleted.
+function cfLinkText(link) {
+  if (!link) return "";
+  if (link.hidden) return t("cf.hidden");
+  return link.name || "";
+}
+
+function cfLinkPickerHtml(id, target, currentId, currentText, attrs = "") {
+  const clear = escapeHtml(t("cf.clearLink"));
+  return `<div class="cf-link" data-target="${escapeHtml(target)}">
+    <input type="text" id="${id}" class="cf-link-search" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="${id}_list" placeholder="${escapeHtml(t("cf.pickRecord"))}" value="${escapeHtml(currentText)}"${attrs} />
+    <input type="hidden" class="cf-link-value" value="${escapeHtml(currentId)}" />
+    <button type="button" class="icon-btn cf-link-clear" aria-label="${clear}" title="${clear}"${currentId ? "" : " hidden"}><i class="fa-solid fa-xmark"></i></button>
+    <ul class="cf-link-list" id="${id}_list" role="listbox" hidden></ul>
+  </div>`;
+}
+
+async function cfLinkSearch(box) {
+  const input = box.querySelector(".cf-link-search");
+  const list = box.querySelector(".cf-link-list");
+  const ticket = (box.cfSearchTicket = (box.cfSearchTicket || 0) + 1);
+  let results = [];
+  try {
+    results = await crmApi(`/lookup?target=${encodeURIComponent(box.dataset.target)}&q=${encodeURIComponent(input.value.trim())}`);
+  } catch {
+    results = [];
+  }
+  if (box.cfSearchTicket !== ticket || document.activeElement !== input) return; // typed on, or left
+  list.innerHTML = results.length
+    ? results.map((r, i) => `<li role="option" id="${input.id}_o${i}" data-id="${escapeHtml(r.id)}" data-name="${escapeHtml(r.name)}">${escapeHtml(r.name)}${r.subtitle ? `<small>${escapeHtml(r.subtitle)}</small>` : ""}</li>`).join("")
+    : `<li class="cf-link-none" aria-disabled="true">${escapeHtml(t("cf.noMatches"))}</li>`;
+  list.hidden = false;
+  input.setAttribute("aria-expanded", "true");
+}
+
+function cfLinkClose(box) {
+  const list = box.querySelector(".cf-link-list");
+  list.hidden = true;
+  box.querySelector(".cf-link-search").setAttribute("aria-expanded", "false");
+  box.querySelector(".cf-link-search").removeAttribute("aria-activedescendant");
+}
+
+function cfLinkPick(box, item) {
+  box.querySelector(".cf-link-value").value = item.dataset.id;
+  box.querySelector(".cf-link-search").value = item.dataset.name;
+  box.querySelector(".cf-link-clear").hidden = false;
+  cfLinkClose(box);
+}
+
+// The pickers inside a container (a form, a filter box): typing searches the records this member
+// may see; a pick sets the link; × clears it. Text left without a pick links nothing.
+function cfWireLinks(container) {
+  if (!container || container.cfLinksWired) return;
+  container.cfLinksWired = true;
+  let timer = null;
+  container.addEventListener("input", (event) => {
+    const input = event.target.closest(".cf-link-search");
+    if (!input) return;
+    const box = input.closest(".cf-link");
+    box.querySelector(".cf-link-value").value = "";
+    box.querySelector(".cf-link-clear").hidden = !input.value;
+    clearTimeout(timer);
+    timer = setTimeout(() => cfLinkSearch(box), 250);
+  });
+  container.addEventListener("focusin", (event) => {
+    const input = event.target.closest(".cf-link-search");
+    if (input && input.closest(".cf-link").querySelector(".cf-link-list").hidden) cfLinkSearch(input.closest(".cf-link"));
+  });
+  container.addEventListener("focusout", (event) => {
+    const box = event.target.closest(".cf-link");
+    if (!box) return;
+    setTimeout(() => {
+      if (box.contains(document.activeElement)) return;
+      cfLinkClose(box);
+      if (!box.querySelector(".cf-link-value").value) {
+        box.querySelector(".cf-link-search").value = "";
+        box.querySelector(".cf-link-clear").hidden = true;
+      }
+    }, 150);
+  });
+  container.addEventListener("keydown", (event) => {
+    const input = event.target.closest(".cf-link-search");
+    if (!input) return;
+    const box = input.closest(".cf-link");
+    const list = box.querySelector(".cf-link-list");
+    const items = [...list.querySelectorAll("li[data-id]")];
+    const current = items.findIndex((item) => item.classList.contains("active"));
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (list.hidden) return cfLinkSearch(box);
+      const next = items[(current + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length];
+      items.forEach((item) => item.classList.toggle("active", item === next));
+      if (next) input.setAttribute("aria-activedescendant", next.id);
+    } else if (event.key === "Enter" && !list.hidden) {
+      event.preventDefault(); // a pick, not the form's submit
+      if (items[current]) cfLinkPick(box, items[current]);
+    } else if (event.key === "Escape" && !list.hidden) {
+      event.preventDefault();
+      cfLinkClose(box);
+    }
+  });
+  container.addEventListener("mousedown", (event) => {
+    const item = event.target.closest(".cf-link-list li[data-id]");
+    if (!item) return;
+    event.preventDefault(); // keep the focus in the box
+    cfLinkPick(item.closest(".cf-link"), item);
+  });
+  container.addEventListener("click", (event) => {
+    const clear = event.target.closest(".cf-link-clear");
+    if (!clear) return;
+    const box = clear.closest(".cf-link");
+    box.querySelector(".cf-link-value").value = "";
+    box.querySelector(".cf-link-search").value = "";
+    clear.hidden = true;
+    box.querySelector(".cf-link-search").focus();
+  });
 }
