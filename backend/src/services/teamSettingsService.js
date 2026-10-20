@@ -4,13 +4,18 @@ const Invite = require('../models/Invite');
 const bus = require('../realtime/bus');
 const { audit } = require('../utils/audit');
 const phoneVisibility = require('./phoneVisibility');
+const { HIDEABLE_MODULES } = require('../constants/permissions');
 
 // Company-wide choices for the team (Settings → Team & Access) and the first steps after
 // sign-up.
 
+// In the order of the menu, known pages only (a page that stopped being hideable shows again).
+const hiddenModulesOf = (organization) => HIDEABLE_MODULES.filter((module) => (organization?.settings?.hiddenModules || []).includes(module));
+
 const serializeSettings = (organization) => ({
   hidePhonesFromAgents: organization?.settings?.hidePhonesFromAgents !== false, // D65: on unless turned off
   sendReadReceipts: organization?.settings?.sendReadReceipts !== false, // CP3: on unless turned off
+  hiddenModules: hiddenModulesOf(organization), // D76: pages the company does not use
 });
 
 // GET /organization/settings — every member (the pages show what applies to them).
@@ -28,6 +33,10 @@ async function updateSettings(req, patch) {
   }
   if (typeof patch.sendReadReceipts === 'boolean' && patch.sendReadReceipts !== before.sendReadReceipts) {
     changes.sendReadReceipts = patch.sendReadReceipts;
+  }
+  if (Array.isArray(patch.hiddenModules)) {
+    const hidden = hiddenModulesOf({ settings: { hiddenModules: patch.hiddenModules } });
+    if (hidden.join() !== before.hiddenModules.join()) changes.hiddenModules = hidden;
   }
   if (!Object.keys(changes).length) return before;
   await Organization.updateOne(
@@ -70,4 +79,4 @@ async function finishTeamStep(req, { skipped = false } = {}) {
   return { teamStep: false };
 }
 
-module.exports = { getSettings, updateSettings, onboarding, finishTeamStep, serializeSettings };
+module.exports = { getSettings, updateSettings, onboarding, finishTeamStep, serializeSettings, hiddenModulesOf };

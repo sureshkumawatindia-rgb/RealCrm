@@ -3895,6 +3895,40 @@ body.search-open {
   letter-spacing: 0.03em;
   margin-bottom: 10px;
 }
+/* Sections (D76): the fields under their headings; a 2-column section is 2 columns on wide
+   screens, 1 on phones; a long text takes the whole row. */
+.cf-group + .cf-group {
+  margin-top: 6px;
+}
+/* A heading, not one more field label. */
+.cf-group .cf-section-title {
+  color: var(--brand-darker);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.cf-cols-2 .cf-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+}
+.cf-cols-2 .cf-wide {
+  grid-column: 1 / -1;
+}
+@media (max-width: 860px) {
+  .cf-cols-2 .cf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.c360-field-heading {
+  margin-top: 14px;
+  padding-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand-darker);
+  border-bottom: 1px solid var(--border);
+}
 .field label.cf-check {
   display: flex;
   align-items: center;
@@ -4298,4 +4332,174 @@ a.c360-list-item.c360-record:hover .c360-list-title {
 .cf-type-option:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--brand-ring);
+}
+
+/* Settings → Custom fields → Sections (D76): one card per section, edited in place. */
+.cf-sections {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.cf-sec {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.cf-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cf-sec-name {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+}
+.cf-sec-name:focus {
+  outline: none;
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.cf-sec-cols {
+  display: flex;
+  flex-shrink: 0;
+}
+.cf-sec-cols .btn {
+  border-radius: 0;
+  white-space: nowrap;
+}
+.cf-sec-cols .btn:first-child {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
+.cf-sec-cols .btn:last-child {
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  margin-left: -1px;
+}
+.cf-sec-cols .btn.active {
+  background: var(--brand-light);
+  border-color: var(--brand-dark);
+  color: var(--ink);
+  font-weight: 600;
+}
+.cf-sec-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  padding-left: 34px;
+}
+.cf-sec-where {
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+.cf-sec-where:empty {
+  display: none;
+}
+.cf-sec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+/* Phones: the name and Remove on one line, ↑ ↓ and the columns under them. */
+@media (max-width: 600px) {
+  .cf-sec-head {
+    flex-wrap: wrap;
+  }
+  .cf-sec-name {
+    order: 1;
+    flex: 1 1 0;
+  }
+  .cf-sec-head [data-act="remove-section"] {
+    order: 2;
+  }
+  .cf-sec-head .cf-move {
+    order: 3;
+    flex-direction: row;
+  }
+  .cf-sec-cols {
+    order: 4;
+  }
+  .cf-sec-fields {
+    padding-left: 0;
+  }
+}
+
+/* Settings → Team & Access → Pages your company uses (D76): one switch per page. */
+.page-switches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.page-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.page-switch > i {
+  width: 18px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.page-switch-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.page-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.page-switch-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+.page-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+.page-switch input:checked + .page-switch-track {
+  background: var(--brand-dark);
+}
+.page-switch input:checked + .page-switch-track::after {
+  transform: translateX(16px);
+}
+.page-switch input:focus-visible + .page-switch-track {
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.page-switch:has(input:not(:checked)) {
+  background: var(--surface-muted, transparent);
+}
+.page-switch:has(input:not(:checked)) .page-switch-name {
+  color: var(--text-muted);
 }

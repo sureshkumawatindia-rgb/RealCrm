@@ -13,6 +13,7 @@ const inviteService = require('./inviteService');
 const planService = require('./planService');
 const loginAlertService = require('./loginAlertService');
 const workspaceService = require('./workspaceService');
+const { hiddenModulesOf } = require('./teamSettingsService');
 const { DEFAULT_PREFERENCES } = require('../constants/preferences');
 
 function safeGoogleAuthMessage(error) {
@@ -220,10 +221,11 @@ async function switchOrganization(req, organizationId) {
 }
 
 async function me(req) {
-  const organization = await Organization.findById(req.tenant.organizationId).select('name logoUrl');
+  const organization = await Organization.findById(req.tenant.organizationId).select('name logoUrl settings.hiddenModules');
   return {
     user: userSummary(req.user),
-    organization: { id: organization?._id, name: organization?.name || '', logoUrl: organization?.logoUrl || '' },
+    // hiddenModules (D76): every page leaves them out of the menu at once.
+    organization: { id: organization?._id, name: organization?.name || '', logoUrl: organization?.logoUrl || '', hiddenModules: hiddenModulesOf(organization) },
     member: memberSummary(req.member),
     memberships: await describeMemberships(req.user._id),
   };

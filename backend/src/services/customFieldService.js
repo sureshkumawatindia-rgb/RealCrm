@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const CustomFieldDefinition = require('../models/CustomFieldDefinition');
 const CustomObjectDefinition = require('../models/CustomObjectDefinition');
+const CustomFieldLayout = require('../models/CustomFieldLayout');
 const Organization = require('../models/Organization');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
@@ -27,6 +28,7 @@ function serialize(field) {
     options: field.type === 'dropdown' ? (field.options || []).map((o) => ({ value: o.value, label: o.label, archived: Boolean(o.archived) })) : [],
     lookupTarget: field.type === 'lookup' ? field.lookupTarget : null,
     required: Boolean(field.required),
+    sectionId: field.sectionId || null,
     listColumn: Boolean(field.listColumn),
     order: field.order,
     status: field.status,
@@ -102,6 +104,13 @@ async function list(req, { object, status = 'active' }) {
   return (await CustomFieldDefinition.find(filter).sort({ status: 1, order: 1, createdAt: 1 })).map(serialize);
 }
 
+// A field's section (D76) must be one of the object's sections; null = "More details".
+async function assertSection(req, object, sectionId, session) {
+  if (!sectionId) return;
+  const found = await CustomFieldLayout.exists(scope(req, { object, 'sections.id': sectionId })).session(session || null);
+  if (!found) throw httpError(400, 'VALIDATION_ERROR', 'That section does not exist any more. Reload and try again.', [{ field: 'sectionId', code: 'INVALID_SECTION', message: 'Pick a section from the list.' }]);
+}
+
 // A link field (D75) points to customers, leads or one of the company's active objects.
 async function assertLinkTarget(req, body) {
   if (body.type !== 'lookup') return;
@@ -117,6 +126,7 @@ async function create(req, body) {
   await mongoose.connection.transaction(async (session) => {
     field = null;
     await takeTurn(req, session);
+    await assertSection(req, body.object, body.sectionId, session);
     const existing = await CustomFieldDefinition.find(scope(req, { object: body.object })).select('key status order listColumn').session(session);
     const active = existing.filter((f) => f.status === 'active');
     if (active.length >= MAX_ACTIVE_FIELDS) throw limitError();
@@ -131,6 +141,7 @@ async function create(req, body) {
       options: body.type === 'dropdown' ? buildOptions(body.options || []) : undefined,
       lookupTarget: body.type === 'lookup' ? body.lookupTarget : undefined,
       required: Boolean(body.required),
+      sectionId: body.sectionId || undefined,
       listColumn: Boolean(body.listColumn),
       order: Math.max(-1, ...existing.map((f) => f.order)) + 1,
       createdById: req.user._id,
@@ -141,7 +152,7 @@ async function create(req, body) {
   return serialize(field);
 }
 
-// Label, help text, required, list column and the dropdown's choices. object, key and type never change.
+// Label, help text, required, section, list column and the dropdown's choices. object, key and type never change.
 async function update(req, id, body) {
   const field = await findField(req, id);
   if (body.version !== undefined && body.version !== field.version) throw httpError(409, 'VERSION_CONFLICT', 'Someone else changed this field. Reload and try again.');
@@ -151,9 +162,15 @@ async function update(req, id, body) {
     if (field.type !== 'dropdown') throw httpError(400, 'VALIDATION_ERROR', 'Only a dropdown has choices.', [{ field: 'options', code: 'INVALID_OPTIONS', message: 'Only a dropdown has choices.' }]);
     set.options = buildOptions(body.options, field.options);
   }
+  const unset = {};
+  if ('sectionId' in body) {
+    if (body.sectionId) set.sectionId = body.sectionId;
+    else unset.sectionId = 1;
+  }
   let updated;
   await mongoose.connection.transaction(async (session) => {
     updated = null;
+    if (set.sectionId) await assertSection(req, field.object, set.sectionId, session);
     // A new list column takes its turn like a new field, so two admins cannot pass the limit.
     if (set.listColumn && !field.listColumn && field.status === 'active') {
       await takeTurn(req, session);
@@ -162,12 +179,12 @@ async function update(req, id, body) {
     }
     updated = await CustomFieldDefinition.findOneAndUpdate(
       scope(req, { _id: field._id, version: field.version }),
-      { $set: { ...set, updatedById: req.user._id }, $inc: { version: 1 } },
+      { $set: { ...set, updatedById: req.user._id }, ...(unset.sectionId && { $unset: unset }), $inc: { version: 1 } },
       { returnDocument: 'after', runValidators: true, session },
     );
   });
   if (!updated) throw httpError(409, 'VERSION_CONFLICT', 'Someone else changed this field. Reload and try again.');
-  await audit(req, { action: 'custom_field.updated', entityType: 'CustomFieldDefinition', entityId: field._id, changes: Object.keys(set) });
+  await audit(req, { action: 'custom_field.updated', entityType: 'CustomFieldDefinition', entityId: field._id, changes: [...Object.keys(set), ...Object.keys(unset)] });
   return serialize(updated);
 }
 
@@ -197,6 +214,8 @@ async function restore(req, id) {
     if (active.length >= MAX_ACTIVE_FIELDS) throw limitError();
     // Comes back as a list column only while there is room for one.
     if (field.listColumn && active.filter((f) => f.listColumn).length >= MAX_LIST_COLUMNS) field.listColumn = false;
+    // Its section may have been removed meanwhile (D76): then it comes back under "More details".
+    if (field.sectionId && !(await CustomFieldLayout.exists(scope(req, { object: field.object, 'sections.id': field.sectionId })).session(session))) field.sectionId = undefined;
     field.set({ status: 'active', archivedAt: undefined, archivedById: undefined, order: Math.max(-1, ...active.map((f) => f.order)) + 1, updatedById: req.user._id });
     field.version += 1;
     await field.save({ session });

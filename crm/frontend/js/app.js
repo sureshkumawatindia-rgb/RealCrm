@@ -382,6 +382,8 @@ function getCompanyInfo() {
 }
 function saveCompanyInfo(data) {
   const company = normalizeCompany(data);
+  // The pages the company switched off (D76) come from /auth/me; a profile without them keeps them.
+  if (company && !("hiddenModules" in company) && getCompanyInfo()?.hiddenModules) company.hiddenModules = getCompanyInfo().hiddenModules;
   // company.html's inline guard reads setupComplete before app.js loads.
   localStorage.setItem(KEYS.COMPANY, JSON.stringify({ ...company, setupComplete: companyHasDetails(company) }));
 }
@@ -2119,9 +2121,17 @@ function canOpenPage(fileName, member = getCurrentMember()) {
   const module = moduleForPage(fileName);
   return !module || [].concat(module).some((key) => (member.modules || []).includes(key));
 }
-// Where a member starts: the first page in sidebar order they may open.
+// A page the company switched off (D76, Settings → Team & Access): it leaves everyone's menu but
+// still opens from a link. Quotations and Orders go when both Leads and Deals are off.
+function pageSwitchedOff(fileName, company = getCompanyInfo()) {
+  const hidden = company?.hiddenModules || [];
+  const module = moduleForPage(fileName);
+  return Boolean(module) && [].concat(module).every((key) => hidden.includes(key));
+}
+// Where a member starts: the first page in sidebar order they may open (one the company uses).
 function firstAllowedPage(member = getCurrentMember()) {
-  const first = Object.keys(PAGE_MODULES).find((page) => canOpenPage(page, member));
+  const pages = Object.keys(PAGE_MODULES).filter((page) => canOpenPage(page, member));
+  const first = pages.find((page) => !pageSwitchedOff(page)) || pages[0];
   return first ? encodeURI(first) : "Settings.html";
 }
 const PAGE_NAMES = { "al insights.html": "AI Insights", "customer-360.html": "Customer 360°" };
@@ -2157,9 +2167,10 @@ function explainNoAccess() {
 function hideUnavailableModules() {
   const member = getCurrentMember();
   if (!member) return;
+  const company = getCompanyInfo();
   document.querySelectorAll(".sidebar .nav-item[href]").forEach((link) => {
     const page = decodeURIComponent(link.getAttribute("href")).replace(/^\.\//, "");
-    link.style.display = canOpenPage(page, member) ? "" : "none";
+    link.style.display = canOpenPage(page, member) && !pageSwitchedOff(page, company) ? "" : "none";
   });
   document.querySelectorAll(".sidebar .nav-submenu").forEach((submenu) => {
     const visible = [...submenu.querySelectorAll(".nav-item")].some((item) => item.style.display !== "none");
@@ -2199,10 +2210,12 @@ async function syncMembership() {
     const me = await crmApi("/auth/me");
     if (!me?.member) return;
     const cached = getCompanyInfo() || {};
-    const { name = "", logoUrl = "" } = me.organization || {};
-    if (cached.name !== name || (cached.logoUrl || "") !== logoUrl) {
-      saveCompanyInfo({ ...cached, name, logoUrl });
+    const { name = "", logoUrl = "", hiddenModules = [] } = me.organization || {};
+    const pagesChanged = (cached.hiddenModules || []).join() !== hiddenModules.join();
+    if (cached.name !== name || (cached.logoUrl || "") !== logoUrl || pagesChanged) {
+      saveCompanyInfo({ ...cached, name, logoUrl, hiddenModules });
       renderSidebarBrand();
+      if (pagesChanged) hideUnavailableModules(); // an owner switched pages on or off (D76)
     }
     // The language and theme chosen on another device (CP5).
     const preferences = me.user?.preferences;

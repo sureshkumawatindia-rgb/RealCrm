@@ -28,6 +28,11 @@ const DEFAULT_MODULES = Object.freeze({
   viewer: ['dashboard', 'customers', 'leads', 'deals', 'reports'],
 });
 
+// The company menu (D76, Settings → Team & Access): pages a company may switch off for everyone.
+// Dashboard, Customers and Settings are always on.
+const ALWAYS_ON_MODULES = Object.freeze(['dashboard', 'customers', 'settings']);
+const HIDEABLE_MODULES = Object.freeze(MODULES.filter((module) => !ALWAYS_ON_MODULES.includes(module)));
+
 function isManager(member) {
   return member?.role === 'owner' || member?.role === 'admin';
 }
@@ -47,5 +52,6 @@ function canViewAll(member, module) {
 }
 
 module.exports = {
-  ROLES, INVITABLE_ROLES, MODULES, MODULE_LABELS, ACTIONS, PERMISSION_PATTERN, DEFAULT_MODULES, isManager, can, canViewAll,
+  ROLES, INVITABLE_ROLES, MODULES, MODULE_LABELS, ACTIONS, PERMISSION_PATTERN, DEFAULT_MODULES, ALWAYS_ON_MODULES, HIDEABLE_MODULES,
+  isManager, can, canViewAll,
 };

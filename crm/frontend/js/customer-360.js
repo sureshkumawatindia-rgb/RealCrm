@@ -267,9 +267,18 @@ function renderFields(customer) {
   box.innerHTML = fields.map(row).join("");
   // The company's own fields (D73) that this customer has filled, under the built-in ones.
   box.dataset.customerId = customer.id;
+  // Under small section headings when the company made sections (D76).
   cfFilledValues("contact", customer.customFields, customer.customFieldLinks).then((filled) => {
     if (box.dataset.customerId !== String(customer.id) || !filled.length) return;
-    box.insertAdjacentHTML("beforeend", filled.map(({ label, text }) => row([label, text])).join(""));
+    box.insertAdjacentHTML(
+      "beforeend",
+      filled
+        .map(({ label, text, heading }, i) => {
+          const title = heading && heading !== filled[i - 1]?.heading ? `<div class="c360-field-heading">${escapeHtml(heading)}</div>` : "";
+          return title + row([label, text]);
+        })
+        .join(""),
+    );
   });
 }
 

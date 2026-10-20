@@ -1,5 +1,6 @@
 const express = require('express');
 const customFieldService = require('../services/customFieldService');
+const fieldLayoutService = require('../services/fieldLayoutService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -22,6 +23,13 @@ router.post('/', managers, validate({ body: schemas.fieldCreate }), async (req, 
 });
 router.post('/reorder', managers, validate({ body: schemas.fieldReorder }), async (req, res) => {
   res.json({ success: true, data: await customFieldService.reorder(req, req.body), message: 'Order saved' });
+});
+// Sections (D76): read by the forms, changed in Settings.
+router.get('/layout', validate({ query: schemas.layoutGet }), async (req, res) => {
+  res.json({ success: true, data: await fieldLayoutService.get(req, req.valid.query) });
+});
+router.put('/layout', managers, validate({ body: schemas.layoutPut }), async (req, res) => {
+  res.json({ success: true, data: await fieldLayoutService.put(req, req.body), message: 'Sections saved' });
 });
 router.patch('/:id', managers, validate({ params: idParams, body: schemas.fieldPatch }), async (req, res) => {
   res.json({ success: true, data: await customFieldService.update(req, req.valid.params.id, req.body), message: 'Field updated' });

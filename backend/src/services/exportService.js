@@ -30,7 +30,7 @@ const SECTIONS = [
   ['quotations', Quotation], ['orders', Order], ['tasks', Task], ['events', CalendarEvent], ['tickets', Ticket], ['notes', Note],
   ['documents', Document], ['campaigns', Campaign], ['workflows', Workflow], ['sequences', Sequence], ['paymentLinks', PaymentLink],
   // The company's own fields (D73); their values are inside contacts and leads (customFields).
-  ['customFields', model('CustomFieldDefinition')],
+  ['customFields', model('CustomFieldDefinition')], ['customFieldLayouts', model('CustomFieldLayout')], // sections (D76)
   // The company's own objects and their records (D75).
   ['customObjects', model('CustomObjectDefinition')], ['customRecords', model('CustomRecord')],
   // WhatsApp and the inbox

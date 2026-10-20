@@ -74,6 +74,9 @@ const organizationSchema = new mongoose.Schema(
       hidePhonesFromAgents: { type: Boolean, default: true },
       // CP3: when a teammate opens a chat, the customer sees blue ticks; missing counts as on.
       sendReadReceipts: { type: Boolean, default: true },
+      // D76: pages the company does not use, left out of everyone's menu and search (not a
+      // permission: a direct link still opens). Only HIDEABLE_MODULES; missing = every page used.
+      hiddenModules: { type: [String], default: undefined },
     },
     // First steps after sign-up (D64): when an owner or admin finished or skipped "Invite your team".
     onboarding: {

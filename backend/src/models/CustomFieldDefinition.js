@@ -26,6 +26,8 @@ const customFieldDefinitionSchema = new mongoose.Schema(
     // lookup only (D75): what it links to — contact, lead or an object's key. Never changes.
     lookupTarget: { type: String, validate: { validator: isObjectKey, message: 'Unknown link target' } },
     required: { type: Boolean, default: false },
+    // The section it is shown under in the forms (D76, CustomFieldLayout); none = "More details".
+    sectionId: { type: String },
     // Shown as a column in the Customers / Leads / Deals lists, for the whole company (D74, max 3).
     listColumn: { type: Boolean, default: false },
     order: { type: Number, default: 0 },

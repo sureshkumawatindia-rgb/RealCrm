@@ -45,6 +45,11 @@ const MAX_LIST_COLUMNS = 3;
 // Search looks in this many text fields per object at most (it uses no index).
 const MAX_SEARCH_FIELDS = 20;
 
+// Sections (Phase 1D, D76): headings that group an object's fields in the forms, 1 or 2 columns.
+const MAX_SECTIONS = 10;
+const SECTION_LABEL_MAX = 40;
+const SECTION_ID_PATTERN = /^s\d{1,4}$/;
+
 // A key is made from the label once and never changes.
 const KEY_PATTERN = /^[a-z][a-z0-9_]{1,39}$/;
 // Names an object already has (keys are stored as properties of customFields).
@@ -76,4 +81,7 @@ module.exports = {
   MAX_FILTER_CHOICES,
   MAX_LIST_COLUMNS,
   MAX_SEARCH_FIELDS,
+  MAX_SECTIONS,
+  SECTION_LABEL_MAX,
+  SECTION_ID_PATTERN,
 };

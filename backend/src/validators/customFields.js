@@ -3,7 +3,7 @@ const { objectId } = require('./common');
 const { paginationQuery } = require('../utils/pagination');
 const {
   CUSTOM_FIELD_OBJECTS, CUSTOM_FIELD_TYPES, MAX_ACTIVE_FIELDS, MAX_OPTIONS, LABEL_MAX, HELP_TEXT_MAX, MAX_FILTERS,
-  OBJECT_KEY_PATTERN, OBJECT_NAME_MAX, OBJECT_ICONS, MAX_CUSTOM_OBJECTS,
+  OBJECT_KEY_PATTERN, OBJECT_NAME_MAX, OBJECT_ICONS, MAX_CUSTOM_OBJECTS, MAX_SECTIONS, SECTION_LABEL_MAX, SECTION_ID_PATTERN,
 } = require('../constants/customFields');
 
 // Settings → Custom fields (D73), and the company's own objects and their records (D75).
@@ -17,6 +17,8 @@ const fixed = (message) => Joi.any().forbidden().messages({ 'any.unknown': messa
 const newOption = Joi.object({ label: label.required() });
 const option = Joi.object({ value: Joi.string().trim().max(10), label: label.required(), archived: Joi.boolean() });
 const objectName = Joi.string().trim().min(1).max(OBJECT_NAME_MAX);
+// A section (D76): s1, s2 … null = "More details".
+const sectionId = Joi.string().pattern(SECTION_ID_PATTERN).allow(null).messages({ 'string.pattern.base': 'Unknown section' });
 
 // ?cf=<key>:<operator>[:<value>] on the contact and lead lists (D74), once or repeated. Each one is
 // checked against the company's fields in services/customFieldFilters.js.
@@ -44,6 +46,7 @@ module.exports = {
     type: Joi.string().valid(...CUSTOM_FIELD_TYPES).required(),
     helpText,
     required: Joi.boolean(),
+    sectionId,
     listColumn: Joi.boolean(),
     options: Joi.when('type', {
       is: 'dropdown',
@@ -61,6 +64,7 @@ module.exports = {
     label,
     helpText,
     required: Joi.boolean(),
+    sectionId,
     listColumn: Joi.boolean(),
     options: Joi.array().items(option).min(1).max(MAX_OPTIONS),
     version: Joi.number().integer().min(0),
@@ -72,6 +76,20 @@ module.exports = {
   fieldReorder: Joi.object({
     object: object.required(),
     ids: Joi.array().items(objectId).min(1).max(MAX_ACTIVE_FIELDS).required(),
+  }),
+  // Sections (D76). The whole list in order: a section without an id is new, one left out is
+  // removed. fieldIds: exactly the fields in that section from now on (optional). More than
+  // MAX_SECTIONS gets 422 SECTION_LIMIT in the service, so the message can say what to do.
+  layoutGet: Joi.object({ object: object.required() }),
+  layoutPut: Joi.object({
+    object: object.required(),
+    sections: Joi.array().items(Joi.object({
+      id: Joi.string().pattern(SECTION_ID_PATTERN).messages({ 'string.pattern.base': 'Unknown section' }),
+      label: Joi.string().trim().min(1).max(SECTION_LABEL_MAX).required(),
+      columns: Joi.number().valid(1, 2).default(1),
+      fieldIds: Joi.array().items(objectId).max(MAX_ACTIVE_FIELDS),
+    })).max(MAX_SECTIONS * 5).required(),
+    version: Joi.number().integer().min(0),
   }),
 
   // --- the company's own objects (D75) ---

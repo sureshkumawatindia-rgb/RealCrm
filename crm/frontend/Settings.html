@@ -1272,6 +1272,13 @@
                   <p class="settings-hint" id="hidePhonesInfo" hidden>Your company hides customers' phone numbers from agents. You can still reply, send quotations and payment links, and search by number.</p>
                 </div>
 
+                <!-- D76: the pages the company uses (owners and admins, js/settings-pages.js) -->
+                <div class="settings-section" id="pagesSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label" data-i18n="pages.title">Pages your company uses</div>
+                  <p class="settings-hint" data-i18n="pages.intro">Switch off the pages your team does not use. They leave everyone's menu and search, yours too. No data is touched, and you can switch them on again at any time. Dashboard, Customers and Settings are always on.</p>
+                  <div class="page-switches" id="pagesList" role="group" aria-label="Pages your company uses" data-i18n-aria-label="pages.title"></div>
+                </div>
+
                 <div class="settings-section" id="inviteSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
                   <div class="settings-section-label">Invite a teammate</div>
                   <form id="inviteForm">
@@ -2120,6 +2127,11 @@
                     <button type="button" class="btn btn-outline" id="cfAddOption"><i class="fa-solid fa-plus"></i> <span data-i18n="cf.addChoice">Add a choice</span></button>
                     <div class="cf-help" data-i18n="cf.choicesHelp">Up to 100. A choice you remove stays on the records that already have it.</div>
                   </div>
+                  <!-- Sections (D76): shown once the page has saved sections -->
+                  <div class="field" id="cfSectionField" hidden>
+                    <label for="cfSection" data-i18n="cf.sectionLabel">Section</label>
+                    <select id="cfSection"></select>
+                  </div>
                   <div class="field">
                     <label for="cfHelp" data-i18n="cf.helpLabel">Help text (optional)</label>
                     <input type="text" id="cfHelp" maxlength="200" placeholder="Shown under the field" data-i18n-placeholder="cf.helpPlaceholder" />
@@ -2143,6 +2155,17 @@
                   <p class="settings-hint" data-i18n="cf.archivedHelp">Archived fields are hidden from the forms. Their values are kept; restore a field to see them again.</p>
                   <div id="cfArchived"></div>
                 </details>
+                <!-- Sections (D76): headings that group these fields in the forms, 1 or 2 columns -->
+                <div class="settings-section cf-sections" id="cfSectionsBox" hidden>
+                  <div class="settings-section-label" data-i18n="cf.sec.title">Sections</div>
+                  <p class="settings-hint" data-i18n="cf.sec.intro">Group these fields under headings in the forms, in 1 or 2 columns. Fields in no section are shown under "More details".</p>
+                  <div id="cfSectionList"></div>
+                  <div class="cf-sec-actions">
+                    <button type="button" class="btn btn-outline" id="cfSectionAdd"><i class="fa-solid fa-plus"></i> <span data-i18n="cf.sec.add">Add section</span></button>
+                    <button type="button" class="btn btn-primary" id="cfSectionSave" disabled data-i18n="cf.sec.save">Save sections</button>
+                    <span class="settings-hint" id="cfSectionState" role="status" style="margin: 0"></span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2319,6 +2342,7 @@
     <script src="./js/settings-devices.js"></script>
     <script src="./js/settings-audit.js"></script>
     <script src="./js/settings-fields.js"></script>
+    <script src="./js/settings-pages.js"></script>
     <script src="./js/settings-deletion.js"></script>
   </body>
 </html>

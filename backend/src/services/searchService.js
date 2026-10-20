@@ -1,5 +1,7 @@
 const logger = require('../config/logger');
 const { can } = require('../constants/permissions');
+const Organization = require('../models/Organization');
+const { hiddenModulesOf } = require('./teamSettingsService');
 const contactService = require('./contactService');
 const leadService = require('./leadService');
 const conversationService = require('./conversationService');
@@ -14,7 +16,7 @@ const { maskPhone } = require('../utils/phoneMask');
 // One search box for the whole CRM (top bar, Ctrl+K). Each group searches through its own
 // module's list, so a member finds exactly what that page would show them: their own records
 // when they only see assigned ones, no private numbers unless they are an owner (D61), and
-// no group at all for a module they may not open.
+// no group at all for a module they may not open, or one the company switched off (D76).
 
 const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const join = (...parts) => parts.filter(Boolean).join(' · ');
@@ -42,7 +44,7 @@ const GROUPS = [
     label: 'Leads',
     modules: leadService.MODULES,
     // The Deals page shows the same leads, for members who have Deals but not Leads.
-    page: (req) => (can(req.member, 'leads', 'view') ? 'leads.html' : 'Deals.html'),
+    page: (req) => (opens(req, 'leads') ? 'leads.html' : 'Deals.html'),
     search: (req, query) => leadService.list(req, query),
     item: (lead, req) => ({
       id: lead.id,
@@ -145,6 +147,11 @@ const GROUPS = [
   },
 ];
 
+// A module the member may view and the company uses (D76: a switched-off page is not searched).
+function opens(req, module) {
+  return can(req.member, module, 'view') && !req.hiddenModules?.includes(module);
+}
+
 const GROUP_PAGE = Object.fromEntries(GROUPS.map((group) => [group.type, group.page]));
 
 // A phone number typed with spaces, dashes or +91 is searched as its digits.
@@ -156,7 +163,8 @@ function searchText(q) {
 
 async function search(req, { q, limit = 5 }) {
   const query = { q: searchText(q), page: 1, limit };
-  const allowed = GROUPS.filter((group) => group.modules.some((module) => can(req.member, module, 'view')));
+  req.hiddenModules = hiddenModulesOf(await Organization.findById(req.tenant.organizationId).select('settings.hiddenModules').lean());
+  const allowed = GROUPS.filter((group) => group.modules.some((module) => opens(req, module)));
   const groups = await Promise.all(
     allowed.map(async (group) => {
       try {

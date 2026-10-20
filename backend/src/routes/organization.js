@@ -12,6 +12,7 @@ const deletion = require('../services/organizationDeletionService');
 const teamSettings = require('../services/teamSettingsService');
 const Organization = require('../models/Organization');
 const Joi = require('joi');
+const { HIDEABLE_MODULES } = require('../constants/permissions');
 
 const router = express.Router();
 const upload = multer({
@@ -51,7 +52,14 @@ router.patch('/', requireRole('owner', 'admin'), validate({ body: organizationPa
 router.get('/settings', async (req, res) => {
   res.json({ success: true, data: await teamSettings.getSettings(req) });
 });
-router.patch('/settings', requireRole('owner', 'admin'), validate({ body: Joi.object({ hidePhonesFromAgents: Joi.boolean(), sendReadReceipts: Joi.boolean() }).min(1) }), async (req, res) => {
+// hiddenModules (D76): the whole list of pages the company does not use; Dashboard, Customers
+// and Settings can never be hidden.
+const settingsPatch = Joi.object({
+  hidePhonesFromAgents: Joi.boolean(),
+  sendReadReceipts: Joi.boolean(),
+  hiddenModules: Joi.array().items(Joi.string().valid(...HIDEABLE_MODULES).messages({ 'any.only': 'Dashboard, Customers and Settings are always on.' })).unique().max(HIDEABLE_MODULES.length),
+}).min(1);
+router.patch('/settings', requireRole('owner', 'admin'), validate({ body: settingsPatch }), async (req, res) => {
   res.json({ success: true, data: await teamSettings.updateSettings(req, req.body), message: 'Settings saved' });
 });
 // First steps after sign-up (D64): "Invite your team".

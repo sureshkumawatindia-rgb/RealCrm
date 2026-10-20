@@ -4,13 +4,15 @@
  *   cfMount(container, object, values)  draws the inputs ("contact" or "lead") with a record's values
  *   cfRead(container)                    { key: value } for the API, or undefined (fields not loaded)
  *   cfShowErrors(container, error)       marks the fields the API refused; true when it marked any
- *   cfFilledValues(object, values)       the filled values as [{ label, text }] (Customer 360)
+ *   cfFilledValues(object, values)       the filled values as [{ label, text, heading }] (Customer 360)
  * Phase 1B (D74), for the Customers, Leads and Deals lists:
  *   cfFilterBar({ container, object, storageKey, onChange })  "Filter by field" with up to 3 chips
  *   cfApplyFilters(records, filters, fields, valuesOf)        the records every filter matches
  *   cfSearchText(fields, values)          the words the page's search box finds a record by
  *   cfListColumns(fields), cfDisplayValue(field, value, link) the chosen columns and their cells
  * Phase 1C (D75): link fields — cfLinkPickerHtml / cfWireLinks (search and pick one record).
+ * Phase 1D (D76): sections — cfLoadLayout(object), cfGroups(fields, sections); the forms and
+ * Customer 360 show the fields under their sections' headings, then "More details".
  * Loads after app.js. Names start with cf: page scripts share one global scope.
  */
 const cfFieldsByObject = {};
@@ -32,6 +34,30 @@ function cfLoad(object) {
   return cfFieldsByObject[object];
 }
 
+const cfLayoutsByObject = {};
+
+// The object's sections (D76), once per page; none when they cannot be read.
+function cfLoadLayout(object) {
+  if (!cfLayoutsByObject[object]) {
+    cfLayoutsByObject[object] = crmApi(`/custom-fields/layout?object=${encodeURIComponent(object)}`)
+      .then((layout) => layout?.sections || [])
+      .catch(() => {
+        delete cfLayoutsByObject[object];
+        return [];
+      });
+  }
+  return cfLayoutsByObject[object];
+}
+
+// The fields grouped as the forms show them: each section in order (one without fields is left
+// out), then the fields of no section, or of one removed meanwhile, as { section: null }.
+function cfGroups(fields, sections) {
+  const groups = new Map((sections || []).map((section) => [section.id, { section, fields: [] }]));
+  const rest = { section: null, fields: [] };
+  for (const field of fields || []) (groups.get(field.sectionId) || rest).fields.push(field);
+  return [...groups.values(), rest].filter((group) => group.fields.length);
+}
+
 // The fields already loaded ([] until cfLoad has finished).
 function cfFields(object) {
   return cfFieldsReady[object] || [];
@@ -51,6 +77,8 @@ function cfInputHtml(field, value, idPrefix, link) {
   const help = field.helpText ? `<div class="cf-help" id="${id}_help">${escapeHtml(field.helpText)}</div>` : "";
   const described = field.helpText ? ` aria-describedby="${id}_help"` : "";
   const label = `<label for="${id}">${escapeHtml(field.label)}${star}</label>`;
+  // A long text takes the whole row of a 2-column section.
+  const wide = field.type === "textarea" ? " cf-wide" : "";
   const current = value == null ? "" : String(value);
   let input;
   switch (field.type) {
@@ -81,10 +109,10 @@ function cfInputHtml(field, value, idPrefix, link) {
     default:
       input = `<input type="text" id="${id}" maxlength="255" value="${escapeHtml(current)}"${required}${described} />`;
   }
-  return `<div class="field" data-cf-key="${escapeHtml(field.key)}">${label}${input}${help}<div class="cf-error" role="alert"></div></div>`;
+  return `<div class="field${wide}" data-cf-key="${escapeHtml(field.key)}">${label}${input}${help}<div class="cf-error" role="alert"></div></div>`;
 }
 
-function cfRender(container, fields, values, links) {
+function cfRender(container, fields, values, links, sections = []) {
   container.cfFields = fields;
   container.hidden = !fields || !fields.length;
   if (container.hidden) {
@@ -92,7 +120,13 @@ function cfRender(container, fields, values, links) {
     return;
   }
   const prefix = container.id || "cf";
-  container.innerHTML = `<div class="cf-section-title">${escapeHtml(t("cf.moreDetails"))}</div>${fields.map((field) => cfInputHtml(field, values?.[field.key], prefix, links?.[field.key])).join("")}`;
+  container.innerHTML = cfGroups(fields, sections)
+    .map(({ section, fields: list }, index) => `
+      <div class="cf-group${section?.columns === 2 ? " cf-cols-2" : ""}" role="group" aria-labelledby="${prefix}_g${index}">
+        <div class="cf-section-title" id="${prefix}_g${index}">${escapeHtml(section ? section.label : t("cf.moreDetails"))}</div>
+        <div class="cf-grid">${list.map((field) => cfInputHtml(field, values?.[field.key], prefix, links?.[field.key])).join("")}</div>
+      </div>`)
+    .join("");
   cfWireLinks(container);
 }
 
@@ -102,9 +136,9 @@ async function cfMount(container, object, values = {}, links = {}) {
   container.cfFields = undefined; // until loaded, the form sends no custom fields at all
   const ticket = Symbol("cf");
   container.cfTicket = ticket;
-  const fields = await cfLoad(object);
+  const [fields, sections] = await Promise.all([cfLoad(object), cfLoadLayout(object)]);
   if (container.cfTicket !== ticket) return; // the form was opened again meanwhile
-  cfRender(container, fields, values, links);
+  cfRender(container, fields, values, links, sections);
 }
 
 // Every active field, so an emptied one is cleared (and a required one is asked for).
@@ -166,12 +200,20 @@ function cfDisplayValue(field, value, link) {
   }
 }
 
-// The filled values, in the fields' order, as [{ label, text }] (read-only views such as Customer 360).
+// The filled values as [{ label, text, heading }] in the forms' order (read-only views such as
+// Customer 360). heading: the section's name, "More details" after sections, null when the
+// object has no sections.
 async function cfFilledValues(object, values = {}, links = {}) {
-  const fields = (await cfLoad(object)) || [];
-  return fields
-    .map((field) => ({ label: field.label, text: cfDisplayValue(field, values?.[field.key], links?.[field.key]) }))
-    .filter((row) => row.text);
+  const [fields, sections] = await Promise.all([cfLoad(object), cfLoadLayout(object)]);
+  const groups = cfGroups(fields || [], sections);
+  const sectioned = groups.some((group) => group.section);
+  return groups.flatMap(({ section, fields: list }) => list
+    .map((field) => ({
+      label: field.label,
+      text: cfDisplayValue(field, values?.[field.key], links?.[field.key]),
+      heading: section ? section.label : sectioned ? t("cf.moreDetails") : null,
+    }))
+    .filter((row) => row.text));
 }
 
 // --- Phase 1B (D74): filters, list columns and search on the list pages -----------------------
