@@ -1,7 +1,8 @@
 /**
  * settings-plan.js — Settings → Plan & usage (Phase 10, owners and admins)
  * The company's plan and where it stands (trial, active, payment due, ended …), the usage
- * meters (users, WhatsApp numbers, contacts, broadcasts and quotations this month, templates),
+ * meters (users, WhatsApp numbers, contacts, broadcasts and quotations this month, templates;
+ * since D80 also the AI budget, and what is counted with no limit, with 30 days of history),
  * the plans on offer and the GST invoices. Choosing a plan opens Razorpay's page (or the test
  * page in development) in a new tab; this page then checks until the payment arrives. The
  * server checks every limit; this page shows them.
@@ -91,16 +92,111 @@
       </div>`;
   }
 
+  // --- the usage meters (Phase 3A, D80) ---------------------------------------------------------
+  // Two groups: the plan's limits (with any extra, and the AI budget) and what is only counted.
+  // Each meter shows the last 30 days from the daily snapshots plus today's number, the change,
+  // and when a limit will be reached at this pace (within 90 days, or this month for monthly ones).
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const GROUPS = [["limit", "usage.group.limit"], ["counted", "usage.group.counted"]];
+  const indiaToday = () => new Date(Date.now() + 330 * 60 * 1000).toISOString().slice(0, 10);
+  const daysBetween = (from, to) => Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
+  const shortDay = (date) => date.toLocaleDateString(crmI18n.locale(), { day: "numeric", month: "short" });
+  function size(bytes) {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = Number(bytes) || 0;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit += 1;
+    }
+    return `${value.toLocaleString(crmI18n.locale(), { maximumFractionDigits: unit && value < 10 ? 1 : 0 })} ${units[unit]}`;
+  }
+  const valueOf = (m, value) => (m.unit === "bytes" ? size(value) : m.unit === "budget" ? `${Math.round((value / (m.limit || 1)) * 100)}%` : count(value));
+  const labelOf = (m) => (t(`usage.m.${m.metric}`) === `usage.m.${m.metric}` ? m.label : t(`usage.m.${m.metric}`)); // a meter the texts do not know keeps its own name
+  let history = {}; // metric → [{ day, used, limit }], oldest first
+
+  // The days kept so far plus today's live number (today's snapshot may be older than now).
+  function seriesOf(m) {
+    const today = indiaToday();
+    return [...(history[m.metric] || []).filter((p) => p.day !== today), { day: today, used: m.used }];
+  }
+
+  function sparkline(m, series) {
+    if (series.length < 2) return "";
+    const values = series.map((p) => p.used);
+    const top = Math.max(...values, m.limit || 0, 1);
+    const points = values.map((v, i) => `${((i / (values.length - 1)) * 100).toFixed(1)},${(26 - (v / top) * 24).toFixed(1)}`).join(" ");
+    const said = t("usage.spark", { days: daysBetween(series[0].day, series[series.length - 1].day), from: valueOf(m, values[0]), to: valueOf(m, values[values.length - 1]) });
+    return `<svg class="plan-spark" viewBox="0 0 100 28" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(said)}"><title>${escapeHtml(said)}</title><polyline points="${points}" /></svg>`;
+  }
+
+  // "+312 in the last 30 days" (not for monthly meters: they start again on the 1st).
+  function trendOf(m, series) {
+    if (series.length < 2) return t("usage.noHistory");
+    if (m.monthly) return "";
+    const days = daysBetween(series[0].day, series[series.length - 1].day);
+    const change = m.used - series[0].used;
+    if (!change) return t("usage.trend.flat", { days });
+    return t(change > 0 ? "usage.trend.up" : "usage.trend.down", { n: valueOf(m, Math.abs(change)), days });
+  }
+
+  // When the limit is reached at this pace, or "".
+  function forecastOf(m, series) {
+    if (m.limit === null || m.limit === undefined) return "";
+    if (m.used >= m.limit) return t("usage.reached");
+    const left = m.limit - m.used;
+    if (m.monthly) {
+      const dayOfMonth = Number(indiaToday().slice(8, 10));
+      if (dayOfMonth < 3 || !m.used) return "";
+      const date = new Date(Date.now() + Math.ceil(left / (m.used / dayOfMonth)) * DAY_MS);
+      return date.getMonth() === new Date().getMonth() ? t("usage.usedUp.at", { date: shortDay(date) }) : "";
+    }
+    const days = series.length > 1 ? daysBetween(series[0].day, series[series.length - 1].day) : 0;
+    const perDay = days >= 3 ? (m.used - series[0].used) / days : 0;
+    if (perDay <= 0) return "";
+    const inDays = Math.ceil(left / perDay);
+    return inDays <= 90 ? t("usage.full.at", { date: shortDay(new Date(Date.now() + inDays * DAY_MS)) }) : "";
+  }
+
+  function meterCard(m) {
+    const limited = m.limit !== null && m.limit !== undefined;
+    const pct = limited && m.limit ? Math.min(Math.round((m.used / m.limit) * 100), 100) : 0;
+    const level = limited && m.used >= m.limit ? " full" : pct >= 80 ? " near" : "";
+    const series = seriesOf(m);
+    const amount = m.unit === "budget" ? t("usage.budgetUsed", { pct }) : `${valueOf(m, m.used)}${limited ? ` / ${count(m.limit)}` : ""}`;
+    const until = m.until ? new Date(m.until).toLocaleDateString(crmI18n.locale(), { day: "numeric", month: "short", year: "numeric" }) : "";
+    const extra = m.extra ? t(m.until ? "usage.extra" : "usage.extraForGood", { n: count(m.extra), date: until }) : "";
+    const notes = [
+      [extra, " plan-meter-extra", '<i class="fa-solid fa-gift" aria-hidden="true"></i> '],
+      [m.group === "limit" && !limited ? t("usage.noLimit") : "", ""],
+      [trendOf(m, series), ""],
+      [forecastOf(m, series), ` plan-meter-forecast${level}`],
+    ].filter(([text]) => text);
+    return `
+      <div class="plan-meter">
+        <div class="plan-meter-top"><span>${escapeHtml(labelOf(m))}</span><strong>${escapeHtml(amount)}</strong></div>
+        ${limited ? `<div class="plan-bar${level}" role="progressbar" aria-valuemin="0" aria-valuemax="${m.limit}" aria-valuenow="${m.used}" aria-label="${escapeHtml(labelOf(m))}"><span style="width: ${pct}%"></span></div>` : ""}
+        ${sparkline(m, series)}
+        ${notes.map(([text, cls, icon = ""]) => `<div class="plan-meter-note${cls}">${icon}${escapeHtml(text)}</div>`).join("")}
+      </div>`;
+  }
+
   function renderMeters() {
-    $("planMeters").innerHTML = (current.usage || []).map((m) => {
-      const pct = m.limit ? Math.min(Math.round((m.used / m.limit) * 100), 100) : 0;
-      const level = m.limit && m.used >= m.limit ? " full" : pct >= 80 ? " near" : "";
-      return `
-        <div class="plan-meter">
-          <div class="plan-meter-top"><span>${escapeHtml(m.label)}</span><strong>${count(m.used)}${m.limit === null ? "" : ` / ${count(m.limit)}`}</strong></div>
-          ${m.limit === null ? '<div class="plan-meter-top" style="margin-top: 8px"><span>No limit on this plan</span></div>' : `<div class="plan-bar${level}" role="progressbar" aria-valuemin="0" aria-valuemax="${m.limit}" aria-valuenow="${m.used}" aria-label="${escapeHtml(m.label)}"><span style="width: ${pct}%"></span></div>`}
-        </div>`;
+    const usage = current.usage || [];
+    $("planMeters").innerHTML = GROUPS.map(([group, title]) => {
+      const list = usage.filter((m) => (m.group || "limit") === group);
+      return list.length ? `<div class="plan-meter-group"><div class="plan-meter-group-title">${escapeHtml(t(title))}</div><div class="plan-meters">${list.map(meterCard).join("")}</div></div>` : "";
     }).join("");
+    $("planUsageHint").textContent = t("usage.hint");
+  }
+
+  async function loadHistory() {
+    try {
+      const { meters } = await crmApi("/billing/usage/history?days=30");
+      history = Object.fromEntries(meters.map((m) => [m.metric, m.points]));
+    } catch {
+      history = {}; // the meters still show today's numbers
+    }
   }
 
   function buttonFor(p) {
@@ -167,7 +263,7 @@
 
   async function load() {
     try {
-      [catalog, current] = await Promise.all([crmApi("/billing/plans"), crmPlan.state({ fresh: true })]);
+      [catalog, current] = await Promise.all([crmApi("/billing/plans"), crmPlan.state({ fresh: true }), loadHistory(), crmI18n.ready]);
       render();
       renderInvoices();
     } catch (error) {

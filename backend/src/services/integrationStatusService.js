@@ -5,6 +5,9 @@ const LeadSourceConnection = require('../models/LeadSourceConnection');
 const ConversionsApiConnection = require('../models/ConversionsApiConnection');
 const ApiKey = require('../models/ApiKey');
 const WebhookSubscription = require('../models/WebhookSubscription');
+const Organization = require('../models/Organization');
+const planService = require('./planService');
+const { PLANS, PLAN_KEYS } = require('../constants/plans');
 const { CONNECTION_TYPES } = require('../constants/leadSources');
 const { PAYMENT_PROVIDERS } = require('../constants/payments');
 
@@ -18,6 +21,9 @@ const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'me
 const TABS = Object.freeze({
   whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations',
 });
+// The plan feature each kind needs (Phase 3A, D80): a row whose feature the plan lacks says which
+// plan has it (plan: { feature, needs: { key, name } | null, message }); the server still refuses.
+const PLAN_FEATURES = Object.freeze({ payments: 'paymentLinks', metaCapi: 'conversionsApi', apiKeys: 'api', webhooks: 'api' });
 const latest = (...dates) => dates.filter(Boolean).map((d) => new Date(d)).sort((a, b) => b - a)[0] || null;
 const row = (kind, fields) => ({ kind, id: null, name: '', state: 'not_connected', lastActivityAt: null, problem: '', settingsTab: TABS[kind], ...fields });
 
@@ -94,7 +100,8 @@ function webhookRows(subs) {
 // GET /integrations/status
 async function status(req) {
   const organizationId = req.tenant.organizationId;
-  const [accounts, gmail, payments, sources, meta, keys, hooks] = await Promise.all([
+  const [organization, accounts, gmail, payments, sources, meta, keys, hooks] = await Promise.all([
+    Organization.findById(organizationId).select('plan subscription entitlementGrants'),
     WhatsAppAccount.find({ organizationId }).select('name verifiedName displayPhone status statusMessage lastWebhookAt').lean(),
     GmailConnection.find({ organizationId }).select('updatedAt').lean(),
     PaymentConnection.find({ organizationId }).select('name provider status statusMessage lastWebhookAt lastCheckedAt').lean(),
@@ -112,7 +119,13 @@ async function status(req) {
     apiKeys: apiKeyRows(keys),
     webhooks: webhookRows(hooks),
   };
-  const items = KINDS.flatMap((kind) => (rows[kind].length ? rows[kind] : [row(kind, {})]));
+  const planNotes = Object.fromEntries(Object.entries(PLAN_FEATURES).map(([kind, feature]) => {
+    const message = planService.featureBlock(organization, feature);
+    if (!message) return [kind, null];
+    const needed = planService.subscriptionOf(organization).locked ? null : PLAN_KEYS.find((key) => PLANS[key][feature]);
+    return [kind, { feature, needs: needed ? { key: needed, name: PLANS[needed].name } : null, message }];
+  }));
+  const items = KINDS.flatMap((kind) => (rows[kind].length ? rows[kind] : [row(kind, {})])).map((item) => ({ ...item, plan: planNotes[item.kind] || null }));
   return { items, needsAttention: items.filter((item) => item.state === 'attention').length };
 }
 

@@ -1,4 +1,5 @@
 const apiKeyService = require('../services/apiKeyService');
+const usageCounter = require('../services/usageCounterService');
 const httpError = require('../utils/httpError');
 
 // The public API (Phase 10C): Authorization: Bearer ycrm_… (or X-API-Key). Sets req.apiKey and,
@@ -13,6 +14,7 @@ async function apiKeyAuth(req, res, next) {
     req.user = { _id: user._id, name: `${user.name || user.email} (API key "${key.name}")`, email: user.email };
     req.member = member;
     req.tenant = { organizationId: key.organizationId, memberId: member._id, userId: user._id, role: member.role, apiKeyId: key._id };
+    await usageCounter.bump(key.organizationId, 'apiCalls'); // Plan & usage → API calls this month (D80)
     next();
   } catch (error) {
     next(error);

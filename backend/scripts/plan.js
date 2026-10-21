@@ -7,13 +7,20 @@
  *   node scripts/plan.js comp  <organizationId>                complimentary: its plan, no end date
  *   node scripts/plan.js trial <organizationId> <days>         a trial ending <days> from now
  *   node scripts/plan.js set   <organizationId> <starter|pro|growth|scale>
+ *
+ * Extras on top of the plan (Phase 3A, D80), written to the company's audit log:
+ *   node scripts/plan.js grants <organizationId>                                 its extras, in force and ended
+ *   node scripts/plan.js grant  <organizationId> <limit> <extra> [--days N] [--reason "…"] [--by name]
+ *   node scripts/plan.js grant  <organizationId> <feature>       [--days N] [--reason "…"] [--by name]
+ *   node scripts/plan.js revoke <organizationId> <grantId> [--by name]
+ *   e.g. grant <id> contacts 5000 --days 30 --reason "Diwali import"   or   grant <id> api --days 14
  */
 const mongoose = require('mongoose');
 const env = require('../src/config/env');
 const Organization = require('../src/models/Organization');
 const OrganizationMember = require('../src/models/OrganizationMember');
 require('../src/models/User');
-const { PLAN_KEYS } = require('../src/constants/plans');
+const { PLAN_KEYS, LIMITS } = require('../src/constants/plans');
 const planService = require('../src/services/planService');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -41,11 +48,50 @@ async function find(id) {
   return organization;
 }
 
-async function main([command, id, value]) {
+// --days 30 --reason "…" --by name
+function flagsOf(args) {
+  const flags = {};
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i].startsWith('--')) {
+      flags[args[i].slice(2)] = args[i + 1];
+      i += 1;
+    }
+  }
+  return flags;
+}
+
+function printGrants(organization) {
+  const now = new Date();
+  const grants = organization.entitlementGrants || [];
+  for (const g of grants) {
+    const state = g.until && g.until <= now ? 'ended' : 'in force';
+    console.log([String(g._id), g.key.padEnd(18), String(g.extra ?? 'on').padEnd(8), (g.until ? `until ${day(g.until)}` : 'for good').padEnd(17), state.padEnd(8), `${g.by}: ${g.reason || ''}`].join('  '));
+  }
+  console.log(`${grants.length} grant${grants.length === 1 ? '' : 's'} for ${organization.name}`);
+}
+
+async function main([command, id, value, ...rest]) {
   await mongoose.connect(env.mongoUri);
   try {
     if (command === 'list') return await list(); // awaited before the connection closes
     const organization = await find(id);
+    if (command === 'grants') return printGrants(organization);
+    if (command === 'grant') {
+      const isLimit = Boolean(LIMITS[value]);
+      const flags = flagsOf(isLimit ? rest.slice(1) : rest);
+      await planService.grant(organization._id, {
+        key: value,
+        extra: isLimit ? Number(rest[0]) : undefined,
+        days: flags.days === undefined ? undefined : Number(flags.days),
+        reason: flags.reason || '',
+        by: flags.by || 'platform',
+      });
+      return printGrants(await Organization.findById(organization._id));
+    }
+    if (command === 'revoke') {
+      await planService.revokeGrant(organization._id, value, { by: flagsOf(rest).by || 'platform' });
+      return printGrants(await Organization.findById(organization._id));
+    }
     if (command === 'comp') {
       await Organization.updateOne({ _id: organization._id }, { $set: { 'subscription.status': 'comped', 'subscription.since': new Date() } });
     } else if (command === 'trial') {
@@ -56,7 +102,7 @@ async function main([command, id, value]) {
       if (!PLAN_KEYS.includes(value)) throw new Error(`The plan is one of: ${PLAN_KEYS.join(', ')}.`);
       await Organization.updateOne({ _id: organization._id }, { $set: { plan: value } });
     } else {
-      throw new Error('Commands: list | comp <id> | trial <id> <days> | set <id> <plan>');
+      throw new Error('Commands: list | comp <id> | trial <id> <days> | set <id> <plan> | grants <id> | grant <id> <key> [extra] [--days N] [--reason "…"] | revoke <id> <grantId>');
     }
     const after = await Organization.findById(organization._id);
     console.log(`${after.name}: ${after.plan}, ${planService.subscriptionOf(after).status}`);

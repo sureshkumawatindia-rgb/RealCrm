@@ -60,6 +60,20 @@ const LIMITS = Object.freeze({
   quotesPerMonth: { label: 'Quotations this month', noun: 'quotations a month', monthly: true },
   templates: { label: 'Message templates', noun: 'message templates' },
 });
+// What is counted but limited by no plan (Phase 3A, D80): shown next to the limits so the company
+// sees all it uses on one screen. Limits for these are a pricing decision, not made yet.
+// unit: count | bytes. monthly: counted from the 1st (India).
+const METERS = Object.freeze({
+  apiCallsPerMonth: { label: 'API calls this month', unit: 'count', monthly: true },
+  webhookSendsPerMonth: { label: 'Webhook sends this month', unit: 'count', monthly: true },
+  workflowRunsPerMonth: { label: 'Workflow runs this month', unit: 'count', monthly: true },
+  fileBytes: { label: 'Files in Documents', unit: 'bytes' },
+  customFields: { label: 'Custom fields', unit: 'count' },
+  customObjects: { label: 'Custom objects', unit: 'count' },
+});
+// The owners and admins hear when a limit is this full (percent), once per level per period.
+const ALERT_LEVELS = Object.freeze([80, 100]);
+
 // Features that come with some plans only. Everything else (inbox, leads and lead sources,
 // quotations, orders, FAQ bot, auto-replies, follow-up sequences, reports) is in every plan.
 const FEATURES = Object.freeze({
@@ -87,4 +101,4 @@ const SUBSCRIPTION_STATUSES = Object.freeze(['trialing', 'active', 'past_due', '
 
 const planOf = (organization) => PLANS[organization?.plan] || PLANS[TRIAL_PLAN];
 
-module.exports = { PLANS, PLAN_KEYS, MAX_WHATSAPP_NUMBERS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, FEATURES, INCLUDED, SUBSCRIPTION_STATUSES, planOf };
+module.exports = { PLANS, PLAN_KEYS, MAX_WHATSAPP_NUMBERS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, METERS, ALERT_LEVELS, FEATURES, INCLUDED, SUBSCRIPTION_STATUSES, planOf };

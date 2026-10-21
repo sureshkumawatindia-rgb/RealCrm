@@ -1,6 +1,7 @@
 const express = require('express');
 const planService = require('../services/planService');
 const billingService = require('../services/billingService');
+const usageService = require('../services/usageService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -20,6 +21,13 @@ router.get('/plans', (req, res) => {
 });
 router.get('/subscription', async (req, res) => {
   res.json({ success: true, data: { ...(await planService.summary(req)), billing: billingService.publicStatus() } });
+});
+// What the company may use (every member) and how its usage went (owners and admins) (Phase 3A).
+router.get('/entitlements', async (req, res) => {
+  res.json({ success: true, data: await planService.entitlements(req) });
+});
+router.get('/usage/history', managers, validate({ query: schemas.usageHistory }), async (req, res) => {
+  res.json({ success: true, data: await usageService.history(req, req.valid.query) });
 });
 
 router.post('/checkout', managers, validate({ body: schemas.checkout }), async (req, res) => {

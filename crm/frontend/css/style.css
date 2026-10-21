@@ -3052,6 +3052,45 @@ html.i18n-pending body {
 .plan-bar.full span {
   background: var(--danger);
 }
+/* Phase 3A (D80): meters in two groups, with 30 days of history and when a limit is reached */
+.plan-meter-group + .plan-meter-group {
+  margin-top: 16px;
+}
+.plan-meter-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.plan-spark {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin-top: 8px;
+}
+.plan-spark polyline {
+  fill: none;
+  stroke: var(--brand-darker, var(--text-muted));
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+.plan-meter-note {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.plan-meter-extra i {
+  color: var(--success);
+}
+.plan-meter-forecast.near {
+  color: var(--warning-text, var(--text));
+  font-weight: 600;
+}
+.plan-meter-forecast.full {
+  color: var(--danger);
+  font-weight: 600;
+}
 .plan-grid {
   display: grid;
   /* five plans side by side on a computer (D68) */
@@ -4611,6 +4650,14 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   font-size: 13px;
   color: var(--warning-text);
   overflow-wrap: anywhere;
+}
+.conn-plan {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.conn-meta .badge i {
+  margin-right: 3px;
 }
 /* Phones: the name gets the whole line; the button goes under it. */
 @media (max-width: 600px) {

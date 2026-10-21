@@ -371,5 +371,5 @@ function register(queue) {
 
 module.exports = {
   JOB, register, setClient, configured, suggest, queueAutoReply, autoReply, settings, saveSettings, test,
-  costMicros, spentThisMonth, companyFacts, systemPrompt, SUGGEST_SCHEMA, AUTO_REPLY_SCHEMA,
+  costMicros, spentThisMonth, budgetMicros, companyFacts, systemPrompt, SUGGEST_SCHEMA, AUTO_REPLY_SCHEMA,
 };

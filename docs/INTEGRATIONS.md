@@ -18,6 +18,7 @@ Owners and admins set these up in **Settings → API & webhooks**.
   - when its maker is no longer an owner or admin;
   - when the plan has no API: `403 PLAN_LIMIT` (or `SUBSCRIPTION_INACTIVE` while the plan is not active).
 - **Rate limit:** 120 requests a minute per key (`RATE_LIMIT_PUBLIC_API_PER_MINUTE`). Over that: `429 RATE_LIMITED`.
+- **Usage:** every call with a valid key is counted in Settings → Plan & usage ("API calls this month"). It is counted, not limited (D80).
 
 ### Data format
 

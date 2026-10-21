@@ -8,6 +8,7 @@ const Broadcast = require('../models/Broadcast');
 const Quotation = require('../models/Quotation');
 const MessageTemplate = require('../models/MessageTemplate');
 const httpError = require('../utils/httpError');
+const { audit } = require('../utils/audit');
 const { PLANS, PLAN_KEYS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, FEATURES, INCLUDED, planOf } = require('../constants/plans');
 
 // The SaaS plan of an organization (Phase 10): its subscription state, its limits and what has
@@ -76,8 +77,41 @@ function cheapestPlanWith(feature) {
   return PLAN_KEYS.map((key) => PLANS[key]).find((plan) => plan[feature]) || null;
 }
 
-function featureBlock(organization, feature) {
+// --- extras on top of the plan (Phase 3A, D80) -------------------------------------------------------
+// The platform owner can give one company more of a limit, or a feature its plan lacks, until a
+// date or for good (scripts/plan.js). Every check below uses the plan plus the grants in force.
+const grantsInForce = (organization, now = new Date()) => (organization?.entitlementGrants || []).filter((grant) => !grant.until || grant.until > now);
+
+function effectivePlanOf(organization, now = new Date()) {
   const plan = planOf(organization);
+  const grants = grantsInForce(organization, now);
+  if (!grants.length) return plan;
+  const effective = { ...plan };
+  for (const grant of grants) {
+    if (LIMITS[grant.key] && Number.isFinite(effective[grant.key])) effective[grant.key] += grant.extra || 0; // unlimited stays unlimited
+    if (FEATURES[grant.key]) effective[grant.key] = true;
+  }
+  return effective;
+}
+
+// For each limit with grants in force: how much extra, and when the first of them ends (null: none
+// ends). A limit the plan does not have gets nothing.
+function extrasOf(organization, now = new Date()) {
+  const plan = planOf(organization);
+  const extras = {};
+  for (const grant of grantsInForce(organization, now)) {
+    if (!LIMITS[grant.key] || !Number.isFinite(plan[grant.key])) continue;
+    const entry = extras[grant.key] || { extra: 0, until: null, forGood: false };
+    entry.extra += grant.extra || 0;
+    if (!grant.until) entry.forGood = true;
+    else if (!entry.until || grant.until < entry.until) entry.until = grant.until;
+    extras[grant.key] = entry;
+  }
+  return extras;
+}
+
+function featureBlock(organization, feature) {
+  const plan = effectivePlanOf(organization);
   if (subscriptionOf(organization).locked) return lockedMessage(organization, `use ${FEATURES[feature].replace(/^(The|Payment|Automation|An)\b/, (word) => word.toLowerCase())}`);
   if (plan[feature]) return '';
   const needed = cheapestPlanWith(feature);
@@ -132,15 +166,16 @@ async function usageOf(organizationId, plan) {
 // How many more of a metric the organization may add now ({ limit, used, left, locked }).
 async function roomFor(organizationOrId, metric) {
   const organization = await organizationOf(organizationOrId);
-  const plan = planOf(organization);
+  const plan = effectivePlanOf(organization);
   const limit = limitOf(plan, metric);
   const used = await COUNTERS[metric](organization._id);
-  return { plan: plan.name, limit, used, left: limit === null ? null : Math.max(limit - used, 0), locked: subscriptionOf(organization).locked, organization };
+  const extra = extrasOf(organization)[metric]?.extra || 0;
+  return { plan: plan.name, limit, extra, used, left: limit === null ? null : Math.max(limit - used, 0), locked: subscriptionOf(organization).locked, organization };
 }
 
 function limitMessage(room, metric, adding) {
   const { noun } = LIMITS[metric];
-  const base = `The ${room.plan} plan allows ${number(room.limit)} ${noun}`;
+  const base = `The ${room.plan} plan${room.extra ? ` with its ${number(room.extra)} extra` : ''} allows ${number(room.limit)} ${noun}`;
   if (adding > 1 && room.left > 0) return `${base}; you have room for ${number(room.left)} more (${number(room.used)} used), not ${number(adding)}. ${UPGRADE_HINT}`;
   return `${base}, and ${LIMITS[metric].monthly ? "this month's are used up" : `you have ${number(room.used)}`}. ${UPGRADE_HINT}`;
 }
@@ -196,24 +231,128 @@ function plans() {
   };
 }
 
-// GET /billing/subscription — everyone sees the plan and its state (for the banner); owners and
-// admins also see the usage meters.
-async function summary(req) {
+const planKeyOf = (organization) => PLAN_KEYS.find((k) => PLANS[k] === planOf(organization));
+
+async function organizationOfReq(req) {
   const organization = await Organization.findById(req.tenant.organizationId);
   if (!organization) throw httpError(404, 'ORGANIZATION_NOT_FOUND', 'Organization not found');
-  const plan = planOf(organization);
-  const key = PLAN_KEYS.find((k) => PLANS[k] === plan);
+  return organization;
+}
+
+// GET /billing/subscription — everyone sees the plan and its state (for the banner); owners and
+// admins also see the usage meters: the plan's limits (with any extra), the AI budget and what is
+// counted without a limit (Phase 3A).
+async function summary(req) {
+  const organization = await organizationOfReq(req);
   const manager = ['owner', 'admin'].includes(req.member?.role);
   return {
-    plan: serializePlan(key),
+    plan: serializePlan(planKeyOf(organization)),
     subscription: subscriptionOf(organization),
     // A company set to be deleted (Phase 10F): every page says so.
     deletion: organization.deletion?.scheduledFor ? { scheduledFor: organization.deletion.scheduledFor, requestedAt: organization.deletion.requestedAt } : null,
-    ...(manager && { usage: await usageOf(organization._id, plan) }),
+    ...(manager && { usage: await require('./usageService').metersOf(organization) }), // eslint-disable-line global-require
   };
 }
 
+// GET /billing/entitlements (Phase 3A, every member): what the company may use and why — each
+// feature on or off with the cheapest plan that has it, and each limit with its extra. No usage
+// numbers here (those are for owners and admins). The server checks all of it on its own; this
+// only lets a page say "comes with the Growth plan" before someone clicks.
+async function entitlements(req) {
+  const organization = await organizationOfReq(req);
+  const base = planOf(organization);
+  const effective = effectivePlanOf(organization);
+  const grants = grantsInForce(organization);
+  const extras = extrasOf(organization);
+  const sub = subscriptionOf(organization);
+  const grantEnd = (key) => {
+    const own = grants.filter((grant) => grant.key === key);
+    return own.some((grant) => !grant.until) ? null : own.map((grant) => grant.until).sort((a, b) => a - b)[0] || null;
+  };
+  return {
+    plan: { key: planKeyOf(organization), name: base.name },
+    status: sub.status,
+    locked: sub.locked,
+    features: Object.entries(FEATURES).map(([feature, label]) => {
+      const fromGrant = !base[feature] && Boolean(effective[feature]);
+      const neededKey = base[feature] || fromGrant ? null : PLAN_KEYS.find((key) => PLANS[key][feature]);
+      const block = featureBlock(organization, feature);
+      return {
+        key: feature,
+        label,
+        on: !block,
+        from: base[feature] ? 'plan' : fromGrant ? 'grant' : null,
+        until: fromGrant ? grantEnd(feature) : null,
+        needs: neededKey ? { key: neededKey, name: PLANS[neededKey].name } : null,
+        message: block,
+      };
+    }),
+    limits: Object.entries(LIMITS).map(([metric, { label }]) => ({
+      metric,
+      label,
+      limit: limitOf(effective, metric),
+      extra: extras[metric]?.extra || 0,
+      until: extras[metric] && !extras[metric].forGood ? extras[metric].until : null,
+    })),
+  };
+}
+
+// --- grants (the platform owner's scripts/plan.js; audited) ----------------------------------------
+const GRANT_KEYS = Object.freeze([...Object.keys(LIMITS), ...Object.keys(FEATURES)]);
+// Who did it, for the audit log (there is no signed-in user behind the command).
+const platformReq = (by) => ({ ip: '', get: () => `scripts/plan.js (${by})` });
+
+async function grant(organizationId, { key, extra, days, reason = '', by = 'platform' } = {}, now = new Date()) {
+  if (!GRANT_KEYS.includes(key)) throw httpError(400, 'VALIDATION_ERROR', `The key is one of: ${GRANT_KEYS.join(', ')}.`);
+  const limit = Boolean(LIMITS[key]);
+  if (limit && !(Number.isInteger(extra) && extra >= 1 && extra <= 10000000)) throw httpError(400, 'VALIDATION_ERROR', 'Give how many extra (a whole number from 1 to 1,00,00,000).');
+  if (!limit && extra !== undefined && extra !== null) throw httpError(400, 'VALIDATION_ERROR', `${key} is a feature: it is switched on, with no number.`);
+  if (days !== undefined && days !== null && !(Number.isInteger(days) && days >= 1 && days <= 3650)) throw httpError(400, 'VALIDATION_ERROR', 'Give the days as a whole number from 1 to 3650, or leave them out for good.');
+  const entry = {
+    _id: new mongoose.Types.ObjectId(),
+    key,
+    ...(limit && { extra }),
+    ...(days && { until: new Date(now.getTime() + days * DAY_MS) }),
+    reason: String(reason || '').trim().slice(0, 200),
+    by: String(by || 'platform').trim().slice(0, 100) || 'platform',
+    at: now,
+  };
+  const organization = mongoose.isValidObjectId(organizationId)
+    ? await Organization.findOneAndUpdate({ _id: organizationId }, { $push: { entitlementGrants: entry } }, { returnDocument: 'after' })
+    : null;
+  if (!organization) throw httpError(404, 'ORGANIZATION_NOT_FOUND', 'No company with that id.');
+  // "key" would be redacted by the audit log (it hides anything named like a key), so: entitlement.
+  await audit(platformReq(entry.by), {
+    organizationId: organization._id, action: 'entitlement.granted', entityType: 'Organization', entityId: organization._id,
+    changes: { grantId: String(entry._id), entitlement: key, extra: entry.extra ?? null, until: entry.until ?? null, reason: entry.reason, by: entry.by },
+  });
+  return entry;
+}
+
+async function revokeGrant(organizationId, grantId, { by = 'platform' } = {}) {
+  if (!mongoose.isValidObjectId(organizationId) || !mongoose.isValidObjectId(grantId)) throw httpError(404, 'GRANT_NOT_FOUND', 'No such grant.');
+  const before = await Organization.findOneAndUpdate(
+    { _id: organizationId, 'entitlementGrants._id': grantId },
+    { $pull: { entitlementGrants: { _id: grantId } } },
+    { returnDocument: 'before' },
+  );
+  if (!before) throw httpError(404, 'GRANT_NOT_FOUND', 'No such grant.');
+  const removed = before.entitlementGrants.id(grantId);
+  await audit(platformReq(by), {
+    organizationId: before._id, action: 'entitlement.revoked', entityType: 'Organization', entityId: before._id,
+    changes: { grantId: String(grantId), entitlement: removed.key, extra: removed.extra ?? null, until: removed.until ?? null, by },
+  });
+  return removed.toObject();
+}
+
 module.exports = {
+  effectivePlanOf,
+  extrasOf,
+  grantsInForce,
+  entitlements,
+  grant,
+  revokeGrant,
+  GRANT_KEYS,
   monthStart,
   trialFields,
   subscriptionOf,

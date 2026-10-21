@@ -43,6 +43,21 @@ const organizationSchema = new mongoose.Schema(
       checkoutUrl: String, // the gateway's payment page while the first payment is awaited
       remindedFor: String, // the last trial reminder sent ("7", "3", "1", "ended"), once each
     },
+    // Extras the platform owner gave this company on top of its plan (Phase 3A, D80; made with
+    // scripts/plan.js): a limit + extra, or a feature switched on, until a date or for good.
+    // Every server check uses the plan plus the grants in force; ended grants stay as history.
+    entitlementGrants: [{
+      key: { type: String, required: true }, // a LIMITS or FEATURES key of constants/plans.js
+      extra: { type: Number, min: 1 }, // for a limit; absent for a feature
+      until: Date,
+      reason: { type: String, trim: true, maxlength: 200, default: '' },
+      by: { type: String, trim: true, maxlength: 100, default: 'platform' },
+      at: { type: Date, default: Date.now },
+    }],
+    // The day (India, YYYY-MM-DD) of the last usage snapshot, and the last usage alert sent per
+    // meter ({ level: 80 | 100, period: 'YYYY-MM' | 'always' }) (Phase 3A, D80).
+    usageSnapshotOn: { type: String },
+    usageAlerts: { type: mongoose.Schema.Types.Mixed },
     // Quotations and orders (Phase 5): what the PDF shows and how documents are numbered.
     billing: {
       bank: {
