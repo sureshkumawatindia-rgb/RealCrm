@@ -5,6 +5,7 @@ const Organization = require('../../models/Organization');
 const logger = require('../../config/logger');
 const conversations = require('../conversationService');
 const { leadOfContact } = require('./context');
+const consentHistory = require('../consentService');
 
 // WhatsApp opt-out and opt-in (Phase 7, D35). A message that is only STOP / UNSUBSCRIBE (or the
 // "Stop promotions" button of a marketing template) opts the customer out of broadcasts and
@@ -33,12 +34,17 @@ async function handleMessage(event) {
   const wants = wantsOf(event.text);
   if (!wants) return null;
   try {
+    // "before", so the history knows what it was (D79).
     const contact = await Contact.findOneAndUpdate(
       { _id: event.contactId, organizationId: event.organizationId },
       { $set: { 'consent.marketing': wants, 'consent.changedAt': new Date(), 'consent.method': 'whatsapp_reply' } },
-      { returnDocument: 'after' },
+      { returnDocument: 'before' },
     );
     if (!contact) return null;
+    await consentHistory.record({
+      organizationId: event.organizationId, contactId: contact._id, from: contact.consent?.marketing || 'unknown', to: wants,
+      method: 'whatsapp_reply', actorName: 'Customer', detail: wants === 'opted_out' ? 'Replied STOP' : 'Replied START',
+    });
     const lead = await leadOfContact(event.organizationId, contact._id);
     if (lead) {
       await LeadActivity.create({

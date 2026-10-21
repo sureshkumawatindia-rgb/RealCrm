@@ -11,6 +11,7 @@ const customFieldService = require('./customFieldService');
 const customFieldFilters = require('./customFieldFilters');
 const lookupService = require('./lookupService');
 const automationEvents = require('./automation/events');
+const consentHistory = require('./consentService');
 
 const MODULE = 'customers';
 const SEARCH_FIELDS = ['name', 'email', 'phone', 'phoneE164', 'company', 'city'];
@@ -19,6 +20,9 @@ const EDITABLE = ['name', 'email', 'phone', 'company', 'gstin', 'state', 'city',
 
 // keys: the active custom fields (customFieldService.activeKeys); without them, every stored value.
 // links: lookupService.linksFor — the names of the records its link fields point to (D75).
+// A kept touch (D79), or null when there is none.
+const touchOf = (t) => (t?.channel ? { channel: t.channel, source: t.source || '', medium: t.medium || '', campaign: t.campaign || '', at: t.at || null } : null);
+
 function serializeContact(contact, keys, links) {
   return {
     id: contact._id,
@@ -41,6 +45,7 @@ function serializeContact(contact, keys, links) {
     notes: contact.notes,
     consent: { marketing: contact.consent?.marketing || 'unknown', changedAt: contact.consent?.changedAt || null, method: contact.consent?.method || '' },
     becameCustomerAt: contact.becameCustomerAt || null,
+    firstTouch: touchOf(contact.firstTouch), // how they first found the company (D79)
     customFields: customFieldService.visibleValues(contact.customFields, keys),
     customFieldLinks: links?.get(String(contact._id)) || {},
     createdAt: contact.createdAt,
@@ -119,12 +124,13 @@ async function create(req, body, { session, enforceRequired = true } = {}) {
   const contact = await repo(req).create({
     ...fields,
     ...(customFields !== undefined && { customFields: await customFieldService.applyValues(req, 'contact', customFields, undefined, { isNew: true, enforceRequired }) }),
-    ...(marketingConsent && { consent: consentOf(marketingConsent, 'manual') }),
+    ...(marketingConsent && { consent: consentOf(marketingConsent, consentHistory.methodOf(req)) }),
     ownerId: await resolveOwnerId(req, body.ownerId),
     becameCustomerAt: data.lifecycle === 'customer' ? new Date() : undefined,
     createdById: req.user._id,
   }, { session });
   await audit(req, { action: 'contact.created', entityType: 'Contact', entityId: contact._id });
+  if (marketingConsent) await consentHistory.record({ organizationId: contact.organizationId, contactId: contact._id, from: 'unknown', to: marketingConsent, method: consentHistory.methodOf(req), ...consentHistory.actorOf(req), session }); // D79
   automationEvents.emit('contact.created', { organizationId: contact.organizationId, contactId: contact._id, source: contact.source, key: `contact.created:${contact._id}` }, req);
   return contact;
 }
@@ -148,11 +154,12 @@ async function update(req, id, patch, { session, skipVisibility = false, enforce
     : await findVisible(req, id, session);
   if (!contact) throw httpError(404, 'NOT_FOUND', 'Contact not found');
   const valuesBefore = JSON.stringify(contact.customFields || {});
+  const consentBefore = contact.consent?.marketing || 'unknown'; // D79: the history keeps from → to
   const data = normalizeFields(Object.fromEntries(Object.entries(patch).filter(([key]) => EDITABLE.includes(key))));
   if ('phoneE164' in data) await assertPhoneFree(req, data.phoneE164, contact._id, session);
   if (data.lifecycle === 'customer' && contact.lifecycle !== 'customer') contact.becameCustomerAt = new Date();
   Object.assign(contact, data, await ownerPatch(req, patch));
-  if (patch.marketingConsent && patch.marketingConsent !== (contact.consent?.marketing || 'unknown')) contact.consent = consentOf(patch.marketingConsent, 'manual');
+  if (patch.marketingConsent && patch.marketingConsent !== (contact.consent?.marketing || 'unknown')) contact.consent = consentOf(patch.marketingConsent, consentHistory.methodOf(req));
   if ('phoneE164' in data && !data.phoneE164) contact.phoneE164 = undefined;
   if (patch.customFields !== undefined) {
     contact.customFields = await customFieldService.applyValues(req, 'contact', patch.customFields, contact.customFields, { enforceRequired });
@@ -162,6 +169,9 @@ async function update(req, id, patch, { session, skipVisibility = false, enforce
   await contact.save({ session });
   const changes = [...Object.keys(data), ...(patch.customFields !== undefined ? ['customFields'] : [])];
   await audit(req, { action: 'contact.updated', entityType: 'Contact', entityId: contact._id, changes });
+  if ((contact.consent?.marketing || 'unknown') !== consentBefore) {
+    await consentHistory.record({ organizationId: contact.organizationId, contactId: contact._id, from: consentBefore, to: contact.consent.marketing, method: consentHistory.methodOf(req), ...consentHistory.actorOf(req), session });
+  }
   // Outbound webhooks (D78). A change saved inside a larger transaction (a lead's form) is not
   // sent: it would go out even if that transaction were undone.
   if (changed && !session) {

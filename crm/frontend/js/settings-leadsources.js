@@ -50,6 +50,9 @@
         </div>
         <div class="field"><label>Thank-you message</label><input type="text" data-opt="successMessage" maxlength="300" value="${escapeHtml(set.successMessage)}" /></div>
         <div class="field"><label>Also ask for</label><div>${check("email", "Email")}${check("company", "Company")}${check("city", "City")}${check("product", "Product")}${check("message", "Requirement")}</div></div>
+        <div class="field">${check("consent", escapeHtml(t("ls.consent.ask")))}
+          <input type="text" data-opt="consentText" maxlength="200" value="${escapeHtml(set.consentText || "")}" aria-label="${escapeHtml(t("ls.consent.text"))}" style="margin-top:6px" />
+          <div class="cf-help">${escapeHtml(t("ls.consent.help"))}</div></div>
         <div class="field"><label>Only on these websites (optional, one per line)</label><textarea data-opt="allowedOrigins" rows="2" placeholder="https://www.yourshop.in">${escapeHtml((set.allowedOrigins || []).join("\n"))}</textarea></div>
         <div class="field"><label>After a plain HTML form, go to (optional)</label><input type="url" data-opt="redirectUrl" maxlength="500" placeholder="https://www.yourshop.in/thank-you" value="${escapeHtml(set.redirectUrl)}" /></div>
         <div class="data-actions" style="justify-content:flex-end"><button class="btn btn-primary" type="button" data-ls-save="${escapeHtml(s.id)}">Save options</button></div>
@@ -208,6 +211,7 @@
       successMessage: value("successMessage"),
       redirectUrl: value("redirectUrl"),
       allowedOrigins: value("allowedOrigins").split(/[\s,]+/).map((o) => o.replace(/\/+$/, "")).filter(Boolean),
+      consentText: value("consentText"), // D79: the WhatsApp offers box
       askFor,
     };
   }

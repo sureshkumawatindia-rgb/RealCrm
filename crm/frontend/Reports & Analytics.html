@@ -238,6 +238,24 @@
                 <div class="panel-head"><h3>Where leads come from</h3><span class="report-note">enquiries and leads of the period, and how far they got</span></div>
                 <div class="report-table" id="sourceTable"></div>
               </div>
+              <!-- D79: leads, wins and won value by channel or campaign, first or last touch -->
+              <div class="panel report-span-2" id="attrPanel">
+                <div class="panel-head attr-head">
+                  <h3 data-i18n="rep.at.title">Channels and campaigns that win</h3>
+                  <div class="attr-switches">
+                    <div class="cf-sec-cols" id="attrBy" role="radiogroup" aria-label="Group by" data-i18n-aria-label="rep.at.groupBy">
+                      <button type="button" class="btn btn-outline active" role="radio" aria-checked="true" data-value="channel" data-i18n="rep.at.byChannel">Channel</button>
+                      <button type="button" class="btn btn-outline" role="radio" aria-checked="false" data-value="campaign" data-i18n="rep.at.byCampaign">Campaign</button>
+                    </div>
+                    <div class="cf-sec-cols" id="attrTouch" role="radiogroup" aria-label="Touch" data-i18n-aria-label="rep.at.touch">
+                      <button type="button" class="btn btn-outline active" role="radio" aria-checked="true" data-value="first" data-i18n="rep.at.first">First touch</button>
+                      <button type="button" class="btn btn-outline" role="radio" aria-checked="false" data-value="last" data-i18n="rep.at.last">Last touch</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="report-note attr-note" data-i18n="rep.at.note">Leads made in the period, by where they first (or last) came from: ads, search, social, marketplaces, WhatsApp. Won value is what was expected, else the quotation.</p>
+                <div class="report-table" id="attrTable"></div>
+              </div>
               <div class="panel">
                 <div class="panel-head"><h3>Leads by product interest</h3><span class="report-note">in the period</span></div>
                 <div id="leadsByProduct" class="bar-list"></div>

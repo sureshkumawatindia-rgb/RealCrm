@@ -16,7 +16,9 @@ const websiteSettings = Joi.object({
   allowedOrigins: Joi.array().items(origin).max(20),
   askFor: Joi.object({
     email: Joi.boolean(), company: Joi.boolean(), city: Joi.boolean(), product: Joi.boolean(), message: Joi.boolean(),
+    consent: Joi.boolean(), // D79: the WhatsApp offers box
   }),
+  consentText: text(200),
 });
 
 // IndiaMART: which kinds of leads to take (W, B, P, WA, BIZ).
@@ -66,6 +68,10 @@ module.exports = {
     message: text(2000),
     submissionId: Joi.string().trim().pattern(/^[A-Za-z0-9-]{8,64}$/),
     website_url: Joi.any(), // honeypot: people never see it, bots fill it in
+    // Where the visitor came from (D79), read by embed.js from the page; long values are cut there.
+    utm_source: text(500), utm_medium: text(500), utm_campaign: text(500), utm_term: text(500), utm_content: text(500),
+    gclid: text(500), fbclid: text(500), referrer: text(2000), landingPage: text(2000),
+    consent: Joi.alternatives(Joi.boolean(), Joi.string().valid('on', 'true', 'false', '')), // the optional WhatsApp offers box
   }).unknown(true),
   simulateLead: Joi.object({
     source: Joi.string().valid(...LEAD_SOURCES).default('IndiaMART'),

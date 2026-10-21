@@ -10,6 +10,7 @@ const logger = require('../config/logger');
 const { normalizePhone } = require('../utils/phone');
 const { OPEN_STAGES, STAGE_PROBABILITY } = require('../constants/crm');
 const { RAW_PAYLOAD_MAX_BYTES } = require('../constants/leadSources');
+const attribution = require('./attributionService');
 
 // Every lead source (website form, IndiaMART, Facebook, …) ends here: one enquiry becomes a
 // Contact + Lead with source, sourceRef and the raw payload.
@@ -92,7 +93,8 @@ async function countOutcome(connectionId, outcome) {
  *   enquiry { product, quantity, message }, raw (the payload as received), receivedAt?
  * @returns {{ outcome: 'created'|'attached'|'duplicate'|'rejected', leadId?, contactId?, contactCreated? }}
  */
-async function intake({ organizationId, source, sourceRef, connectionId, person = {}, enquiry = {}, raw, receivedAt }) {
+// touch (D79): what tells where it came from: utm, gclid/fbclid, referrer, landingPage, ad.
+async function intake({ organizationId, source, sourceRef, connectionId, person = {}, enquiry = {}, raw, receivedAt, touch }) {
   const ref = str(sourceRef, 200);
   const summary = describe(source, { product: str(enquiry.product, 200), quantity: str(enquiry.quantity, 50), message: str(enquiry.message, 1500) });
   let record;
@@ -153,6 +155,10 @@ async function intake({ organizationId, source, sourceRef, connectionId, person 
 
     await LeadIntake.updateOne({ _id: record._id }, { $set: { outcome, reason: '', contactId: contact._id, leadId: lead._id, processedAt: now } });
     await countOutcome(connectionId, outcome);
+    // Where it came from (D79); a retried enquiry whose lead exists already has its touchpoint.
+    if (!ownLead) {
+      await attribution.record({ organizationId, contactId: contact._id, leadId: lead._id, intakeId: record._id, source, touch, at: record.receivedAt || now, isNewLead: !openLead });
+    }
     bus.emit('lead:intake', {
       organizationId, source, sourceRef: ref, connectionId: connectionId || null, leadId: lead._id, contactId: contact._id, outcome, contactCreated,
       receivedAt: record.receivedAt,

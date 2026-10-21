@@ -28,6 +28,9 @@ function contactSummary(contact) {
 
 // keys: the active custom fields (customFieldService.activeKeys); without them, every stored value.
 // links: lookupService.linksFor — the names of the records its link fields point to (D75).
+// A kept touch (D79), or null when there is none.
+const touchOf = (t) => (t?.channel ? { channel: t.channel, source: t.source || '', medium: t.medium || '', campaign: t.campaign || '', at: t.at || null } : null);
+
 function serializeLead(lead, keys, links) {
   const contact = contactSummary(lead.contactId);
   return {
@@ -49,6 +52,8 @@ function serializeLead(lead, keys, links) {
     noteEntries: lead.noteEntries,
     stageChangedAt: lead.stageChangedAt || null,
     convertedAt: lead.convertedAt || null,
+    // Where it came from (D79): the first enquiry's touch and the latest one.
+    attribution: lead.attribution?.first?.channel || lead.attribution?.last?.channel ? { first: touchOf(lead.attribution.first), last: touchOf(lead.attribution.last) } : null,
     lastActivityAt: lead.lastActivityAt || null,
     version: lead.version,
     customFields: customFieldService.visibleValues(lead.customFields, keys),

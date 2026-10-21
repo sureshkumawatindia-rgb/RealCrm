@@ -241,6 +241,7 @@ module.exports = {
     const result = await leadIntake.intake({
       organizationId: org(req), source: 'API', sourceRef: body.externalId || `api-${crypto.randomUUID()}`,
       person: body.contact, enquiry: { product: body.product || body.title, quantity: body.quantity, message: body.message }, raw: body,
+      touch: { utm: body.utm, referrer: body.referrer, landingPage: body.landingPage }, // D79
     });
     if (result.outcome === 'rejected') throw httpError(400, 'VALIDATION_ERROR', 'A lead needs a valid mobile number or email.', [{ field: 'contact.phone', message: 'Give a valid mobile number or email.' }]);
     const lead = await one(Lead, req, result.leadId, await withFields(req, publicLead), { path: 'contactId', select: CONTACT_FIELDS });

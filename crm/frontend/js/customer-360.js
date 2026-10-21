@@ -250,6 +250,43 @@ function renderKpis(customer) {
     .join("");
 }
 
+// How they found you, and their consent history (D79): the first touch, each enquiry's source
+// and campaign, and every consent change with how it happened.
+const ORIGIN_CHANNEL = (channel) => t(`rep.ch.${channel}`);
+function touchLine(touch) {
+  const tags = [touch.utm?.source, touch.utm?.medium].filter(Boolean).join(" / ");
+  const campaign = touch.utm?.campaign || touch.ad?.formName || touch.ad?.campaignId || "";
+  return [ORIGIN_CHANNEL(touch.channel), touch.source, tags, campaign].filter(Boolean).join(" · ");
+}
+async function renderOrigin(customer) {
+  const panel = document.getElementById("c360OriginPanel");
+  const box = document.getElementById("c360Origin");
+  box.dataset.customerId = customer.id;
+  let touches;
+  let consents;
+  try {
+    [touches, consents] = await Promise.all([crmApi(`/contacts/${encodeURIComponent(customer.id)}/touchpoints`), crmApi(`/contacts/${encodeURIComponent(customer.id)}/consent-history`)]);
+  } catch {
+    panel.hidden = true;
+    return;
+  }
+  if (box.dataset.customerId !== String(customer.id)) return;
+  const row = (title, meta) => `<div class="c360-field"><span class="v">${escapeHtml(title)}</span><span class="c360-origin-meta">${escapeHtml(meta)}</span></div>`;
+  const parts = [];
+  if (touches.firstTouch) parts.push(`<div class="c360-field"><span class="k">${escapeHtml(t("c360.origin.first"))}</span><span class="v">${escapeHtml([ORIGIN_CHANNEL(touches.firstTouch.channel), touches.firstTouch.source, touches.firstTouch.campaign].filter(Boolean).join(" · "))}</span></div>`);
+  if (touches.items.length) {
+    parts.push(`<div class="c360-field-heading">${escapeHtml(t("c360.origin.touches", { n: touches.items.length }))}</div>`);
+    parts.push(...touches.items.slice(0, 10).map((tp) => row(touchLine(tp), formatDate(tp.at))));
+  }
+  const STATE = { opted_in: t("c360.consent.in"), opted_out: t("c360.consent.out"), unknown: t("c360.consent.unknown") };
+  if (consents.length) {
+    parts.push(`<div class="c360-field-heading">${escapeHtml(t("c360.consent.title"))}</div>`);
+    parts.push(...consents.slice(0, 10).map((e) => row(`${STATE[e.to] || e.to} · ${t(`c360.consent.by.${e.method}`)}`, [e.actorName, e.detail, formatDate(e.at)].filter(Boolean).join(" · "))));
+  }
+  panel.hidden = !parts.length;
+  box.innerHTML = parts.join("");
+}
+
 function renderFields(customer) {
   const fields = [
     [t("col.status"), customer.status ? crmLabel("stage", customer.status) : "—"],
@@ -622,6 +659,7 @@ crmReady(["leads", "contacts", "products", "members", "tasks", "events", "ticket
     renderHeader(customer);
     renderKpis(customer);
     renderFields(customer);
+    renderOrigin(customer);
     renderTimelineTab(customer);
     renderDealsTab(customer);
     renderTasksTab(customer);

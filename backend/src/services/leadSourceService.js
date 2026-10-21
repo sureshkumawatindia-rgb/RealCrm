@@ -18,7 +18,9 @@ const WEBSITE_DEFAULTS = Object.freeze({
   successMessage: 'Thank you! We will contact you shortly.',
   redirectUrl: '',
   allowedOrigins: [],
-  askFor: { email: true, company: true, city: true, product: false, message: true },
+  askFor: { email: true, company: true, city: true, product: false, message: true, consent: false },
+  // D79: the optional box; ticked, the customer is opted in to WhatsApp offers.
+  consentText: 'Send me offers and updates on WhatsApp',
 });
 
 function websiteSettings(settings = {}) {

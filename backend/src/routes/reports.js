@@ -19,6 +19,11 @@ for (const [name, report] of Object.entries(REPORTS)) {
   });
 }
 
+// Where leads come from (D79): leads, wins and won value by channel or campaign.
+router.get('/attribution', can('reports'), validate({ query: schemas.attribution }), async (req, res) => {
+  res.json({ success: true, data: await reports.attribution(req, req.valid.query) });
+});
+
 // A CSV file of one report (Excel opens it; formulas are never run from cells).
 router.get('/export', can('reports'), validate({ query: schemas.export }), async (req, res) => {
   const { fileName, csv } = await reports.exportCsv(req, req.valid.query);

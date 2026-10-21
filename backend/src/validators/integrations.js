@@ -70,6 +70,10 @@ module.exports = {
     quantity: Joi.alternatives(Joi.number().min(0), text(50)),
     message: text(1500),
     externalId: Joi.string().trim().max(200),
+    // Where it came from (D79); the tags may also be read from landingPage's address.
+    utm: Joi.object({ source: text(200), medium: text(200), campaign: text(200), term: text(200), content: text(200) }),
+    referrer: text(2000),
+    landingPage: text(2000),
   }),
   leadStage: Joi.object({ stage: Joi.string().valid(...LEAD_STAGES).required(), lostReason: text(500) }),
   quotationList: list({ status: Joi.string().valid(...QUOTATION_STATUSES), contactId: objectId }),

@@ -38,6 +38,12 @@ const leadSchema = new mongoose.Schema(
     lastActivityAt: { type: Date },
     lastQuoteSentAt: { type: Date },
     lastCustomerReplyAt: { type: Date },
+    // Where it came from (D79, services/attributionService.js): the first enquiry's touch, and the
+    // latest one (a repeat enquiry on this lead updates only "last").
+    attribution: {
+      first: { channel: String, source: String, medium: String, campaign: String, at: Date },
+      last: { channel: String, source: String, medium: String, campaign: String, at: Date },
+    },
     version: { type: Number, default: 0 },
     // The company's own fields (D73): { key: value }, checked by services/customFieldService.js.
     customFields: { type: mongoose.Schema.Types.Mixed },

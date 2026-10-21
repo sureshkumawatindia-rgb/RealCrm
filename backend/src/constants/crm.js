@@ -6,6 +6,11 @@ const OPEN_STAGES = Object.freeze(['New', 'Contacted', 'Quote Sent', 'Negotiatio
 // The server sets probability from the stage; the browser never sends it.
 const STAGE_PROBABILITY = Object.freeze({ New: 10, Contacted: 25, 'Quote Sent': 50, Negotiation: 75, Won: 100, Lost: 0 });
 
+// Where a lead came from, as marketing reports group it (Phase 2, D79). Worked out from the lead
+// source, the campaign tags, the click ids and the referrer (services/attributionService.js).
+const CHANNELS = Object.freeze([
+  'paid_search', 'paid_social', 'organic_search', 'social', 'referral', 'email', 'direct', 'marketplace', 'whatsapp', 'other',
+]);
 const LEAD_SOURCES = Object.freeze([
   'WhatsApp', 'IndiaMART', 'JustDial', 'TradeIndia', 'Facebook', 'Google Ads', 'Website', 'Manual', 'Import', 'API',
 ]);
@@ -63,7 +68,7 @@ const BLOCKED_FILE_EXTENSIONS = Object.freeze([
 ]);
 
 module.exports = {
-  LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES, QUOTATION_TYPES, ORDER_FLOW, ORDER_STAGES,
+  CHANNELS, LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES, QUOTATION_TYPES, ORDER_FLOW, ORDER_STAGES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START, NOTE_PARENT_TYPES,
   DOCUMENT_CATEGORIES, BLOCKED_FILE_EXTENSIONS,

@@ -78,6 +78,7 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
 - Sending the same `externalId` again does nothing (`outcome: duplicate`).
 - Assignment and auto-reply rules run as for any enquiry.
 - API leads are never stopped by the plan's contact limit.
+- **Where it came from (D79):** add `utm: { source, medium, campaign, term, content }`, `referrer` and `landingPage`. Tags you leave out are read from `landingPage`'s address (`?utm_source=…&gclid=…`). The lead keeps its first and last touch; Reports → Leads groups leads by channel and campaign.
 
 **How `POST /messages` works.**
 

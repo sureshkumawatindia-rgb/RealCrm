@@ -17,6 +17,7 @@ const { LEAD_STAGES, OPEN_STAGES, LEAD_SOURCES, STAGE_PROBABILITY } = require('.
 const { rangeOf, bucketOf, bucketsOf, istDay, dayStart, DAY_MS } = require('../utils/reportRange');
 const { indiaDate } = require('../utils/dates');
 const { statsOf } = require('./broadcastService');
+const { channelOf } = require('./attributionService');
 
 // Reports (Phase 9): counted from the records when asked (D47), for a range of calendar days in
 // India. Owners, admins and members with "reports: see all" see the whole company; everyone else
@@ -373,6 +374,41 @@ async function sources(req, query) {
   return { range: { from: range.from, to: range.to, days: range.days }, scope: own ? 'own' : 'company', items, totals: { ...totals, conversionPct: pct(totals.won, totals.leads) } };
 }
 
+// --- where leads come from (D79) ----------------------------------------------------------------
+// The leads made in the range, grouped by the channel or the campaign of their first (or last)
+// touch, with how many were won and for how much (a lead's value: expected, else its quotation).
+// Leads from before D79, or added by hand, have no touch: their source decides the channel.
+async function attribution(req, query) {
+  const range = rangeOf(query);
+  const own = ownOnly(req, 'leads');
+  const touch = query.touch === 'last' ? 'last' : 'first';
+  const leads = await Lead.find({ organizationId: orgId(req), createdAt: between(range), ...PUBLIC, ...(own && { ownerId: own }) })
+    .select('source stage attribution expectedValuePaise').lean();
+  const valueOf = await leadValues(orgId(req), leads.filter((l) => l.stage === 'Won'));
+  const rows = new Map();
+  for (const lead of leads) {
+    const t = lead.attribution?.[touch];
+    const channel = t?.channel || channelOf({ source: lead.source });
+    const key = query.by === 'campaign' ? (t?.campaign || '') : channel;
+    const id = query.by === 'campaign' ? `${channel}|${key}` : key;
+    if (!rows.has(id)) rows.set(id, { key, channel, source: t?.source || lead.source || 'Manual', leads: 0, won: 0, wonValuePaise: 0 });
+    const row = rows.get(id);
+    row.leads += 1;
+    if (lead.stage === 'Won') {
+      row.won += 1;
+      row.wonValuePaise += valueOf(lead);
+    }
+  }
+  const items = [...rows.values()]
+    .map((r) => ({ ...r, conversionPct: pct(r.won, r.leads) }))
+    .sort((a, b) => b.wonValuePaise - a.wonValuePaise || b.leads - a.leads || a.key.localeCompare(b.key));
+  const totals = { leads: sum(items, 'leads'), won: sum(items, 'won'), wonValuePaise: sum(items, 'wonValuePaise') };
+  return {
+    range: { from: range.from, to: range.to, days: range.days }, scope: own ? 'own' : 'company', by: query.by || 'channel', touch,
+    items, totals: { ...totals, conversionPct: pct(totals.won, totals.leads) },
+  };
+}
+
 // --- quotations: how many are won ------------------------------------------------------------
 async function quotations(req, query) {
   const range = rangeOf(query);
@@ -721,6 +757,6 @@ async function todaySummary(organizationId) {
 }
 
 module.exports = {
-  overview, trend, agents, sources, quotations, broadcasts, payments, dashboard, insights, exportCsv, responseTurns, csvCell, seesAll,
+  overview, trend, agents, sources, attribution, quotations, broadcasts, payments, dashboard, insights, exportCsv, responseTurns, csvCell, seesAll,
   teamLive, myPerformance, todaySummary,
 };

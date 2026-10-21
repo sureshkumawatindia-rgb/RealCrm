@@ -8,6 +8,7 @@ const { LEAD_SOURCES } = require('../constants/crm');
 const { visibilityFilter, resolveOwnerId } = require('./access');
 const planService = require('./planService');
 const customFieldService = require('./customFieldService');
+const consentHistory = require('./consentService');
 
 // Customers from a CSV file (Phase 7): the person maps the file's columns to CRM fields, phones
 // become +91… numbers, and nobody is added twice — rows of the same file with the same phone
@@ -245,6 +246,11 @@ async function run(req, file, options) {
       report.unchanged += duplicates;
     }
     await audit(req, { action: 'contacts.imported', entityType: 'Contact', changes: { created: report.created, updated: report.updated, rows: data.length } });
+    // The customers this file opted in (new ones, and known ones whose consent was unknown), D79.
+    if (consent === 'opted_in') {
+      const optedIn = await Contact.find({ organizationId, 'consent.method': 'import', 'consent.changedAt': now }).select('_id').lean();
+      await consentHistory.recordMany(organizationId, optedIn.map((c) => c._id), { from: 'unknown', to: 'opted_in', method: 'import', ...consentHistory.actorOf(req), at: now });
+    }
   }
   return report;
 }

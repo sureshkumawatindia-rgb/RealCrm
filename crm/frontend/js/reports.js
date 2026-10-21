@@ -242,7 +242,51 @@
     const day = new Date(new Date(iso).getTime() + 330 * 60000).toISOString().slice(0, 10);
     return day >= state.range.from && day <= state.range.to;
   };
+  // Channels and campaigns that win (D79): its own query (group and touch), cached per choice.
+  const attr = { by: "channel", touch: "first", key: "", data: null, seq: 0 };
+  const channelName = (channel) => t(`rep.ch.${channel}`);
+  function renderAttribution() {
+    const d = attr.data;
+    if (!d) return;
+    const byCampaign = d.by === "campaign";
+    const name = (r) => (byCampaign
+      ? `<strong>${escapeHtml(r.key || t("rep.at.noCampaign"))}</strong><span class="sub">${escapeHtml(channelName(r.channel))}</span>`
+      : `<strong>${escapeHtml(channelName(r.key))}</strong>`);
+    $("attrTable").innerHTML = d.items.length
+      ? table([[escapeHtml(t(byCampaign ? "rep.at.byCampaign" : "rep.at.byChannel"))], [escapeHtml(t("rep.at.leads")), 1], [escapeHtml(t("rep.at.won")), 1], [escapeHtml(t("rep.at.wonValue")), 1], [escapeHtml(t("rep.at.conversion")), 1]],
+        [...d.items.map((r) => `<tr><td>${name(r)}</td>${cell(r.leads)}${cell(r.won)}${cell(rupees(r.wonValuePaise))}${cell(pctText(r.conversionPct))}</tr>`),
+          `<tr><td><strong>${escapeHtml(t("rep.at.total"))}</strong></td>${cell(d.totals.leads)}${cell(d.totals.won)}${cell(rupees(d.totals.wonValuePaise))}${cell(pctText(d.totals.conversionPct))}</tr>`])
+      : `<div class="empty-state"><i class="fa-solid fa-route"></i><p>${escapeHtml(t("rep.at.empty"))}</p></div>`;
+  }
+  async function loadAttribution() {
+    const key = `${query()}&by=${attr.by}&touch=${attr.touch}`;
+    if (attr.key === key && attr.data) return renderAttribution();
+    const seq = ++attr.seq;
+    try {
+      const data = await crmApi(`/reports/attribution?${key}`);
+      if (seq !== attr.seq) return;
+      attr.key = key;
+      attr.data = data;
+      renderAttribution();
+    } catch (error) {
+      if (seq === attr.seq) $("attrTable").innerHTML = `<div class="empty-state"><p>${escapeHtml(apiErrorMessage(error, t("rep.at.err")))}</p></div>`;
+    }
+  }
+  ["attrBy", "attrTouch"].forEach((id) => {
+    $(id).addEventListener("click", (event) => {
+      const button = event.target.closest("[data-value]");
+      if (!button) return;
+      $(id).querySelectorAll("[data-value]").forEach((b) => {
+        b.classList.toggle("active", b === button);
+        b.setAttribute("aria-checked", String(b === button));
+      });
+      attr[id === "attrBy" ? "by" : "touch"] = button.dataset.value;
+      loadAttribution();
+    });
+  });
+
   function renderLeads() {
+    loadAttribution();
     const s = got("sources");
     if (!s) return;
     $("sourceTable").innerHTML = s.items.length

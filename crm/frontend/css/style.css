@@ -4670,3 +4670,10 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   padding: 4px 10px;
   font-size: 12px;
 }
+
+/* Customer 360 → How they found you (D79): who, where and when under each line, as written. */
+.c360-origin-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}

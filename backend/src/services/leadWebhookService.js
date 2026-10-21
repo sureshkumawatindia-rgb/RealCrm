@@ -105,6 +105,7 @@ async function facebookFetch({ connectionId, leadgenId }) {
   await intake({
     organizationId: connection.organizationId, source: 'Facebook', sourceRef: mapped.sourceRef || leadgenId, connectionId: connection._id,
     person: mapped.person, enquiry: mapped.enquiry, raw: lead, receivedAt: mapped.receivedAt,
+    touch: { ad: { id: lead.ad_id, formName: formName || '' } }, // D79
   });
   if (connection.lastError) await LeadSourceConnection.updateOne({ _id: connection._id }, { $set: { lastError: '' } });
 }
@@ -130,6 +131,7 @@ async function googleAdsReceive(webhookKey, payload) {
   await intake({
     organizationId: connection.organizationId, source: 'Google Ads', sourceRef: mapped.sourceRef, connectionId: connection._id,
     person: mapped.person, enquiry: mapped.enquiry, raw: payload,
+    touch: { gclid: payload.gcl_id, ad: { campaignId: payload.campaign_id, id: payload.adgroup_id || payload.creative_id } }, // D79
   });
   return { status: 200, body: {} };
 }

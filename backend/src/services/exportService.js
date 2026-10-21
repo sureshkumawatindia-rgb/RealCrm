@@ -32,6 +32,7 @@ const SECTIONS = [
   // The company's own fields (D73); their values are inside contacts and leads (customFields).
   ['customFields', model('CustomFieldDefinition')], ['customFieldLayouts', model('CustomFieldLayout')], // sections (D76)
   ['approvalRules', model('ApprovalRule')], // D77
+  ['touchpoints', model('Touchpoint')], ['consentEvents', model('ConsentEvent')], // D79
   // The company's own objects and their records (D75).
   ['customObjects', model('CustomObjectDefinition')], ['customRecords', model('CustomRecord')],
   // WhatsApp and the inbox

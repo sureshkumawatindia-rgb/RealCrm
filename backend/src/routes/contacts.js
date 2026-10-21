@@ -11,6 +11,8 @@ const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/crm');
 const { contactImport } = require('../validators/marketing');
+const attribution = require('../services/attributionService');
+const consentHistory = require('../services/consentService');
 
 const router = express.Router();
 const controller = crudController(contactService, 'Contact');
@@ -54,6 +56,15 @@ router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.con
 router.delete('/:id', can('delete'), validate({ params: idParams }), controller.remove);
 
 // Customer 360 notes. Adding one counts as editing the contact.
+// Where the customer came from, and their consent history (D79).
+router.get('/:id/touchpoints', can('view'), validate({ params: idParams }), async (req, res) => {
+  const contact = await contactService.findVisible(req, req.valid.params.id);
+  res.json({ success: true, data: await attribution.forContact(req, contact) });
+});
+router.get('/:id/consent-history', can('view'), validate({ params: idParams }), async (req, res) => {
+  const contact = await contactService.findVisible(req, req.valid.params.id);
+  res.json({ success: true, data: await consentHistory.history(req, contact) });
+});
 router.get('/:id/notes', can('view'), validate({ params: idParams }), async (req, res) => {
   const contact = await contactService.findVisible(req, req.valid.params.id);
   res.json({ success: true, data: await noteService.list(req, 'contact', contact._id) });

@@ -521,3 +521,20 @@
     border: 1px solid #ddd !important;
   }
 }
+/* Channels and campaigns that win (D79): two switches beside the title. */
+.attr-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.attr-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.attr-switches .btn {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
+.attr-note {
+  margin: 0 16px 8px;
+}
