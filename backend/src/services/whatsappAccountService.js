@@ -104,7 +104,12 @@ async function list(req) {
   return accounts.map(serializeAccount);
 }
 
+// Counted and saved under the company's numbers hold (D81).
 async function create(req, body) {
+  return planService.underHold(req.tenant.organizationId, ['whatsappNumbers'], () => createHeld(req, body), { leaseMs: 60000 });
+}
+
+async function createHeld(req, body) {
   const provider = body.provider || 'meta';
   if (provider === 'mock' && !env.devTools) {
     throw httpError(400, 'VALIDATION_ERROR', 'Test numbers are developer test tools (DEV_TOOLS=on, never in production).');

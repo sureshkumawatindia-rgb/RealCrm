@@ -5,6 +5,8 @@
  * for 14 days, or a quotation waiting 7), leads in Negotiation, leads without an owner, chats
  * waiting 2 hours or more, money due for more than 30 days, the win rate and reply time of the
  * last 90 days, and the leads worth most (value × probability) with a next step.
+ * D81: each of those leads also has a win chance learned from the company's own closed leads (with
+ * how many similar ones were won, or "not enough history"), and a next step from its own facts.
  * The "Ask" box answers from the same numbers; it does not call a language model (an optional
  * Claude assistant comes with Phase 10). Agents see their own figures. One IIFE: no globals.
  */
@@ -167,18 +169,39 @@
     }
     $("priorityDealsTable").innerHTML = `
       <table>
-        <thead><tr><th>Lead</th><th>Owner</th><th>Value</th><th>Stage probability</th><th>Next step</th></tr></thead>
+        <thead><tr><th>Lead</th><th>Owner</th><th>Value</th><th>${escapeHtml(t("ins.win.head"))}</th><th>Next step</th></tr></thead>
         <tbody>${rows.map((r) => {
-          const cls = r.probability >= 60 ? "high" : r.probability >= 35 ? "medium" : "low";
+          const pct = r.win?.enough ? r.win.pct : r.probability;
+          const cls = pct >= 60 ? "high" : pct >= 35 ? "medium" : "low";
           return `<tr>
             <td><strong>${escapeHtml(r.customer || r.title)}</strong><div class="text-muted" style="font-size:11.5px;margin-top:2px">${escapeHtml([r.company, r.title, r.stage, r.idleDays >= 7 ? `idle ${r.idleDays} days` : ""].filter(Boolean).join(" · "))}</div></td>
             <td><div style="display:flex;align-items:center;gap:8px"><span class="deal-card__owner-avatar" style="width:22px;height:22px;font-size:9px">${escapeHtml(initials(r.owner))}</span>${escapeHtml(r.owner ? r.owner.split(" ")[0] : "Nobody yet")}</div></td>
             <td>${r.valuePaise ? rupees(r.valuePaise) : "—"}</td>
-            <td><div class="ai-prob-cell"><span class="ai-prob-track"><span class="ai-prob-fill ${cls}" style="width:${r.probability}%"></span></span><strong>${r.probability}%</strong></div></td>
-            <td><span class="ai-action-chip"><i class="fa-solid fa-arrow-right"></i> ${escapeHtml(r.nextStep)}</span></td>
+            <td><div class="ai-prob-cell${r.win?.enough ? "" : " ai-prob-stage"}"><span class="ai-prob-track"><span class="ai-prob-fill ${cls}" style="width:${pct}%"></span></span><strong>${pct}%</strong></div>${winWhy(r)}</td>
+            <td><span class="ai-action-chip"><i class="fa-solid fa-arrow-right"></i> ${escapeHtml(nextActionText(r))}</span></td>
           </tr>`;
         }).join("")}</tbody>
-      </table>`;
+      </table>
+      ${data.winModel ? `<p class="ai-win-note">${escapeHtml(t("ins.win.note", { won: data.winModel.won, closed: data.winModel.closed, min: data.winModel.minSimilar }))}</p>` : ""}`;
+  }
+
+  // Why this win chance (D81): how many similar closed leads were won, or why there is no number yet.
+  function winWhy(r) {
+    if (!r.win) return "";
+    const text = r.win.enough
+      ? t("ins.win.similar", { won: r.win.won, n: r.win.similar, by: t(`ins.win.by.${r.win.by.join("_")}`) })
+      : t("ins.win.notEnough", { pct: r.probability, n: r.win.similar, needed: r.win.needed });
+    return `<div class="ai-win-why">${escapeHtml(text)}</div>`;
+  }
+
+  // The next step from the lead's own facts (D81), in the page's language.
+  const STAGE_KEYS = { New: "new", Contacted: "contacted", "Quote Sent": "quote_sent", Negotiation: "negotiation" };
+  function nextActionText(r) {
+    const a = r.nextAction;
+    if (!a) return r.nextStep;
+    if (a.code === "follow_up_due") return t(a.days ? "ins.next.follow_up_due" : "ins.next.follow_up_today", { days: a.days });
+    if (a.code === "stage") return STAGE_KEYS[a.stage] ? t(`ins.next.stage.${STAGE_KEYS[a.stage]}`) : r.nextStep;
+    return t(`ins.next.${a.code}`, { days: a.days });
   }
 
   // --- the briefing -------------------------------------------------------------------------------
@@ -261,7 +284,7 @@
   // --- loading -----------------------------------------------------------------------------------
   async function load({ toast = false } = {}) {
     try {
-      data = await crmApi("/reports/insights");
+      [data] = await Promise.all([crmApi("/reports/insights"), crmI18n.ready]); // the win chance texts (D81)
     } catch (error) {
       $("briefingText").textContent = apiErrorMessage(error, "Couldn't load the insights.");
       return;

@@ -196,8 +196,12 @@ function buildTemplate(body) {
   return { name: body.name, language: body.language, category: body.category, parameter_format: format, components };
 }
 
+// Counted and saved under the company's templates hold (D81).
 async function create(req, body) {
-  await planService.assertRoom(req.tenant.organizationId, 'templates', { action: 'add message templates' });
+  return planService.withRoom(req.tenant.organizationId, [['templates', { action: 'add message templates' }]], () => createHeld(req, body), { leaseMs: 60000 });
+}
+
+async function createHeld(req, body) {
   const account = await accountFor(req, body.accountId);
   const template = buildTemplate(body);
   if (await MessageTemplate.exists({ organizationId: account.organizationId, whatsappAccountId: account._id, name: template.name, language: template.language })) {

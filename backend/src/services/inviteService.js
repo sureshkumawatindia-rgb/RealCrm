@@ -48,7 +48,12 @@ async function issue(filter, update) {
   return { invite, link: inviteLink(token) };
 }
 
-async function create(req, { email, role, modules, permissions, displayName = '', mobile = '', title = '' }) {
+// Seats are counted and the invite saved under the company's team hold (D81).
+async function create(req, body) {
+  return planService.underHold(req.tenant.organizationId, ['users', 'agents'], () => createHeld(req, body));
+}
+
+async function createHeld(req, { email, role, modules, permissions, displayName = '', mobile = '', title = '' }) {
   const { organizationId } = req.tenant;
   if (role === 'admin' && req.member.role !== 'owner') {
     throw httpError(403, 'FORBIDDEN', 'Only an owner can invite admins.');
@@ -92,6 +97,10 @@ async function findInOrg(req, id) {
 }
 
 async function resend(req, id) {
+  return planService.underHold(req.tenant.organizationId, ['users', 'agents'], () => resendHeld(req, id));
+}
+
+async function resendHeld(req, id) {
   const existing = await findInOrg(req, id);
   if (existing.status === 'accepted') throw httpError(409, 'CONFLICT', 'This invite was already accepted.');
   if (existing.role === 'admin' && req.member.role !== 'owner') throw httpError(403, 'FORBIDDEN', 'Only an owner can invite admins.');

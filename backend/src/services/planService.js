@@ -9,6 +9,7 @@ const Quotation = require('../models/Quotation');
 const MessageTemplate = require('../models/MessageTemplate');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
+const planLock = require('./planLockService');
 const { PLANS, PLAN_KEYS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, FEATURES, INCLUDED, planOf } = require('../constants/plans');
 
 // The SaaS plan of an organization (Phase 10): its subscription state, its limits and what has
@@ -195,6 +196,34 @@ async function assertRoom(organizationOrId, metric, { adding = 1, action } = {})
   }
 }
 
+// The same check, held until the thing is added (Phase 3B, D81): assertRoom alone counts and the
+// caller adds after it, so adds at the same moment could all see room for one. withRoom takes the
+// company's hold for that kind of thing (users and agents share one: "team"), checks, runs work
+// (the add, saved or committed when it returns) and lets go. checks: [[metric, options], …].
+// leaseMs: how long the hold lasts if this server stops mid-add.
+const HOLD_GROUPS = Object.freeze({ users: 'team', agents: 'team' });
+
+// underHold: only the hold, for code that decides itself whether to check (e.g. a number that may
+// already be this company's).
+async function underHold(organizationOrId, metrics, work, { leaseMs } = {}) {
+  const organizationId = String(organizationOrId?._id || organizationOrId);
+  const groups = [...new Set(metrics.map((metric) => HOLD_GROUPS[metric] || metric))].sort(); // one order, so two holds never wait on each other
+  const held = [];
+  try {
+    for (const group of groups) held.push(await planLock.acquire(`${organizationId}:${group}`, { leaseMs }));
+    return await work();
+  } finally {
+    await Promise.all(held.map((lock) => planLock.release(lock)));
+  }
+}
+
+async function withRoom(organizationOrId, checks, work, options) {
+  return underHold(organizationOrId, checks.map(([metric]) => metric), async () => {
+    for (const [metric, roomOptions] of checks) await assertRoom(organizationOrId, metric, roomOptions);
+    return work();
+  }, options);
+}
+
 // Throws SUBSCRIPTION_INACTIVE when locked (for actions that are not counted, e.g. a payment link).
 async function assertActive(organizationOrId, action) {
   const organization = await organizationOf(organizationOrId);
@@ -360,6 +389,8 @@ module.exports = {
   hasFeature,
   assertFeature,
   assertRoom,
+  withRoom,
+  underHold,
   assertActive,
   roomFor,
   usageOf,

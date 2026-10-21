@@ -43,7 +43,12 @@ async function status(req) {
 }
 
 // POST /whatsapp/accounts/embedded-signup { code, wabaId, phoneNumberId?, mode }
-async function connect(req, { code, wabaId, phoneNumberId, mode }) {
+// Under the company's numbers hold (D81): connectHeld checks the limit only for a new number.
+async function connect(req, options) {
+  return planService.underHold(req.tenant.organizationId, ['whatsappNumbers'], () => connectHeld(req, options), { leaseMs: 120000 });
+}
+
+async function connectHeld(req, { code, wabaId, phoneNumberId, mode }) {
   if (!signup.available()) throw httpError(409, 'CONNECT_NOT_AVAILABLE', 'Connecting WhatsApp is still being set up for this CRM. Please try again later.');
   const { organizationId } = req.tenant;
   const coexistence = mode === 'coexistence';

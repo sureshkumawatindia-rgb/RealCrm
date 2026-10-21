@@ -119,16 +119,17 @@ async function create(req, body, { session, enforceRequired = true } = {}) {
   const data = normalizeFields(body);
   await assertPhoneFree(req, data.phoneE164, undefined, session);
   // Contacts added by hand count against the plan; WhatsApp messages and lead sources never stop.
-  await planService.assertRoom(req.tenant.organizationId, 'contacts', { action: 'add contacts' });
+  // Counted and saved under the company's contacts hold (D81), so adds at the same moment cannot
+  // pass the limit together. (With a session, the caller commits after the hold is let go.)
   const { marketingConsent, customFields, ...fields } = data;
-  const contact = await repo(req).create({
+  const contact = await planService.withRoom(req.tenant.organizationId, [['contacts', { action: 'add contacts' }]], async () => repo(req).create({
     ...fields,
     ...(customFields !== undefined && { customFields: await customFieldService.applyValues(req, 'contact', customFields, undefined, { isNew: true, enforceRequired }) }),
     ...(marketingConsent && { consent: consentOf(marketingConsent, consentHistory.methodOf(req)) }),
     ownerId: await resolveOwnerId(req, body.ownerId),
     becameCustomerAt: data.lifecycle === 'customer' ? new Date() : undefined,
     createdById: req.user._id,
-  }, { session });
+  }, { session }));
   await audit(req, { action: 'contact.created', entityType: 'Contact', entityId: contact._id });
   if (marketingConsent) await consentHistory.record({ organizationId: contact.organizationId, contactId: contact._id, from: 'unknown', to: marketingConsent, method: consentHistory.methodOf(req), ...consentHistory.actorOf(req), session }); // D79
   automationEvents.emit('contact.created', { organizationId: contact.organizationId, contactId: contact._id, source: contact.source, key: `contact.created:${contact._id}` }, req);

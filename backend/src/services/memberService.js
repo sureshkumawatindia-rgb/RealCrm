@@ -51,7 +51,12 @@ async function assertAnotherOwner(req, member) {
 
 // Rules: nobody changes their own role/status; only owners touch owners and admins;
 // the last active owner cannot be demoted, disabled or removed.
+// Seats are counted and the change saved under the company's team hold (D81).
 async function update(req, id, patch) {
+  return planService.underHold(req.tenant.organizationId, ['users', 'agents'], () => updateHeld(req, id, patch));
+}
+
+async function updateHeld(req, id, patch) {
   const member = await findInOrg(req, id);
   const isSelf = String(member._id) === String(req.member._id);
   if (isSelf && ('role' in patch || 'status' in patch)) {

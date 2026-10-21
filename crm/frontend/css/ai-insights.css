@@ -337,6 +337,7 @@
   margin-right: 8px;
 }
 .ai-prob-fill {
+  display: block; /* D81: an inline span ignored its width, so the bar never filled */
   height: 100%;
   border-radius: 999px;
 }
@@ -353,6 +354,22 @@
   display: flex;
   align-items: center;
   white-space: nowrap;
+}
+/* D81: a stage estimate (not enough history) is lighter than a learned win chance */
+.ai-prob-stage {
+  opacity: 0.6;
+}
+.ai-win-why {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 220px;
+  white-space: normal;
+}
+.ai-win-note {
+  margin: 10px 2px 0;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 .ai-action-chip {
   display: inline-flex;
@@ -509,5 +526,9 @@
   }
   .ai-topbar-meta span#aiLastUpdated {
     display: none;
+  }
+  /* Phones: the table is cards; the reason for a win chance gets the card's width */
+  .ai-win-why {
+    max-width: none;
   }
 }

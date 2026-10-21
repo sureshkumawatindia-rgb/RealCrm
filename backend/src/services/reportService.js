@@ -18,6 +18,7 @@ const { rangeOf, bucketOf, bucketsOf, istDay, dayStart, DAY_MS } = require('../u
 const { indiaDate } = require('../utils/dates');
 const { statsOf } = require('./broadcastService');
 const { channelOf } = require('./attributionService');
+const winChance = require('./winChanceService');
 
 // Reports (Phase 9): counted from the records when asked (D47), for a range of calendar days in
 // India. Owners, admins and members with "reports: see all" see the whole company; everyone else
@@ -564,9 +565,7 @@ async function dashboard(req) {
 }
 
 // --- insights (the AI Insights page): what needs attention, from the records ----------------
-const NEXT_STEP = {
-  New: 'Call or message today to qualify', Contacted: 'Send a quotation', 'Quote Sent': 'Follow up on the quotation', Negotiation: 'Close: send a payment link',
-};
+const NEXT_STEP = winChance.STAGE_STEP;
 async function insights(req) {
   const organizationId = req.tenant.organizationId;
   const own = ownOnly(req, 'leads');
@@ -574,20 +573,30 @@ async function insights(req) {
   const now = Date.now();
   const [names, open, closed90, slowChats, dues, overview90] = await Promise.all([
     memberNames(organizationId),
-    Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).populate('contactId', 'name company').select('title stage source ownerId expectedValuePaise lastActivityAt createdAt contactId lastQuoteSentAt lastCustomerReplyAt').lean(),
+    Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).populate('contactId', 'name company').select('title stage source ownerId expectedValuePaise lastActivityAt createdAt contactId lastQuoteSentAt lastCustomerReplyAt followUpAt').lean(),
     Lead.find({ organizationId, stage: { $in: ['Won', 'Lost'] }, stageChangedAt: { $gte: new Date(now - 90 * DAY_MS) }, ...owner }).select('stage').lean(),
     Conversation.find({ organizationId, status: { $ne: 'closed' }, lastMessageDirection: 'in', lastInboundAt: { $lte: new Date(now - 2 * HOUR) }, ...PUBLIC, ...(own && { $or: [{ assigneeId: own }, { assigneeId: null }] }) })
       .populate('contactId', 'name').select('lastInboundAt assigneeId contactId').sort({ lastInboundAt: 1 }).limit(20).lean(),
     duesNow(req, own),
     overview(req, { from: indiaDate(-89), to: indiaDate(0) }),
   ]);
-  const valueOf = await leadValues(organizationId, open);
+  const [valueOf, history] = await Promise.all([
+    leadValues(organizationId, open),
+    // The whole company's closed leads (counts only, no details), D81.
+    winChance.historyOf(organizationId, { valueOf: (leads) => leadValues(organizationId, leads), filter: PUBLIC }),
+  ]);
   const idle = (lead) => Math.floor((now - new Date(lead.lastActivityAt || lead.createdAt).getTime()) / DAY_MS);
   const leadRow = (l) => ({
     id: l._id, title: l.title || 'Enquiry', customer: l.contactId?.name || '', company: l.contactId?.company || '', stage: l.stage, source: l.source,
     owner: l.ownerId ? names.get(String(l.ownerId))?.name || '' : '', ownerId: l.ownerId || null,
     valuePaise: valueOf(l), probability: STAGE_PROBABILITY[l.stage] || 0, idleDays: idle(l), nextStep: NEXT_STEP[l.stage] || '',
+    // D81: the chance learned from closed leads like this one (or "not enough history"), and the
+    // next step from this lead's own facts.
+    win: winChance.chanceOf(l, valueOf(l), history),
+    nextAction: winChance.nextActionOf(l),
   });
+  // Ranking: value × the learned chance where there is enough history, else the stage's.
+  const chance = (r) => (r.win.enough ? r.win.pct : r.probability);
   const rows = open.map(leadRow);
   const atRisk = rows.filter((r) => r.idleDays >= 14 || (r.stage === 'Quote Sent' && r.idleDays >= 7));
   const negotiation = rows.filter((r) => r.stage === 'Negotiation');
@@ -602,7 +611,8 @@ async function insights(req) {
     atRisk: { count: atRisk.length, valuePaise: sum(atRisk, 'valuePaise'), items: atRisk.sort((a, b) => b.valuePaise - a.valuePaise).slice(0, 5) },
     negotiation: { count: negotiation.length, valuePaise: sum(negotiation, 'valuePaise') },
     unassignedLeads: rows.filter((r) => !r.ownerId).length,
-    priority: [...rows].sort((a, b) => b.valuePaise * b.probability - a.valuePaise * a.probability || b.probability - a.probability).slice(0, 5),
+    priority: [...rows].sort((a, b) => b.valuePaise * chance(b) - a.valuePaise * chance(a) || chance(b) - chance(a)).slice(0, 5),
+    winModel: { closed: history.length, won: history.filter((h) => h.won).length, minSimilar: winChance.MIN_SIMILAR, lookbackDays: winChance.LOOKBACK_DAYS },
     slowChats: slowChats.map((c) => ({ conversationId: c._id, customer: c.contactId?.name || '', waitingHours: Math.floor((now - new Date(c.lastInboundAt).getTime()) / HOUR), assignee: c.assigneeId ? names.get(String(c.assigneeId))?.name || '' : '' })),
     dues: { orders: dues.count, duePaise: dues.duePaise, over30Paise: dues.buckets['31-60'].duePaise + dues.buckets['60+'].duePaise },
     last90Days: { won, lost: closed90.length - won, winRatePct: pct(won, closed90.length), responseMedianSeconds: overview90.whatsapp.responseMedianSeconds, collectedPaise: overview90.payments.collectedPaise },

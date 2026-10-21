@@ -233,9 +233,10 @@ async function run(req, file, options) {
     writes.push({ updateOne: { filter: { _id: found._id }, update: { $set: set, ...(newTags.length && { $addToSet: { tags: { $each: newTags } } }) } } });
   }
 
-  // New contacts must fit the plan (the whole file, so a half import never happens).
-  await planService.assertRoom(organizationId, 'contacts', { adding: report.created, action: 'import contacts' });
-  if (!dryRun && writes.length) {
+  // New contacts must fit the plan (the whole file, so a half import never happens), checked and
+  // written under the company's contacts hold (D81).
+  await planService.withRoom(organizationId, [['contacts', { adding: report.created, action: 'import contacts' }]], async () => {
+    if (dryRun || !writes.length) return;
     try {
       await Contact.bulkWrite(writes, { ordered: false });
     } catch (error) {
@@ -245,6 +246,8 @@ async function run(req, file, options) {
       report.created -= duplicates;
       report.unchanged += duplicates;
     }
+  }, { leaseMs: 120000 });
+  if (!dryRun && writes.length) {
     await audit(req, { action: 'contacts.imported', entityType: 'Contact', changes: { created: report.created, updated: report.updated, rows: data.length } });
     // The customers this file opted in (new ones, and known ones whose consent was unknown), D79.
     if (consent === 'opted_in') {

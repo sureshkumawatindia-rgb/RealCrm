@@ -1,6 +1,6 @@
 # Phase 3: Plan entitlements and usage meters (spec)
 
-Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (questions and defaults are pre-approved up to Phase 10). **Phase 3A was built the same day (D80);** what was built and the scorecard are in sections 13 and 14. This is Phase 3, "Value for Money" (inspired by Zoho), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. Its build order says: **first only entitlements and usage meters, limits later**. So this spec is **Phase 3A**. Phase 3B (race-safe limits, and an explainable win probability with an "insufficient data" answer) follows in section 12 and is built after 3A.
+Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (questions and defaults are pre-approved up to Phase 10). **Phase 3A (D80) and Phase 3B (D81) were built the same day;** what was built and the results are in sections 13–16. This is Phase 3, "Value for Money" (inspired by Zoho), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. Its build order says: **first only entitlements and usage meters, limits later**. So this spec is **Phase 3A**. Phase 3B (race-safe limits, and an explainable win probability with an "insufficient data" answer) follows in section 12 and is built after 3A.
 
 ## 1. Goal
 
@@ -288,3 +288,59 @@ Measured in the isolated preview (port 3100, an in-memory database, the tests' s
 Full test run: **888 tests, 885 passed**, including the 7 new ones. The failures:
 - the known Sales Automation text keys (the user's uncommitted work);
 - the two WhatsApp acceptance tests that wait on timing under load. They passed when run alone (3 of 3).
+
+## 15. What was built (3B, D81)
+
+### Limits that hold under parallel requests
+
+**The problem.** Before the fix, 8 contacts added at the same moment by a Starter company with room for 3 all went through (6,005 against 6,000). 5 quotations with room for 2 all went through too. The new test showed this first.
+
+**The fix.**
+- `planService.withRoom` / `underHold` take a short per-company hold (`PlanLock`: one document per company and kind of thing, `<organizationId>:contacts`, `:team`, `:quotesPerMonth` …). It is held from the count until the add is saved (or its transaction committed), then let go. The next add waits a moment and counts the first one too.
+- Users and agents share one hold ("team").
+- A hold left by a stopped server ends with its lease (15 s, or longer for slow work such as Meta's template answer).
+- An add that waits more than 10 s answers `409 PLAN_BUSY` ("Someone in your team is adding the same kind of thing right now. Try again in a moment.").
+- Used by:
+  - contacts added by hand and through the API, and contact imports;
+  - quotations;
+  - message templates;
+  - WhatsApp numbers (by hand and through Meta's signup);
+  - invites, resent invites, and member changes that take a seat.
+- WhatsApp customers and leads from lead sources are still never stopped, as before.
+
+### Win chance and next step
+
+`GET /reports/insights` gives each open lead two new things:
+
+- **`win`:** a chance learned from the company's own leads closed in the last 365 days.
+  - It counts leads that reached at least this lead's stage, preferring the same source and value band when at least 20 such leads exist.
+  - It returns `{ pct, similar, won, by }`, e.g. "25 of 40 similar leads won (same stage, source and value)".
+  - With fewer than 20 similar closed leads it returns `{ pct: null, enough: false }`, and the page shows the stage estimate, lighter, with "not enough history yet".
+- **`nextAction`:** the next step from the lead's own facts, most urgent first:
+  - a follow-up that is due;
+  - no reply 3 or more days after a quotation;
+  - nothing for 7 or more days;
+  - no owner;
+  - otherwise the stage's usual step.
+
+Also:
+- The "leads worth most" list ranks by value × the learned chance where there is enough history, else by the stage number.
+- The stage-based weighted forecast is unchanged.
+- No AI vendor is called and no customer data leaves the CRM. Only counts are shown, never other leads' details.
+- **An old display bug was fixed:** the probability bars on AI Insights never filled, because their fill was an inline element. It is a block now.
+
+Files:
+- **Backend:**
+  - new: `models/PlanLock.js`, `services/planLockService.js`, `services/winChanceService.js`;
+  - changed: `planService` (`withRoom`, `underHold`), `contactService`, `contactImportService`, `quotationService`, `templateService`, `whatsappAccountService`, `whatsappConnectService`, `inviteService`, `memberService`, `reportService`.
+- **Frontend:** `js/ai-insights.js`, `css/ai-insights.css`, and 16 texts (`ins.win.*`, `ins.next.*`).
+- **Tests:** `planRace.test.js` (3) and `winChance.test.js` (3).
+
+## 16. Phase 3B results (measured 2026-10-21)
+
+| Target | Result |
+|---|---|
+| Limits hold under parallel requests | **Met.** 8 contacts at once with room for 3: exactly 3 added, 5 refused, 6,000 in all. 5 quotations with room for 2: 2. 4 invites with 2 seats left: 2. No hold is left behind. A stopped server's hold is taken over, and a held kind answers `PLAN_BUSY` instead of waiting for ever. |
+| Win chance traceable to CRM facts | **Met.** In the preview, with 60 closed leads:<br>• Sharma Steels (IndiaMART, Quote Sent, ₹50,000) showed 63%, "25 of 40 similar leads won (same stage, source and value)", next step "Call: no reply 4 days after the quotation".<br>• Patel Exports (₹5 lakh, idle 10 days) showed 50%, "25 of 50 … (same stage and source)", "Follow up: nothing for 10 days".<br>• Gupta Traders showed "Follow-up was due 2 days ago"; Verma Foods (no owner) showed "Give it an owner".<br>The tests check the same numbers and the other company's history never counts. |
+| "Insufficient data" is explicit | **Met.** With 7 closed leads the API returns `pct: null, enough: false, similar: 7, needed: 20`, and the page shows the stage estimate, lighter. |
+| 390 px, Hindi | **Met.** The table turns into cards with no sideways scroll (390/390). The bars fill (35–44 px of 70). All new texts showed in Hindi. |

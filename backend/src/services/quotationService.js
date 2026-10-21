@@ -259,9 +259,9 @@ async function preview(req, body) {
 }
 
 async function create(req, body) {
-  await planService.assertRoom(req.tenant.organizationId, 'quotesPerMonth', { action: 'make quotations' });
   let quotation;
-  await mongoose.connection.transaction(async (session) => {
+  // Counted and committed under the company's quotations hold (D81).
+  await planService.withRoom(req.tenant.organizationId, [['quotesPerMonth', { action: 'make quotations' }]], () => mongoose.connection.transaction(async (session) => {
     const org = await loadOrg(req, session);
     const billing = billingOf(org);
     const { lead, contact, ownerId } = await resolveCustomer(req, body, session);
@@ -292,7 +292,7 @@ async function create(req, body) {
     await quotation.save({ session });
     await fillContact(contact, billTo, session);
     if (lead) await leadService.addActivity(req, lead, 'Quotation', `${type} ${quotation.number} created (₹${(quotation.totals.grandTotalPaise / 100).toLocaleString('en-IN')})`, { session });
-  });
+  }));
   await audit(req, { action: 'quotation.created', entityType: 'Quotation', entityId: quotation._id });
   return present(req, quotation);
 }
