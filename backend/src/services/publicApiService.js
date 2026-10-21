@@ -16,6 +16,12 @@ const leadService = require('./leadService');
 const customFieldService = require('./customFieldService');
 const customFieldFilters = require('./customFieldFilters');
 const CustomFieldDefinition = require('../models/CustomFieldDefinition');
+const { escapeRegex } = require('../utils/listQuery');
+const CustomObjectDefinition = require('../models/CustomObjectDefinition');
+const CustomRecord = require('../models/CustomRecord');
+const customRecordService = require('./customRecordService');
+// A quotation's approval (D77) as webhooks carry it (D78); it lives with the rules.
+const { publicApproval } = require('./approvalService');
 const leadIntake = require('./leadIntakeService');
 const conversationService = require('./conversationService');
 const templateService = require('./templateService');
@@ -34,6 +40,21 @@ async function customFieldShapes(organizationId) {
   const fields = await CustomFieldDefinition.find({ organizationId, status: 'active' }).sort({ order: 1 }).lean();
   return { contact: fields.filter((f) => f.object === 'contact'), lead: fields.filter((f) => f.object === 'lead') };
 }
+
+// The active fields of one of the company's own objects (D78).
+const recordFieldsOf = (organizationId, object) => CustomFieldDefinition.find({ organizationId, object, status: 'active' }).sort({ order: 1 }).lean();
+const publicField = (f) => ({
+  key: f.key, label: f.label, type: f.type, required: Boolean(f.required), helpText: f.helpText || '',
+  options: f.type === 'dropdown' ? f.options.filter((o) => !o.archived).map((o) => ({ value: o.value, label: o.label })) : [],
+  ...(f.type === 'lookup' && { lookupTarget: f.lookupTarget }),
+});
+
+// A record of the company's own objects (D78): a link field's value is the linked record's id.
+const publicRecord = (r, fields) => ({
+  id: String(r._id), object: r.object, name: r.name, contactId: ref(r.contactId), ownerId: ref(r.ownerId),
+  customFields: customFieldService.publicValues(r.customFields, fields),
+  createdAt: r.createdAt, updatedAt: r.updatedAt,
+});
 
 const publicContact = (c, fields) => ({
   id: String(c._id), name: c.name || '', phone: c.phoneE164 || '', email: c.email || '', company: c.company || '',
@@ -118,6 +139,19 @@ const fieldFilters = async (req, object, cf) => {
 };
 const org = (req) => req.tenant.organizationId;
 
+// An active object of the company, or 404 (an archived one is hidden with its records, D75).
+async function activeObject(req, key) {
+  const object = await CustomObjectDefinition.findOne({ organizationId: org(req), key, status: 'active' }).lean();
+  if (!object) throw httpError(404, 'NOT_FOUND', 'Object not found');
+  return object;
+}
+async function oneRecord(req, id) {
+  const record = mongoose.isValidObjectId(id) ? await CustomRecord.findOne({ _id: id, organizationId: org(req) }) : null;
+  if (!record) throw httpError(404, 'NOT_FOUND', 'Record not found');
+  await activeObject(req, record.object);
+  return publicRecord(record, await recordFieldsOf(org(req), record.object));
+}
+
 function contactFilter(req, { search, phone, email }) {
   const filter = { organizationId: org(req), private: { $ne: true } };
   if (phone) filter.phoneE164 = normalizePhone(phone) || '-';
@@ -143,6 +177,42 @@ module.exports = {
       key: f.key, label: f.label, type: f.type, required: Boolean(f.required), helpText: f.helpText || '',
       options: f.type === 'dropdown' ? f.options.filter((o) => !o.archived).map((o) => ({ value: o.value, label: o.label })) : [],
     }));
+  },
+
+  // GET /objects — the company's own objects (D78) with their active fields.
+  async listObjects(req) {
+    const objects = await CustomObjectDefinition.find({ organizationId: org(req), status: 'active' }).sort({ order: 1, createdAt: 1 }).lean();
+    const fields = await CustomFieldDefinition.find({ organizationId: org(req), object: { $in: objects.map((o) => o.key) }, status: 'active' }).sort({ order: 1 }).lean();
+    return objects.map((o) => ({ key: o.key, singular: o.singular, plural: o.plural, fields: fields.filter((f) => f.object === o.key).map(publicField) }));
+  },
+
+  // GET /records?object= — one object's records: search (the name and text fields), cf filters,
+  // pages or updatedSince, like the other lists.
+  async listRecords(req, query) {
+    await activeObject(req, query.object);
+    const filter = { organizationId: org(req), object: query.object, ...(await fieldFilters(req, query.object, query.cf)) };
+    const term = String(query.search || '').trim();
+    if (term) {
+      const extra = await customFieldFilters.searchClauses(req, query.object, term);
+      filter.$or = [{ name: new RegExp(escapeRegex(term.slice(0, 100)), 'i') }, ...extra];
+    }
+    const fields = await recordFieldsOf(org(req), query.object);
+    return page(CustomRecord, filter, query, (r) => publicRecord(r, fields));
+  },
+  getRecord: (req, id) => oneRecord(req, id),
+  // Checked like the CRM's own form (links stay inside the company and must point to the right
+  // kind of record); a required field never stops the API (D73).
+  async createRecord(req, body) {
+    await activeObject(req, body.object);
+    const customFields = await customFieldService.fromPublicValues(req, body.object, body.customFields);
+    const record = await customRecordService.createDoc(req, { ...body, customFields }, { enforceRequired: false });
+    return oneRecord(req, record._id);
+  },
+  async updateRecord(req, id, body) {
+    const current = await oneRecord(req, id);
+    const customFields = await customFieldService.fromPublicValues(req, current.object, body.customFields);
+    await customRecordService.updateDoc(req, id, { ...body, ...(body.customFields !== undefined && { customFields }) }, { enforceRequired: false });
+    return oneRecord(req, id);
   },
 
   listContacts: async (req, query) => page(Contact, { ...contactFilter(req, query), ...(await fieldFilters(req, 'contact', query.cf)) }, query, await withFields(req, publicContact)),
@@ -213,5 +283,5 @@ module.exports = {
     return { messageId: ref(message?.id || message?._id), status: message?.status || 'queued', contactId: String(contact._id), conversationId: String(conversation._id) };
   },
 
-  publicContact, publicLead, publicQuotation, publicOrder, publicProduct, customFieldShapes,
+  publicContact, publicLead, publicQuotation, publicOrder, publicProduct, customFieldShapes, publicRecord, recordFieldsOf, publicApproval,
 };

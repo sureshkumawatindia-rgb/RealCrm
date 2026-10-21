@@ -17,6 +17,15 @@ const {
 const forbidden = () => httpError(403, 'FORBIDDEN', 'You do not have permission to do this.');
 const scope = (req, filter = {}) => ({ ...filter, organizationId: req.tenant.organizationId });
 
+// What a member may do with a field (D77): 'edit', 'view' or 'hidden'. Owners and admins (and
+// the system, which has no member) always edit; viewers never edit.
+function accessOf(field, member) {
+  if (!member || isManager(member)) return 'edit';
+  if (member.role === 'viewer') return field.access?.viewer === 'hidden' ? 'hidden' : 'view';
+  return ['view', 'hidden'].includes(field.access?.agent) ? field.access.agent : 'edit';
+}
+const accessConfig = (field) => ({ agent: field.access?.agent || 'edit', viewer: field.access?.viewer || 'view' });
+
 function serialize(field) {
   return {
     id: field._id,
@@ -29,6 +38,7 @@ function serialize(field) {
     lookupTarget: field.type === 'lookup' ? field.lookupTarget : null,
     required: Boolean(field.required),
     sectionId: field.sectionId || null,
+    access: accessConfig(field),
     listColumn: Boolean(field.listColumn),
     order: field.order,
     status: field.status,
@@ -101,7 +111,10 @@ async function list(req, { object, status = 'active' }) {
   if (status === 'all' && !isManager(req.member)) throw forbidden();
   await assertObject(req, object, { activeOnly: status !== 'all' });
   const filter = scope(req, { object, ...(status === 'active' && { status: 'active' }) });
-  return (await CustomFieldDefinition.find(filter).sort({ status: 1, order: 1, createdAt: 1 })).map(serialize);
+  // A field hidden from the member's role is left out; canEdit says whether they may change it (D77).
+  return (await CustomFieldDefinition.find(filter).sort({ status: 1, order: 1, createdAt: 1 }))
+    .filter((field) => accessOf(field, req.member) !== 'hidden')
+    .map((field) => ({ ...serialize(field), canEdit: accessOf(field, req.member) === 'edit' }));
 }
 
 // A field's section (D76) must be one of the object's sections; null = "More details".
@@ -142,6 +155,7 @@ async function create(req, body) {
       lookupTarget: body.type === 'lookup' ? body.lookupTarget : undefined,
       required: Boolean(body.required),
       sectionId: body.sectionId || undefined,
+      access: { ...accessConfig({}), ...(body.access || {}) },
       listColumn: Boolean(body.listColumn),
       order: Math.max(-1, ...existing.map((f) => f.order)) + 1,
       createdById: req.user._id,
@@ -162,6 +176,7 @@ async function update(req, id, body) {
     if (field.type !== 'dropdown') throw httpError(400, 'VALIDATION_ERROR', 'Only a dropdown has choices.', [{ field: 'options', code: 'INVALID_OPTIONS', message: 'Only a dropdown has choices.' }]);
     set.options = buildOptions(body.options, field.options);
   }
+  if (body.access) set.access = { ...accessConfig(field), ...body.access };
   const unset = {};
   if ('sectionId' in body) {
     if (body.sectionId) set.sectionId = body.sectionId;
@@ -248,9 +263,21 @@ function definitionsFor(req, object) {
   return req.customFieldDefinitions[object];
 }
 
+// The keys of the active fields this member may see (D77): what a record shows them.
 async function activeKeys(req, object) {
   const definitions = await definitionsFor(req, object);
-  return new Set(definitions.filter((field) => field.status === 'active').map((field) => field.key));
+  return new Set(definitions.filter((field) => field.status === 'active' && accessOf(field, req.member) !== 'hidden').map((field) => field.key));
+}
+
+// The fields this member may see (archived ones too; callers pick the active ones): filters,
+// search and link names use only these (D77).
+async function fieldsSeenBy(req, object) {
+  return (await definitionsFor(req, object)).filter((field) => accessOf(field, req.member) !== 'hidden');
+}
+
+// The fields this member may change (the CSV import offers only these).
+async function fieldsEditableBy(req, object) {
+  return (await definitionsFor(req, object)).filter((field) => accessOf(field, req.member) === 'edit');
 }
 
 // What a record shows: the values of active fields only (an archived field's values come back
@@ -328,10 +355,16 @@ async function applyValues(req, object, input, existing, { isNew = false, enforc
   const fail = (key, code, message) => errors.push({ field: `customFields.${key}`, code, message });
   for (const [key, raw] of Object.entries(input || {})) {
     const field = byKey.get(key);
-    if (!field) { fail(key, 'UNKNOWN_FIELD', 'This field does not exist. Reload the page.'); continue; }
+    // A field hidden from the member's role answers exactly as one that does not exist (D77).
+    if (!field || accessOf(field, req.member) === 'hidden') { fail(key, 'UNKNOWN_FIELD', 'This field does not exist. Reload the page.'); continue; }
     if (field.status !== 'active') { fail(key, 'FIELD_ARCHIVED', `${field.label} was archived. Reload the page.`); continue; }
     const { value, error } = convert(field, raw, values[key]);
     if (error) { fail(key, error.code, error.message); continue; }
+    // "See only": the value it already has may come back unchanged; any other is refused.
+    if (accessOf(field, req.member) !== 'edit') {
+      if (value !== values[key]) fail(key, 'FIELD_READ_ONLY', `Only an owner or admin can change ${field.label}.`);
+      continue;
+    }
     // A new link must point to a record of the right kind this member may see (D75); one the record
     // already has is kept as it is.
     if (field.type === 'lookup' && value !== undefined && value !== values[key]) {
@@ -343,6 +376,7 @@ async function applyValues(req, object, input, existing, { isNew = false, enforc
   }
   for (const field of enforceRequired ? definitions : []) {
     if (field.status !== 'active' || !field.required || values[field.key] !== undefined) continue;
+    if (accessOf(field, req.member) !== 'edit') continue; // not asked of those who may not fill it (D77)
     const sent = Object.prototype.hasOwnProperty.call(input || {}, field.key);
     if ((isNew || sent) && !errors.some((e) => e.field === `customFields.${field.key}`)) fail(field.key, 'REQUIRED', `Fill in ${field.label}.`);
   }
@@ -448,7 +482,10 @@ module.exports = {
   applyValues,
   keyFromLabel,
   serialize,
-  fieldsFor: definitionsFor,
+  // The fields this member may see (D77); fieldsEditableBy: those they may change.
+  fieldsFor: fieldsSeenBy,
+  fieldsEditableBy,
+  accessOf,
   takeTurn,
   assertObject,
   validDate,

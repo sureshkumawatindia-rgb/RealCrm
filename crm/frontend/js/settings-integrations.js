@@ -3,6 +3,7 @@
  * The public API's keys (made with ticked permissions, shown once, revoked), the outbound
  * webhooks (address, events, test, delivery log with retry, new secret, on/off, remove) and the
  * Meta Conversions API (dataset, token checked with Meta, stages, test event, counts).
+ * D78: each event's example payload, and "New secret" keeps the old one working for 24 hours.
  * The API and webhooks come with the Growth plan, the Conversions API with Pro; the server
  * checks it, this page says so.
  * Runs after settings.js; everything stays inside this function so no names clash.
@@ -77,6 +78,7 @@
         ${h.description ? `<div class="pay-gateway-meta">${escapeHtml(h.description)}</div>` : ""}
         <div class="pay-gateway-meta">${h.events.map((e) => `<span class="badge badge-neutral" style="margin: 1px">${escapeHtml(e)}</span>`).join(" ")}</div>
         ${h.disabledReason ? `<div class="pay-gateway-meta">${escapeHtml(h.disabledReason)}</div>` : ""}
+        ${h.overlapUntil ? `<div class="pay-gateway-meta int-overlap"><i class="fa-solid fa-key" aria-hidden="true"></i> ${escapeHtml(t("int.overlap", { time: when(h.overlapUntil) }))} <button class="btn btn-outline" type="button" data-act="endOverlap">${escapeHtml(t("int.endOverlap"))}</button></div>` : ""}
         <div class="pay-gateway-meta">${h.lastDeliveryAt ? `Last call ${escapeHtml(when(h.lastDeliveryAt))}: ${h.lastStatus === "delivered" ? "delivered" : "failed"}${h.lastResponseCode ? ` (${h.lastResponseCode})` : ""}` : "Nothing sent yet."}</div>
         <div class="pl-buttons">
           <button class="btn btn-outline" type="button" data-act="test"><i class="fa-solid fa-paper-plane"></i> Send a test</button>
@@ -95,11 +97,25 @@
     hooks = data.items;
     events = data.events;
     $("intHooks").innerHTML = hooks.length ? hooks.map(hookCard).join("") : '<p class="settings-hint">No webhooks yet.</p>';
+    renderExamples();
+  }
+
+  // What each event sends (D78): the whole call as your system receives it, with Copy.
+  function renderExamples() {
+    $("intHookExampleList").innerHTML = events
+      .map((e) => {
+        const text = JSON.stringify({ id: "evt_3f1c9a7d2b6e4a10c8f5d2e1", type: e.event, createdAt: "2026-10-21T06:15:00.000Z", data: e.example || {} }, null, 2);
+        return `<details class="int-example"><summary><code>${escapeHtml(e.event)}</code> <small>${escapeHtml(e.label)}</small></summary>
+          <pre>${escapeHtml(text)}</pre>
+          <button class="btn btn-outline" type="button" data-copy="${escapeHtml(text)}"><i class="fa-regular fa-copy"></i> ${escapeHtml(t("int.ex.copy"))}</button></details>`;
+      })
+      .join("");
+    $("intHookExamples").hidden = !events.length;
   }
 
   function eventBoxes(selected = []) {
-    $("intHookEvents").innerHTML = events.map((e) => `<label class="ls-check" title="${escapeHtml(e.label)}"><input type="checkbox" value="${escapeHtml(e.event)}" ${selected.includes(e.event) ? "checked" : ""} /> ${escapeHtml(e.event)}</label>`).join("")
-      + '<p class="settings-hint" style="margin: 4px 0 0">lead.created · lead.stage_changed · contact.created · message.received (a customer writes on WhatsApp) · quotation.status_changed · order.created · order.stage_changed · payment.received</p>';
+    // Each event with what it means (D78: the list grows, so it is not written out by hand).
+    $("intHookEvents").innerHTML = events.map((e) => `<label class="ls-check int-event"><input type="checkbox" value="${escapeHtml(e.event)}" ${selected.includes(e.event) ? "checked" : ""} /> <span><code>${escapeHtml(e.event)}</code><small>${escapeHtml(e.label)}</small></span></label>`).join("");
   }
 
   function openHookForm(hook) {
@@ -217,7 +233,7 @@
       showToast(apiErrorMessage(error, "Could not revoke the key."), "error");
     }
   });
-  [$("intNewKey"), $("intNewSecret")].forEach((box) => box.addEventListener("click", copyFrom));
+  [$("intNewKey"), $("intNewSecret"), $("intHookExampleList")].forEach((box) => box.addEventListener("click", copyFrom));
 
   $("intHookAddBtn").addEventListener("click", () => openHookForm(null));
   $("intHookCancel").addEventListener("click", closeHookForm);
@@ -277,11 +293,19 @@
           openHookForm(hook);
           break;
         case "secret": {
-          if (!confirm("Make a new secret? The old one stops working at once; put the new one in your system.")) return;
-          const made = await crmApi(`${path}/rotate-secret`, { method: "POST" });
+          // D78: the old secret keeps working for 24 hours, so nothing is lost while you update.
+          if (!confirm(t("int.secret.confirm"))) return;
+          const made = await crmApi(`${path}/rotate-secret`, json("POST", { overlapHours: 24 }));
           reveal($("intNewSecret"), "webhook secret", made.secret);
+          await loadHooks();
           break;
         }
+        case "endOverlap":
+          if (!confirm(t("int.endOverlap.confirm"))) return;
+          await crmApi(`${path}/end-overlap`, { method: "POST" });
+          showToast(t("int.endOverlap.done"), "success");
+          await loadHooks();
+          break;
         case "toggle":
           await crmApi(path, json("PATCH", { active: !hook.active }));
           await loadHooks();

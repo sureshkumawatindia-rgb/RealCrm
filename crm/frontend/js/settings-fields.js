@@ -51,6 +51,11 @@
     if (sectionName(field.sectionId)) list.push(`<span class="badge badge-neutral"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> ${escapeHtml(t("cf.sectionBadge", { name: sectionName(field.sectionId) }))}</span>`);
     if (field.required) list.push(`<span class="badge badge-warning">${escapeHtml(t("cf.requiredBadge"))}</span>`);
     if (field.listColumn) list.push(`<span class="badge badge-success">${escapeHtml(t("cf.columnBadge"))}</span>`);
+    // Field access (D77): only what differs from "agents edit, viewers see".
+    const access = field.access || {};
+    if (access.agent === "hidden") list.push(`<span class="badge badge-neutral"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i> ${escapeHtml(t("cf.access.hiddenBadge"))}</span>`);
+    else if (access.agent === "view") list.push(`<span class="badge badge-neutral"><i class="fa-solid fa-lock" aria-hidden="true"></i> ${escapeHtml(t("cf.access.viewBadge"))}</span>`);
+    if (access.viewer === "hidden" && access.agent !== "hidden") list.push(`<span class="badge badge-neutral"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i> ${escapeHtml(t("cf.access.viewerHiddenBadge"))}</span>`);
     if (field.type === "dropdown") list.push(`<span class="badge badge-info">${escapeHtml(t("cf.choiceCount", { count: field.options.filter((o) => !o.archived).length }))}</span>`);
     return list.join("");
   }
@@ -221,6 +226,16 @@
     }
     await load();
   }
+
+  // Field access (D77): one button per choice; the chosen one is "pressed".
+  function setChoice(id, value) {
+    $(id).querySelectorAll("[data-value]").forEach((button) => {
+      const on = button.dataset.value === value;
+      button.classList.toggle("active", on);
+      button.setAttribute("aria-checked", String(on));
+    });
+  }
+  const choiceOf = (id, fallback) => $(id).querySelector("[data-value].active")?.dataset.value || fallback;
 
   // The field form's Section choice: the saved sections ("More details" = none).
   function fillSectionChoice(chosen) {
@@ -413,6 +428,8 @@
     $("cfRequired").checked = Boolean(field?.required);
     $("cfListColumn").checked = Boolean(field?.listColumn);
     fillSectionChoice(field?.sectionId);
+    setChoice("cfAgentAccess", field?.access?.agent || "edit");
+    setChoice("cfViewerAccess", field?.access?.viewer || "view");
     const options = field ? field.options.filter((o) => !o.archived) : [{}, {}];
     $("cfOptionRows").innerHTML = options.map(optionRowHtml).join("");
     showTypeParts();
@@ -425,7 +442,7 @@
   function nextField() {
     const section = $("cfSection").value; // the next field likely goes to the same section
     $("cfForm").reset();
-    fillSectionChoice(section);
+    fillSectionChoice(section); // the access choices stay as they were too
     setType("text");
     $("cfOptionRows").innerHTML = [{}, {}].map(optionRowHtml).join("");
     showTypeParts();
@@ -462,6 +479,7 @@
     const type = editing ? editing.type : $("cfType").value;
     const body = { label, helpText: $("cfHelp").value.trim(), required: $("cfRequired").checked, listColumn: $("cfListColumn").checked };
     if (!$("cfSectionField").hidden) body.sectionId = $("cfSection").value || null;
+    body.access = { agent: choiceOf("cfAgentAccess", "edit"), viewer: choiceOf("cfViewerAccess", "view") };
     if (type === "dropdown") {
       body.options = readOptions();
       if (!body.options.length) {
@@ -651,6 +669,12 @@
     $("cfSectionList").lastElementChild.scrollIntoView({ block: "nearest", behavior: "smooth" });
   });
   $("cfSectionSave").addEventListener("click", saveSections);
+  ["cfAgentAccess", "cfViewerAccess"].forEach((id) => {
+    $(id).addEventListener("click", (event) => {
+      const button = event.target.closest("[data-value]");
+      if (button) setChoice(id, button.dataset.value);
+    });
+  });
   $("cfAdd").addEventListener("click", () => openForm());
   $("cfCancel").addEventListener("click", closeForm);
   $("cfForm").addEventListener("submit", save);

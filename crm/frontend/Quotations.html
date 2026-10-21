@@ -170,6 +170,8 @@
                   <option value="Estimate" data-i18n="quoteType.Estimate">Estimate</option>
                   <option value="Proforma Invoice" data-i18n="quoteType.Proforma Invoice">Proforma Invoice</option>
                 </select>
+                <!-- D77: owners and admins see what waits for them -->
+                <button class="btn btn-outline q-ap-filter" id="qApprovalFilter" type="button" hidden aria-pressed="false"><i class="fa-solid fa-hourglass-half"></i> <span data-i18n="quotes.ap.filter">Waiting for my approval</span> <span class="q-ap-count" id="qApprovalCount"></span></button>
               </div>
               <div style="display: flex; gap: 10px; margin-left: auto">
                 <button class="btn btn-primary" id="qNewBtn" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="inbox.ctx.newQuote">New quotation</span></button>
@@ -255,6 +257,8 @@
                   <div id="qTotals"></div>
                 </div>
 
+                <!-- Approval (D77): why it needs one, its state, and the approver's comment -->
+                <div class="q-approval" id="qApproval" hidden></div>
                 <div class="q-actions" id="qActions"></div>
               </aside>
             </div>

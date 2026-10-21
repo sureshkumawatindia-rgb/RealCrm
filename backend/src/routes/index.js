@@ -10,6 +10,7 @@ const inviteRoutes = require('./invites');
 const gmailRoutes = require('./gmail');
 const contactRoutes = require('./contacts');
 const customFieldRoutes = require('./customFields');
+const approvalRuleRoutes = require('./approvalRules');
 const { objectRoutes: customObjectRoutes, lookupRoutes } = require('./customObjects');
 const recordRoutes = require('./records');
 const productRoutes = require('./products');
@@ -39,7 +40,7 @@ const billingRoutes = require('./billing');
 const aiRoutes = require('./ai');
 const pushRoutes = require('./push');
 const auditLogRoutes = require('./auditLogs');
-const { apiKeyRoutes, webhookRoutes: outboundWebhookRoutes, metaConversionsRoutes } = require('./integrations');
+const { apiKeyRoutes, webhookRoutes: outboundWebhookRoutes, metaConversionsRoutes, statusRoutes: integrationStatusRoutes } = require('./integrations');
 
 const router = express.Router();
 
@@ -54,6 +55,7 @@ router.use('/invites', inviteRoutes);
 router.use('/gmail', gmailRoutes);
 router.use('/contacts', contactRoutes);
 router.use('/custom-fields', customFieldRoutes);
+router.use('/approval-rules', approvalRuleRoutes); // D77
 router.use('/custom-objects', customObjectRoutes);
 router.use('/records', recordRoutes);
 router.use('/lookup', lookupRoutes);
@@ -96,5 +98,6 @@ router.use('/audit-logs', auditLogRoutes);
 router.use('/api-keys', apiKeyRoutes);
 router.use('/outbound-webhooks', outboundWebhookRoutes);
 router.use('/meta-conversions', metaConversionsRoutes);
+router.use('/integrations', integrationStatusRoutes); // D78
 
 module.exports = router;

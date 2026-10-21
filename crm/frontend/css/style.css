@@ -4498,8 +4498,175 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   box-shadow: 0 0 0 3px var(--brand-ring);
 }
 .page-switch:has(input:not(:checked)) {
-  background: var(--surface-muted, transparent);
+  background: var(--panel-2);
 }
 .page-switch:has(input:not(:checked)) .page-switch-name {
   color: var(--text-muted);
+}
+
+/* Field access (D77): "Agents can / Viewers can" in the field form, and "see only" inputs. */
+.cf-access-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+}
+.cf-access-who {
+  min-width: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.field[data-cf-key] input:disabled,
+.field[data-cf-key] select:disabled,
+.field[data-cf-key] textarea:disabled {
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: not-allowed;
+  opacity: 1;
+}
+.field[data-cf-key] .cf-help .fa-lock {
+  font-size: 11px;
+}
+
+/* Settings → Connections (D78): every integration on one screen. */
+.conn-tab-count {
+  margin-left: 4px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--warning);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.conn-tab-count[hidden] {
+  display: none;
+}
+.conn-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.conn-summary:empty {
+  display: none;
+}
+.conn-summary-ok {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.conn-summary-warn {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.conn-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+}
+.conn-card.conn-attention {
+  border-color: rgba(255, 159, 10, 0.45);
+  background: var(--warning-bg);
+}
+.conn-card.conn-not_connected {
+  opacity: 0.8;
+}
+.conn-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text-muted);
+}
+.conn-main {
+  flex: 1;
+  min-width: 0;
+}
+.conn-name {
+  overflow-wrap: anywhere;
+}
+.conn-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.conn-problem {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--warning-text);
+  overflow-wrap: anywhere;
+}
+/* Phones: the name gets the whole line; the button goes under it. */
+@media (max-width: 600px) {
+  .conn-card {
+    flex-wrap: wrap;
+  }
+  .conn-main {
+    flex-basis: calc(100% - 48px);
+  }
+  .conn-card > .btn {
+    margin-left: 48px;
+  }
+}
+
+/* Settings → API & webhooks (D78): events with their meaning, and an example of each. */
+.ls-check.int-event {
+  align-items: flex-start;
+}
+.int-event span {
+  display: flex;
+  flex-direction: column;
+}
+.int-event small,
+.int-example summary small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.int-examples {
+  margin: 12px 0;
+}
+.int-examples > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.int-example {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+}
+.int-example summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.int-example pre {
+  max-height: 320px;
+  overflow: auto;
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  font-size: 12px;
+  white-space: pre;
+}
+.int-overlap .btn {
+  margin-left: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
 }

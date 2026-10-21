@@ -67,9 +67,9 @@ function suggestMapping(headers, customTargets = []) {
   });
 }
 
-// The company's active customer fields as import targets.
+// The company's active customer fields as import targets: those this member may change (D77).
 async function customTargetsOf(req) {
-  const fields = await customFieldService.fieldsFor(req, 'contact');
+  const fields = await customFieldService.fieldsEditableBy(req, 'contact');
   return fields
     .filter((field) => field.status === 'active' && field.type !== 'lookup') // links are not imported (D75)
     .sort((a, b) => a.order - b.order)
@@ -153,7 +153,7 @@ async function run(req, file, options) {
     throw httpError(400, 'VALIDATION_ERROR', 'Choose which column has the phone number (or the email).', [{ field: 'mapping', code: 'PHONE_REQUIRED', message: 'Choose which column has the phone number (or the email).' }]);
   }
   const organizationId = req.tenant.organizationId;
-  const customFields = new Map((await customFieldService.fieldsFor(req, 'contact')).map((field) => [field.key, field]));
+  const customFields = new Map((await customFieldService.fieldsEditableBy(req, 'contact')).map((field) => [field.key, field]));
   const unknown = mapping.find((target) => target.startsWith('cf:') && customFields.get(target.slice(3))?.status !== 'active');
   if (unknown) {
     throw httpError(400, 'VALIDATION_ERROR', 'A column goes to a field that no longer exists; open the file again.', [{ field: 'mapping', code: 'UNKNOWN_FIELD', message: unknown }]);

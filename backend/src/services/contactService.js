@@ -147,6 +147,7 @@ async function update(req, id, patch, { session, skipVisibility = false, enforce
     ? await repo(req).findById(id).session(session || null)
     : await findVisible(req, id, session);
   if (!contact) throw httpError(404, 'NOT_FOUND', 'Contact not found');
+  const valuesBefore = JSON.stringify(contact.customFields || {});
   const data = normalizeFields(Object.fromEntries(Object.entries(patch).filter(([key]) => EDITABLE.includes(key))));
   if ('phoneE164' in data) await assertPhoneFree(req, data.phoneE164, contact._id, session);
   if (data.lifecycle === 'customer' && contact.lifecycle !== 'customer') contact.becameCustomerAt = new Date();
@@ -157,9 +158,15 @@ async function update(req, id, patch, { session, skipVisibility = false, enforce
     contact.customFields = await customFieldService.applyValues(req, 'contact', patch.customFields, contact.customFields, { enforceRequired });
     contact.markModified('customFields');
   }
+  const changed = contact.modifiedPaths().some((p) => p !== 'customFields' && !p.startsWith('customFields.')) || JSON.stringify(contact.customFields || {}) !== valuesBefore;
   await contact.save({ session });
   const changes = [...Object.keys(data), ...(patch.customFields !== undefined ? ['customFields'] : [])];
   await audit(req, { action: 'contact.updated', entityType: 'Contact', entityId: contact._id, changes });
+  // Outbound webhooks (D78). A change saved inside a larger transaction (a lead's form) is not
+  // sent: it would go out even if that transaction were undone.
+  if (changed && !session) {
+    automationEvents.emit('contact.updated', { organizationId: contact.organizationId, contactId: contact._id, key: `contact.updated:${contact._id}:${contact.updatedAt?.getTime?.() || Date.now()}` }, req);
+  }
   return contact;
 }
 

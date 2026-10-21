@@ -72,10 +72,13 @@ function cfOptionLabel(field, value) {
 // link: for a link field, { id, name } | { id, hidden } | { id, missing } of the record it points to.
 function cfInputHtml(field, value, idPrefix, link) {
   const id = `${idPrefix}_${field.key}`;
-  const star = field.required ? ' <span class="cf-required" aria-hidden="true">*</span>' : "";
-  const required = field.required ? ' aria-required="true"' : "";
-  const help = field.helpText ? `<div class="cf-help" id="${id}_help">${escapeHtml(field.helpText)}</div>` : "";
-  const described = field.helpText ? ` aria-describedby="${id}_help"` : "";
+  // "See only" for this member (D77): shown, never sent, and not asked for.
+  const locked = field.canEdit === false;
+  const star = field.required && !locked ? ' <span class="cf-required" aria-hidden="true">*</span>' : "";
+  const required = field.required && !locked ? ' aria-required="true"' : "";
+  const helpText = [field.helpText, locked && t("cf.access.locked")].filter(Boolean).join(" · ");
+  const help = helpText ? `<div class="cf-help" id="${id}_help">${locked ? '<i class="fa-solid fa-lock" aria-hidden="true"></i> ' : ""}${escapeHtml(helpText)}</div>` : "";
+  const described = (helpText ? ` aria-describedby="${id}_help"` : "") + (locked ? " disabled" : "");
   const label = `<label for="${id}">${escapeHtml(field.label)}${star}</label>`;
   // A long text takes the whole row of a 2-column section.
   const wide = field.type === "textarea" ? " cf-wide" : "";
@@ -101,6 +104,11 @@ function cfInputHtml(field, value, idPrefix, link) {
       break;
     }
     case "lookup":
+      // "See only": the linked record's name, nothing to pick.
+      if (locked) {
+        input = `<input type="text" id="${id}" value="${escapeHtml(cfLinkText(link))}"${described} />`;
+        break;
+      }
       // A deleted record is not kept: the next save clears the link.
       input = cfLinkPickerHtml(id, field.lookupTarget, link?.missing ? "" : current, cfLinkText(link), `${required}${described}`);
       break;
@@ -147,6 +155,7 @@ function cfRead(container) {
   if (!fields || !fields.length) return undefined;
   const values = {};
   for (const field of fields) {
+    if (field.canEdit === false) continue; // "see only" (D77): the server keeps its value
     const el = container.querySelector(`[data-cf-key="${CSS.escape(field.key)}"] input, [data-cf-key="${CSS.escape(field.key)}"] select, [data-cf-key="${CSS.escape(field.key)}"] textarea`);
     if (!el) continue;
     if (field.type === "checkbox") values[field.key] = el.checked;

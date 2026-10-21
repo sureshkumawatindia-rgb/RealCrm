@@ -1,7 +1,7 @@
 const express = require('express');
 const quotationService = require('../services/quotationService');
 const { authenticate } = require('../middleware/auth');
-const { requirePermission } = require('../middleware/permissions');
+const { requirePermission, requireRole } = require('../middleware/permissions');
 const idempotency = require('../middleware/idempotency');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
@@ -47,6 +47,14 @@ router.get('/:id/send-options', can('view'), canChat, validate({ params: idParam
 router.post('/:id/send', can('edit'), canChat, idempotency, validate({ params: idParams, body: schemas.quotationSend }), async (req, res) => {
   const result = await quotationService.sendOnWhatsApp(req, req.valid.params.id, req.body);
   res.json({ success: true, data: result, message: 'Sent on WhatsApp' });
+});
+// Approvals (D77): the one sending asks; an owner or admin decides.
+router.post('/:id/approval', can('edit'), validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await quotationService.requestApproval(req, req.valid.params.id), message: 'Sent for approval' });
+});
+router.post('/:id/approval/decision', requireRole('owner', 'admin'), validate({ params: idParams, body: schemas.approvalDecision }), async (req, res) => {
+  const quotation = await quotationService.decideApproval(req, req.valid.params.id, req.body);
+  res.json({ success: true, data: quotation, message: quotation.approval.state === 'approved' ? 'Approved' : 'Not approved' });
 });
 router.post('/:id/revise', can('edit'), validate({ params: idParams }), async (req, res) => {
   const quotation = await quotationService.revise(req, req.valid.params.id);

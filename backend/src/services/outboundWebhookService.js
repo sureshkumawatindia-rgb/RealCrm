@@ -9,6 +9,7 @@ const Contact = require('../models/Contact');
 const Quotation = require('../models/Quotation');
 const Order = require('../models/Order');
 const Message = require('../models/Message');
+const CustomRecord = require('../models/CustomRecord');
 const bus = require('../realtime/bus');
 const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
@@ -17,6 +18,7 @@ const { encrypt, decrypt } = require('../utils/secretBox');
 const { assertPublicHttps } = require('../utils/safeWebhook');
 const { toPage, paginationMeta } = require('../utils/pagination');
 const { WEBHOOK_EVENTS, WEBHOOK_EVENT_KEYS } = require('../constants/api');
+const { WEBHOOK_EXAMPLES } = require('../constants/webhookExamples');
 const planService = require('./planService');
 const notificationService = require('./notificationService');
 const publicApi = require('./publicApiService');
@@ -26,6 +28,10 @@ const publicApi = require('./publicApiService');
 // as JSON to the company's https addresses, signed with each address's own secret:
 //   X-CRM-Signature: sha256=<hex HMAC-SHA256 of the raw body>, X-CRM-Event, X-CRM-Delivery,
 //   X-CRM-Event-Id (the same for every attempt: the receiver drops repeats).
+// D78: also X-CRM-Timestamp (Unix seconds of this attempt) and
+//   X-CRM-Signature-256: t=<timestamp>,v1=<hex HMAC-SHA256 of "<timestamp>.<raw body>">, so a
+//   receiver can refuse an old message (replay). After "New secret" the old secret keeps
+//   working for 24 hours: this header then carries a second v1= signed with it.
 // A failed delivery is tried again after 1 min, 5 min, 30 min, 2 h, 6 h, 12 h and 24 h; after 25
 // failed deliveries in a row the address is switched off and owners and admins are told.
 // Needs a plan with the API (Growth and up).
@@ -37,6 +43,18 @@ const MAX_SUBSCRIPTIONS = 20;
 const TIMEOUT_MS = 10000;
 
 const newSecret = () => `whsec_${crypto.randomBytes(24).toString('base64url')}`;
+const OVERLAP_HOURS = 24;
+const inOverlap = (sub, now = new Date()) => Boolean(sub.previousSecretEnc && sub.previousSecretUntil && sub.previousSecretUntil > now);
+const hmac = (secret, text) => crypto.createHmac('sha256', secret).update(text).digest('hex');
+// The headers that sign one attempt (D78): the old one for receivers built before, and the one
+// with the time. secrets: the current secret first, then the old one during the overlap.
+function signatureHeaders(body, secrets, timestamp = Math.floor(Date.now() / 1000)) {
+  return {
+    'X-CRM-Timestamp': String(timestamp),
+    'X-CRM-Signature': `sha256=${hmac(secrets[0], body)}`,
+    'X-CRM-Signature-256': [`t=${timestamp}`, ...secrets.map((secret) => `v1=${hmac(secret, `${timestamp}.${body}`)}`)].join(','),
+  };
+}
 const eventIdOf = (key) => `evt_${crypto.createHash('sha256').update(String(key)).digest('hex').slice(0, 24)}`;
 
 function serialize(sub) {
@@ -44,6 +62,7 @@ function serialize(sub) {
     id: sub._id, url: sub.url, events: sub.events, description: sub.description, active: sub.active,
     disabledReason: sub.disabledReason || '', failuresInARow: sub.failuresInARow || 0,
     lastDeliveryAt: sub.lastDeliveryAt || null, lastStatus: sub.lastStatus || null, lastResponseCode: sub.lastResponseCode ?? null,
+    overlapUntil: inOverlap(sub) ? sub.previousSecretUntil : null, // D78: the old secret still signs until then
     createdAt: sub.createdAt,
   };
 }
@@ -98,13 +117,35 @@ async function remove(req, id) {
   await audit(req, { action: 'webhook.removed', entityType: 'WebhookSubscription', entityId: sub._id, changes: { url: sub.url } });
 }
 
-async function rotateSecret(req, id) {
+// "New secret" (D78): the old one keeps signing for overlapHours (24), so the receiver can be
+// updated without losing a delivery; 0 replaces it at once. Rotating again during an overlap
+// keeps only the newest and the one before it.
+async function rotateSecret(req, id, { overlapHours = OVERLAP_HOURS } = {}) {
   const sub = await findInOrg(req, id);
   const secret = newSecret();
+  if (overlapHours > 0) {
+    sub.previousSecretEnc = sub.secretEnc;
+    sub.previousSecretUntil = new Date(Date.now() + overlapHours * 3600e3);
+  } else {
+    sub.previousSecretEnc = undefined;
+    sub.previousSecretUntil = undefined;
+  }
   sub.secretEnc = encrypt(secret);
   await sub.save();
-  await audit(req, { action: 'webhook.secret_rotated', entityType: 'WebhookSubscription', entityId: sub._id });
+  await audit(req, { action: 'webhook.secret_rotated', entityType: 'WebhookSubscription', entityId: sub._id, changes: { overlapHours } });
   return { ...serialize(sub), secret };
+}
+
+// POST /outbound-webhooks/:id/end-overlap — the old secret stops now (D78).
+async function endOverlap(req, id) {
+  const sub = await findInOrg(req, id);
+  if (sub.previousSecretEnc) {
+    sub.previousSecretEnc = undefined;
+    sub.previousSecretUntil = undefined;
+    await sub.save();
+    await audit(req, { action: 'webhook.overlap_ended', entityType: 'WebhookSubscription', entityId: sub._id });
+  }
+  return serialize(sub);
 }
 
 async function listDeliveries(req, id, query) {
@@ -123,7 +164,7 @@ async function listDeliveries(req, id, query) {
 // refused (no retry).
 async function post(sub, delivery) {
   const body = JSON.stringify(delivery.payload);
-  const secret = decrypt(sub.secretEnc);
+  const secrets = [decrypt(sub.secretEnc), ...(inOverlap(sub) ? [decrypt(sub.previousSecretEnc)] : [])];
   const started = Date.now();
   let url;
   try {
@@ -140,7 +181,7 @@ async function post(sub, delivery) {
         'X-CRM-Event': delivery.event,
         'X-CRM-Event-Id': delivery.eventId,
         'X-CRM-Delivery': String(delivery._id),
-        'X-CRM-Signature': `sha256=${crypto.createHmac('sha256', secret).update(body).digest('hex')}`,
+        ...signatureHeaders(body, secrets),
       },
       body,
       redirect: 'manual',
@@ -216,7 +257,25 @@ async function dataOf(event) {
       return { lead: lead ? publicApi.publicLead(lead, fields) : null, ...(event.type === 'lead.stage_changed' && { from: event.from, to: event.to }) };
     }
     case 'contact.created':
+    case 'contact.updated':
       return { contact: await contact() };
+    // D78: records of the company's own objects, and quotation approvals.
+    case 'record.created':
+    case 'record.updated': {
+      const record = await byId(CustomRecord, event.recordId);
+      return { record: record ? publicApi.publicRecord(record, await publicApi.recordFieldsOf(event.organizationId, record.object)) : null };
+    }
+    case 'record.deleted':
+      return { record: { id: String(event.recordId), object: event.object, name: event.name || '' } };
+    case 'quotation.approval_requested':
+    case 'quotation.approval_decided': {
+      // The approval as it was when the event happened (it may be decided by the time this runs).
+      const quotation = await byId(Quotation, event.quotationId);
+      return {
+        quotation: quotation ? publicApi.publicQuotation(quotation) : null,
+        approval: event.approval || publicApi.publicApproval(quotation?.approval),
+      };
+    }
     case 'message.received': {
       const message = await byId(Message, event.messageId);
       return {
@@ -297,9 +356,10 @@ function register(queue) {
   bus.on('automation:event', listener);
 }
 
-const meta = () => ({ events: Object.entries(WEBHOOK_EVENTS).map(([event, label]) => ({ event, label })) });
+// Each event with a sample of what it carries (D78), for Zapier and Make.
+const meta = () => ({ events: Object.entries(WEBHOOK_EVENTS).map(([event, label]) => ({ event, label, example: WEBHOOK_EXAMPLES[event] || {} })) });
 
 module.exports = {
-  JOBS, list, create, update, remove, rotateSecret, listDeliveries, test, retry, fanout, deliver, register, meta,
-  serialize, serializeDelivery, eventIdOf, dataOf, RETRY_AFTER_MS, DISABLE_AFTER_FAILURES,
+  JOBS, list, create, update, remove, rotateSecret, endOverlap, listDeliveries, test, retry, fanout, deliver, register, meta,
+  serialize, serializeDelivery, eventIdOf, dataOf, signatureHeaders, RETRY_AFTER_MS, DISABLE_AFTER_FAILURES, OVERLAP_HOURS,
 };

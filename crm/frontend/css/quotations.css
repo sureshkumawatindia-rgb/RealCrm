@@ -262,6 +262,84 @@
 .q-rates td:first-child {
   text-align: left;
 }
+/* Approvals (D77): why a draft needs one, its state, and the approver's comment. */
+.q-approval {
+  margin-bottom: 12px;
+}
+.q-ap {
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.q-ap-warn {
+  background: var(--warning-bg);
+  border-color: rgba(255, 159, 10, 0.35);
+  color: var(--warning-text);
+}
+.q-ap-ok {
+  background: var(--success-bg);
+  border-color: rgba(31, 169, 113, 0.3);
+  color: var(--success-text);
+}
+.q-ap-no {
+  background: var(--danger-bg);
+  border-color: rgba(255, 69, 58, 0.3);
+  color: var(--danger-text);
+}
+.q-ap-ask {
+  background: var(--info-bg);
+  border-color: rgba(74, 108, 247, 0.3);
+  color: var(--text);
+}
+.q-ap-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.q-ap ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.q-ap p {
+  margin: 6px 0 0;
+}
+.q-ap label {
+  display: block;
+  margin: 10px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.q-ap textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+.q-ap-filter.active {
+  background: var(--brand-light);
+  border-color: var(--brand-dark);
+  color: var(--ink);
+}
+.q-ap-count {
+  margin-left: 4px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--warning);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.q-ap-count:empty {
+  display: none;
+}
 .q-actions {
   display: grid;
   gap: 8px;

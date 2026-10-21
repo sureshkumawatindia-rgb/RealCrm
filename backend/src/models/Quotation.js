@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const softDelete = require('./plugins/softDelete');
 const { QUOTATION_STATUSES, QUOTATION_TYPES } = require('../constants/crm');
+const { APPROVAL_STATES, REASON_KINDS } = require('../constants/approvals');
 
 // A quotation, estimate or proforma invoice (Phase 5). Amounts are integer paise computed on
 // the server (utils/gst): GST on each line after its discount, CGST + SGST/UTGST within the
@@ -64,6 +65,27 @@ const quotationSchema = new mongoose.Schema(
     rejectedReason: { type: String, default: '' },
     expiredAt: { type: Date },
     orderId: { type: ObjectId, ref: 'Order' },
+    // Approval (D77, services/approvalService.js): asked for when a draft crosses a rule's limit.
+    // It counts only while the lines and totals still have its fingerprint.
+    approval: {
+      type: new mongoose.Schema(
+        {
+          state: { type: String, enum: APPROVAL_STATES },
+          reasons: {
+            type: [new mongoose.Schema({ ruleId: ObjectId, ruleName: String, kind: { type: String, enum: REASON_KINDS }, value: Number, limit: Number }, { _id: false })],
+            default: [],
+          },
+          fingerprint: { type: String },
+          requestedById: { type: ObjectId, ref: 'OrganizationMember' },
+          requestedAt: { type: Date },
+          decidedById: { type: ObjectId, ref: 'OrganizationMember' },
+          decidedAt: { type: Date },
+          comment: { type: String, default: '' },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
     schemaVersion: { type: Number, default: 2 },
     legacyNumber: { type: String },
     legacyIds: { type: [String], default: undefined },
@@ -78,6 +100,7 @@ quotationSchema.index({ organizationId: 1, leadId: 1, status: 1 });
 quotationSchema.index({ organizationId: 1, contactId: 1, createdAt: -1 });
 quotationSchema.index({ organizationId: 1, status: 1, validUntil: 1 });
 quotationSchema.index({ organizationId: 1, legacyIds: 1 });
+quotationSchema.index({ organizationId: 1, 'approval.state': 1, createdAt: -1 });
 // The plan's quotations this month (Phase 10).
 quotationSchema.index({ organizationId: 1, createdAt: -1 });
 

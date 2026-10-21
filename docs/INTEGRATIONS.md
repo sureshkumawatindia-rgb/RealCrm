@@ -41,6 +41,8 @@ Owners and admins set these up in **Settings → API & webhooks**.
 | `orders:read` | Read orders and their payments |
 | `products:read` | Read products |
 | `messages:write` | Send approved WhatsApp templates |
+| `records:read` | Read your own objects and their records (D78) |
+| `records:write` | Add and change records of your own objects (D78) |
 
 A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or revoked key gets `401 API_KEY_INVALID`.
 
@@ -62,6 +64,11 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
 | GET | `/orders`, `/orders/:id` | orders:read | `?stage=`, `?contactId=`; with `paymentStatus`, `amountPaidPaise`, `duePaise` and `payments` |
 | GET | `/products` | products:read | `?active=true` |
 | POST | `/messages` | messages:write | An approved WhatsApp template from the company's default number. See the notes below the table. |
+| GET | `/objects` | records:read | Your own objects (Machines, Sites …): `key`, `singular`, `plural`, and `fields` (as `/custom-fields`, plus `lookupTarget` for link fields) |
+| GET | `/records` | records:read | `?object=` (required, for example `x_machines`), `?search=` (the name and text fields), `?cf=`, `?updatedSince=` |
+| GET | `/records/:id` | records:read | One record: `{ id, object, name, contactId, ownerId, customFields, createdAt, updatedAt }` |
+| POST | `/records` | records:write | `{ object, name, contactId?, customFields? }` → 201 |
+| PATCH | `/records/:id` | records:write | `{ name?, contactId?, customFields? }`; a record never moves to another object |
 
 **How `POST /leads` works.** It is handled like a lead source:
 
@@ -81,6 +88,13 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
 - A new number becomes a customer.
 - Refused when the customer has opted out (`OPTED_OUT`), when there is no WhatsApp number (`NO_WHATSAPP_NUMBER`), and for an unknown or unapproved template (`TEMPLATE_NOT_FOUND` / `TEMPLATE_NOT_SENDABLE`).
 
+**Records of your own objects (D78).** Objects are what a company adds in Settings → Custom fields → Your objects.
+
+- A record's `customFields` follow the rules below; a link field takes and gives the linked record's id.
+- A link must point to a record of this company and of the right kind (`400` with code `INVALID_LINK`). The same goes for `contactId`.
+- An archived object, and its records, answer `404` until it is restored.
+- Records made through the API belong to the person who made the key.
+
 **Custom fields (D74).** These are the fields a company adds in Settings → Custom fields.
 
 - **Reading.** Contacts and leads (and the contact inside a lead) carry `customFields: { key: value }`, active fields only. The value depends on the type:
@@ -89,7 +103,7 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
   - date: `YYYY-MM-DD`;
   - checkbox: `true` (an unticked box is absent);
   - dropdown: **the choice's name** (`"Wholesale"`). If someone renames a choice, the new name is sent from then on.
-  - link (D75): the linked record's id (a customer, a lead, or a record of one of the company's own objects). The objects' records themselves are not in the public API yet.
+  - link (D75): the linked record's id (a customer, a lead, or a record of one of the company's own objects).
 - **Writing** (`POST`/`PATCH /contacts`): the same `customFields` object. A dropdown takes a choice's name (capitals ignored) or its value (`o2`). `null` or `""` clears a field. A wrong value gets `400 VALIDATION_ERROR` with `field: "customFields.<key>"`. A field marked required never stops the API.
   - Leads' fields cannot be written through the API yet.
 - **Filtering** (`GET /contacts`, `GET /leads`): `?cf=<key>:<operator>[:<value>]`, up to 5 times. Every filter must match. Operators by type:
@@ -123,13 +137,19 @@ curl -G -H "Authorization: Bearer ycrm_…" "https://crm.example.in/api/public/v
 | `lead.created` | A lead is made (any source) | `lead` (with `contact`) |
 | `lead.stage_changed` | A lead moves stage | `lead`, `from`, `to` |
 | `contact.created` | A customer is added (by hand, the API, WhatsApp, a lead source; not CSV imports) | `contact` |
+| `contact.updated` | A customer's details or fields change (in the customer's own form, Customer 360 or the API; only when something changed) | `contact` |
 | `message.received` | A customer writes on WhatsApp | `message { id, type, text, at }`, `conversationId`, `contact` |
 | `quotation.status_changed` | Sent, viewed, accepted, rejected or expired | `quotation`, `from`, `to` |
+| `quotation.approval_requested` | A salesperson asks for approval (D77) | `quotation`, `approval { state, reasons, requestedById, requestedAt, … }` as it was then |
+| `quotation.approval_decided` | An owner or admin approves it or not | `quotation`, `approval` with `state: approved / rejected`, `decidedById`, `comment` |
 | `order.created` | An order is made (from a quotation or the WhatsApp catalog) | `order` |
 | `order.stage_changed` | An order moves stage | `order`, `from`, `to` |
 | `payment.received` | A payment is recorded (link or by hand) | `amountPaise`, `orderId`, `leadId`, `order`, `contact` |
+| `record.created` | A record of your own objects is added (D78) | `record` |
+| `record.updated` | A record is changed (only when something changed) | `record` |
+| `record.deleted` | A record is deleted | `record { id, object, name }` |
 
-The `data` objects use the same shapes as the public API, so every `contact` and `lead` includes its `customFields` (D74).
+The `data` objects use the same shapes as the public API, so every `contact`, `lead` and `record` includes its `customFields` (D74). Settings → API & webhooks shows **an example of each event**, with Copy.
 
 ### Each call
 
@@ -138,13 +158,21 @@ Each call is a `POST` with JSON `{ "id": "evt_…", "type": "lead.created", "cre
 - `X-CRM-Event`: the event name.
 - `X-CRM-Event-Id`: the same as `id`, and the same for every attempt. Ignore an id you have already handled.
 - `X-CRM-Delivery`: this delivery's id.
-- `X-CRM-Signature`: `sha256=` + the hex HMAC-SHA256 of the **raw body**, keyed with the webhook's secret.
+- `X-CRM-Timestamp` (D78): the Unix time (seconds) of this attempt.
+- `X-CRM-Signature-256` (D78, **use this one**): `t=<timestamp>,v1=<signature>`, where the signature is the hex HMAC-SHA256 of `<timestamp>.<raw body>`, keyed with the webhook's secret. While an old secret still works (see "New secret" below) there are two `v1=` values.
+- `X-CRM-Signature`: `sha256=` + the hex HMAC-SHA256 of the **raw body** alone. It stays for systems built before D78; it cannot tell an old message from a new one.
 
-Check the signature before you trust the body, for example in Node.js:
+Check the signature and the time before you trust the body. Refuse a timestamp more than 5 minutes away from your clock: that stops someone from sending you an old message again (a replay). In Node.js:
 
 ```js
-const expected = 'sha256=' + crypto.createHmac('sha256', process.env.CRM_WEBHOOK_SECRET).update(rawBody).digest('hex');
-const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(req.headers['x-crm-signature'] || ''));
+function verify(headers, rawBody, secret) {
+  const parts = String(headers['x-crm-signature-256'] || '').split(',');
+  const t = Number(parts.find((p) => p.startsWith('t='))?.slice(2));
+  if (!t || Math.abs(Date.now() / 1000 - t) > 300) return false; // older than 5 minutes
+  const expected = crypto.createHmac('sha256', secret).update(`${t}.${rawBody}`).digest('hex');
+  return parts.filter((p) => p.startsWith('v1='))
+    .some((p) => p.length === 67 && crypto.timingSafeEqual(Buffer.from(p.slice(3)), Buffer.from(expected)));
+}
 ```
 
 ### Answers, retries and the delivery log
@@ -154,7 +182,9 @@ const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(req.headers
 - After **25 failed deliveries in a row**, the webhook is switched off. Owners and admins get a note under the bell; switch it on again after the fix.
 - The **Delivery log** keeps 30 days: each call's result and tries, and **Send again** for failed ones.
 - **Send a test** sends a `ping` event.
-- **New secret** replaces the secret at once.
+- **New secret** (D78): the old secret keeps working for **24 hours**. During that time `X-CRM-Signature-256` carries a `v1=` for each, so you can put the new secret in your system without losing a delivery.
+  - **End the overlap now** stops the old secret at once.
+  - `X-CRM-Signature` (the old header) always uses the newest secret.
 
 ## 3. Zapier
 
@@ -218,3 +248,11 @@ The CRM tells Meta how your Facebook and Instagram **Lead Ads** leads move: New,
 
 - A Zapier or Make app listing (use the webhook and HTTP modules above).
 - OAuth for third-party apps (API keys only).
+- Bulk or GraphQL APIs; incoming webhooks for your own objects.
+
+## Settings → Connections (D78)
+
+One screen with every integration: WhatsApp numbers, Gmail, payment gateways, lead sources, the Meta Conversions API, API keys and webhooks.
+
+- Each shows its state (Working, Needs attention, Off, Not connected), when it was last active, the problem in plain words, and a button to its settings.
+- The tab shows how many need attention.

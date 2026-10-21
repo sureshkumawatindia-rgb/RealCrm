@@ -4,6 +4,8 @@
  * discounts, and the GST breakup the server computes (POST /pricing/preview) — the browser
  * never adds up money itself. Drafts are edited; sent ones are revised.
  * Addresses: ?id=<quotation>, or ?new=1 with leadId, contactId or conversationId.
+ * Approvals (D77): a draft over a limit of Settings → Approvals cannot be sent, marked sent or
+ * accepted, or downloaded by those the limit applies to until an owner or admin approves it.
  * One IIFE: no globals.
  */
 // Starts once the page's texts are in (i18n/*.json, CP5).
@@ -29,6 +31,17 @@ crmI18n.ready.then(function quotationsPage() {
   const day = (iso) => (iso ? new Date(iso).toLocaleDateString(crmI18n.locale(), { day: "2-digit", month: "short", year: "numeric" }) : "");
   const dateInput = (iso) => (iso ? String(iso).slice(0, 10) : "");
   const statusBadge = (status) => `<span class="badge ${STATUS_BADGE[status] || "badge-neutral"}">${escapeHtml(crmLabel("quoteStatus", status))}</span>`;
+  // Why a quotation needs approval, in the page's language (D77).
+  const reasonText = (r) =>
+    r.kind === "discount"
+      ? t("quotes.ap.reasonDiscount", { value: r.value, limit: r.limit, rule: r.ruleName })
+      : t("quotes.ap.reasonTotal", { value: rupees(r.value), limit: rupees(r.limit), rule: r.ruleName });
+  const approvalBadge = (a) =>
+    a?.state === "pending"
+      ? ` <span class="badge badge-warning">${escapeHtml(t("quotes.ap.waiting"))}</span>`
+      : a?.blocked
+        ? ` <span class="badge badge-warning">${escapeHtml(t("quotes.ap.needs"))}</span>`
+        : "";
   let states = [];
   let products = [];
 
@@ -61,7 +74,7 @@ crmI18n.ready.then(function quotationsPage() {
   // ------------------------------------------------------------------------------------------
   // List
   // ------------------------------------------------------------------------------------------
-  const list = { page: 1, items: [], more: false, seq: 0 };
+  const list = { page: 1, items: [], more: false, seq: 0, approvalOnly: false };
 
   async function loadList(reset = true) {
     if (reset) {
@@ -74,6 +87,7 @@ crmI18n.ready.then(function quotationsPage() {
     if (q) params.set("q", q);
     if ($("qStatus").value) params.set("status", $("qStatus").value);
     if ($("qType").value) params.set("type", $("qType").value);
+    if (list.approvalOnly) params.set("approval", "pending");
     try {
       const body = await crmRequest(`/quotations?${params}`);
       if (seq !== list.seq) return;
@@ -104,7 +118,7 @@ crmI18n.ready.then(function quotationsPage() {
             <td>${escapeHtml(day(q.quotationDate))}</td>
             <td>${escapeHtml(day(q.validUntil))}</td>
             <td class="q-amount">${rupees(q.totals?.grandTotalPaise)}</td>
-            <td>${statusBadge(q.status)}${q.viewCount ? ` <span class="q-muted" title="${escapeHtml(t("quotes.openedByCustomer"))}">👁 ${q.viewCount}</span>` : ""}</td>
+            <td>${statusBadge(q.status)}${approvalBadge(q.approval)}${q.viewCount ? ` <span class="q-muted" title="${escapeHtml(t("quotes.openedByCustomer"))}">👁 ${q.viewCount}</span>` : ""}</td>
           </tr>`,
           )
           .join("")}</tbody>
@@ -118,6 +132,24 @@ crmI18n.ready.then(function quotationsPage() {
   });
   $("qStatus").addEventListener("change", () => loadList());
   $("qType").addEventListener("change", () => loadList());
+  // Owners and admins: the quotations waiting for a decision, and how many (D77).
+  async function refreshApprovalCount() {
+    if (!isOrgManager()) return;
+    try {
+      const body = await crmRequest("/quotations?approval=pending&limit=1");
+      const count = body.pagination?.total ?? (body.data || []).length;
+      $("qApprovalFilter").hidden = !count && !list.approvalOnly;
+      $("qApprovalCount").textContent = count ? String(count) : "";
+    } catch {
+      /* the button is a convenience */
+    }
+  }
+  $("qApprovalFilter").addEventListener("click", () => {
+    list.approvalOnly = !list.approvalOnly;
+    $("qApprovalFilter").classList.toggle("active", list.approvalOnly);
+    $("qApprovalFilter").setAttribute("aria-pressed", String(list.approvalOnly));
+    loadList();
+  });
   $("qMore").addEventListener("click", () => {
     list.page += 1;
     loadList(false);
@@ -328,15 +360,17 @@ crmI18n.ready.then(function quotationsPage() {
     const q = ed.q;
     const buttons = [];
     const button = (id, labelKey, cls = "btn-outline", icon = "") => `<button class="btn ${cls}" type="button" data-action="${id}">${icon ? `<i class="fa-solid ${icon}"></i> ` : ""}${escapeHtml(t(labelKey))}</button>`;
+    // Over a limit and not approved (D77): no sending, marking sent or accepted, or PDF yet.
+    const blocked = Boolean(q?.approval?.blocked);
     if (!q) {
       if (can("create")) buttons.push(button("create", "quotes.act.saveDraft", "btn-primary", "fa-floppy-disk"));
     } else if (can("edit")) {
       if (q.status === "Draft") {
         buttons.push(button("save", "quotes.act.save", "btn-primary", "fa-floppy-disk"));
-        buttons.push(button("sent", "quotes.act.markSent", "btn-outline", "fa-paper-plane"));
+        if (!blocked) buttons.push(button("sent", "quotes.act.markSent", "btn-outline", "fa-paper-plane"));
       }
       if (["Draft", "Sent", "Viewed", "Expired"].includes(q.status)) {
-        buttons.push(button("accepted", "quotes.act.accepted", "btn-outline", "fa-circle-check"));
+        if (!blocked) buttons.push(button("accepted", "quotes.act.accepted", "btn-outline", "fa-circle-check"));
         buttons.push(button("rejected", "quotes.act.rejected", "btn-outline", "fa-circle-xmark"));
       }
       if (["Sent", "Viewed", "Rejected", "Expired"].includes(q.status)) buttons.push(button("revise", "quotes.act.revise", "btn-primary", "fa-pen"));
@@ -345,15 +379,18 @@ crmI18n.ready.then(function quotationsPage() {
         buttons.push(button("unaccept", "quotes.act.unaccept", "btn-outline", "fa-rotate-left"));
       }
     }
-    if (q && canChat() && can("edit") && ["Draft", "Sent", "Viewed", "Accepted"].includes(q.status)) {
+    if (q && canChat() && can("edit") && !blocked && ["Draft", "Sent", "Viewed", "Accepted"].includes(q.status)) {
       // First for a draft; after the main actions once it was sent (e.g. "Create order" first).
       buttons[q.status === "Draft" ? "unshift" : "push"](button("whatsapp", q.status === "Draft" ? "quotes.act.whatsapp" : "quotes.act.whatsappAgain", q.status === "Draft" ? "btn-primary" : "btn-outline", "fa-paper-plane"));
     }
+    if (q && can("edit") && q.approval?.canAsk) buttons.unshift(button("ask", "quotes.ap.ask", "btn-primary", "fa-hand"));
+    // The approver's two buttons come first, so phones keep them at the bottom of the screen.
+    if (q?.approval?.canDecide) buttons.unshift(button("approve", "quotes.ap.approve", "btn-primary", "fa-check"), button("reject", "quotes.ap.reject", "btn-outline", "fa-xmark"));
     if (q?.orderId) buttons.unshift(`<a class="btn btn-primary" href="Orders.html?id=${encodeURIComponent(q.orderId)}"><i class="fa-solid fa-truck-fast"></i> ${escapeHtml(t("inbox.openOrder"))}</a>`);
     // Phase 8: a payment link for the quotation's total (an advance is fine); paying accepts it.
     if (q && can("edit") && (q.orderId || ["Sent", "Viewed", "Accepted"].includes(q.status))) buttons.push(button("paylink", "quotes.act.paylink", "btn-outline", "fa-indian-rupee-sign"));
     if (q) {
-      buttons.push(button("pdf", "quotes.act.pdf", "btn-outline", "fa-file-pdf"));
+      if (!blocked) buttons.push(button("pdf", "quotes.act.pdf", "btn-outline", "fa-file-pdf"));
       if (q.status !== "Draft") {
         buttons.push(button("copylink", "quotes.act.copyLink", "btn-outline", "fa-link"));
         buttons.push(button("openlink", "quotes.act.openLink", "btn-outline", "fa-arrow-up-right-from-square"));
@@ -385,11 +422,63 @@ crmI18n.ready.then(function quotationsPage() {
     });
   }
 
+  // Approval (D77): why it needs one, who was asked, and what they decided. While the lines
+  // change, the live totals (POST /pricing/preview) say whether it will need one.
+  function renderApproval() {
+    const box = $("qApproval");
+    const q = ed.q;
+    const a = q?.approval;
+    const live = ed.priced?.approval;
+    const reasons = (list) => (list?.length ? `<ul>${list.map((r) => `<li>${escapeHtml(reasonText(r))}</li>`).join("")}</ul>` : "");
+    const title = (icon, text) => `<div class="q-ap-title"><i class="fa-solid ${icon}" aria-hidden="true"></i> ${escapeHtml(text)}</div>`;
+    let html = "";
+    if (a?.canDecide) {
+      html = `<div class="q-ap q-ap-ask">${title("fa-hourglass-half", t("quotes.ap.askedBy", { name: a.requestedBy?.name || t("quotes.ap.someone") }))}${reasons(a.reasons)}
+        <label for="qApComment">${escapeHtml(t("quotes.ap.comment"))}</label>
+        <textarea id="qApComment" rows="2" maxlength="500" placeholder="${escapeHtml(t("quotes.ap.commentHint"))}"></textarea></div>`;
+    } else if ((!q || ed.dirty) && live) {
+      // Unsaved changes: only what the new lines and totals will need.
+      if (live.needed) html = `<div class="q-ap q-ap-warn">${title("fa-triangle-exclamation", t("quotes.ap.willNeed"))}${reasons(live.reasons)}<p>${escapeHtml(t(q ? "quotes.ap.saveThenAsk" : "quotes.ap.saveFirst"))}</p></div>`;
+    } else if (a?.state === "pending") {
+      html = `<div class="q-ap q-ap-warn">${title("fa-hourglass-half", t("quotes.ap.waitingSince", { name: a.requestedBy?.name || "" }))}${reasons(a.reasons)}<p>${escapeHtml(t("quotes.ap.waitingHint"))}</p></div>`;
+    } else if (a?.state === "approved") {
+      html = `<div class="q-ap q-ap-ok">${title("fa-circle-check", t("quotes.ap.approvedBy", { name: a.decidedBy?.name || "" }))}</div>`;
+    } else if (a?.state === "rejected") {
+      html = `<div class="q-ap q-ap-no">${title("fa-circle-xmark", t("quotes.ap.rejectedBy", { name: a.decidedBy?.name || "" }))}${a.comment ? `<p>“${escapeHtml(a.comment)}”</p>` : ""}${a.canAsk ? `<p>${escapeHtml(t("quotes.ap.changeAndAsk"))}</p>` : ""}</div>`;
+    } else if (a?.needed) {
+      html = `<div class="q-ap q-ap-warn">${title("fa-triangle-exclamation", t("quotes.ap.needsTitle"))}${reasons(a.reasons)}<p>${escapeHtml(t("quotes.ap.needsHint"))}</p></div>`;
+    }
+    box.hidden = !html;
+    box.innerHTML = html;
+  }
+
+  // The one who asked sees the decision within a few seconds, without reloading.
+  let approvalPoll = null;
+  function watchApproval() {
+    clearInterval(approvalPoll);
+    const a = ed.q?.approval;
+    if (a?.state !== "pending" || !a.needed) return;
+    const id = ed.q.id;
+    approvalPoll = setInterval(async () => {
+      if (document.hidden || ed.dirty || ed.q?.id !== id) return;
+      try {
+        const fresh = await crmApi(`/quotations/${encodeURIComponent(id)}`);
+        if (ed.q?.id !== id || ed.dirty || fresh.approval?.state === "pending") return;
+        applySaved(fresh);
+        const approved = fresh.approval?.state === "approved";
+        showToast(t(approved ? "quotes.ap.nowApproved" : "quotes.ap.nowRejected", { name: fresh.approval?.decidedBy?.name || "" }), approved ? "success" : "error");
+      } catch {
+        /* tries again */
+      }
+    }, 4000);
+  }
+
   function renderEditor() {
     renderHead();
     renderCustomer();
     renderLines();
     renderHistory();
+    renderApproval();
     renderActions();
     lockIfNeeded();
   }
@@ -411,6 +500,7 @@ crmI18n.ready.then(function quotationsPage() {
       const result = await crmApi("/pricing/preview", jsonRequest("POST", body));
       if (seq !== ed.seq) return;
       ed.priced = result;
+      renderApproval();
       // A GSTIN decides the state: show what the server read from it.
       if (result.billTo?.gstin && result.billTo.stateCode && result.billTo.stateCode !== ed.billTo.stateCode) {
         ed.billTo.stateCode = result.billTo.stateCode;
@@ -545,6 +635,7 @@ crmI18n.ready.then(function quotationsPage() {
 
   // --- opening ---
   function resetEditor() {
+    clearInterval(approvalPoll);
     ed.id = null;
     ed.q = null;
     ed.customer = null;
@@ -598,6 +689,7 @@ crmI18n.ready.then(function quotationsPage() {
     $("qPlace").innerHTML = stateOptions(q.placeOfSupplyCode || "", t("quotes.placeAuto"));
     $("qZero").checked = Boolean(q.supply?.zeroRated);
     renderEditor();
+    watchApproval();
     // A draft's warnings (e.g. the state was assumed) come from a fresh preview.
     if (editable()) schedulePreview();
   }
@@ -620,6 +712,7 @@ crmI18n.ready.then(function quotationsPage() {
     $("qListView").hidden = false;
     $("pageTitle").textContent = t("nav.quotations");
     loadList();
+    refreshApprovalCount();
   }
 
   // --- actions ---
@@ -701,6 +794,34 @@ crmI18n.ready.then(function quotationsPage() {
         }
         await openSend();
         return;
+      } else if (action === "ask") {
+        // Saved first, so the approval is for what is on the screen.
+        if (ed.dirty) {
+          saved = await save();
+          if (!saved) return;
+          applySaved(saved);
+          saved = null;
+          if (!ed.q.approval?.canAsk) return;
+        }
+        saved = await crmApi(`/quotations/${ed.q.id}/approval`, { method: "POST" });
+        showToast(t("quotes.ap.asked"), "success");
+      } else if (action === "approve" || action === "reject") {
+        const comment = $("qApComment")?.value.trim() || "";
+        if (action === "reject" && !comment) {
+          showToast(t("quotes.ap.needReason"), "error");
+          $("qApComment")?.scrollIntoView({ block: "center", behavior: "smooth" });
+          $("qApComment")?.focus();
+          return;
+        }
+        try {
+          saved = await crmApi(`/quotations/${ed.q.id}/approval/decision`, jsonRequest("POST", { decision: action, comment }));
+        } catch (error) {
+          if (error.code !== "ALREADY_DECIDED") throw error;
+          showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
+          applySaved(await crmApi(`/quotations/${ed.q.id}`));
+          return;
+        }
+        showToast(t(action === "approve" ? "quotes.ap.youApproved" : "quotes.ap.youRejected"), "success");
       } else if (action === "paylink") {
         crmPaymentLinks.open(ed.q.orderId ? { orderId: ed.q.orderId } : { quotationId: ed.q.id });
         return;

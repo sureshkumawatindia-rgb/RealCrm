@@ -5,6 +5,7 @@ const { GSTIN_PATTERN } = require('../utils/gstin');
 const { LEAD_STAGES, QUOTATION_STATUSES, ORDER_STAGES } = require('../constants/crm');
 const { API_SCOPE_KEYS, WEBHOOK_EVENT_KEYS } = require('../constants/api');
 const { fieldFilters, customFieldValues, publicFieldList } = require('./customFields');
+const { OBJECT_KEY_PATTERN } = require('../constants/customFields');
 
 // The public API and its settings (Phase 10C).
 const text = (max) => Joi.string().trim().max(max).allow('');
@@ -52,6 +53,8 @@ module.exports = {
     allSources: Joi.boolean(),
     stages: Joi.array().items(Joi.string().valid(...LEAD_STAGES)).min(1).unique(),
   }).min(1),
+  // "New secret" (D78): the old one keeps working for 24 hours, or stops at once (0).
+  webhookRotate: Joi.object({ overlapHours: Joi.number().valid(0, 24).default(24) }),
   deliveryList: Joi.object({ ...paginationQuery, status: Joi.string().valid('pending', 'delivered', 'failed') }),
 
   // --- /api/public/v1 ---
@@ -72,6 +75,20 @@ module.exports = {
   quotationList: list({ status: Joi.string().valid(...QUOTATION_STATUSES), contactId: objectId }),
   orderList: list({ stage: Joi.string().valid(...ORDER_STAGES), contactId: objectId }),
   productList: list({ active: Joi.boolean() }),
+  // Records of the company's own objects (D78).
+  recordList: list({ object: Joi.string().pattern(OBJECT_KEY_PATTERN).required().messages({ 'string.pattern.base': 'Unknown object' }), search: Joi.string().trim().max(100), cf: fieldFilters }),
+  recordCreate: Joi.object({
+    object: Joi.string().pattern(OBJECT_KEY_PATTERN).required().messages({ 'string.pattern.base': 'Unknown object' }),
+    name: Joi.string().trim().min(1).max(200).required(),
+    contactId: objectId.allow(null),
+    customFields: customFieldValues,
+  }),
+  recordPatch: Joi.object({
+    name: Joi.string().trim().min(1).max(200),
+    contactId: objectId.allow(null),
+    customFields: customFieldValues,
+    object: Joi.any().forbidden().messages({ 'any.unknown': 'A record cannot move to another object.' }),
+  }).min(1),
   messageSend: Joi.object({
     contactId: objectId,
     phone: Joi.string().trim().max(30),

@@ -4,6 +4,7 @@ const { paginationQuery } = require('../utils/pagination');
 const { GSTIN_PATTERN } = require('../utils/gstin');
 const { QUOTATION_STATUSES, QUOTATION_TYPES } = require('../constants/crm');
 const { GST_STATES } = require('../constants/gst');
+const { DECISION_COMMENT_MAX } = require('../constants/approvals');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
 const paise = Joi.number().integer().min(0).max(1e13);
@@ -67,7 +68,13 @@ module.exports = {
       otherwise: Joi.forbidden(),
     }),
   }),
+  // Approvals (D77): a reject needs its reason.
+  approvalDecision: Joi.object({
+    decision: Joi.string().valid('approve', 'reject').required(),
+    comment: Joi.string().trim().max(DECISION_COMMENT_MAX).allow('').when('decision', { is: 'reject', then: Joi.string().trim().min(1).required() }),
+  }),
   quotationList: Joi.object({
+    approval: Joi.string().valid('pending'),
     ...paginationQuery,
     leadId: objectId,
     contactId: objectId,

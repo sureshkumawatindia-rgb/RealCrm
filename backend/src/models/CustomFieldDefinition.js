@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { isObjectKey, CUSTOM_FIELD_TYPES, CUSTOM_FIELD_STATUSES } = require('../constants/customFields');
+const { isObjectKey, CUSTOM_FIELD_TYPES, CUSTOM_FIELD_STATUSES, AGENT_ACCESS, VIEWER_ACCESS } = require('../constants/customFields');
 
 // A field a company added to its customers or leads (Phase 1A, D73). The values live on the
 // record (Contact.customFields / Lead.customFields, key → value). object, key and type never
@@ -28,6 +28,11 @@ const customFieldDefinitionSchema = new mongoose.Schema(
     required: { type: Boolean, default: false },
     // The section it is shown under in the forms (D76, CustomFieldLayout); none = "More details".
     sectionId: { type: String },
+    // Who may see and change it (D77). Owners and admins always may; missing = agents edit, viewers see.
+    access: {
+      agent: { type: String, enum: AGENT_ACCESS },
+      viewer: { type: String, enum: VIEWER_ACCESS },
+    },
     // Shown as a column in the Customers / Leads / Deals lists, for the whole company (D74, max 3).
     listColumn: { type: Boolean, default: false },
     order: { type: Number, default: 0 },

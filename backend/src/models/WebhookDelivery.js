@@ -18,7 +18,9 @@ const webhookDeliverySchema = new mongoose.Schema(
     durationMs: Number,
     deliveredAt: Date,
   },
-  { timestamps: true },
+  // minimize: false keeps empty objects (a customer without custom values still has customFields: {}),
+  // so every delivery carries the shape the docs and the examples show (D78).
+  { timestamps: true, minimize: false },
 );
 
 webhookDeliverySchema.index({ subscriptionId: 1, eventId: 1 }, { unique: true });

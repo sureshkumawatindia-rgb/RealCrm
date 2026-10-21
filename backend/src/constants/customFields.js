@@ -50,6 +50,11 @@ const MAX_SECTIONS = 10;
 const SECTION_LABEL_MAX = 40;
 const SECTION_ID_PATTERN = /^s\d{1,4}$/;
 
+// Field access (Phase 1E, D77): what agents and viewers may do with a field. Owners and admins
+// always see and edit everything. Missing means { agent: 'edit', viewer: 'view' }.
+const AGENT_ACCESS = Object.freeze(['edit', 'view', 'hidden']);
+const VIEWER_ACCESS = Object.freeze(['view', 'hidden']);
+
 // A key is made from the label once and never changes.
 const KEY_PATTERN = /^[a-z][a-z0-9_]{1,39}$/;
 // Names an object already has (keys are stored as properties of customFields).
@@ -84,4 +89,6 @@ module.exports = {
   MAX_SECTIONS,
   SECTION_LABEL_MAX,
   SECTION_ID_PATTERN,
+  AGENT_ACCESS,
+  VIEWER_ACCESS,
 };

@@ -39,6 +39,13 @@ router.get('/orders', requireScope('orders:read'), validate({ query: schemas.ord
 router.get('/orders/:id', requireScope('orders:read'), byId, async (req, res) => send(res, await api.getOrder(req, req.valid.params.id)));
 router.get('/products', requireScope('products:read'), validate({ query: schemas.productList }), async (req, res) => send(res, await api.listProducts(req, req.valid.query)));
 
+// The company's own objects and their records (D78).
+router.get('/objects', requireScope('records:read'), async (req, res) => send(res, await api.listObjects(req)));
+router.get('/records', requireScope('records:read'), validate({ query: schemas.recordList }), async (req, res) => send(res, await api.listRecords(req, req.valid.query)));
+router.get('/records/:id', requireScope('records:read'), byId, async (req, res) => send(res, await api.getRecord(req, req.valid.params.id)));
+router.post('/records', requireScope('records:write'), validate({ body: schemas.recordCreate }), async (req, res) => send(res, await api.createRecord(req, req.body), 201));
+router.patch('/records/:id', requireScope('records:write'), validate({ params: idParams, body: schemas.recordPatch }), async (req, res) => send(res, await api.updateRecord(req, req.valid.params.id, req.body)));
+
 router.post('/messages', requireScope('messages:write'), validate({ body: schemas.messageSend }), async (req, res) => send(res, await api.sendTemplate(req, req.body), 201));
 
 module.exports = router;

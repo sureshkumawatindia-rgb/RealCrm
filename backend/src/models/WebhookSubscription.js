@@ -10,6 +10,9 @@ const webhookSubscriptionSchema = new mongoose.Schema(
     events: [{ type: String, enum: WEBHOOK_EVENT_KEYS }],
     description: { type: String, default: '' },
     secretEnc: { type: String, required: true },
+    // After "New secret" (D78): the old secret also signs until previousSecretUntil.
+    previousSecretEnc: { type: String },
+    previousSecretUntil: { type: Date },
     active: { type: Boolean, default: true },
     disabledReason: { type: String, default: '' },
     failuresInARow: { type: Number, default: 0 },

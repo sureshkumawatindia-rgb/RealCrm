@@ -3,7 +3,7 @@ const { objectId } = require('./common');
 const { paginationQuery } = require('../utils/pagination');
 const {
   CUSTOM_FIELD_OBJECTS, CUSTOM_FIELD_TYPES, MAX_ACTIVE_FIELDS, MAX_OPTIONS, LABEL_MAX, HELP_TEXT_MAX, MAX_FILTERS,
-  OBJECT_KEY_PATTERN, OBJECT_NAME_MAX, OBJECT_ICONS, MAX_CUSTOM_OBJECTS, MAX_SECTIONS, SECTION_LABEL_MAX, SECTION_ID_PATTERN,
+  OBJECT_KEY_PATTERN, OBJECT_NAME_MAX, OBJECT_ICONS, MAX_CUSTOM_OBJECTS, MAX_SECTIONS, SECTION_LABEL_MAX, SECTION_ID_PATTERN, AGENT_ACCESS, VIEWER_ACCESS,
 } = require('../constants/customFields');
 
 // Settings → Custom fields (D73), and the company's own objects and their records (D75).
@@ -19,6 +19,8 @@ const option = Joi.object({ value: Joi.string().trim().max(10), label: label.req
 const objectName = Joi.string().trim().min(1).max(OBJECT_NAME_MAX);
 // A section (D76): s1, s2 … null = "More details".
 const sectionId = Joi.string().pattern(SECTION_ID_PATTERN).allow(null).messages({ 'string.pattern.base': 'Unknown section' });
+// Who may see and change a field (D77); owners and admins always may.
+const access = Joi.object({ agent: Joi.string().valid(...AGENT_ACCESS), viewer: Joi.string().valid(...VIEWER_ACCESS) }).min(1);
 
 // ?cf=<key>:<operator>[:<value>] on the contact and lead lists (D74), once or repeated. Each one is
 // checked against the company's fields in services/customFieldFilters.js.
@@ -47,6 +49,7 @@ module.exports = {
     helpText,
     required: Joi.boolean(),
     sectionId,
+    access,
     listColumn: Joi.boolean(),
     options: Joi.when('type', {
       is: 'dropdown',
@@ -65,6 +68,7 @@ module.exports = {
     helpText,
     required: Joi.boolean(),
     sectionId,
+    access,
     listColumn: Joi.boolean(),
     options: Joi.array().items(option).min(1).max(MAX_OPTIONS),
     version: Joi.number().integer().min(0),

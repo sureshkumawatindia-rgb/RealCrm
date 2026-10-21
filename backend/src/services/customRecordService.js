@@ -8,6 +8,7 @@ const customFieldService = require('./customFieldService');
 const customFieldFilters = require('./customFieldFilters');
 const customObjectService = require('./customObjectService');
 const lookupService = require('./lookupService');
+const automationEvents = require('./automation/events');
 
 // Records of the company's own objects (Phase 1C, D75). They follow the Customers module: the
 // same view / create / edit / delete, and agents see the records they own unless they have
@@ -115,12 +116,17 @@ async function create(req, body, { enforceRequired = true } = {}) {
     createdById: req.user._id,
   });
   await audit(req, { action: 'record.created', entityType: 'CustomRecord', entityId: record._id, changes: { object: record.object } });
+  automationEvents.emit('record.created', { organizationId: record.organizationId, recordId: record._id, object: record.object, key: `record.created:${record._id}` }, req);
   return record;
 }
 
-async function update(req, id, patch) {
+// What a change compares (record.updated is sent only when one of these changed, D78).
+const stateOf = (record) => JSON.stringify([record.name, String(record.contactId || ''), String(record.ownerId || ''), record.customFields || {}]);
+
+async function update(req, id, patch, { enforceRequired = true } = {}) {
   const record = await findVisible(req, id);
   if (patch.version !== undefined && patch.version !== record.version) throw httpError(409, 'VERSION_CONFLICT', 'Someone else changed this record. Reload and try again.');
+  const before = stateOf(record);
   const changes = [];
   if ('name' in patch) { record.name = patch.name; changes.push('name'); }
   if ('contactId' in patch) {
@@ -130,7 +136,7 @@ async function update(req, id, patch) {
     changes.push('contactId');
   }
   if (patch.customFields !== undefined) {
-    record.customFields = await customFieldService.applyValues(req, record.object, patch.customFields, record.customFields);
+    record.customFields = await customFieldService.applyValues(req, record.object, patch.customFields, record.customFields, { enforceRequired });
     record.markModified('customFields');
     changes.push('customFields');
   }
@@ -138,6 +144,9 @@ async function update(req, id, patch) {
   record.version += 1;
   await record.save();
   await audit(req, { action: 'record.updated', entityType: 'CustomRecord', entityId: record._id, changes });
+  if (stateOf(record) !== before) {
+    automationEvents.emit('record.updated', { organizationId: record.organizationId, recordId: record._id, object: record.object, key: `record.updated:${record._id}:${record.version}` }, req);
+  }
   return record;
 }
 
@@ -145,6 +154,8 @@ async function remove(req, id) {
   const record = await findVisible(req, id);
   await record.softDelete();
   await audit(req, { action: 'record.deleted', entityType: 'CustomRecord', entityId: record._id });
+  // The record is gone from lists by now, so the event carries what identifies it.
+  automationEvents.emit('record.deleted', { organizationId: record.organizationId, recordId: record._id, object: record.object, name: record.name, key: `record.deleted:${record._id}` }, req);
 }
 
 const one = async (req, record) => (await present(req, [record]))[0];
@@ -156,4 +167,7 @@ module.exports = {
   create: async (req, body) => one(req, await create(req, body)),
   update: async (req, id, patch) => one(req, await update(req, id, patch)),
   remove,
+  // The public API (D78) shapes its own answer from the saved record.
+  createDoc: create,
+  updateDoc: update,
 };

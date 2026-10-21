@@ -32,6 +32,9 @@ const conversationService = require('./conversationService');
 const templateService = require('./templateService');
 const automationEvents = require('./automation/events');
 const planService = require('./planService');
+const customFieldService = require('./customFieldService');
+const approvalService = require('./approvalService');
+const notificationService = require('./notificationService');
 
 // Quotations, estimates and proforma invoices (Phase 5). The browser sends quantities,
 // prices, discounts and rates; every amount is computed here (utils/gst). A draft is edited
@@ -190,6 +193,14 @@ function serializeQuotation(quotation, { full = true } = {}) {
   };
 }
 
+// The quotations as the API returns them: each with its approval for this member (D77).
+async function present(req, quotations, options) {
+  const list = [].concat(quotations);
+  const views = await approvalService.viewsOf(req, list);
+  const out = list.map((quotation, index) => ({ ...serializeQuotation(quotation, options), approval: views[index] }));
+  return Array.isArray(quotations) ? out : out[0];
+}
+
 // --- numbering ------------------------------------------------------------------------------
 // Each type has its own counter per financial year (Quotation keeps the Phase 2 counter).
 async function nextNumber(organizationId, session, { type = 'Quotation', prefixes } = {}) {
@@ -231,6 +242,7 @@ async function preview(req, body) {
   const billTo = mergeParty(base, body.billTo);
   const billing = billingOf(org);
   const priced = await priceFor(org, { ...body, billTo, roundOff: body.roundOff ?? billing.roundOff });
+  const rules = await approvalService.activeRules(req);
   return {
     items: priced.items,
     totals: priced.totals,
@@ -238,6 +250,11 @@ async function preview(req, body) {
     billTo,
     // What a new document starts with (Settings → Billing).
     defaults: { terms: billing.terms, validUntil: indiaDate(billing.validityDays) },
+    // Whether the limits of Settings → Approvals apply to it, for this member (D77).
+    approval: (() => {
+      const reasons = approvalService.reasonsFor(rules, priced.totals, req.member?.role);
+      return { needed: reasons.length > 0, reasons };
+    })(),
   };
 }
 
@@ -277,7 +294,7 @@ async function create(req, body) {
     if (lead) await leadService.addActivity(req, lead, 'Quotation', `${type} ${quotation.number} created (₹${(quotation.totals.grandTotalPaise / 100).toLocaleString('en-IN')})`, { session });
   });
   await audit(req, { action: 'quotation.created', entityType: 'Quotation', entityId: quotation._id });
-  return serializeQuotation(quotation);
+  return present(req, quotation);
 }
 
 function assertDraft(quotation) {
@@ -314,8 +331,15 @@ async function update(req, id, body) {
         throw httpError(409, 'TYPE_FIXED', 'The document type cannot change after it is numbered. Make a new one instead.');
       }
       await fillContact(await Contact.findById(quotation.contactId).session(session), billTo, session);
+      // A change cancels a request for approval; an approval or a refusal stays only while the
+      // lines and totals are the same (D77).
+      if (quotation.approval?.state && (quotation.approval.state === 'pending' || approvalService.fingerprintOf(quotation) !== quotation.approval.fingerprint)) {
+        quotation.approval = undefined;
+      }
       events.push(['Quotation', `${quotation.type} ${quotation.number} updated (₹${(quotation.totals.grandTotalPaise / 100).toLocaleString('en-IN')})`]);
     }
+    // Marking a draft sent or accepted needs its approval first, when a rule applies (D77).
+    if (status && status !== quotation.status && ['Sent', 'Accepted'].includes(status)) await approvalService.assertSendable(req, quotation);
     if (status && status !== quotation.status) events.push(...(await changeStatus(req, quotation, status, { rejectedReason, session })));
     await quotation.save({ session });
     const lead = events.length ? await leadOf(quotation, session) : null;
@@ -324,7 +348,7 @@ async function update(req, id, body) {
   await audit(req, { action: status ? 'quotation.status_changed' : 'quotation.updated', entityType: 'Quotation', entityId: quotation._id, changes: status ? { status } : Object.keys(content) });
   emitStatusChange(quotation, quotation.$locals.statusChange, req);
   if (quotation.$locals.stageChange) await leadService.emitStageChange(req, quotation.$locals.stageChange.leadId, quotation.$locals.stageChange);
-  return serializeQuotation(quotation);
+  return present(req, quotation);
 }
 
 // "A quotation's status changed" (outbound webhooks), after the change is saved.
@@ -399,13 +423,14 @@ async function revise(req, id) {
     for (const field of ['sentAt', 'sentVia', 'viewedAt', 'lastViewedAt', 'acceptedAt', 'rejectedAt', 'expiredAt']) quotation[field] = undefined;
     quotation.viewCount = 0;
     quotation.rejectedReason = '';
+    quotation.approval = undefined; // a revision is asked for afresh (D77)
     quotation.seller = sellerOf(org);
     await quotation.save({ session });
     const lead = await leadOf(quotation, session);
     if (lead) await leadService.addActivity(req, lead, 'Quotation', `${quotation.type} ${quotation.number} revised (revision ${quotation.revision})`, { session });
   });
   await audit(req, { action: 'quotation.revised', entityType: 'Quotation', entityId: quotation._id, changes: { revision: quotation.revision } });
-  return serializeQuotation(quotation);
+  return present(req, quotation);
 }
 
 async function list(req, query) {
@@ -415,6 +440,7 @@ async function list(req, query) {
     ...(query.contactId && { contactId: query.contactId }),
     ...(query.status && { status: query.status }),
     ...(query.type && { type: query.type }),
+    ...(query.approval && { 'approval.state': query.approval }), // "Waiting for approval" (D77)
   };
   if (query.q) {
     const pattern = new RegExp(query.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -425,7 +451,7 @@ async function list(req, query) {
     Quotation.find(filter).select('-revisions').sort({ createdAt: -1, _id: -1 }).skip(page.skip).limit(page.limit),
     Quotation.countDocuments(filter),
   ]);
-  return { items: items.map((q) => serializeQuotation(q, { full: false })), pagination: paginationMeta(page, total) };
+  return { items: await present(req, items, { full: false }), pagination: paginationMeta(page, total) };
 }
 
 async function remove(req, id) {
@@ -483,7 +509,9 @@ async function pdfFor(quotation, { maskPhones = false } = {}) {
 
 // GET /quotations/:id/pdf (signed-in members who may see it).
 async function pdf(req, id) {
-  return pdfFor(await findVisible(req, id), { maskPhones: req.maskPhones });
+  const quotation = await findVisible(req, id);
+  await approvalService.assertSendable(req, quotation); // not before its approval (D77)
+  return pdfFor(quotation, { maskPhones: req.maskPhones });
 }
 
 // A customer opened the link: count it; the first view of a sent quotation makes it Viewed
@@ -604,6 +632,7 @@ async function sendOnWhatsApp(req, id, { mode, caption = '', templateId, variabl
   if (!SENDABLE_STATUSES.includes(quotation.status)) {
     throw httpError(409, 'REVISE_FIRST', `This ${quotation.type.toLowerCase()} was ${quotation.status.toLowerCase()}: revise it first.`);
   }
+  await approvalService.assertSendable(req, quotation); // not before its approval (D77)
   const contact = await contactOf(quotation);
   if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', `${contact?.name || 'The customer'} has no mobile number. Add it to the customer first.`);
   let conversation = await chatOf(quotation);
@@ -635,7 +664,76 @@ async function sendOnWhatsApp(req, id, { mode, caption = '', templateId, variabl
   await audit(req, { action: 'quotation.sent_whatsapp', entityType: 'Quotation', entityId: quotation._id, changes: { mode, templateId: templateId || null } });
   emitStatusChange(quotation, quotation.$locals.statusChange, req);
   if (quotation.$locals.stageChange) await leadService.emitStageChange(req, quotation.$locals.stageChange.leadId, quotation.$locals.stageChange);
-  return { quotation: serializeQuotation(quotation), message, conversationId: conversation._id };
+  return { quotation: await present(req, quotation), message, conversationId: conversation._id };
+}
+
+// --- approvals (D77) ------------------------------------------------------------------------
+const rupeesText = (paise) => formatRupees(paise);
+const reasonText = (reason) => (reason.kind === 'discount'
+  ? `discount ${reason.value}% is above ${reason.limit}%`
+  : `total ${rupeesText(reason.value)} is above ${rupeesText(reason.limit)}`);
+
+// POST /quotations/:id/approval — the one sending asks every other owner and admin.
+async function requestApproval(req, id) {
+  let quotation = await findVisible(req, id);
+  if (quotation.status !== 'Draft') throw httpError(409, 'NOT_DRAFT', `This ${quotation.type.toLowerCase()} was ${quotation.status.toLowerCase()}; revise it first.`);
+  const reasons = approvalService.reasonsFor(await approvalService.activeRules(req), quotation.totals, req.member.role);
+  if (!reasons.length) throw httpError(409, 'NOT_NEEDED', 'This quotation does not need approval. You can send it.');
+  const current = approvalService.currentApproval(quotation);
+  if (['pending', 'approved'].includes(current?.state)) return present(req, quotation); // asking twice is harmless
+  const fingerprint = approvalService.fingerprintOf(quotation);
+  quotation = await Quotation.findOneAndUpdate(
+    { _id: quotation._id, organizationId: req.tenant.organizationId, status: 'Draft' },
+    { $set: { approval: { state: 'pending', reasons, fingerprint, requestedById: req.member._id, requestedAt: new Date(), comment: '' } } },
+    { returnDocument: 'after' },
+  );
+  if (!quotation) throw httpError(409, 'NOT_DRAFT', 'This quotation changed meanwhile. Reload and try again.');
+  const asker = await memberLabel(req.member._id);
+  const approvers = await OrganizationMember.find({ organizationId: req.tenant.organizationId, status: 'active', role: { $in: ['owner', 'admin'] }, _id: { $ne: req.member._id } }).select('_id');
+  await notificationService.notify(req.tenant.organizationId, approvers.map((m) => m._id), {
+    title: `${asker} asks you to approve ${quotation.type} ${quotation.number}`,
+    body: `${quotation.billTo?.name || 'Customer'} · ${rupeesText(quotation.totals?.grandTotalPaise)} · ${reasons.map(reasonText).join('; ')}`,
+    link: `Quotations.html?id=${quotation._id}`,
+    source: 'approval',
+  });
+  const lead = await leadOf(quotation);
+  if (lead) await leadService.addActivity(req, lead, 'Quotation', `${quotation.type} ${quotation.number} sent for approval (${reasons.map(reasonText).join('; ')})`);
+  await audit(req, { action: 'quotation.approval_requested', entityType: 'Quotation', entityId: quotation._id, changes: { reasons: reasons.map((r) => r.kind) } });
+  automationEvents.emit('quotation.approval_requested', { organizationId: quotation.organizationId, quotationId: quotation._id, approval: approvalService.publicApproval(quotation.approval), key: `quotation.approval_requested:${quotation._id}:${quotation.approval.requestedAt.getTime()}` }, req);
+  return present(req, quotation);
+}
+
+// POST /quotations/:id/approval/decision — an owner or admin (not the one who asked); the first
+// decision wins.
+async function decideApproval(req, id, { decision, comment = '' }) {
+  const quotation = await Quotation.findOne({ _id: id, organizationId: req.tenant.organizationId });
+  if (!quotation) throw httpError(404, 'NOT_FOUND', 'Quotation not found');
+  const current = approvalService.currentApproval(quotation);
+  if (current?.state !== 'pending' || quotation.status !== 'Draft') {
+    throw httpError(409, 'ALREADY_DECIDED', current?.state ? 'Someone has already decided on this quotation.' : 'This quotation is not waiting for approval any more.');
+  }
+  if (String(current.requestedById) === String(req.member._id)) throw httpError(403, 'OWN_REQUEST', 'Someone else must approve your own quotation.');
+  const state = decision === 'approve' ? 'approved' : 'rejected';
+  const decided = await Quotation.findOneAndUpdate(
+    { _id: quotation._id, organizationId: req.tenant.organizationId, 'approval.state': 'pending', 'approval.fingerprint': current.fingerprint },
+    { $set: { 'approval.state': state, 'approval.decidedById': req.member._id, 'approval.decidedAt': new Date(), 'approval.comment': String(comment || '').trim() } },
+    { returnDocument: 'after' },
+  );
+  if (!decided) throw httpError(409, 'ALREADY_DECIDED', 'Someone has already decided on this quotation.');
+  const by = await memberLabel(req.member._id);
+  const label = `${decided.type} ${decided.number}`;
+  const note = decided.approval.comment;
+  await notificationService.notify(req.tenant.organizationId, [current.requestedById], {
+    title: state === 'approved' ? `${by} approved ${label}` : `${by} did not approve ${label}`,
+    body: state === 'approved' ? 'You can send it to the customer now.' : note,
+    link: `Quotations.html?id=${decided._id}`,
+    source: 'approval',
+  });
+  const lead = await leadOf(decided);
+  if (lead) await leadService.addActivity(req, lead, 'Quotation', state === 'approved' ? `${label} approved by ${by}` : `${label} not approved by ${by}: ${note}`);
+  await audit(req, { action: state === 'approved' ? 'quotation.approved' : 'quotation.approval_rejected', entityType: 'Quotation', entityId: decided._id, changes: { comment: note } });
+  automationEvents.emit('quotation.approval_decided', { organizationId: decided.organizationId, quotationId: decided._id, state, approval: approvalService.publicApproval(decided.approval), key: `quotation.approval_decided:${decided._id}:${decided.approval.decidedAt.getTime()}` }, req);
+  return present(req, decided);
 }
 
 // GET /quotations/awaiting-reply?days=N — leads at Quote Sent whose latest sent quotation is at
@@ -652,6 +750,7 @@ async function awaitingReply(req, { days = 3 } = {}) {
     .populate({ path: 'contactId', select: 'name email phone company lifecycle' });
   const contactIds = leads.map((lead) => lead.contactId?._id || lead.contactId);
   const chats = await Conversation.find({ organizationId: req.tenant.organizationId, contactId: { $in: contactIds } }).select('contactId lastInboundAt lastMessageAt');
+  const keys = await customFieldService.activeKeys(req, 'lead');
   const chatOfContact = new Map();
   for (const chat of chats) {
     const key = String(chat.contactId);
@@ -664,7 +763,7 @@ async function awaitingReply(req, { days = 3 } = {}) {
       const chat = chatOfContact.get(String(lead.contactId?._id || lead.contactId));
       if (chat?.lastInboundAt && chat.lastInboundAt > quotation.sentAt) return null; // they replied
       return {
-        lead: leadService.serializeLead(lead),
+        lead: leadService.serializeLead(lead, keys),
         quotation: {
           id: quotation._id, type: quotation.type, number: quotation.number, status: quotation.status, sentAt: quotation.sentAt,
           viewCount: quotation.viewCount || 0, lastViewedAt: quotation.lastViewedAt || null, grandTotalPaise: quotation.totals?.grandTotalPaise || 0,
@@ -683,5 +782,6 @@ module.exports = {
   pdf, pdfFor, openShared, recordView, shareUrlOf,
   preview, create, update, revise, list, remove, saveDraftForLead, buildImported, expireDue, register, nextNumber,
   serializeQuotation, sellerOf, partyFromContact, priceFor, changeStatus, findVisible, EXPIRE_JOB,
-  get: async (req, id) => serializeQuotation(await findVisible(req, id)),
+  get: async (req, id) => present(req, await findVisible(req, id)),
+  present, requestApproval, decideApproval,
 };

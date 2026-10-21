@@ -899,8 +899,14 @@
             <button class="settings-tab" data-panel="fields" id="fieldsTab" style="display: none">
               <i class="fa-solid fa-sliders"></i> <span data-i18n="set.tab.fields">Custom fields</span>
             </button>
+            <button class="settings-tab" data-panel="approvals" id="approvalsTab" style="display: none">
+              <i class="fa-solid fa-circle-check"></i> <span data-i18n="set.tab.approvals">Approvals</span>
+            </button>
             <button class="settings-tab" data-panel="ai" id="aiTab" style="display: none">
               <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="set.tab.ai">AI assistant</span>
+            </button>
+            <button class="settings-tab" data-panel="connections" id="connectionsTab" style="display: none">
+              <i class="fa-solid fa-circle-nodes"></i> <span data-i18n="set.tab.connections">Connections</span> <span class="conn-tab-count" id="connCount" hidden></span>
             </button>
             <button class="settings-tab" data-panel="integrations" id="integrationsTab" style="display: none">
               <i class="fa-solid fa-plug"></i> <span data-i18n="set.tab.integrations">API & webhooks</span>
@@ -1973,6 +1979,20 @@
           </div>
 
           <!-- API & WEBHOOKS (Phase 10C, owners and admins) -->
+          <!-- CONNECTIONS (D78, owners and admins, js/settings-connections.js): every integration on one screen -->
+          <div class="settings-panel" data-settings-panel="connections">
+            <div class="panel">
+              <div class="panel-head">
+                <h3 data-i18n="conn.title">Connections</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint" data-i18n="conn.intro">Everything your CRM is connected to, on one screen: what works, what needs a look, and where to fix it.</p>
+                <div class="conn-summary" id="connSummary" role="status"></div>
+                <div id="connList"><p class="settings-hint" data-i18n="cf.loading">Loading…</p></div>
+              </div>
+            </div>
+          </div>
+
           <div class="settings-panel" data-settings-panel="integrations">
             <div class="panel">
               <div class="panel-head">
@@ -2001,7 +2021,13 @@
                 <div class="settings-section">
                   <div class="settings-section-label">Webhooks</div>
                   <p class="settings-hint">The CRM tells your https address when something happens (a new lead, a stage change, a WhatsApp message, an order, a payment …). Each call is signed with the webhook's secret: <code>X-CRM-Signature: sha256=&lt;HMAC of the body&gt;</code>.</p>
+                  <p class="settings-hint" data-i18n="int.signHint">Safer (D78): X-CRM-Signature-256 signs the time too (t=…,v1=…), so your system can refuse a message older than 5 minutes. See docs/INTEGRATIONS.md.</p>
                   <div id="intHooks"><p class="settings-hint">Loading…</p></div>
+                  <!-- D78: what each event sends, for Zapier and Make -->
+                  <details class="int-examples" id="intHookExamples" hidden>
+                    <summary data-i18n="int.ex.title">What each event sends (examples)</summary>
+                    <div id="intHookExampleList"></div>
+                  </details>
                   <div class="pl-url" id="intNewSecret" hidden></div>
                   <button class="btn btn-outline" id="intHookAddBtn" type="button"><i class="fa-solid fa-plus"></i> Add a webhook</button>
                   <form class="wa-block" id="intHookForm" autocomplete="off" hidden>
@@ -2144,6 +2170,25 @@
                     <label class="cf-check" for="cfListColumn"><input type="checkbox" id="cfListColumn" /> <span data-i18n="cf.listColumnLabel">Show as a column in the list</span></label>
                     <div class="cf-help" data-i18n="cf.listColumnHelp">Up to 3 per list, the same for the whole team.</div>
                   </div>
+                  <!-- Field access (D77): what agents and viewers may do with it -->
+                  <div class="field cf-access">
+                    <div class="cf-access-row">
+                      <span class="cf-access-who" id="cfAgentAccessLabel" data-i18n="cf.access.agents">Agents can</span>
+                      <div class="cf-sec-cols" id="cfAgentAccess" role="radiogroup" aria-labelledby="cfAgentAccessLabel">
+                        <button type="button" class="btn btn-outline" role="radio" data-value="edit" data-i18n="cf.access.edit">Edit</button>
+                        <button type="button" class="btn btn-outline" role="radio" data-value="view" data-i18n="cf.access.view">See only</button>
+                        <button type="button" class="btn btn-outline" role="radio" data-value="hidden" data-i18n="cf.access.hidden">Hidden</button>
+                      </div>
+                    </div>
+                    <div class="cf-access-row">
+                      <span class="cf-access-who" id="cfViewerAccessLabel" data-i18n="cf.access.viewers">Viewers can</span>
+                      <div class="cf-sec-cols" id="cfViewerAccess" role="radiogroup" aria-labelledby="cfViewerAccessLabel">
+                        <button type="button" class="btn btn-outline" role="radio" data-value="view" data-i18n="cf.access.see">See</button>
+                        <button type="button" class="btn btn-outline" role="radio" data-value="hidden" data-i18n="cf.access.hidden">Hidden</button>
+                      </div>
+                    </div>
+                    <div class="cf-help" data-i18n="cf.access.help">Owners and admins always see and change every field. A hidden field leaves that role's forms, lists, search and filters.</div>
+                  </div>
                   <div class="data-actions">
                     <button type="submit" class="btn btn-primary" id="cfSave" data-i18n="cf.save">Save field</button>
                     <button type="button" class="btn btn-outline" id="cfCancel" data-i18n="common.cancel">Cancel</button>
@@ -2166,6 +2211,53 @@
                     <span class="settings-hint" id="cfSectionState" role="status" style="margin: 0"></span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- APPROVALS (D77, owners and admins, js/settings-approvals.js): limits on quotations -->
+          <div class="settings-panel" data-settings-panel="approvals">
+            <div class="panel">
+              <div class="panel-head">
+                <h3 data-i18n="ap.title">Approvals</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint" data-i18n="ap.intro">Set limits on quotations. When a salesperson's quotation goes over one, an owner or admin must approve it before it reaches the customer: until then it cannot be sent, marked sent or accepted, or downloaded as a PDF.</p>
+                <div class="cf-toolbar">
+                  <span class="settings-hint" id="apCount" style="margin: 0"></span>
+                  <button type="button" class="btn btn-primary" id="apAdd"><i class="fa-solid fa-plus"></i> <span data-i18n="ap.add">Add rule</span></button>
+                </div>
+                <form class="cf-form" id="apForm" hidden autocomplete="off">
+                  <h4 id="apFormTitle" data-i18n="ap.addTitle">Add a rule</h4>
+                  <div class="field">
+                    <label for="apName" data-i18n="ap.name">Name</label>
+                    <input type="text" id="apName" maxlength="60" required placeholder="e.g. Dealer discount" data-i18n-placeholder="ap.namePlaceholder" />
+                  </div>
+                  <div class="field-row">
+                    <div class="field">
+                      <label for="apDiscount" data-i18n="ap.discount">Discount more than (%)</label>
+                      <input type="text" inputmode="decimal" id="apDiscount" maxlength="6" placeholder="10" />
+                    </div>
+                    <div class="field">
+                      <label for="apTotal" data-i18n="ap.total">Total more than (₹)</label>
+                      <input type="text" inputmode="decimal" id="apTotal" maxlength="20" placeholder="5,00,000" />
+                    </div>
+                  </div>
+                  <div class="cf-help" data-i18n="ap.conditionsHelp">Fill one or both. The discount is the whole quotation's, before GST. A quotation needs approval when it crosses either.</div>
+                  <div class="field" style="margin-top: 12px">
+                    <label class="cf-check" for="apAdmins"><input type="checkbox" id="apAdmins" /> <span data-i18n="ap.alsoAdmins">Also for admins</span></label>
+                    <div class="cf-help" data-i18n="ap.whoHelp">Agents are always stopped by a rule; owners never are.</div>
+                  </div>
+                  <div class="data-actions">
+                    <button type="submit" class="btn btn-primary" id="apSave" data-i18n="ap.save">Save rule</button>
+                    <button type="button" class="btn btn-outline" id="apCancel" data-i18n="common.cancel">Cancel</button>
+                  </div>
+                </form>
+                <div id="apList"><p class="settings-hint" data-i18n="cf.loading">Loading…</p></div>
+                <details class="cf-archived" id="apArchivedBox" hidden>
+                  <summary id="apArchivedTitle"></summary>
+                  <div id="apArchived"></div>
+                </details>
               </div>
             </div>
           </div>
@@ -2343,6 +2435,8 @@
     <script src="./js/settings-audit.js"></script>
     <script src="./js/settings-fields.js"></script>
     <script src="./js/settings-pages.js"></script>
+    <script src="./js/settings-approvals.js"></script>
+    <script src="./js/settings-connections.js"></script>
     <script src="./js/settings-deletion.js"></script>
   </body>
 </html>

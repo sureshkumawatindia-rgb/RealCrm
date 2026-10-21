@@ -2,6 +2,7 @@ const express = require('express');
 const apiKeys = require('../services/apiKeyService');
 const webhooks = require('../services/outboundWebhookService');
 const metaConversions = require('../services/metaConversionsService');
+const integrationStatus = require('../services/integrationStatusService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -43,8 +44,11 @@ webhookRoutes.delete('/:id', byId, async (req, res) => {
 webhookRoutes.post('/:id/test', byId, async (req, res) => {
   res.json({ success: true, data: await webhooks.test(req, req.valid.params.id) });
 });
-webhookRoutes.post('/:id/rotate-secret', byId, async (req, res) => {
-  res.json({ success: true, data: await webhooks.rotateSecret(req, req.valid.params.id), message: 'New secret made. Copy it now.' });
+webhookRoutes.post('/:id/end-overlap', byId, async (req, res) => {
+  res.json({ success: true, data: await webhooks.endOverlap(req, req.valid.params.id), message: 'The old secret no longer works' });
+});
+webhookRoutes.post('/:id/rotate-secret', validate({ params: idParams, body: schemas.webhookRotate }), async (req, res) => {
+  res.json({ success: true, data: await webhooks.rotateSecret(req, req.valid.params.id, req.body), message: 'New secret made. Copy it now.' });
 });
 webhookRoutes.get('/:id/deliveries', validate({ params: idParams, query: schemas.deliveryList }), async (req, res) => {
   const { items, pagination } = await webhooks.listDeliveries(req, req.valid.params.id, req.valid.query);
@@ -71,4 +75,11 @@ metaConversionsRoutes.post('/test', async (req, res) => {
   res.json({ success: true, data: await metaConversions.test(req) });
 });
 
-module.exports = { apiKeyRoutes, webhookRoutes, metaConversionsRoutes };
+// Settings → Connections (D78): every integration's state on one screen.
+const statusRoutes = express.Router();
+statusRoutes.use(authenticate, requireRole('owner', 'admin'));
+statusRoutes.get('/status', async (req, res) => {
+  res.json({ success: true, data: await integrationStatus.status(req) });
+});
+
+module.exports = { apiKeyRoutes, webhookRoutes, metaConversionsRoutes, statusRoutes };

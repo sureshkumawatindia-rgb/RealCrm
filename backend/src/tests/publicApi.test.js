@@ -32,7 +32,7 @@ describe('Public API (Phase 10C)', () => {
     expect(listed.items.map((k) => k.name)).toEqual(['Reports', 'Zapier']);
     expect(JSON.stringify(listed)).not.toContain(full.split('_')[2]);
     expect(listed.items[1]).toMatchObject({ preview: `${full.split('_').slice(0, 2).join('_')}_…`, createdBy: 'Asha' });
-    expect(listed.scopes).toHaveLength(8);
+    expect(listed.scopes).toHaveLength(10); // D78 added records:read and records:write
     const stored = await ApiKey.findOne({ name: 'Zapier' });
     expect(stored.hash).toHaveLength(64);
     expect(JSON.stringify(stored.toObject())).not.toContain(full.split('_')[2]);
