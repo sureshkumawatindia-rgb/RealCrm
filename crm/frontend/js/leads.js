@@ -711,6 +711,21 @@ const leadFieldFilters = cfFilterBar({
   },
 });
 
+// Download Excel (D82): the same search, stage and field filters as the table.
+cfExportButton({
+  button: document.getElementById("exportBtn"),
+  path: "/leads/export",
+  name: "leads",
+  params: () => {
+    const params = cfQueryParams(leadFieldFilters.filters());
+    const q = document.getElementById("searchInput").value.trim();
+    const stage = document.getElementById("filterStatus").value;
+    if (q) params.set("q", q.slice(0, 100));
+    if (stage !== "all") params.set("stage", stage);
+    return params;
+  },
+});
+
 function renderTable() {
   const searchTerm = document.getElementById("searchInput").value.toLowerCase();
   const statusFilter = document.getElementById("filterStatus").value;

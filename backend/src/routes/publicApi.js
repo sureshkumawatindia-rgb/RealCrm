@@ -1,5 +1,6 @@
 const express = require('express');
 const api = require('../services/publicApiService');
+const tableExport = require('../services/tableExportService');
 const { apiKeyAuth, requireScope } = require('../middleware/apiKey');
 const { apiLimiter, publicApiLimiter } = require('../middleware/rateLimit');
 const validate = require('../middleware/validate');
@@ -45,6 +46,15 @@ router.get('/records', requireScope('records:read'), validate({ query: schemas.r
 router.get('/records/:id', requireScope('records:read'), byId, async (req, res) => send(res, await api.getRecord(req, req.valid.params.id)));
 router.post('/records', requireScope('records:write'), validate({ body: schemas.recordCreate }), async (req, res) => send(res, await api.createRecord(req, req.body), 201));
 router.patch('/records/:id', requireScope('records:write'), validate({ params: idParams, body: schemas.recordPatch }), async (req, res) => send(res, await api.updateRecord(req, req.valid.params.id, req.body)));
+
+// Feeds for Excel and Power BI (D82): every row of a table, flat, money in rupees. Each table
+// needs its own read scope. ?format=csv for a CSV; ?updatedSince= for the changed rows only.
+router.get('/feeds/:table', validate({ params: schemas.feedParams, query: schemas.feedQuery }), (req, res, next) => requireScope(tableExport.TABLES[req.valid.params.table].scope)(req, res, next), async (req, res) => {
+  const out = await tableExport.feed(req, req.valid.params.table, req.valid.query);
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (out.csv !== undefined) return res.type('text/csv; charset=utf-8').send(out.csv);
+  return res.json({ success: true, data: out.rows });
+});
 
 router.post('/messages', requireScope('messages:write'), validate({ body: schemas.messageSend }), async (req, res) => send(res, await api.sendTemplate(req, req.body), 201));
 

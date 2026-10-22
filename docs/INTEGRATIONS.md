@@ -19,6 +19,12 @@ Owners and admins set these up in **Settings → API & webhooks**.
   - when the plan has no API: `403 PLAN_LIMIT` (or `SUBSCRIPTION_INACTIVE` while the plan is not active).
 - **Rate limit:** 120 requests a minute per key (`RATE_LIMIT_PUBLIC_API_PER_MINUTE`). Over that: `429 RATE_LIMITED`.
 - **Usage:** every call with a valid key is counted in Settings → Plan & usage ("API calls this month"). It is counted, not limited (D80).
+- **Feeds for Excel and Power BI (D82):** `GET /api/public/v1/feeds/{contacts|leads|quotations|orders|products}` gives every row of a table, flat:
+  - money in rupees (`valueRupees`, `totalRupees` …), dates in ISO, your own fields as `cf_<key>`;
+  - `?format=csv` gives CSV (Excel: Data → From Web; Power BI: Get data → Web, each with the header `Authorization: Bearer <key>`);
+  - `?updatedSince=2026-10-01` gives only the changed rows;
+  - at most 100,000 rows;
+  - each table needs its read scope (`contacts:read` …).
 
 ### Data format
 

@@ -189,6 +189,9 @@ module.exports = {
     followUpTo: Joi.date(),
     cf: fieldFilters,
   }),
+  // Download Excel (D82): the list's own filters, and the file type.
+  contactExport: Joi.object({ ...listBase, lifecycle: Joi.string().valid(...CONTACT_LIFECYCLES), status: Joi.string().valid(...CONTACT_STATUSES), ownerId: objectId, tag: Joi.string().trim().max(50), consent: Joi.string().valid('unknown', 'opted_in', 'opted_out'), cf: fieldFilters, format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
+  leadExport: Joi.object({ ...listBase, stage: Joi.string().valid(...LEAD_STAGES), ownerId: objectId, productId: objectId, contactId: objectId, followUpFrom: Joi.date(), followUpTo: Joi.date(), cf: fieldFilters, format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
   leadNote: Joi.object({ text: Joi.string().trim().min(1).max(5000).required(), type: Joi.string().trim().max(40).default('Note') }),
 
   quotationDraft: Joi.object({

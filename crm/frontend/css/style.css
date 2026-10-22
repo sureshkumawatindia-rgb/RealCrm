@@ -4651,6 +4651,28 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   color: var(--warning-text);
   overflow-wrap: anywhere;
 }
+/* Settings → API & webhooks → Excel and Power BI (D82) */
+.int-feed {
+  margin-bottom: 10px;
+}
+.int-feed-name {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.int-feed-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.int-feed-steps ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.int-feed-steps li {
+  margin-bottom: 4px;
+}
 .conn-plan {
   margin-top: 6px;
   font-size: 13px;

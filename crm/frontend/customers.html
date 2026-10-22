@@ -166,7 +166,9 @@
                 <option value="Inactive" data-i18n="stage.Inactive">Inactive</option>
               </select>
               <button class="btn btn-outline" id="importBtn" type="button">
-                <i class="fa-solid fa-file-csv"></i> <span data-i18n="customers.import-csv">Import CSV</span></button>
+                <i class="fa-solid fa-file-import"></i> <span data-i18n="xl.import.button">Import</span></button>
+              <button class="btn btn-outline" id="exportBtn" type="button" hidden>
+                <i class="fa-solid fa-file-excel"></i> <span data-i18n="xl.download">Download Excel</span></button>
               <button class="btn btn-primary" id="addBtn">
                 <i class="fa-solid fa-plus"></i> <span data-i18n="customers.new-customer">New Customer</span></button>
             </div>
@@ -330,9 +332,9 @@
         </div>
         <div class="modal-body">
           <div class="field">
-            <label for="importFile" data-i18n="customers.csv-file-up-to-10-000">CSV file (up to 10,000 customers)</label>
-            <input type="file" id="importFile" accept=".csv,text/csv" />
-            <p class="import-hint" data-i18n="customers.from-excel-file-save-as-csv">From Excel: File → Save as → "CSV UTF-8". Mobile numbers without +91 are taken as Indian.</p>
+            <label for="importFile" data-i18n="xl.import.label">Excel (.xlsx) or CSV file (up to 10,000 customers)</label>
+            <input type="file" id="importFile" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            <p class="import-hint" data-i18n="xl.import.hint">The first sheet of an Excel file is read. Mobile numbers without +91 are taken as Indian.</p>
           </div>
           <div id="importMapping" hidden>
             <p class="import-hint" id="importCount"></p>

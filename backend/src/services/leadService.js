@@ -123,7 +123,8 @@ async function markContactCustomer(req, lead, session) {
   );
 }
 
-async function list(req, query) {
+// The list's filter, also used by "Download Excel" (D82) so the file has what the screen shows.
+async function listFilter(req, query) {
   const organizationId = req.tenant.organizationId;
   const filter = {
     ...scope(req),
@@ -149,6 +150,11 @@ async function list(req, query) {
     const text = searchFilter(query.q, ['title', 'notes']).$or;
     filter.$or = [...text, ...leadFields, { contactId: { $in: contacts.map((contact) => contact._id) } }];
   }
+  return filter;
+}
+
+async function list(req, query) {
+  const filter = await listFilter(req, query);
   const page = toPage(query);
   const [items, total, keys] = await Promise.all([
     Lead.find(filter).sort(sortSpec(query.sort, SORTS)).skip(page.skip).limit(page.limit).populate({ path: 'contactId', select: CONTACT_SELECT }),
@@ -287,4 +293,5 @@ module.exports = {
   get: loadSerialized,
   changeStage: (req, id, { stage, lostReason, version }) => update(req, id, { stage, lostReason, version }),
   findVisible, addActivity, applyStage, serializeLead, emitStageChange, MODULES,
+  listFilter, listSort: (query) => sortSpec(query.sort, SORTS),
 };

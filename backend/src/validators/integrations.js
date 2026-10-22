@@ -80,6 +80,9 @@ module.exports = {
   orderList: list({ stage: Joi.string().valid(...ORDER_STAGES), contactId: objectId }),
   productList: list({ active: Joi.boolean() }),
   // Records of the company's own objects (D78).
+  // Excel and Power BI feeds (D82).
+  feedParams: Joi.object({ table: Joi.string().valid('contacts', 'leads', 'quotations', 'orders', 'products').required() }),
+  feedQuery: Joi.object({ format: Joi.string().valid('json', 'csv').default('json'), updatedSince: Joi.date().iso() }),
   recordList: list({ object: Joi.string().pattern(OBJECT_KEY_PATTERN).required().messages({ 'string.pattern.base': 'Unknown object' }), search: Joi.string().trim().max(100), cf: fieldFilters }),
   recordCreate: Joi.object({
     object: Joi.string().pattern(OBJECT_KEY_PATTERN).required().messages({ 'string.pattern.base': 'Unknown object' }),

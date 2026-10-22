@@ -14,7 +14,8 @@ const automationEvents = require('./automation/events');
 const consentHistory = require('./consentService');
 
 const MODULE = 'customers';
-const SEARCH_FIELDS = ['name', 'email', 'phone', 'phoneE164', 'company', 'city'];
+// Tags too (D82), as the Customers page's own search box does, so "Download Excel" has the same rows.
+const SEARCH_FIELDS = ['name', 'email', 'phone', 'phoneE164', 'company', 'city', 'tags'];
 const SORTS = ['name', 'createdAt', 'updatedAt', 'company'];
 const EDITABLE = ['name', 'email', 'phone', 'company', 'gstin', 'state', 'city', 'address', 'tags', 'source', 'lifecycle', 'status', 'productIds', 'notes'];
 
@@ -85,7 +86,8 @@ async function assertPhoneFree(req, phoneE164, exceptId, session) {
   }
 }
 
-async function list(req, query) {
+// The list's filter, also used by "Download Excel" (D82) so the file has what the screen shows.
+async function listFilter(req, query) {
   // Search also looks in the company's own text and dropdown fields; cf filters must all match (D74).
   const [extraSearch, fieldFilters] = await Promise.all([
     customFieldFilters.searchClauses(req, 'contact', query.q),
@@ -103,6 +105,11 @@ async function list(req, query) {
     ...(query.tag && { tags: query.tag }),
     ...(query.consent && (query.consent === 'unknown' ? { 'consent.marketing': { $nin: ['opted_in', 'opted_out'] } } : { 'consent.marketing': query.consent })),
   };
+  return filter;
+}
+
+async function list(req, query) {
+  const filter = await listFilter(req, query);
   const { items, pagination } = await repo(req).paginate(filter, query, { sort: sortSpec(query.sort, SORTS) });
   const [keys, links] = await Promise.all([customFieldService.activeKeys(req, 'contact'), lookupService.linksFor(req, 'contact', items)]);
   return { items: items.map((contact) => serializeContact(contact, keys, links)), pagination };
@@ -195,6 +202,8 @@ async function present(req, contact) {
 }
 
 module.exports = {
+  listFilter,
+  listSort: (query) => sortSpec(query.sort, SORTS),
   list,
   get: async (req, id) => present(req, await findVisible(req, id)),
   create: async (req, body, options) => present(req, await create(req, body, options)),

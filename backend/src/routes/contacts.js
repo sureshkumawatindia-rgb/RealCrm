@@ -6,7 +6,8 @@ const contactImportService = require('../services/contactImportService');
 const httpError = require('../utils/httpError');
 const noteService = require('../services/noteService');
 const { authenticate } = require('../middleware/auth');
-const { requirePermission } = require('../middleware/permissions');
+const { requirePermission, requireRole } = require('../middleware/permissions');
+const tableExport = require('../services/tableExportService');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/crm');
@@ -50,6 +51,14 @@ router.post('/import', can('create'), upload, async (req, res) => {
 });
 
 router.get('/', can('view'), validate({ query: schemas.contactList }), controller.list);
+// Download Excel (D82): the list as on screen, for owners and admins (audited).
+router.get('/export', requireRole('owner', 'admin'), validate({ query: schemas.contactExport }), async (req, res) => {
+  const { fileName, type, body } = await tableExport.exportList(req, 'contacts', req.valid.query);
+  res.attachment(fileName);
+  res.type(type);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.send(body);
+});
 router.post('/', can('create'), validate({ body: schemas.contactCreate }), controller.create);
 router.get('/:id', can('view'), validate({ params: idParams }), controller.get);
 router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.contactPatch }), controller.update);

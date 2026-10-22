@@ -167,8 +167,11 @@ describe('Importing customers from CSV', () => {
       totalRows: 7,
     });
     expect(res.body.data.rows[0][0]).toBe('Ravi Traders');
-    const excel = await api().post('/api/v1/contacts/import/preview').set(auth()).attach('file', Buffer.from('PK...'), 'customers.xlsx');
-    expect(excel.body.code).toBe('UNSUPPORTED_FILE');
+    // .xlsx is read since D82 (excel.test.js); a broken one and the old .xls are refused clearly.
+    const broken = await api().post('/api/v1/contacts/import/preview').set(auth()).attach('file', Buffer.from('PK...'), 'customers.xlsx');
+    expect(broken.body.code).toBe('BAD_EXCEL_FILE');
+    const old = await api().post('/api/v1/contacts/import/preview').set(auth()).attach('file', Buffer.from('xx'), 'customers.xls');
+    expect(old.body.code).toBe('UNSUPPORTED_FILE');
   });
 
   it('checks first, then adds new people, merges repeats and fills in people already here', async () => {

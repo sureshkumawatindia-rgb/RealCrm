@@ -19,6 +19,7 @@ const { indiaDate } = require('../utils/dates');
 const { statsOf } = require('./broadcastService');
 const { channelOf } = require('./attributionService');
 const winChance = require('./winChanceService');
+const xlsx = require('../utils/xlsx');
 
 // Reports (Phase 9): counted from the records when asked (D47), for a range of calendar days in
 // India. Owners, admins and members with "reports: see all" see the whole company; everyone else
@@ -671,6 +672,15 @@ async function exportCsv(req, query) {
     ];
   }
   const range = rangeOf(query);
+  // Excel (D82): the same rows, numbers as numbers, the header frozen; the range is in the name.
+  if (query.format === 'xlsx') {
+    const cell = (value) => (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value) ? Number(value) : value ?? '');
+    return {
+      fileName: `report-${type || 'overview'}-${range.from}-to-${range.to}.xlsx`,
+      type: xlsx.XLSX_TYPE,
+      body: xlsx.write([{ name: `${type || 'overview'} ${range.from}`, rows: [header, ...lines.map((line) => line.map(cell))] }]),
+    };
+  }
   const csv = [[`${type || 'overview'} report`, `${range.from} to ${range.to}`], [], header, ...lines].map((cells) => cells.map(csvCell).join(',')).join('\r\n');
   // The BOM makes Excel read ₹ and Hindi names right.
   return { fileName: `report-${type || 'overview'}-${range.from}-to-${range.to}.csv`, csv: `﻿${csv}\r\n` };

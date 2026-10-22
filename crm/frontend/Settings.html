@@ -2018,6 +2018,12 @@
                   </form>
                 </div>
 
+                <!-- Live data for Excel and Power BI (D82, js/settings-integrations.js) -->
+                <div class="settings-section" id="intFeedsSection">
+                  <div class="settings-section-label" data-i18n="xl.feed.title">Excel and Power BI</div>
+                  <div id="intFeeds"></div>
+                </div>
+
                 <div class="settings-section">
                   <div class="settings-section-label">Webhooks</div>
                   <p class="settings-hint">The CRM tells your https address when something happens (a new lead, a stage change, a WhatsApp message, an order, a payment …). Each call is signed with the webhook's secret: <code>X-CRM-Signature: sha256=&lt;HMAC of the body&gt;</code>.</p>

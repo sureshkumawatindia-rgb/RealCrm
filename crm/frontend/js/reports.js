@@ -5,7 +5,7 @@
  * Overview (trend, won/lost, lead funnel, open pipeline), Sales (quotations), Leads & Marketing
  * (sources, broadcasts; products and campaigns from the loaded records), WhatsApp & Team (agent
  * performance with reply times), Payments, Support (tickets from the loaded records).
- * "Export CSV" downloads the open tab's report from /reports/export. One IIFE: no globals.
+ * "Export CSV" (and "Export Excel", D82) downloads the open tab's report from /reports/export. One IIFE: no globals.
  */
 (function reportsPage() {
   requireAuth();
@@ -436,15 +436,17 @@
     document.querySelectorAll("#trendChips [data-series]").forEach((c) => c.classList.toggle("active", c === chip));
     renderOverview();
   });
-  $("exportBtn").addEventListener("click", async () => {
+  async function exportReport(format) {
     const type = EXPORT_TYPE[state.tab];
     try {
-      await crmDownload(`/reports/export?type=${type}&${query()}`, `report-${type}-${state.range.from}-to-${state.range.to}.csv`);
+      await crmDownload(`/reports/export?type=${type}&format=${format}&${query()}`, `report-${type}-${state.range.from}-to-${state.range.to}.${format}`);
       showToast("Report downloaded.", "success");
     } catch (error) {
       showToast(apiErrorMessage(error, "Couldn't export the report."), "error");
     }
-  });
+  }
+  $("exportBtn").addEventListener("click", () => exportReport("csv"));
+  $("exportXlsxBtn").addEventListener("click", () => exportReport("xlsx"));
   $("printBtn").addEventListener("click", () => window.print());
 
   const remembered = getPreference("reportsRange", "30");

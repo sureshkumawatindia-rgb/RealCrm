@@ -179,8 +179,28 @@
     renderCapi();
   }
 
+  // --- Excel and Power BI (D82): one web address per table, read with an API key ------------------
+  const FEEDS = [["contacts", "contacts:read"], ["leads", "leads:read"], ["quotations", "quotations:read"], ["orders", "orders:read"], ["products", "products:read"]];
+  function renderFeeds(base) {
+    const steps = (key) => [1, 2, 3].map((n) => `<li>${escapeHtml(t(`xl.feed.${key}.${n}`))}</li>`).join("");
+    $("intFeeds").innerHTML = `
+      <p class="settings-hint">${escapeHtml(t("xl.feed.hint"))}</p>
+      ${FEEDS.map(([table, scope]) => {
+        const url = `${base}/feeds/${table}?format=csv`;
+        return `<div class="int-feed"><div class="int-feed-name"><strong>${escapeHtml(t(`xl.feed.table.${table}`))}</strong> <span class="settings-hint">${escapeHtml(t("xl.feed.needs", { scope }))}</span></div>
+          <div class="pl-url"><input type="text" readonly value="${escapeHtml(url)}" aria-label="${escapeHtml(t(`xl.feed.table.${table}`))}" /><button class="btn btn-outline" type="button" data-copy="${escapeHtml(url)}"><i class="fa-regular fa-copy"></i> ${escapeHtml(t("int.ex.copy"))}</button></div></div>`;
+      }).join("")}
+      <div class="int-feed-steps">
+        <div><strong>Excel</strong><ol>${steps("excel")}</ol></div>
+        <div><strong>Power BI</strong><ol>${steps("pbi")}</ol></div>
+      </div>
+      <p class="settings-hint">${escapeHtml(t("xl.feed.more"))}</p>`;
+  }
+
   async function load() {
     $("intApiBase").textContent = `${CRM_API_BASE.replace(/\/api\/v1$/, "")}/api/public/v1`;
+    await crmI18n.ready;
+    renderFeeds($("intApiBase").textContent);
     try {
       const { plan, subscription } = await crmPlan.state();
       const note = $("intPlanNote");
@@ -233,7 +253,7 @@
       showToast(apiErrorMessage(error, "Could not revoke the key."), "error");
     }
   });
-  [$("intNewKey"), $("intNewSecret"), $("intHookExampleList")].forEach((box) => box.addEventListener("click", copyFrom));
+  [$("intNewKey"), $("intNewSecret"), $("intHookExampleList"), $("intFeeds")].forEach((box) => box.addEventListener("click", copyFrom));
 
   $("intHookAddBtn").addEventListener("click", () => openHookForm(null));
   $("intHookCancel").addEventListener("click", closeHookForm);

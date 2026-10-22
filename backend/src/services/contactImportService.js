@@ -2,6 +2,7 @@ const Contact = require('../models/Contact');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { parseCsv } = require('../utils/csv');
+const xlsx = require('../utils/xlsx');
 const { normalizePhone } = require('../utils/phone');
 const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { LEAD_SOURCES } = require('../constants/crm');
@@ -38,12 +39,13 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const label = (header) => String(header || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 function readFile(file) {
-  if (!file) throw httpError(400, 'VALIDATION_ERROR', 'Choose a CSV file.', [{ field: 'file', code: 'FILE_REQUIRED', message: 'Choose a CSV file.' }]);
+  if (!file) throw httpError(400, 'VALIDATION_ERROR', 'Choose a CSV or Excel file.', [{ field: 'file', code: 'FILE_REQUIRED', message: 'Choose a CSV or Excel file.' }]);
   const name = String(file.originalname || '').toLowerCase();
-  if (/\.(xlsx|xls|ods)$/.test(name)) {
-    throw httpError(400, 'UNSUPPORTED_FILE', 'Excel files are not read yet: in Excel use File → Save as → "CSV UTF-8", then import that file.');
+  if (/\.(xls|ods)$/.test(name)) {
+    throw httpError(400, 'UNSUPPORTED_FILE', 'This is an older spreadsheet type. In Excel use File → Save as → "Excel Workbook (.xlsx)" or "CSV UTF-8", then import that file.');
   }
-  const rows = parseCsv(file.buffer.toString('utf8'));
+  // Excel (D82): the first sheet, read like a CSV (dates as YYYY-MM-DD).
+  const rows = name.endsWith('.xlsx') ? xlsx.read(file.buffer).rows : parseCsv(file.buffer.toString('utf8'));
   if (rows.length < 2) throw httpError(400, 'EMPTY_FILE', 'The file needs a header row and at least one customer.');
   if (rows.length - 1 > MAX_ROWS) throw httpError(400, 'TOO_MANY_ROWS', `Import at most ${MAX_ROWS.toLocaleString('en-IN')} customers at a time (this file has ${(rows.length - 1).toLocaleString('en-IN')}).`);
   return { headers: rows[0], data: rows.slice(1) };

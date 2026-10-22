@@ -299,6 +299,30 @@ function cfSearchText(fields, values) {
     .toLowerCase();
 }
 
+// The chips as the API's cf=<key>:<operator>:<value> (D82: "Download Excel" sends the same filters).
+function cfQueryParams(filters, params = new URLSearchParams()) {
+  for (const filter of filters || []) params.append("cf", [filter.key, filter.operator, Array.isArray(filter.value) ? filter.value.join(",") : filter.value ?? ""].join(":"));
+  return params;
+}
+
+// Download Excel on a list page (D82, owners and admins): the server makes the file from the
+// same search and filters; the button only shows for those who may download.
+function cfExportButton({ button, path, name, params }) {
+  if (!button || !isOrgManager()) return;
+  button.hidden = false;
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      await crmDownload(`${path}?${params()}`, `${name}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      showToast(t("xl.downloaded"), "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("xl.downloadFailed")), "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
 // The fields owners and admins chose as list columns (Settings → Custom fields).
 function cfListColumns(fields) {
   return (fields || []).filter((field) => field.listColumn).slice(0, CF_MAX_COLUMNS);

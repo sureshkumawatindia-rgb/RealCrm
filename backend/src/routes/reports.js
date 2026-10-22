@@ -24,13 +24,14 @@ router.get('/attribution', can('reports'), validate({ query: schemas.attribution
   res.json({ success: true, data: await reports.attribution(req, req.valid.query) });
 });
 
-// A CSV file of one report (Excel opens it; formulas are never run from cells).
+// A CSV file of one report (Excel opens it; formulas are never run from cells), or ?format=xlsx
+// for an Excel file (D82).
 router.get('/export', can('reports'), validate({ query: schemas.export }), async (req, res) => {
-  const { fileName, csv } = await reports.exportCsv(req, req.valid.query);
+  const { fileName, csv, type, body } = await reports.exportCsv(req, req.valid.query);
   res.attachment(fileName);
-  res.type('text/csv; charset=utf-8');
+  res.type(type || 'text/csv; charset=utf-8');
   res.setHeader('Cache-Control', 'private, no-store');
-  res.send(csv);
+  res.send(body || csv);
 });
 
 // The live team page (D61): owners and admins.
