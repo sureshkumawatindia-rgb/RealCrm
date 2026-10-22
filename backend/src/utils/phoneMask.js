@@ -7,6 +7,7 @@ const BULLET = '•';
 // Keys whose value is a customer's (or a contact's) number wherever they appear in an answer.
 const PHONE_KEYS = new Set([
   'phone', 'phoneE164', 'mobile', 'whatsapp', 'waId', 'wa_id', 'phoneNumber', 'customerPhone', 'contactPhone', 'from', 'to',
+  'fromNumber', 'toNumber', // a call's two ends (D85)
 ]);
 // The company's own numbers: its WhatsApp number on a chat, the seller on a quotation or order.
 const COMPANY_KEYS = new Set(['displayPhone', 'seller']);

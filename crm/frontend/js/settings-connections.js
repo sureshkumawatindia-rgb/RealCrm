@@ -18,9 +18,10 @@
     ["conn.group.payments", ["payments"]],
     ["conn.group.developer", ["apiKeys", "webhooks"]],
     ["conn.group.microsoft", ["microsoft", "teams"]],
+    ["conn.group.calling", ["calling"]],
   ];
   const ICONS = {
-    microsoft: "fa-brands fa-microsoft", teams: "fa-solid fa-people-group",
+    microsoft: "fa-brands fa-microsoft", teams: "fa-solid fa-people-group", calling: "fa-solid fa-phone-volume",
     whatsapp: "fa-brands fa-whatsapp", gmail: "fa-solid fa-envelope", payments: "fa-solid fa-indian-rupee-sign", leadsources: "fa-solid fa-inbox",
     metaCapi: "fa-brands fa-meta", apiKeys: "fa-solid fa-key", webhooks: "fa-solid fa-satellite-dish",
   };

@@ -8,6 +8,8 @@ const noteService = require('../services/noteService');
 const { authenticate } = require('../middleware/auth');
 const { requirePermission, requireRole } = require('../middleware/permissions');
 const tableExport = require('../services/tableExportService');
+const timelineService = require('../services/timelineService');
+const callSchemas = require('../validators/calls');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/crm');
@@ -66,6 +68,10 @@ router.delete('/:id', can('delete'), validate({ params: idParams }), controller.
 
 // Customer 360 notes. Adding one counts as editing the contact.
 // Where the customer came from, and their consent history (D79).
+// One customer's history, newest first, paged (D85).
+router.get('/:id/timeline', can('view'), validate({ params: idParams, query: callSchemas.timeline }), async (req, res) => {
+  res.json({ success: true, data: await timelineService.timeline(req, req.valid.params.id, req.valid.query) });
+});
 router.get('/:id/touchpoints', can('view'), validate({ params: idParams }), async (req, res) => {
   const contact = await contactService.findVisible(req, req.valid.params.id);
   res.json({ success: true, data: await attribution.forContact(req, contact) });

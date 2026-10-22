@@ -452,53 +452,223 @@ async function addNote(customer) {
 }
 
 // ---------------------------------------------------------------
-// Activity timeline — merges every related record type by date
+// Customer history (D85): from GET /contacts/:id/timeline — WhatsApp, calls, deals and their
+// moves, quotations, orders and payments, tickets, tasks, meetings, notes, enquiries and consent,
+// newest first, by filter, with "Load more". The viewer's own Gmail emails with this customer are
+// added (read-only) when they connected Gmail. Log a call by hand, or Call through the company's
+// calling provider (the member's phone rings first).
 // ---------------------------------------------------------------
+const HIST_FILTERS = [["", "c360.hist.f.all"], ["talk", "c360.hist.f.talk"], ["sales", "c360.hist.f.sales"], ["service", "c360.hist.f.service"], ["work", "c360.hist.f.work"], ["notes", "c360.hist.f.notes"]];
+const HIST_ICONS = {
+  whatsapp: ["fa-brands fa-whatsapp", "success"], call: ["fa-solid fa-phone", "info"], email: ["fa-solid fa-envelope", "info"], note: ["fa-solid fa-note-sticky", "brand"],
+  lead: ["fa-solid fa-handshake", "brand"], stage: ["fa-solid fa-arrow-right", "brand"], quotation: ["fa-solid fa-file-invoice", "warning"], order: ["fa-solid fa-box", "warning"],
+  payment: ["fa-solid fa-indian-rupee-sign", "success"], ticket: ["fa-solid fa-headset", "warning"], task: ["fa-solid fa-list-check", "info"], event: ["fa-solid fa-calendar", "info"],
+  enquiry: ["fa-solid fa-inbox", ""], consent: ["fa-solid fa-shield-halved", ""], document: ["fa-solid fa-file-lines", ""],
+};
+const HIST_LABELS = {
+  note: "c360.hist.s.note", lead: "c360.hist.s.lead", stage: "c360.hist.s.stage", quotation: "c360.hist.s.quotation", order: "c360.hist.s.order", payment: "c360.hist.s.payment",
+  ticket: "c360.hist.s.ticket", task: "c360.hist.s.task", event: "c360.hist.s.event", enquiry: "c360.hist.s.enquiry", consent: "c360.hist.s.consent", document: "c360.hist.s.document",
+};
+const CALL_OUTCOMES = ["connected", "interested", "callback", "not_interested", "no_answer", "busy", "wrong_number", "switched_off"];
+const HIST_COLORS = { brand: ["var(--brand-light)", "var(--brand-darker)"], info: ["var(--info-bg)", "var(--info)"], warning: ["var(--warning-bg)", "var(--warning)"], success: ["var(--success-bg, var(--bg))", "var(--success)"], "": ["var(--bg)", "var(--text-muted)"] };
+// seq: a newer reset (another filter, a saved call) wins over a page still on its way.
+const hist = { customer: null, kind: "", items: [], next: null, emails: [], calling: false, loading: false, seq: 0 };
+
+const minutesText = (sec) => (sec >= 60 ? t("call.minutes", { n: Math.round(sec / 60) }) : sec ? t("call.seconds", { n: sec }) : "");
+
+function historyItemHtml(it) {
+  const [icon, cls] = HIST_ICONS[it.source] || ["fa-solid fa-circle", ""];
+  const [bg, fg] = HIST_COLORS[cls] || HIST_COLORS[""];
+  const extra = it.source === "call"
+    ? [it.outcome ? t(`call.outcome.${it.outcome}`) : t(`call.status.${it.status}`), minutesText(it.durationSec)].filter(Boolean).join(" · ")
+    : "";
+  // A translated label for the kind, then the record's own name (the server's `title` is English).
+  const label = it.source === "call" ? t(it.direction === "in" ? "call.in" : "call.out")
+    : it.source === "whatsapp" ? t(it.direction === "in" ? "c360.hist.waIn" : "c360.hist.waOut")
+      : HIST_LABELS[it.source] ? t(HIST_LABELS[it.source]) : "";
+  const title = it.source === "email" || !label ? it.title : it.name ? `${label}: ${it.name}` : label;
+  const when = new Date(it.at).toLocaleString(crmI18n.locale(), { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const detail = it.source === "task" ? [it.status, it.due ? t("c360.hist.due", { date: it.due }) : ""].filter(Boolean).join(" · ") : it.detail;
+  const meta = [extra, detail && it.source !== "call" && it.source !== "whatsapp" && it.source !== "note" ? detail : "", it.actorName, when].filter(Boolean).join(" · ");
+  const body = ["call", "whatsapp", "note", "email"].includes(it.source) && it.detail ? `<div class="c360-hist-text">${escapeHtml(it.detail)}</div>` : "";
+  const action = it.source === "call" && !it.outcome && it.id ? `<button type="button" class="link-btn" data-hist="outcome" data-id="${escapeHtml(it.id)}">${escapeHtml(t("call.addOutcome"))}</button>` : "";
+  return `<div class="c360-list-item">
+      <span class="c360-list-icon" style="background:${bg};color:${fg}"><i class="${icon}"></i></span>
+      <div class="c360-list-body">
+        <div class="c360-list-title">${escapeHtml(title)}</div>
+        ${body}
+        <div class="c360-list-meta">${escapeHtml(meta)} ${action}</div>
+      </div>
+    </div>`;
+}
+
+function renderHistoryList() {
+  const list = document.getElementById("c360HistList");
+  const emails = ["", "talk"].includes(hist.kind) ? hist.emails : [];
+  // Emails are merged only into what is already loaded (they come from the viewer's own Gmail).
+  const oldest = hist.items.length && hist.next ? new Date(hist.items[hist.items.length - 1].at) : null;
+  const items = [...hist.items, ...emails.filter((e) => !oldest || new Date(e.at) >= oldest)].sort((x, y) => new Date(y.at) - new Date(x.at));
+  list.innerHTML = items.length ? items.map(historyItemHtml).join("") : relEmptyBlock("fa-clock-rotate-left", t("c360.empty.timeline"));
+  document.getElementById("c360HistMore").hidden = !hist.next;
+}
+
+async function loadHistory({ reset = false } = {}) {
+  if (!reset && hist.loading) return;
+  const seq = reset ? ++hist.seq : hist.seq;
+  hist.loading = true;
+  const params = new URLSearchParams({ limit: "30" });
+  if (hist.kind) params.set("kinds", hist.kind);
+  if (!reset && hist.next) params.set("before", hist.next);
+  try {
+    const page = await crmApi(`/contacts/${encodeURIComponent(hist.customer.id)}/timeline?${params}`);
+    if (seq !== hist.seq) return;
+    hist.items = reset ? page.items : [...hist.items, ...page.items];
+    hist.next = page.next;
+    renderHistoryList();
+  } catch (error) {
+    if (seq === hist.seq) document.getElementById("c360HistList").innerHTML = relEmptyBlock("fa-triangle-exclamation", apiErrorMessage(error, t("c360.hist.loadFailed")));
+  } finally {
+    if (seq === hist.seq) hist.loading = false;
+  }
+}
+
+// The viewer's own Gmail with this customer (read-only), when Gmail is connected.
+async function loadEmails(customer) {
+  hist.emails = [];
+  if (!customer.email) return;
+  try {
+    const q = encodeURIComponent(`from:${customer.email} OR to:${customer.email}`);
+    const { messages } = await crmApi(`/gmail/messages?limit=10&q=${q}`);
+    hist.emails = messages.map((m) => ({ id: `gmail-${m.id}`, source: "email", at: m.date ? new Date(m.date).toISOString() : new Date().toISOString(), title: m.subject || t("c360.hist.email"), detail: m.snippet || "", actorName: m.from || "" }));
+    renderHistoryList();
+  } catch {
+    /* Gmail not connected, or not reachable: the rest of the history stays */
+  }
+}
+
+function callFormHtml(customer) {
+  const leads = relatedDeals(customer).filter((d) => !["Won", "Lost"].includes(d.stage));
+  return `<form class="c360-call-form" id="c360CallForm" hidden autocomplete="off">
+    <div class="c360-call-outcomes" role="radiogroup" aria-label="${escapeHtml(t("call.outcome"))}">
+      ${CALL_OUTCOMES.map((o, i) => `<label class="chip-radio"><input type="radio" name="outcome" value="${o}" ${i === 0 ? "checked" : ""} /> ${escapeHtml(t(`call.outcome.${o}`))}</label>`).join("")}
+    </div>
+    <div class="c360-call-row">
+      <select name="direction" aria-label="${escapeHtml(t("call.direction"))}"><option value="out">${escapeHtml(t("call.out"))}</option><option value="in">${escapeHtml(t("call.in"))}</option></select>
+      <input type="number" name="minutes" min="0" max="600" placeholder="${escapeHtml(t("call.minutesPh"))}" aria-label="${escapeHtml(t("call.minutesPh"))}" />
+      ${leads.length ? `<select name="leadId" aria-label="${escapeHtml(t("call.lead"))}"><option value="">${escapeHtml(t("call.noLead"))}</option>${leads.map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`).join("")}</select>` : ""}
+    </div>
+    <input type="text" name="notes" maxlength="2000" placeholder="${escapeHtml(t("call.notesPh"))}" aria-label="${escapeHtml(t("call.notesPh"))}" />
+    <div class="pl-buttons"><button class="btn btn-primary" type="submit">${escapeHtml(t("call.save"))}</button><button class="btn btn-outline" type="button" data-hist="cancel">${escapeHtml(t("common.cancel"))}</button></div>
+  </form>`;
+}
+
 function renderTimelineTab(customer) {
-  const items = [];
-
-  relatedDeals(customer).forEach((d) =>
-    items.push({ date: d.createdAt, icon: "fa-handshake", cls: "brand", title: t("c360.tl.deal", { name: d.name }), meta: `${crmLabel("stage", d.stage)} · ${formatCurrency(d.value)}` }),
-  );
-  relatedTasks(customer).forEach((task) =>
-    items.push({ date: task.createdAt, icon: "fa-list-check", cls: "info", title: t("c360.tl.task", { title: task.title }), meta: `${crmLabel("taskStatus", task.status)} · ${t("c360.due", { date: formatDate(task.dueDate) })}` }),
-  );
-  relatedTickets(customer).forEach((ticket) =>
-    items.push({ date: ticket.createdAt, icon: "fa-headset", cls: "warning", title: t("c360.tl.ticket", { number: ticket.number, subject: ticket.subject }), meta: crmLabel("ticketStatus", ticket.status) }),
-  );
-  relatedDocuments(customer).forEach((d) =>
-    items.push({ date: d.createdAt, icon: "fa-file-lines", cls: "", title: t("c360.tl.document", { name: d.name }), meta: crmLabel("docCategory", d.category) }),
-  );
-  customerNotes(customer).forEach((n) =>
-    items.push({ date: n.at, icon: "fa-note-sticky", cls: "brand", title: n.text, meta: n.author || "" }),
-  );
-
-  items.sort((a, b) => (a.date > b.date ? -1 : 1));
-
   const el = document.getElementById("c360Timeline");
-  if (!items.length) {
-    el.innerHTML = relEmptyBlock("fa-clock-rotate-left", t("c360.empty.timeline"));
+  if (!hist.customer || hist.customer.id !== customer.id || !document.getElementById("c360HistList")) {
+    hist.customer = customer;
+    hist.kind = "";
+    el.innerHTML = `
+      <div class="c360-hist-bar">
+        <div class="c360-hist-filters">${HIST_FILTERS.map(([kind, key]) => `<button type="button" class="chip${kind === "" ? " active" : ""}" data-kind="${kind}">${escapeHtml(t(key))}</button>`).join("")}</div>
+        <div class="pl-buttons">
+          <button type="button" class="btn btn-outline" data-hist="log"><i class="fa-solid fa-phone"></i> ${escapeHtml(t("call.log"))}</button>
+          <button type="button" class="btn btn-primary" data-hist="dial" hidden><i class="fa-solid fa-phone-volume"></i> ${escapeHtml(t("call.dial"))}</button>
+        </div>
+      </div>
+      ${callFormHtml(customer)}
+      <div id="c360HistList"></div>
+      <button type="button" class="btn btn-outline c360-hist-more" id="c360HistMore" hidden>${escapeHtml(t("c360.hist.more"))}</button>`;
+    el.onclick = (event) => onHistoryClick(event, customer);
+    el.querySelector("#c360CallForm").addEventListener("submit", (event) => saveCall(event, customer));
+    crmApi("/telephony").then((tel) => {
+      hist.calling = tel.connected;
+      el.querySelector('[data-hist="dial"]').hidden = !tel.connected || !(customer.phone || customer.phoneE164);
+    }).catch(() => {});
+    loadEmails(customer);
+  }
+  loadHistory({ reset: true });
+}
+
+async function onHistoryClick(event, customer) {
+  const chip = event.target.closest("[data-kind]");
+  if (chip) {
+    hist.kind = chip.dataset.kind;
+    document.querySelectorAll(".c360-hist-filters .chip").forEach((c) => c.classList.toggle("active", c === chip));
+    hist.next = null;
+    loadHistory({ reset: true });
     return;
   }
-  const colorMap = {
-    brand: ["var(--brand-light)", "var(--brand-darker)"],
-    info: ["var(--info-bg)", "var(--info)"],
-    warning: ["var(--warning-bg)", "var(--warning)"],
-    "": ["var(--bg)", "var(--text-muted)"],
+  if (event.target.id === "c360HistMore") return loadHistory();
+  const button = event.target.closest("[data-hist]");
+  if (!button) return undefined;
+  const form = document.getElementById("c360CallForm");
+  if (button.dataset.hist === "log") {
+    form.hidden = !form.hidden;
+    return undefined;
+  }
+  if (button.dataset.hist === "cancel") {
+    form.hidden = true;
+    return undefined;
+  }
+  if (button.dataset.hist === "dial") {
+    button.disabled = true;
+    try {
+      await crmApi("/calls/dial", jsonRequest("POST", { contactId: customer.id }));
+      showToast(t("call.ringing"), "success");
+      setTimeout(() => loadHistory({ reset: true }), 1500);
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("call.dialFailed")), "error");
+      loadHistory({ reset: true });
+    } finally {
+      button.disabled = false;
+    }
+    return undefined;
+  }
+  if (button.dataset.hist === "outcome") {
+    const outcome = await crmMoveMenu.open({ title: t("call.outcome"), current: "", options: CALL_OUTCOMES.map((o) => ({ value: o, label: t(`call.outcome.${o}`) })) });
+    if (!outcome) return undefined;
+    try {
+      await crmApi(`/calls/${button.dataset.id}`, jsonRequest("PATCH", { outcome }));
+      loadHistory({ reset: true });
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("call.saveFailed")), "error");
+    }
+  }
+  return undefined;
+}
+
+async function saveCall(event, customer) {
+  event.preventDefault();
+  const form = event.target;
+  const data = new FormData(form);
+  const minutes = Number(data.get("minutes") || 0);
+  const body = {
+    contactId: customer.id,
+    outcome: data.get("outcome"),
+    direction: data.get("direction") || "out",
+    durationSec: Math.round(minutes * 60),
+    notes: String(data.get("notes") || "").trim(),
+    ...(data.get("leadId") && { leadId: data.get("leadId") }),
   };
-  el.innerHTML = items
-    .map((it) => {
-      const [bg, fg] = colorMap[it.cls] || colorMap[""];
-      return `
-      <div class="c360-list-item">
-        <span class="c360-list-icon" style="background:${bg};color:${fg}"><i class="fa-solid ${it.icon}"></i></span>
-        <div class="c360-list-body">
-          <div class="c360-list-title">${escapeHtml(it.title)}</div>
-          <div class="c360-list-meta">${escapeHtml(it.meta)} · ${formatDate(it.date)}</div>
-        </div>
-      </div>`;
-    })
-    .join("");
+  const button = form.querySelector("[type=submit]");
+  button.disabled = true;
+  // One key per call being logged: trying again after a lost answer does not log it twice (a
+  // changed form is a new call, since the server refuses a key reused with another body).
+  const signature = JSON.stringify(body);
+  if (form.dataset.signature !== signature) Object.assign(form.dataset, { signature, key: newIdempotencyKey() });
+  try {
+    await crmApi("/calls", { ...jsonRequest("POST", body), headers: { "Content-Type": "application/json", "Idempotency-Key": form.dataset.key } });
+    delete form.dataset.signature;
+    delete form.dataset.key;
+    form.reset();
+    form.hidden = true;
+    showToast(t("call.logged"), "success");
+    loadHistory({ reset: true });
+  } catch (error) {
+    showToast(apiErrorMessage(error, t("call.saveFailed")), "error");
+  } finally {
+    button.disabled = false;
+  }
 }
 
 // ---------------------------------------------------------------

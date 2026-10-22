@@ -35,6 +35,8 @@ const contactSchema = new mongoose.Schema(
     becameCustomerAt: { type: Date },
     // How they first found the company (D79): set by their first tracked enquiry, never changed.
     firstTouch: { channel: String, source: String, medium: String, campaign: String, at: Date },
+    // The last call with the customer (D85), for lists and follow-ups.
+    lastContactedAt: { type: Date },
     // The company's own fields (D73): { key: value }, checked by services/customFieldService.js.
     customFields: { type: mongoose.Schema.Types.Mixed },
     legacyIds: { type: [String], default: undefined },

@@ -6,6 +6,7 @@ const indiamart = require('../services/indiamartService');
 const leadWebhooks = require('../services/leadWebhookService');
 const paymentLinks = require('../services/paymentLinkService');
 const billing = require('../services/billingService');
+const calls = require('../services/callService');
 const queue = require('../jobs/queue');
 const env = require('../config/env');
 const { formatRupees } = require('../utils/money');
@@ -126,6 +127,12 @@ router.post('/leads/googleads/:webhookKey', async (req, res) => {
 
 // Payment gateways (Phase 8): Razorpay and Cashfree, one address per connection (D39). The
 // signature is checked on the raw body; the payment is handled by a job after the 200.
+// Call status from the company's telephony provider (D85): the key in the address is the
+// connection's secret (the provider does not sign); any other answer than 200 makes it retry.
+router.post('/calls/:webhookKey', async (req, res) => {
+  res.sendStatus(await calls.receiveWebhook(req.params.webhookKey, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), req.headers));
+});
+
 router.post('/payments/:provider/:webhookKey', async (req, res) => {
   const { status } = await paymentLinks.receiveWebhook(req.params.provider, req.params.webhookKey, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), req.headers);
   res.sendStatus(status);

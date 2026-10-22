@@ -197,7 +197,7 @@ describe('Integration and webhook registry (D78)', () => {
     it('shows every kind, what works and what needs attention; owners and admins only', async () => {
       expect((await as(agent).get('/integrations/status')).status).toBe(403);
       const fresh = (await as(other).get('/integrations/status')).body.data;
-      expect(fresh.items.map((i) => i.kind)).toEqual(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams']); // Microsoft 365 and Teams since D83
+      expect(fresh.items.map((i) => i.kind)).toEqual(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams', 'calling']); // Microsoft 365 and Teams since D83, calling D85
       expect(fresh.items.every((i) => i.state === 'not_connected')).toBe(true);
       expect(fresh.needsAttention).toBe(0);
 

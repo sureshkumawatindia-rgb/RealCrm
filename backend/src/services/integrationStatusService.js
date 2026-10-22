@@ -7,6 +7,7 @@ const ApiKey = require('../models/ApiKey');
 const WebhookSubscription = require('../models/WebhookSubscription');
 const MicrosoftConnection = require('../models/MicrosoftConnection');
 const TeamsChannel = require('../models/TeamsChannel');
+const TelephonyConnection = require('../models/TelephonyConnection');
 const Organization = require('../models/Organization');
 const planService = require('./planService');
 const { PLANS, PLAN_KEYS } = require('../constants/plans');
@@ -18,10 +19,10 @@ const { PAYMENT_PROVIDERS } = require('../constants/payments');
 //   state: working | attention (something to fix: problem says what) | off | not_connected
 // A kind with nothing set up is one "not_connected" row, so the screen also says what is possible.
 
-const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams']);
+const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams', 'calling']);
 // Which Settings tab each kind is managed on.
 const TABS = Object.freeze({
-  whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations', microsoft: 'profile', teams: 'integrations',
+  whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations', microsoft: 'profile', teams: 'integrations', calling: 'calling',
 });
 // The plan feature each kind needs (Phase 3A, D80): a row whose feature the plan lacks says which
 // plan has it (plan: { feature, needs: { key, name } | null, message }); the server still refuses.
@@ -122,10 +123,22 @@ function teamsRows(channels) {
   }));
 }
 
+// Calling (D85): the company's telephony connection.
+function callingRows(connection) {
+  if (!connection) return [];
+  return [row('calling', {
+    id: String(connection._id),
+    name: connection.provider === 'mock' ? 'Test provider' : `Exotel ${connection.callerId || ''}`.trim(),
+    state: connection.status === 'error' ? 'attention' : 'working',
+    lastActivityAt: connection.lastCallAt || null,
+    problem: connection.status === 'error' ? connection.lastError || 'The last call could not be placed.' : '',
+  })];
+}
+
 // GET /integrations/status
 async function status(req) {
   const organizationId = req.tenant.organizationId;
-  const [organization, accounts, gmail, payments, sources, meta, keys, hooks, microsoftConnections, teamsChannels] = await Promise.all([
+  const [organization, accounts, gmail, payments, sources, meta, keys, hooks, microsoftConnections, teamsChannels, telephony] = await Promise.all([
     Organization.findById(organizationId).select('plan subscription entitlementGrants'),
     WhatsAppAccount.find({ organizationId }).select('name verifiedName displayPhone status statusMessage lastWebhookAt').lean(),
     GmailConnection.find({ organizationId }).select('updatedAt').lean(),
@@ -136,6 +149,7 @@ async function status(req) {
     WebhookSubscription.find({ organizationId }).select('url description active disabledReason lastStatus lastResponseCode lastDeliveryAt').lean(),
     MicrosoftConnection.find({ organizationId }).select('email name status lastSyncAt').lean(),
     TeamsChannel.find({ organizationId }).select('name active disabledReason lastStatus lastError lastSentAt').lean(),
+    TelephonyConnection.findOne({ organizationId }).select('provider callerId status lastError lastCallAt').lean(),
   ]);
   const rows = {
     whatsapp: whatsappRows(accounts),
@@ -147,6 +161,7 @@ async function status(req) {
     webhooks: webhookRows(hooks),
     microsoft: microsoftRows(microsoftConnections),
     teams: teamsRows(teamsChannels),
+    calling: callingRows(telephony),
   };
   const planNotes = Object.fromEntries(Object.entries(PLAN_FEATURES).map(([kind, feature]) => {
     const message = planService.featureBlock(organization, feature);
