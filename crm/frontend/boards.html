@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Theme and language before the page is drawn (CP5) -->
+    <script src="js/boot.js"></script>
+    <title>Boards | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/boards.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="Deals.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Deals
+            </a>
+            <a href="./boards.html" class="nav-item active">
+              <i class="fa-solid fa-table-columns"></i> Boards
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar"><h2 data-i18n="nav.boards">Boards</h2></header>
+
+        <!-- Boards (Phase 7B, D87, js/boards.js): saved table, Kanban and calendar views -->
+        <div class="page brd-page">
+          <div class="brd-bar">
+            <select id="brdPick" aria-label="Board" data-i18n-aria-label="board.pick"></select>
+            <div class="brd-layouts" id="brdLayouts" role="group" aria-label="Layout" data-i18n-aria-label="board.layout" hidden>
+              <button type="button" data-layout="table" aria-pressed="false"><i class="fa-solid fa-table"></i> <span data-i18n="board.layout.table">Table</span></button>
+              <button type="button" data-layout="kanban" aria-pressed="false"><i class="fa-solid fa-table-columns"></i> <span data-i18n="board.layout.kanban">Kanban</span></button>
+              <button type="button" data-layout="calendar" aria-pressed="false"><i class="fa-solid fa-calendar"></i> <span data-i18n="board.layout.calendar">Calendar</span></button>
+            </div>
+            <div class="brd-tools" id="brdTools" hidden>
+              <button class="btn btn-outline" id="brdColumnsBtn" type="button"><i class="fa-solid fa-table-list"></i> <span data-i18n="board.columns">Columns</span></button>
+              <select id="brdGroup" aria-label="Group by" data-i18n-aria-label="board.groupByLabel"></select>
+              <select id="brdDate" aria-label="Date" data-i18n-aria-label="board.dateLabel"></select>
+              <label class="brd-share"><input type="checkbox" id="brdShared" /> <span data-i18n="board.share">Share with the team</span></label>
+              <span class="brd-readonly" id="brdReadOnly" hidden data-i18n="board.readOnly">The team's board</span>
+              <button class="btn btn-outline" id="brdSaveAs" type="button" data-i18n="board.saveCopy">Save a copy</button>
+              <button class="btn btn-outline" id="brdDelete" type="button" hidden data-i18n="common.delete">Delete</button>
+            </div>
+          </div>
+          <div class="brd-filters" id="brdFilters"></div>
+          <div id="brdBody" aria-live="polite"><p class="brd-hint" data-i18n="cf.loading">Loading…</p></div>
+        </div>
+      </div>
+    </div>
+
+    <dialog class="brd-dialog" id="brdColumnsDialog" aria-labelledby="brdColumnsTitle">
+      <div class="brd-dialog-body">
+        <h3 id="brdColumnsTitle" data-i18n="board.columns">Columns</h3>
+        <div id="brdColumnList"></div>
+        <div class="pl-buttons"><button class="btn btn-primary" id="brdColumnsDone" type="button" data-i18n="board.done">Done</button></div>
+      </div>
+    </dialog>
+    <dialog class="brd-dialog" id="brdNewDialog" aria-labelledby="brdNewTitle">
+      <form id="brdNewForm">
+        <h3 id="brdNewTitle" data-i18n="board.new">New board…</h3>
+        <div class="field"><label for="brdNewObject" data-i18n="board.of">Board of</label><select id="brdNewObject"></select></div>
+        <div class="field"><label for="brdNewName" data-i18n="board.name">Name</label><input type="text" id="brdNewName" maxlength="80" required /></div>
+        <div class="pl-buttons">
+          <button class="btn btn-primary" type="submit" data-i18n="board.create">Create</button>
+          <button class="btn btn-outline" type="button" id="brdNewCancel" data-i18n="common.cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="js/boards.js"></script>
+  </body>
+</html>

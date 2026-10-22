@@ -753,3 +753,37 @@
 .stage-history-row .meta {
   color: var(--text-muted);
 }
+
+/* @mentions in a deal's notes (D87) */
+.mention-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  max-height: 200px;
+  overflow: auto;
+}
+.mention-option {
+  text-align: left;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mention-option.active,
+.mention-option:hover {
+  background: var(--brand-light);
+  color: var(--brand-darker);
+}
+.timeline .mention {
+  color: var(--brand-darker);
+  font-weight: 600;
+}

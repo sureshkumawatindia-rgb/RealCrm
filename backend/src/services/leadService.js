@@ -15,6 +15,9 @@ const customFieldFilters = require('./customFieldFilters');
 const lookupService = require('./lookupService');
 const automationEvents = require('./automation/events');
 const pipelineService = require('./pipelineService');
+const OrganizationMember = require('../models/OrganizationMember');
+const notificationService = require('./notificationService');
+const { can } = require('../constants/permissions');
 
 // Leads are shown on the Leads page and, as a Kanban, on the Deals page (D13).
 const MODULES = ['leads', 'deals'];
@@ -140,6 +143,11 @@ async function listFilter(req, query) {
   if (query.followUpFrom || query.followUpTo) {
     filter.followUpAt = { ...(query.followUpFrom && { $gte: query.followUpFrom }), ...(query.followUpTo && { $lte: query.followUpTo }) };
   }
+  // Boards (D87): several stages or sources at once, and ranges on other dates.
+  if (query.stages?.length) filter.stage = { $in: query.stages };
+  if (query.sources?.length) filter.source = { $in: query.sources };
+  if (query.closeFrom || query.closeTo) filter.expectedCloseDate = { ...(query.closeFrom && { $gte: query.closeFrom }), ...(query.closeTo && { $lte: query.closeTo }) };
+  if (query.createdFrom || query.createdTo) filter.createdAt = { ...(query.createdFrom && { $gte: query.createdFrom }), ...(query.createdTo && { $lte: query.createdTo }) };
   // cf filters on the lead's own fields must all match (D74).
   const fieldFilters = await customFieldFilters.conditions(req, 'lead', query.cf);
   if (fieldFilters.length) filter.$and = fieldFilters;
@@ -312,20 +320,68 @@ async function remove(req, id) {
 async function listActivities(req, id) {
   const lead = await findVisible(req, id);
   const activities = await LeadActivity.find({ organizationId: lead.organizationId, leadId: lead._id }).sort({ createdAt: -1 }).limit(200);
+  const mentioned = [...new Set(activities.flatMap((a) => (a.mentions || []).map(String)))];
+  const names = new Map((mentioned.length ? await OrganizationMember.find({ _id: { $in: mentioned }, organizationId: lead.organizationId }).populate('userId', 'name') : [])
+    .map((m) => [String(m._id), m.displayName || m.userId?.name || '']));
   return activities.map((activity) => ({
     id: activity._id, type: activity.type, text: activity.text, actorName: activity.actorName, createdAt: activity.createdAt,
+    ...(activity.mentions?.length && { mentions: activity.mentions.map((m) => ({ id: m, name: names.get(String(m)) || '' })) }),
   }));
 }
 
-async function addNote(req, id, { type = 'Note', text }) {
+// @mentions (D87): only active teammates who can open this deal (its module, and the deal itself
+// when they see only their own; private deals only for owners).
+const nameOf = (member) => member.displayName || member.userId?.name || 'a teammate';
+async function membersWhoSee(lead, members) {
+  const seeing = [];
+  for (const member of members) {
+    if (!MODULES.some((module) => can(member, module, 'view'))) continue;
+    const asThem = { tenant: { organizationId: lead.organizationId }, member };
+    if (await Lead.exists({ _id: lead._id, organizationId: lead.organizationId, ...visibilityFilter(asThem, MODULES), ...privacyFilter(asThem) })) seeing.push(member);
+  }
+  return seeing;
+}
+
+async function mentionable(req, id, { q = '' } = {}) {
   const lead = await findVisible(req, id);
-  await addActivity(req, lead, type, text);
+  const members = await OrganizationMember.find({ organizationId: lead.organizationId, status: 'active', _id: { $ne: req.member._id } }).populate('userId', 'name email').limit(200);
+  const words = String(q).trim().toLowerCase();
+  const matching = members.filter((m) => !words || nameOf(m).toLowerCase().includes(words) || (m.userId?.email || '').toLowerCase().startsWith(words));
+  return (await membersWhoSee(lead, matching)).slice(0, 20).map((m) => ({ id: m._id, name: nameOf(m) }));
+}
+
+async function addNote(req, id, { type = 'Note', text, mentions = [] }) {
+  const lead = await findVisible(req, id);
+  let notify = [];
+  if (mentions.length) {
+    const members = await OrganizationMember.find({ _id: { $in: mentions }, organizationId: lead.organizationId, status: 'active' }).populate('userId', 'name');
+    if (members.length !== mentions.length) throw httpError(422, 'MENTION_UNKNOWN', 'Only active members of your team can be mentioned.');
+    const seeing = new Set((await membersWhoSee(lead, members)).map((m) => String(m._id)));
+    const blind = members.filter((m) => !seeing.has(String(m._id)));
+    if (blind.length) throw httpError(422, 'MENTION_NO_ACCESS', `${blind.map(nameOf).join(', ')} cannot open this deal, so they cannot be mentioned here.`, blind.map((m) => ({ field: 'mentions', code: 'MENTION_NO_ACCESS', message: nameOf(m), memberId: String(m._id) })));
+    notify = members.filter((m) => String(m._id) !== String(req.member._id)).map((m) => m._id);
+  }
+  await LeadActivity.create([{
+    organizationId: lead.organizationId,
+    leadId: lead._id,
+    contactId: lead.contactId?._id || lead.contactId,
+    type,
+    text,
+    actorUserId: req.user._id,
+    actorName: req.user.name,
+    ...(mentions.length && { mentions }),
+  }]);
   await Lead.updateOne({ _id: lead._id }, { lastActivityAt: new Date() });
+  if (notify.length) {
+    await notificationService.notify(lead.organizationId, notify, {
+      title: `${req.user.name} mentioned you on “${lead.title}”`, body: text.slice(0, 300), link: `Deals.html?open=${lead._id}`, source: 'mention',
+    });
+  }
   return listActivities(req, id);
 }
 
 module.exports = {
-  list, create, update, convert, remove, listActivities, addNote,
+  list, create, update, convert, remove, listActivities, addNote, mentionable,
   get: loadSerialized,
   changeStage: (req, id, { stage, lostReason, version, pipelineStageId, pipelineId }) => update(req, id, { stage, lostReason, version, pipelineStageId, pipelineId }, { source: 'board' }),
   // GET /leads/:id/stage-history (D84).

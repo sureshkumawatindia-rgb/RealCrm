@@ -11,6 +11,8 @@ const leadActivitySchema = new mongoose.Schema(
     actorUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     actorName: { type: String, default: '' },
     meta: { type: mongoose.Schema.Types.Mixed },
+    // @mentioned teammates of a note (D87); each got a bell note.
+    mentions: { type: [mongoose.Schema.Types.ObjectId], ref: 'OrganizationMember', default: undefined },
     legacyIds: { type: [String], default: undefined },
   },
   { timestamps: { createdAt: true, updatedAt: false } },

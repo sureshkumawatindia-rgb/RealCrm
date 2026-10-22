@@ -709,7 +709,7 @@ async function renderTimeline(deal) {
       <div class="timeline-item">
         <span class="dot"></span>
         <div class="body">
-          <div class="text">${escapeHtml(n.text || crmLabel("leadHistory", n.type))}</div>
+          <div class="text">${n.mentions?.length ? withMentions(n.text, n.mentions) : escapeHtml(n.text || crmLabel("leadHistory", n.type))}</div>
           <div class="meta">${escapeHtml(n.actorName || "")} · ${formatDate(n.createdAt)}</div>
         </div>
       </div>`,
@@ -718,14 +718,101 @@ async function renderTimeline(deal) {
     : `<div class="text-muted" style="font-size:12.5px">${escapeHtml(t("deals.noActivity"))}</div>`;
 }
 
+// @mentions (D87): typing "@" and a name lists the teammates who can open this deal; the ones
+// still written in the note when it is added get a bell note.
+const mention = { picked: new Map(), options: [], active: 0, timer: null, seq: 0 };
+function withMentions(text, mentions) {
+  let html = escapeHtml(text || "");
+  for (const m of mentions) {
+    if (m.name) html = html.split(escapeHtml(`@${m.name}`)).join(`<span class="mention">@${escapeHtml(m.name)}</span>`);
+  }
+  return html;
+}
+function mentionList() {
+  let list = document.getElementById("mentionList");
+  if (!list) {
+    list = document.createElement("div");
+    list.id = "mentionList";
+    list.className = "mention-list";
+    list.setAttribute("role", "listbox");
+    list.hidden = true;
+    document.querySelector(".note-input-row")?.insertAdjacentElement("afterend", list);
+  }
+  return list;
+}
+function closeMentions() {
+  mentionList().hidden = true;
+  mention.options = [];
+}
+function mentionQuery(input) {
+  const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+  const match = before.match(/(?:^|\s)@([^\s@]{0,30})$/u);
+  return match ? match[1] : null;
+}
+function renderMentions() {
+  const list = mentionList();
+  list.hidden = !mention.options.length;
+  list.innerHTML = mention.options.map((m, i) => `<button type="button" role="option" class="mention-option${i === mention.active ? " active" : ""}" aria-selected="${i === mention.active}" data-mention="${i}">@${escapeHtml(m.name)}</button>`).join("");
+}
+function onNoteInput() {
+  const input = document.getElementById("noteInput");
+  const id = document.getElementById("editId").value;
+  const q = id ? mentionQuery(input) : null;
+  clearTimeout(mention.timer);
+  if (q === null) return closeMentions();
+  mention.timer = setTimeout(async () => {
+    const seq = ++mention.seq;
+    try {
+      const options = await crmApi(`/leads/${encodeURIComponent(id)}/mentionable?q=${encodeURIComponent(q)}`);
+      if (seq !== mention.seq) return;
+      mention.options = options;
+      mention.active = 0;
+      renderMentions();
+    } catch {
+      closeMentions();
+    }
+  }, 200);
+  return undefined;
+}
+function pickMention(index) {
+  const m = mention.options[index];
+  const input = document.getElementById("noteInput");
+  if (!m) return;
+  const caret = input.selectionStart ?? input.value.length;
+  const before = input.value.slice(0, caret).replace(/@([^\s@]{0,30})$/u, `@${m.name} `);
+  input.value = before + input.value.slice(caret);
+  input.setSelectionRange(before.length, before.length);
+  mention.picked.set(String(m.id), m.name);
+  closeMentions();
+  input.focus();
+}
+function onNoteKey(event) {
+  if (mentionList().hidden) return;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    mention.active = (mention.active + (event.key === "ArrowDown" ? 1 : -1) + mention.options.length) % mention.options.length;
+    renderMentions();
+  } else if (event.key === "Enter") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    pickMention(mention.active);
+  } else if (event.key === "Escape") {
+    event.stopPropagation();
+    closeMentions();
+  }
+}
+
 async function addNoteToDeal() {
   const id = document.getElementById("editId").value;
   if (!id) return;
   const input = document.getElementById("noteInput");
   const text = input.value.trim();
   if (!text) return;
+  const mentions = [...mention.picked].filter(([, name]) => text.includes(`@${name}`)).map(([memberId]) => memberId);
   try {
-    await addLeadNote(id, text);
+    await addLeadNote(id, text, mentions);
+    mention.picked.clear();
+    closeMentions();
     input.value = "";
     renderTimeline(getDeal(id));
     showToast(t("c360.noteAdded"), "success");
@@ -886,7 +973,17 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("fProbabilityValue").textContent = `${suggested}%`;
   });
 
-  // Notes
+  // Notes, with the @ picker (D87) answering its keys before the note's own Enter.
+  const noteInput = document.getElementById("noteInput");
+  noteInput.addEventListener("keydown", onNoteKey, true);
+  noteInput.addEventListener("input", onNoteInput);
+  noteInput.setAttribute("aria-controls", "mentionList");
+  mentionList().addEventListener("mousedown", (event) => {
+    const option = event.target.closest("[data-mention]");
+    if (!option) return;
+    event.preventDefault();
+    pickMention(Number(option.dataset.mention));
+  });
   document
     .getElementById("addNoteBtn")
     .addEventListener("click", addNoteToDeal);

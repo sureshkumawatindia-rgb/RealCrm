@@ -783,8 +783,9 @@ async function removeLead(id) {
 async function getLeadActivities(id) {
   return crmApi(`/leads/${id}/activities`);
 }
-async function addLeadNote(id, text) {
-  return crmApi(`/leads/${id}/activities`, jsonRequest("POST", { type: "Note", text }));
+// mentions: ids of @mentioned teammates (D87), who get a bell note.
+async function addLeadNote(id, text, mentions = []) {
+  return crmApi(`/leads/${id}/activities`, jsonRequest("POST", { type: "Note", text, ...(mentions.length && { mentions }) }));
 }
 
 // --- tasks and calendar events ------------------------------------
@@ -2083,6 +2084,7 @@ const PAGE_MODULES = {
   "Marketing.html": "marketing",
   "Sales Automation.html": "automation",
   "workflow-builder.html": "automation", // D86
+  "boards.html": ["leads", "deals", "tasks"], // D87
   "Tasks.html": "tasks",
   "Calendar.html": "calendar",
   "Documents.html": "documents",
@@ -2262,6 +2264,7 @@ const NAV_KEYS = {
   "marketing.html": "nav.marketing",
   "sales automation.html": "nav.automation",
   "workflow-builder.html": "nav.workflowBuilder",
+  "boards.html": "nav.boards",
   "tasks.html": "nav.tasks",
   "calendar.html": "nav.calendar",
   "documents.html": "nav.documents",
@@ -2322,6 +2325,13 @@ function injectGlobalNavItems() {
       icon: "fa-truck-fast",
       label: "Orders",
       afterHref: "Quotations.html",
+    },
+    // Boards (D87): saved table, Kanban and calendar views, right after Deals.
+    {
+      href: "boards.html",
+      icon: "fa-table-columns",
+      label: "Boards",
+      afterHref: "Deals.html",
     },
     // The visual workflow builder (D86), under Sales Automation.
     {

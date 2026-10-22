@@ -1,0 +1,316 @@
+/* Boards (Phase 7B, D87): saved table, Kanban and calendar views of leads and tasks. */
+.brd-bar,
+.brd-tools,
+.brd-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.brd-bar {
+  margin-bottom: 12px;
+}
+.brd-bar select,
+.brd-filters select,
+.brd-filters input[type="search"] {
+  padding: 9px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  min-width: 0;
+}
+.brd-bar #brdPick {
+  flex: 0 1 260px;
+}
+.brd-layouts {
+  display: inline-flex;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.brd-layouts button {
+  border: 0;
+  background: var(--surface);
+  color: var(--text-muted);
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.brd-layouts button + button {
+  border-left: 1px solid var(--border-soft);
+}
+.brd-layouts button[aria-pressed="true"] {
+  background: var(--brand-light);
+  color: var(--brand-darker);
+}
+.brd-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.brd-readonly {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.brd-filters {
+  margin-bottom: 14px;
+}
+.brd-filters input[type="search"] {
+  flex: 1 1 200px;
+}
+.brd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.brd-chips .chip-radio input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.brd-chips .chip-radio:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.brd-empty,
+.brd-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.brd-start {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+/* table */
+.brd-table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+.brd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.brd-table th,
+.brd-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+.brd-table th {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.brd-sort {
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+/* kanban */
+.brd-kanban {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(240px, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.brd-col {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  min-height: 160px;
+}
+.brd-col.drop {
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.brd-col header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.brd-count {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12px;
+}
+.brd-col-body {
+  display: grid;
+  gap: 8px;
+}
+.brd-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  cursor: grab;
+  box-shadow: var(--shadow-card);
+}
+.brd-card strong {
+  font-size: 13.5px;
+}
+.brd-card-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.brd-move {
+  justify-self: start;
+  border: 0;
+  background: none;
+  color: var(--brand-darker);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+/* calendar */
+.brd-cal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.brd-cal-head h3 {
+  margin: 0 8px;
+  font-size: 16px;
+}
+.brd-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+.brd-weekday {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.brd-day {
+  min-height: 96px;
+  padding: 6px;
+  border-right: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+}
+.brd-day.outside {
+  background: var(--bg);
+  color: var(--text-muted);
+}
+.brd-day.today .brd-day-num {
+  color: var(--brand-darker);
+  font-weight: 800;
+}
+.brd-day-num {
+  font-size: 12px;
+  font-weight: 600;
+}
+.brd-day-name {
+  display: none;
+}
+.brd-event {
+  font-size: 11.5px;
+  background: var(--brand-light);
+  color: var(--brand-darker);
+  border-radius: 4px;
+  padding: 2px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.brd-more {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.brd-dialog {
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 0;
+  width: min(480px, calc(100vw - 32px));
+  background: var(--surface);
+  color: var(--text);
+}
+.brd-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+.brd-dialog form,
+.brd-dialog .brd-dialog-body {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.brd-dialog h3 {
+  margin: 0;
+}
+.brd-col-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.brd-dialog .field input,
+.brd-dialog .field select {
+  width: 100%;
+}
+@media (max-width: 700px) {
+  .brd-bar > *,
+  .brd-tools > * {
+    flex: 1 1 auto;
+  }
+  .brd-bar #brdPick {
+    flex-basis: 100%;
+  }
+  /* A month becomes a list of the days that have something. */
+  .brd-cal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .brd-weekday,
+  .brd-day:not(.has-items) {
+    display: none;
+  }
+  .brd-day {
+    min-height: 0;
+    border-right: 0;
+  }
+  .brd-day-name {
+    display: inline;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .brd-kanban {
+    grid-auto-columns: minmax(78vw, 1fr);
+  }
+}

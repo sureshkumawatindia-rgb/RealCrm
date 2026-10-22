@@ -1,6 +1,6 @@
 # Phase 7: A visual workflow builder, boards, and @mentions (spec)
 
-Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (all questions and defaults through Phase 10); the user said "Phase 7 shuru karo" on 2026-10-22. This is Phase 7, "Visual Customizable Workflows" (inspired by monday CRM), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. It is built in two parts: **7A** the workflow builder, **7B** boards and @mentions. **7A was built on 2026-10-22 (D86)**; see section 10A.
+Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (all questions and defaults through Phase 10); the user said "Phase 7 shuru karo" on 2026-10-22. This is Phase 7, "Visual Customizable Workflows" (inspired by monday CRM), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. It is built in two parts: **7A** the workflow builder, **7B** boards and @mentions. **7A was built on 2026-10-22 (D86) and 7B the same day (D87)**; see sections 10A, 10B and 11.
 
 ## 1. Goal
 
@@ -111,12 +111,12 @@ An Indian SMB owner sets up "when a lead comes from IndiaMART, give it to Ravi a
 
 ## 8. Acceptance checklist
 
-- [ ] The check lists every problem of a draft with its card and place; unsupported triggers and actions are rejected by the server (test).
-- [ ] The preview changes nothing (no messages, tasks, stage moves or runs), reports each condition, fills the text like a real run, and refuses a lead the member cannot see (test).
-- [ ] Recipes pass the check once their choices are made (test).
-- [ ] Pause cancels waiting runs; Stop cancels one run; a test run is idempotent (test, reusing the engine).
-- [ ] Browser (7A): build a workflow from a recipe, see problems on their cards, preview on a lead, save, pause, at 390 px and in Hindi; keyboard moves steps.
-- [ ] 7B: views per member and shared; items follow visibility; Kanban moves use the existing endpoints; mentions follow who may see the deal; bell notes (tests + browser).
+- [x] The check lists every problem of a draft with its card and place; unsupported triggers and actions are rejected by the server (test).
+- [x] The preview changes nothing (no messages, tasks, stage moves or runs), reports each condition, fills the text like a real run, and refuses a lead the member cannot see (test).
+- [x] Recipes pass the check once their choices are made (test).
+- [x] Pause cancels waiting runs; Stop cancels one run; a test run is idempotent (test, reusing the engine).
+- [x] Browser (7A): build a workflow from a recipe, see problems on their cards, preview on a lead, save, pause, at 390 px and in Hindi; keyboard moves steps.
+- [x] 7B: views per member and shared; items follow visibility; Kanban moves use the existing endpoints; mentions follow who may see the deal; bell notes (tests + browser).
 
 ## 9. Scorecard targets
 
@@ -149,3 +149,35 @@ Measured in the isolated preview (port 3100, an in-memory database, the tests' s
 - **Keyboard and drag**: Up/Down moved a step and kept the focus on it; "+" added a step where pressed; a wait added last showed the note "A wait at the end does nothing".
 - **390 px and Hindi**: no sideways scroll; the preview lines read in Hindi ("छूट जाएगा: लीड पहले से Suresh Kumar की है।").
 - **Full run: 933 of 934 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
+
+## 10B. What was built in 7B (D87), and how it differs from this spec
+
+Built on 2026-10-22, with these differences:
+
+1. **@mentions extend the deal's existing notes** (`LeadActivity`, `POST /leads/:id/activities`), as the build rules ask (no duplicate endpoint). So there is no `Note.parentType: 'lead'` and no `/leads/:id/comments`. A note takes `mentions[]`; `LeadActivity.mentions` keeps them; `GET /leads/:id/activities` names them; `GET /leads/:id/mentionable?q=` (not `/members/mentionable`) lists who can be mentioned.
+2. **Who can be mentioned**: an active teammate with Leads or Deals who can open that deal (their own, or all with `view_all`; private deals only for owners). Anyone else is refused with 422 by name (`MENTION_NO_ACCESS`); someone of another company is `MENTION_UNKNOWN`. The bell note says "Suresh Kumar mentioned you on “TMT bars 5 tonnes”" and opens the deal (`Deals.html?open=<id>`). The writer gets none.
+3. **A board saves itself as it is changed** (layout, columns, group, date, filters, sort, sharing). A shared board that is not yours is read-only, with **Save a copy**. So there is no separate Save button.
+4. **Lists used by boards gained filters**: the lead list takes several stages or sources and ranges on the close date and creation; the task list takes several statuses or priorities and a range on creation. These are internal parameters from the board service; the public list validators are unchanged.
+5. **Board items**: a table pages by 100 (sortable headings); Kanban and calendar read up to 300 records and say when there are more. A calendar asks for its range (from, to) on its date (task due days are calendar days in India time).
+6. **Kanban moves** use the existing endpoints: a lead's stage through `POST /leads/:id/stage` (with its version; "Lost" asks why), its owner or source through `PATCH /leads/:id`, a task's status, priority or assignee through `PATCH /tasks/:id`. The card moves at once and goes back if the server refuses. "Move to…" does the same from the keyboard.
+7. **Columns of the company's own lead fields** (`cf.<key>`) are offered. A field archived later drops out of the board when it is read.
+8. **On a phone** the calendar becomes a list of the days that have something, and the Kanban columns scroll inside the board.
+
+Files:
+- **Backend:**
+  - new: `constants/boards.js`, `models/BoardView.js`, `validators/boards.js`, `services/boardService.js`, `routes/boards.js`;
+  - changed: `routes/index.js`, `services/leadService.js` (board filters, `mentionable`, mentions in `addNote` and `listActivities`), `models/LeadActivity.js`, `validators/crm.js` (`leadNote.mentions`, `mentionQuery`), `routes/leads.js`, `services/taskService.js`.
+- **Frontend:** `boards.html`, `js/boards.js`, `css/boards.css`, `js/app.js` (the Boards link after Deals, `addLeadNote` with mentions), `js/deals.js` and `css/deals.css` (the @ picker and highlighted mentions), and 76 texts (`board.*`, `nav.boards`).
+- **Tests:** `boards.test.js` (5): meta per module; private and shared boards and who changes them; items through the lists with each viewer's visibility, a calendar range and task boards; an archived field's column dropped; mentions (who can be, refusals by name, the bell note, not to the writer).
+
+## 11. Scorecard results (measured 2026-10-22)
+
+Measured in the isolated preview (port 3100, an in-memory database, the tests' sign-in): an owner and an agent who sees all leads, five deals with follow-ups, three tasks.
+
+| # | Target | Result |
+|---|---|---|
+| 1 | A working workflow from a recipe in ≤ 6 clicks | **Met: 5 clicks** ("Start from a recipe", "Use this", pick the person, On, Save). |
+| 2 | Every problem of a draft shown at once, on its card | **Met.** A test draft with 9 problems (an empty name, a wrong source, two bad conditions, a missing person, an unknown step, a template blank, a person not in the team, a wait at the end) got all of them, each on its card and field. In the browser the recipe's one missing choice showed on its card and the count said "1 to fix". |
+| 3 | A preview on a real lead with 0 side effects | **Met.** The test counts messages, tasks, runs, jobs, activity and bell notes before and after: unchanged; the lead's stage and tags too. In the browser the preview matched the real run that followed. |
+| 4 | Three layouts over leads and tasks, saved per member or shared | **Met.** A leads board went from table (sorted by value, a Source column added) to Kanban by stage ("Move to… Contacted" saved on the server) to a calendar on the follow-up day (five deals on their days; the next month too), then shared. The agent saw it read-only and saved a copy. Tests cover task boards. |
+| 5 | 0 regressions; 0 leaks; 390 px; Hindi | **Met.** Full run: 944 of 945 tests passed. The only failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet). Tests: an agent sees only their own leads on a shared board; another company gets 404 for a board and its items; a member without Leads gets no lead boards; mentions only reach people who can open the deal. Both pages at 390 px had no sideways scroll, in Hindi. |

@@ -43,6 +43,10 @@ router.get('/:id/stage-history', can('view'), byId, async (req, res) => {
 router.get('/:id/activities', can('view'), byId, async (req, res) => {
   res.json({ success: true, data: await leadService.listActivities(req, req.valid.params.id) });
 });
+// Who can be @mentioned on this deal (D87): teammates who can open it.
+router.get('/:id/mentionable', can('view'), validate({ params: idParams, query: schemas.mentionQuery }), async (req, res) => {
+  res.json({ success: true, data: await leadService.mentionable(req, req.valid.params.id, req.valid.query) });
+});
 router.post('/:id/activities', can('edit'), validate({ params: idParams, body: schemas.leadNote }), async (req, res) => {
   res.status(201).json({ success: true, data: await leadService.addNote(req, req.valid.params.id, req.body) });
 });

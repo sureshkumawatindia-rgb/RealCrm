@@ -46,6 +46,10 @@ module.exports = {
       ...(query.relatedType && { relatedType: query.relatedType }),
       ...(query.relatedId && { relatedId: query.relatedId }),
       ...((query.dueFrom || query.dueTo) && { dueDate: { ...(query.dueFrom && { $gte: query.dueFrom }), ...(query.dueTo && { $lte: query.dueTo }) } }),
+      // Boards (D87).
+      ...(query.statuses?.length && { status: { $in: query.statuses } }),
+      ...(query.priorities?.length && { priority: { $in: query.priorities } }),
+      ...((query.createdFrom || query.createdTo) && { createdAt: { ...(query.createdFrom && { $gte: query.createdFrom }), ...(query.createdTo && { $lte: query.createdTo }) } }),
     }),
     // Done records when it was completed; reopening clears it.
     prepare(task) {
