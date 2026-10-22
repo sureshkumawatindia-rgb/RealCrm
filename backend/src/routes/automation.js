@@ -25,6 +25,16 @@ workflowRoutes.get('/', can('view'), validate({ query: automationSchemas.workflo
 workflowRoutes.get('/meta', can('view'), (req, res) => {
   res.json({ success: true, data: workflowService.meta() });
 });
+// The visual builder (Phase 7A, D86): every problem of a draft, a dry run on one lead, recipes.
+workflowRoutes.post('/check', can('view'), validate({ body: automationSchemas.workflowCheck }), async (req, res) => {
+  res.json({ success: true, data: await workflowService.check(req, req.body) });
+});
+workflowRoutes.post('/preview', can('view'), validate({ body: automationSchemas.workflowPreview }), async (req, res) => {
+  res.json({ success: true, data: await workflowService.preview(req, req.body) });
+});
+workflowRoutes.get('/recipes', can('view'), (req, res) => {
+  res.json({ success: true, data: workflowService.recipes() });
+});
 workflowRoutes.post('/', can('create'), validate({ body: automationSchemas.workflowCreate }), async (req, res) => {
   res.status(201).json({ success: true, data: await workflowService.create(req, req.body), message: 'Workflow created' });
 });

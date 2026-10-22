@@ -11,13 +11,17 @@ const { toPage, paginationMeta } = require('../utils/pagination');
 const { assertPublicHttps } = require('../utils/safeWebhook');
 const { isManager } = require('../constants/permissions');
 const { LEAD_STAGES, LEAD_SOURCES, ORDER_STAGES } = require('../constants/crm');
-const { TRIGGERS, CONDITION_FIELDS, ACTIONS, RUN_STATUSES, SEQUENCE_STEP_TYPES } = require('../constants/automation');
+const { TRIGGERS, TRIGGER_TYPES, CONDITION_FIELDS, ACTIONS, ACTION_TYPES, RUN_STATUSES, SEQUENCE_STEP_TYPES, WORKFLOW_RECIPES } = require('../constants/automation');
+const Conversation = require('../models/Conversation');
+const automationSchemas = require('../validators/automation');
+const { loadContext } = require('./automation/context');
+const { serviceWindow } = require('./conversationService');
 const { createOwnedRecordService } = require('./ownedRecordService');
 const { visibilityFilter } = require('./access');
 const templateService = require('./templateService');
 const leadService = require('./leadService');
 const engine = require('./automation/engine');
-const { VARIABLE_VALUES } = require('./automation/actions');
+const { VARIABLE_VALUES, fill, resolveVariables } = require('./automation/actions');
 const planService = require('./planService');
 
 // Workflows of the automation engine (Sales Automation page, Phase 6): "when <trigger>, if
@@ -113,33 +117,49 @@ async function checkTemplateStep(req, params, field = '') {
   }
 }
 
-async function checkReferences(req, { conditions = [], steps = [] }) {
+// Each check throws its problem (a 400 with the field). conditionIndexes/stepIndexes: only those
+// (the builder skips items whose settings are already wrong).
+function referenceChecks(req, { conditions = [], steps = [] }, { conditionIndexes = null, stepIndexes = null } = {}) {
+  const checks = [];
   for (const [index, condition] of conditions.entries()) {
-    if (condition.field === 'owner' && ['is', 'isNot'].includes(condition.op)) await activeMember(req, condition.value, `conditions.${index}.value`);
+    if (conditionIndexes && !conditionIndexes.has(index)) continue;
+    if (condition.field === 'owner' && ['is', 'isNot'].includes(condition.op)) checks.push(() => activeMember(req, condition.value, `conditions.${index}.value`));
   }
   for (const [index, step] of steps.entries()) {
+    if (stepIndexes && !stepIndexes.has(index)) continue;
     const field = `steps.${index}.params`;
     const params = step.params || {};
-    if (step.type === 'whatsapp.template') await checkTemplateStep(req, params, field);
+    if (step.type === 'whatsapp.template') checks.push(() => checkTemplateStep(req, params, field));
     if (step.type === 'assign') {
-      const member = await activeMember(req, params.memberId, `${field}.memberId`);
-      if (!isManager(member) && !member.modules?.some((m) => m === 'leads' || m === 'deals')) {
-        throw invalid(`${field}.memberId`, 'This person cannot open Leads, so leads cannot be given to them.', 'MEMBER_NO_LEADS');
-      }
+      checks.push(async () => {
+        const member = await activeMember(req, params.memberId, `${field}.memberId`);
+        if (!isManager(member) && !member.modules?.some((m) => m === 'leads' || m === 'deals')) {
+          throw invalid(`${field}.memberId`, 'This person cannot open Leads, so leads cannot be given to them.', 'MEMBER_NO_LEADS');
+        }
+      });
     }
-    if (step.type === 'task.create' && params.assignTo !== 'owner') await activeMember(req, params.assignTo, `${field}.assignTo`);
-    if (step.type === 'agent.notify' && !['owner', 'managers'].includes(params.to)) await activeMember(req, params.to, `${field}.to`);
+    if (step.type === 'task.create' && params.assignTo !== 'owner') checks.push(() => activeMember(req, params.assignTo, `${field}.assignTo`));
+    if (step.type === 'agent.notify' && !['owner', 'managers'].includes(params.to)) checks.push(() => activeMember(req, params.to, `${field}.to`));
     if (step.type === 'webhook.call') {
-      try {
-        await assertPublicHttps(params.url);
-      } catch (error) {
-        throw invalid(`${field}.url`, error.message, 'WEBHOOK_URL');
-      }
+      checks.push(async () => {
+        try {
+          await assertPublicHttps(params.url);
+        } catch (error) {
+          throw invalid(`${field}.url`, error.message, 'WEBHOOK_URL');
+        }
+      });
     }
-    if (step.type === 'sequence.enroll' && !(await Sequence.exists({ _id: params.sequenceId, organizationId: req.tenant.organizationId, deletedAt: null }))) {
-      throw invalid(`${field}.sequenceId`, 'Pick one of your sequences.', 'INVALID_SEQUENCE');
+    if (step.type === 'sequence.enroll') {
+      checks.push(async () => {
+        if (!(await Sequence.exists({ _id: params.sequenceId, organizationId: req.tenant.organizationId, deletedAt: null }))) throw invalid(`${field}.sequenceId`, 'Pick one of your sequences.', 'INVALID_SEQUENCE');
+      });
     }
   }
+  return checks;
+}
+
+async function checkReferences(req, draft) {
+  for (const check of referenceChecks(req, draft)) await check();
 }
 
 // Pausing or removing a workflow stops its runs that are still going (e.g. inside a wait).
@@ -199,6 +219,226 @@ async function runByHand(req, id, { leadId }) {
   await audit(req, { action: 'workflow.run', entityType: 'Workflow', entityId: workflow._id, changes: { leadId: String(lead._id), runId: String(run._id) } });
   return serializeRun(run);
 }
+
+// --- the builder (Phase 7A, D86) ------------------------------------------------------------
+// card: where the builder shows a problem (trigger, condition, step, workflow); index: which one.
+function placeOf(path) {
+  const [head, index] = String(path).split('.');
+  const card = { trigger: 'trigger', conditions: 'condition', steps: 'step' }[head] || 'workflow';
+  return { card, index: card === 'condition' || card === 'step' ? Number(index) : null };
+}
+const problem = (path, code, message, extra = {}) => ({ path, ...placeOf(path), code, level: 'error', message, ...extra });
+const warning = (path, code, message) => ({ ...problem(path, code, message), level: 'warning' });
+const clean = (message) => String(message).replace(/"/g, '');
+
+// Joi's details for one settings object → problems at "<base>.<key>" (field: the key, for a label).
+function paramProblems(base, schema, params) {
+  const { error } = schema.validate(params || {}, { abortEarly: false, stripUnknown: true });
+  return (error?.details || []).map((detail) => {
+    const key = detail.path.join('.');
+    const code = ['any.required', 'string.empty'].includes(detail.type) ? 'REQUIRED' : 'INVALID';
+    return problem(key ? `${base}.${key}` : base, code, clean(detail.message), { field: detail.path[0] ?? null });
+  });
+}
+
+const DELAY_MINUTES = { 'lead.no_reply': (p) => (p.hours || 24) * 60, 'quotation.not_accepted': (p) => (p.days || 3) * 1440, 'payment.overdue': (p) => (p.days || 7) * 1440 };
+const ORDER_TRIGGERS = ['order.stage_changed', 'payment.received', 'payment.overdue'];
+const minutesOf = ({ amount = 1, unit = 'hours' }) => Number(amount) * ({ minutes: 1, hours: 60, days: 1440 }[unit] || 60);
+
+// Every problem of a draft at once, with its card; warnings for what saves but will not work well.
+async function check(req, draft = {}) {
+  const problems = [];
+  if (draft.name !== undefined && !String(draft.name || '').trim()) problems.push(problem('name', 'REQUIRED', 'Give the workflow a name.', { field: 'name' }));
+  const trigger = draft.trigger || {};
+  let triggerOk = false;
+  if (!trigger.type) problems.push(problem('trigger', 'REQUIRED', 'Choose what starts the workflow.'));
+  else if (!TRIGGER_TYPES.includes(trigger.type)) problems.push(problem('trigger', 'UNSUPPORTED', `"${String(trigger.type).slice(0, 60)}" is not something that can start a workflow.`));
+  else {
+    const found = paramProblems('trigger.params', automationSchemas.TRIGGER_PARAMS[trigger.type], trigger.params);
+    problems.push(...found);
+    triggerOk = !found.length;
+  }
+
+  const conditions = Array.isArray(draft.conditions) ? draft.conditions : [];
+  if (conditions.length > 10) problems.push(problem('conditions', 'TOO_MANY', 'At most 10 conditions.'));
+  const goodConditions = new Set();
+  conditions.slice(0, 10).forEach((condition, index) => {
+    const { error } = automationSchemas.conditionSchema.validate(condition);
+    if (error) problems.push(problem(`conditions.${index}`, 'INVALID', clean(error.message)));
+    else goodConditions.add(index);
+  });
+
+  const steps = Array.isArray(draft.steps) ? draft.steps : [];
+  if (!steps.length) problems.push(problem('steps', 'STEPS_REQUIRED', 'Add at least one step.'));
+  if (steps.length > 20) problems.push(problem('steps', 'TOO_MANY', 'At most 20 steps.'));
+  const goodSteps = new Set();
+  steps.slice(0, 20).forEach((step, index) => {
+    if (!ACTION_TYPES.includes(step?.type)) {
+      problems.push(problem(`steps.${index}`, 'UNSUPPORTED', `Step ${index + 1}: "${String(step?.type || '').slice(0, 60)}" is not a step the CRM can do.`));
+      return;
+    }
+    const found = paramProblems(`steps.${index}.params`, automationSchemas.STEP_PARAMS[step.type], step.params);
+    problems.push(...found);
+    if (!found.length) goodSteps.add(index);
+  });
+
+  // The people, templates, sequences and addresses of the items whose settings are right.
+  const validated = (list, schemaOf) => list.map((item) => {
+    const { value } = schemaOf(item).validate(item?.params || {}, { stripUnknown: true });
+    return { ...item, params: value };
+  });
+  const checks = referenceChecks(req, {
+    conditions,
+    steps: validated(steps.slice(0, 20), (step) => automationSchemas.STEP_PARAMS[step?.type] || automationSchemas.STEP_PARAMS['payment.link']),
+  }, { conditionIndexes: goodConditions, stepIndexes: goodSteps });
+  for (const run of checks) {
+    try {
+      await run();
+    } catch (error) {
+      const detail = error.errors?.[0];
+      if (!detail) throw error;
+      problems.push(problem(detail.field, detail.code || 'INVALID', detail.message));
+    }
+  }
+
+  // Warnings.
+  if (steps.length && steps.at(-1)?.type === 'wait') problems.push(warning(`steps.${steps.length - 1}`, 'WAIT_LAST', 'A wait at the end does nothing: add a step after it, or remove it.'));
+  let late = triggerOk && DELAY_MINUTES[trigger.type] ? DELAY_MINUTES[trigger.type](trigger.params || {}) : 0;
+  steps.slice(0, 20).forEach((step, index) => {
+    if (step?.type === 'wait' && goodSteps.has(index)) late += minutesOf(step.params || {});
+    if (step?.type === 'whatsapp.text' && late >= 24 * 60) {
+      problems.push(warning(`steps.${index}`, 'OUTSIDE_WINDOW', 'This message will probably go more than 24 hours after the customer last wrote, when WhatsApp allows only templates. Use a WhatsApp template step.'));
+    }
+    if (step?.type === 'payment.link' && triggerOk && !ORDER_TRIGGERS.includes(trigger.type)) {
+      problems.push(warning(`steps.${index}`, 'NEEDS_ORDER', 'The payment link needs an order: this trigger is not about an order, so the step will be skipped.'));
+    }
+  });
+  return { ok: !problems.some((p) => p.level === 'error'), problems };
+}
+
+// What the workflow would do for one lead, as if its trigger fired now. Nothing is sent, saved or
+// started: the engine's own condition check and placeholder filling are used on a copy.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const istDate = (date) => new Date(date.getTime() + 330 * 60000).toISOString().slice(0, 10);
+
+async function preview(req, { draft, leadId }) {
+  const result = await check(req, draft);
+  const errors = result.problems.filter((p) => p.level === 'error');
+  if (errors.length) throw httpError(400, 'VALIDATION_ERROR', `The workflow has ${errors.length === 1 ? 'a problem' : `${errors.length} problems`}: ${errors[0].message}`, errors.map((p) => ({ field: p.path, code: p.code, message: p.message })));
+  const { value } = automationSchemas.workflowDraft.validate(draft, { stripUnknown: true });
+  const lead = await leadService.findVisible(req, leadId);
+  const organizationId = req.tenant.organizationId;
+  const loaded = await loadContext({ organizationId, subject: { leadId: lead._id } });
+  // Plain copies: steps change them as the run would, so later steps and conditions see it.
+  const ctx = { ...loaded, lead: loaded.lead?.toObject(), contact: loaded.contact ? { ...loaded.contact.toObject(), tags: [...(loaded.contact.tags || [])] } : null };
+
+  const matches = {
+    'lead.created': () => engine.triggerMatches(value.trigger, { source: ctx.lead.source }),
+    'lead.stage_changed': () => (value.trigger.params?.toStages?.length ? value.trigger.params.toStages.includes(ctx.lead.stage) : null),
+  };
+  const ownerNames = new Map();
+  const nameOf = async (memberId) => {
+    if (!memberId) return '';
+    const key = String(memberId);
+    if (!ownerNames.has(key)) {
+      const member = await OrganizationMember.findOne({ _id: memberId, organizationId }).populate('userId', 'name');
+      ownerNames.set(key, member?.displayName || member?.userId?.name || '');
+    }
+    return ownerNames.get(key);
+  };
+  const actual = async (condition) => {
+    if (condition.field === 'source' || condition.field === 'stage') return ctx.lead?.[condition.field] || '';
+    if (condition.field === 'tag') return (ctx.contact?.tags || []).join(', ');
+    if (condition.field === 'owner') return nameOf(ctx.lead?.ownerId);
+    return '';
+  };
+  const conditions = [];
+  for (const [index, condition] of value.conditions.entries()) {
+    conditions.push({ index, field: condition.field, op: condition.op, value: condition.value ?? null, passed: engine.conditionsMatch([condition], ctx), actual: await actual(condition) });
+  }
+
+  const conversation = ctx.contact ? await Conversation.findOne({ organizationId, contactId: ctx.contact._id }).sort({ lastMessageAt: -1, updatedAt: -1 }) : null;
+  const phone = ctx.contact?.phoneE164 || '';
+  let at = new Date();
+  const steps = [];
+  for (const [index, step] of value.steps.entries()) {
+    const p = step.params || {};
+    const out = { index, type: step.type, status: 'do', reason: null, at: at.toISOString(), facts: {} };
+    const skip = (reason) => Object.assign(out, { status: 'skip', reason });
+    switch (step.type) {
+      case 'whatsapp.text':
+        out.facts = { text: fill(p.text, ctx).trim(), to: phone };
+        if (!phone) skip('NO_PHONE');
+        else if (!conversation) skip('NO_CHAT');
+        else if (!serviceWindow(conversation, at.getTime()).open) skip('OUTSIDE_WINDOW');
+        break;
+      case 'whatsapp.template': {
+        const template = await MessageTemplate.findOne({ _id: p.templateId, organizationId });
+        const variables = resolveVariables(p.variables, ctx);
+        out.facts = { template: template?.name || '', language: template?.language || '', variables, to: phone };
+        const missing = Object.values(variables).flatMap((values) => Object.entries(values).filter(([, v]) => !String(v).trim()).map(([name]) => name));
+        if (!phone) skip('NO_PHONE');
+        else if (template?.category === 'MARKETING' && ctx.contact?.consent?.marketing === 'opted_out') skip('OPTED_OUT');
+        else if (missing.length) Object.assign(skip('MISSING_VALUE').facts, { missing });
+        break;
+      }
+      case 'assign':
+        out.facts = { member: await nameOf(p.memberId) };
+        if (String(ctx.lead.ownerId || '') === String(p.memberId)) skip('ALREADY');
+        else ctx.lead.ownerId = p.memberId;
+        break;
+      case 'tag.add':
+      case 'tag.remove': {
+        const has = (ctx.contact?.tags || []).some((t) => t.toLowerCase() === p.tag.toLowerCase());
+        out.facts = { tag: p.tag };
+        if (!ctx.contact) skip('NO_CUSTOMER');
+        else if (step.type === 'tag.add' ? has : !has) skip('ALREADY');
+        else ctx.contact.tags = step.type === 'tag.add' ? [...ctx.contact.tags, p.tag] : ctx.contact.tags.filter((t) => t.toLowerCase() !== p.tag.toLowerCase());
+        break;
+      }
+      case 'stage.change':
+        out.facts = { from: ctx.lead.stage, to: p.stage, deal: ctx.lead.title };
+        if (ctx.lead.stage === p.stage) skip('ALREADY');
+        else ctx.lead.stage = p.stage;
+        break;
+      case 'task.create':
+        out.facts = { title: fill(p.title, ctx).trim(), due: istDate(new Date(at.getTime() + (p.dueInDays || 0) * DAY_MS)), assignee: p.assignTo === 'owner' ? (await nameOf(ctx.lead.ownerId)) || 'owner' : await nameOf(p.assignTo), priority: p.priority };
+        break;
+      case 'agent.notify':
+        out.facts = { to: p.to === 'owner' || p.to === 'managers' ? p.to : await nameOf(p.to), message: fill(p.message, ctx).trim() };
+        if (p.to === 'owner') out.facts.ownerName = await nameOf(ctx.lead.ownerId);
+        break;
+      case 'wait':
+        at = new Date(at.getTime() + minutesOf(p) * 60000);
+        Object.assign(out, { status: 'wait', facts: { amount: p.amount, unit: p.unit, until: at.toISOString() } });
+        break;
+      case 'webhook.call':
+        out.facts = { host: new URL(p.url).host };
+        break;
+      case 'sequence.enroll': {
+        const sequence = await Sequence.findOne({ _id: p.sequenceId, organizationId }).select('name');
+        out.facts = { sequence: sequence?.name || '' };
+        break;
+      }
+      case 'payment.link':
+        skip('NO_ORDER');
+        break;
+      default:
+        break;
+    }
+    steps.push(out);
+  }
+  return {
+    lead: { id: lead._id, title: lead.title, stage: lead.stage, contactName: ctx.contact?.name || '' },
+    trigger: { type: value.trigger.type, matchesLead: matches[value.trigger.type] ? matches[value.trigger.type]() : null },
+    conditions,
+    wouldRun: conditions.every((c) => c.passed),
+    steps,
+    warnings: result.problems.filter((p) => p.level === 'warning'),
+  };
+}
+
+const recipes = () => WORKFLOW_RECIPES.map((recipe) => JSON.parse(JSON.stringify(recipe)));
 
 // --- runs ----------------------------------------------------------------------------------
 // Members who see only their own workflows see only those workflows' runs.
@@ -273,6 +513,9 @@ module.exports = {
   meta,
   checkReferences,
   checkTemplateStep,
+  check,
+  preview,
+  recipes,
   serializeWorkflow,
   serializeRun,
 };

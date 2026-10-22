@@ -83,7 +83,7 @@ const conditionValue = {
   owner: Joi.when('op', { is: Joi.valid('is', 'isNot'), then: objectId.required(), otherwise: Joi.any().strip() }),
   businessHours: Joi.any().strip(),
 };
-const condition = Joi.object({ field: Joi.string().valid(...Object.keys(CONDITION_FIELDS)).required(), op: Joi.string().required(), value: Joi.any() })
+const conditionSchema = Joi.object({ field: Joi.string().valid(...Object.keys(CONDITION_FIELDS)).required(), op: Joi.string().required(), value: Joi.any() })
   .custom((value, helpers) => {
     if (!CONDITION_FIELDS[value.field].ops.includes(value.op)) return helpers.message(`"${value.op}" does not go with ${value.field}`);
     const { error, value: checked } = Joi.object({ op: Joi.string(), value: conditionValue[value.field] }).validate({ op: value.op, value: value.value });
@@ -96,7 +96,7 @@ const fields = {
   status: Joi.string().valid(...AUTOMATION_STATUSES),
   ownerId: objectId.allow(null),
   trigger,
-  conditions: Joi.array().items(condition).max(10),
+  conditions: Joi.array().items(conditionSchema).max(10),
   steps: Joi.array().items(step).min(1).max(20),
 };
 
@@ -117,7 +117,20 @@ const sequenceFields = {
 };
 const automationList = Joi.object({ ...paginationQuery, q: Joi.string().trim().max(100).allow(''), status: Joi.string().valid(...AUTOMATION_STATUSES), ownerId: objectId, sort: Joi.string().max(40) });
 
+// The builder's check (Phase 7A) takes any draft and reports what is wrong, so its body is loose.
+const workflowDraft = Joi.object({ ...fields, name: Joi.string().trim().max(200).allow(''), trigger: trigger.required(), steps: fields.steps.required() });
+const loose = Joi.object({
+  name: Joi.any(), status: Joi.any(), ownerId: Joi.any(), trigger: Joi.any(),
+  conditions: Joi.array().max(50), steps: Joi.array().max(50),
+});
+
 module.exports = {
+  TRIGGER_PARAMS,
+  STEP_PARAMS,
+  conditionSchema,
+  workflowDraft,
+  workflowCheck: loose,
+  workflowPreview: Joi.object({ draft: loose.required(), leadId: objectId.required() }),
   workflowCreate: Joi.object({ ...fields, name: fields.name.required(), trigger: trigger.required(), steps: fields.steps.required() }),
   workflowPatch: Joi.object(fields).min(1),
   workflowList: automationList,

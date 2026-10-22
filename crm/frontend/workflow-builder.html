@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Theme and language before the page is drawn (CP5) -->
+    <script src="js/boot.js"></script>
+    <title>Workflow builder | YELLOW CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="./img/logo/logo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/workflow-builder.css" />
+    <script>
+      if (!localStorage.getItem("crm_session")) {
+        window.location.replace("login.html");
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="mark"><img src="./img/logo/logo.png" alt="logo" /></span
+          ><span>YELLOW CRM</span>
+        </div>
+        <nav class="nav-group">
+          <a href="dashboard.html" class="nav-item">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </a>
+
+          <div class="nav-parent" data-group="sales">
+            <i class="fa-solid fa-dollar-sign"></i>
+            <span>Sales</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="sales">
+            <a href="customers.html" class="nav-item">
+              <i class="fa-solid fa-users"></i> Customers
+            </a>
+            <a href="leads.html" class="nav-item">
+              <i class="fa-solid fa-bullseye"></i> Leads
+            </a>
+            <a href="accounts.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Account Champions
+            </a>
+            <a href="Deals.html" class="nav-item">
+              <i class="fa-solid fa-building"></i> Deals
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="automation">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Sales Automation</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="automation">
+            <a href="./Marketing.html" class="nav-item">
+              <i class="fa-solid fa-bullhorn"></i> Marketing
+            </a>
+            <a href="./Sales Automation.html" class="nav-item">
+              <i class="fa-solid fa-gears"></i> Sales Automation
+            </a>
+            <a href="./workflow-builder.html" class="nav-item active">
+              <i class="fa-solid fa-diagram-project"></i> Workflow builder
+            </a>
+          </div>
+
+          <div class="nav-parent" data-group="activities">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Activities</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="activities">
+            <a href="./Tasks.html" class="nav-item">
+              <i class="fa-solid fa-list-check"></i> Tasks
+            </a>
+            <a href="./Calendar.html" class="nav-item">
+              <i class="fa-solid fa-calendar-days"></i> Calendar
+            </a>
+            <a href="./Documents.html" class="nav-item">
+              <i class="fa-solid fa-file-lines"></i> Documents
+            </a>
+          </div>
+
+          <a href="./Support.html" class="nav-item">
+            <i class="fa-solid fa-headset"></i> Support
+          </a>
+
+          <div class="nav-parent" data-group="analytics">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analytics</span>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+          </div>
+          <div class="nav-submenu" data-submenu="analytics">
+            <a href="./Reports & Analytics.html" class="nav-item">
+              <i class="fa-solid fa-chart-line"></i> Reports & Analytics
+            </a>
+            <a href="./Al Insights.html" class="nav-item">
+              <i class="fa-solid fa-brain"></i> AI Insights
+            </a>
+          </div>
+
+          <a href="./Products.html" class="nav-item">
+            <i class="fa-solid fa-box-open"></i> Products
+          </a>
+
+          <a href="./Settings.html" class="nav-item">
+            <i class="fa-solid fa-gear"></i> Settings
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-user">
+            <img
+              id="sidebar-user-avatar"
+              src=""
+              alt=""
+              onerror="this.style.display = 'none'"
+            />
+            <div>
+              <div class="sidebar-user-name" id="sidebar-user-name"></div>
+              <div class="sidebar-user-email" id="sidebar-user-email"></div>
+            </div>
+          </div>
+          <a href="#" class="logout-link" id="logout-btn"
+            ><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a
+          >
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar"><h2 data-i18n="nav.workflowBuilder">Workflow builder</h2></header>
+
+        <!-- The visual workflow builder (Phase 7A, D86, js/workflow-builder.js) -->
+        <div class="page wfb-page">
+          <div class="wfb-bar">
+            <select id="wfbPick" aria-label="Workflow" data-i18n-aria-label="wfb.pick.label"></select>
+            <button class="btn btn-outline" id="wfbRecipes" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="wfb.recipes">Start from a recipe</span></button>
+            <input type="text" id="wfbName" maxlength="200" placeholder="Workflow name" data-i18n-placeholder="wfb.field.name" aria-label="Workflow name" />
+            <label class="wfb-switch"><input type="checkbox" id="wfbOn" /> <span data-i18n="wfb.on">On</span></label>
+            <span class="badge" id="wfbStatus" role="status" aria-live="polite"></span>
+            <button class="btn btn-outline" id="wfbDelete" type="button" hidden data-i18n="common.delete">Delete</button>
+            <button class="btn btn-primary" id="wfbSave" type="button" data-i18n="wfb.save">Save</button>
+          </div>
+
+          <div class="wfb-layout">
+            <section class="wfb-flow" id="wfbFlow" aria-label="Workflow steps" data-i18n-aria-label="wfb.flow"><p class="wfb-hint" data-i18n="cf.loading">Loading…</p></section>
+
+            <aside class="wfb-side">
+              <div class="panel">
+                <div class="panel-head"><h3 data-i18n="wfb.preview">Try it on a lead</h3></div>
+                <div class="panel-body">
+                  <p class="wfb-hint" data-i18n="wfb.previewHint">Pick a lead to see what this workflow would do to it. Nothing is sent or changed.</p>
+                  <input type="search" id="wfbLeadSearch" placeholder="Search a lead by name" data-i18n-placeholder="wfb.searchLead" aria-label="Search a lead by name" />
+                  <div id="wfbLeadResults"></div>
+                  <div id="wfbPreviewResult" aria-live="polite"></div>
+                </div>
+              </div>
+              <div class="panel" id="wfbRunsPanel" hidden>
+                <div class="panel-head"><h3 data-i18n="wfb.runs">Last runs</h3></div>
+                <div class="panel-body" id="wfbRuns"></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <dialog class="wfb-dialog" id="wfbRecipeDialog" aria-labelledby="wfbRecipeTitle">
+      <div class="wfb-dialog-head">
+        <h3 id="wfbRecipeTitle" data-i18n="wfb.recipes">Start from a recipe</h3>
+        <button class="btn btn-outline wfb-icon-btn" id="wfbRecipeClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="wfb-recipes" id="wfbRecipeList"></div>
+    </dialog>
+
+    <div class="toast-stack" id="toast-stack"></div>
+
+    <script src="./js/app.js"></script>
+    <script src="js/workflow-builder.js"></script>
+  </body>
+</html>

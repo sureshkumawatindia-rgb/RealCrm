@@ -2082,6 +2082,7 @@ const PAGE_MODULES = {
   "Orders.html": ["leads", "deals"],
   "Marketing.html": "marketing",
   "Sales Automation.html": "automation",
+  "workflow-builder.html": "automation", // D86
   "Tasks.html": "tasks",
   "Calendar.html": "calendar",
   "Documents.html": "documents",
@@ -2260,6 +2261,7 @@ const NAV_KEYS = {
   "orders.html": "nav.orders",
   "marketing.html": "nav.marketing",
   "sales automation.html": "nav.automation",
+  "workflow-builder.html": "nav.workflowBuilder",
   "tasks.html": "nav.tasks",
   "calendar.html": "nav.calendar",
   "documents.html": "nav.documents",
@@ -2320,6 +2322,13 @@ function injectGlobalNavItems() {
       icon: "fa-truck-fast",
       label: "Orders",
       afterHref: "Quotations.html",
+    },
+    // The visual workflow builder (D86), under Sales Automation.
+    {
+      href: "workflow-builder.html",
+      icon: "fa-diagram-project",
+      label: "Workflow builder",
+      afterHref: "Sales Automation.html",
     },
     // The team's work (D61): everyone sees their own; owners and admins see the team live.
     // Both go right after Reports & Analytics, in this order.
