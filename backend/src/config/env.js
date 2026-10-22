@@ -22,6 +22,12 @@ const schema = Joi.object({
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').default(''),
   PUBLIC_URL: Joi.string().uri({ scheme: ['http', 'https'] }).default('http://127.0.0.1:3000'),
   GOOGLE_REDIRECT_URI: Joi.string().uri({ scheme: ['http', 'https'] }),
+  // Microsoft 365 (Phase 4B, D83): an app registered in Microsoft Entra ID. Without a client id the
+  // Microsoft connection is off, or the mock when DEV_TOOLS=on (never in production).
+  MICROSOFT_CLIENT_ID: Joi.string().allow('').default(''),
+  MICROSOFT_CLIENT_SECRET: Joi.string().allow('').default(''),
+  MICROSOFT_TENANT: Joi.string().pattern(/^[A-Za-z0-9.-]+$/).default('common'),
+  MICROSOFT_REDIRECT_URI: Joi.string().uri({ scheme: ['http', 'https'] }),
   FRONTEND_URL: Joi.string().uri({ scheme: ['http', 'https'] }),
   GMAIL_TOKEN_ENCRYPTION_KEY: Joi.string().allow('').default(''),
   DATA_ENCRYPTION_KEY: Joi.string().allow('').default('')
@@ -200,6 +206,12 @@ const env = {
     autoReplyModel: value.AI_AUTOREPLY_MODEL,
     monthlyBudgetUsd: value.AI_MONTHLY_BUDGET_USD,
     refusalFallback: value.AI_REFUSAL_FALLBACK,
+  },
+  microsoft: {
+    clientId: value.MICROSOFT_CLIENT_ID,
+    clientSecret: value.MICROSOFT_CLIENT_SECRET,
+    tenant: value.MICROSOFT_TENANT,
+    redirectUri: value.MICROSOFT_REDIRECT_URI || `${publicUrl}/api/v1/integrations/microsoft/callback`,
   },
   billing: {
     provider: value.NODE_ENV === 'production' && value.BILLING_PROVIDER === 'mock' ? 'off' : value.BILLING_PROVIDER,

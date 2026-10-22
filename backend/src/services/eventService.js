@@ -1,6 +1,7 @@
 const CalendarEvent = require('../models/CalendarEvent');
 const httpError = require('../utils/httpError');
 const { createWorkItemService } = require('./workItemService');
+const outlookService = require('./outlookService');
 
 // Events show on the Calendar and also on the dashboard, Customer 360 and reports.
 const MODULES = ['calendar', 'dashboard', 'customers', 'reports'];
@@ -20,16 +21,16 @@ function serializeEvent(event) {
     relatedId: event.relatedId || null,
     relatedName: event.relatedName,
     description: event.description,
+    // D83: its Teams link, and where it stands in the owner's Outlook calendar.
+    joinUrl: event.online?.joinUrl || '',
+    outlook: event.external?.microsoft?.state ? { state: event.external.microsoft.state, error: event.external.microsoft.error || '' } : null,
     createdByMemberId: event.createdByMemberId || null,
     createdAt: event.createdAt,
     updatedAt: event.updatedAt,
   };
 }
 
-module.exports = {
-  MODULES,
-  serializeEvent,
-  ...createWorkItemService({
+const base = createWorkItemService({
     Model: CalendarEvent,
     modules: MODULES,
     entityType: 'CalendarEvent',
@@ -52,5 +53,28 @@ module.exports = {
       }
     },
     serialize: serializeEvent,
-  }),
+});
+
+// Every change also goes to the owner's Outlook calendar when they connected Microsoft 365 (D83).
+const sync = (doc) => outlookService.queueSync(doc);
+module.exports = {
+  MODULES,
+  serializeEvent,
+  ...base,
+  async create(req, body) {
+    const event = await base.create(req, body);
+    await sync({ _id: event.id, organizationId: req.tenant.organizationId, assigneeId: event.assigneeId, createdByMemberId: event.createdByMemberId });
+    return event;
+  },
+  async update(req, id, body) {
+    const before = await base.findVisible(req, id);
+    const event = await base.update(req, id, body);
+    await sync({ _id: event.id, organizationId: req.tenant.organizationId, assigneeId: event.assigneeId, createdByMemberId: event.createdByMemberId, external: before.external });
+    return event;
+  },
+  async remove(req, id) {
+    const before = await base.findVisible(req, id);
+    await base.remove(req, id);
+    await sync(before);
+  },
 };

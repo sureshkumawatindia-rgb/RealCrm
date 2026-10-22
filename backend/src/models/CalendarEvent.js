@@ -19,6 +19,10 @@ const calendarEventSchema = new mongoose.Schema(
     relatedId: { type: mongoose.Schema.Types.ObjectId },
     relatedName: { type: String, trim: true, default: '' },
     description: { type: String, trim: true, default: '' },
+    // D83: an online meeting (a Teams link once Outlook made it), and where this event is in the
+    // owner's Outlook calendar (id, whose calendar, sync state). Sync writes only these two fields.
+    online: { provider: { type: String, enum: ['', 'teams'], default: '' }, joinUrl: { type: String, default: '' } },
+    external: { microsoft: { id: String, memberId: mongoose.Schema.Types.ObjectId, state: String, error: String, syncedAt: Date } },
     legacyIds: { type: [String], default: undefined },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdByMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },

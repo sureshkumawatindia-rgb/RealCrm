@@ -110,7 +110,7 @@ router.get('/oauth/callback', async (req, res) => {
     if (oauthError) return res.redirect(frontendRedirect({ gmail: 'error', reason: oauthError }));
     if (!code || !state) return res.redirect(frontendRedirect({ gmail: 'error', reason: 'missing_callback_parameters' }));
 
-    const stateRecord = await OAuthState.findOneAndDelete({ state });
+    const stateRecord = await OAuthState.findOneAndDelete({ state, provider: { $ne: 'microsoft' } }); // a Microsoft sign-in has its own callback (D83)
     if (!stateRecord || stateRecord.expiresAt < new Date()) {
       return res.redirect(frontendRedirect({ gmail: 'error', reason: 'invalid_or_expired_state' }));
     }

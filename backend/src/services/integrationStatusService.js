@@ -5,6 +5,8 @@ const LeadSourceConnection = require('../models/LeadSourceConnection');
 const ConversionsApiConnection = require('../models/ConversionsApiConnection');
 const ApiKey = require('../models/ApiKey');
 const WebhookSubscription = require('../models/WebhookSubscription');
+const MicrosoftConnection = require('../models/MicrosoftConnection');
+const TeamsChannel = require('../models/TeamsChannel');
 const Organization = require('../models/Organization');
 const planService = require('./planService');
 const { PLANS, PLAN_KEYS } = require('../constants/plans');
@@ -16,10 +18,10 @@ const { PAYMENT_PROVIDERS } = require('../constants/payments');
 //   state: working | attention (something to fix: problem says what) | off | not_connected
 // A kind with nothing set up is one "not_connected" row, so the screen also says what is possible.
 
-const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks']);
+const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams']);
 // Which Settings tab each kind is managed on.
 const TABS = Object.freeze({
-  whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations',
+  whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations', microsoft: 'profile', teams: 'integrations',
 });
 // The plan feature each kind needs (Phase 3A, D80): a row whose feature the plan lacks says which
 // plan has it (plan: { feature, needs: { key, name } | null, message }); the server still refuses.
@@ -97,10 +99,33 @@ function webhookRows(subs) {
   });
 }
 
+// Microsoft 365 (D83): one row for the team, how many members connected and who must reconnect.
+function microsoftRows(connections) {
+  if (!connections.length) return [];
+  const stale = connections.filter((c) => c.status !== 'active');
+  return [row('microsoft', {
+    name: `${connections.length} member${connections.length === 1 ? '' : 's'}`,
+    state: stale.length ? 'attention' : 'working',
+    lastActivityAt: latest(...connections.map((c) => c.lastSyncAt)),
+    problem: stale.length ? `${stale.map((c) => c.email || c.name).join(', ')} must connect Microsoft 365 again (Settings → My profile).` : '',
+  })];
+}
+
+// Teams channel notes (D83): one row per channel.
+function teamsRows(channels) {
+  return channels.map((c) => row('teams', {
+    id: String(c._id),
+    name: c.name,
+    state: !c.active ? (c.disabledReason ? 'attention' : 'off') : c.lastStatus === 'failed' ? 'attention' : 'working',
+    lastActivityAt: c.lastSentAt || null,
+    problem: !c.active ? c.disabledReason || '' : c.lastStatus === 'failed' ? c.lastError || 'The last card was not posted.' : '',
+  }));
+}
+
 // GET /integrations/status
 async function status(req) {
   const organizationId = req.tenant.organizationId;
-  const [organization, accounts, gmail, payments, sources, meta, keys, hooks] = await Promise.all([
+  const [organization, accounts, gmail, payments, sources, meta, keys, hooks, microsoftConnections, teamsChannels] = await Promise.all([
     Organization.findById(organizationId).select('plan subscription entitlementGrants'),
     WhatsAppAccount.find({ organizationId }).select('name verifiedName displayPhone status statusMessage lastWebhookAt').lean(),
     GmailConnection.find({ organizationId }).select('updatedAt').lean(),
@@ -109,6 +134,8 @@ async function status(req) {
     ConversionsApiConnection.findOne({ organizationId }).select('datasetId datasetName enabled status statusMessage stats').lean(),
     ApiKey.find({ organizationId, revokedAt: null }).select('lastUsedAt').lean(),
     WebhookSubscription.find({ organizationId }).select('url description active disabledReason lastStatus lastResponseCode lastDeliveryAt').lean(),
+    MicrosoftConnection.find({ organizationId }).select('email name status lastSyncAt').lean(),
+    TeamsChannel.find({ organizationId }).select('name active disabledReason lastStatus lastError lastSentAt').lean(),
   ]);
   const rows = {
     whatsapp: whatsappRows(accounts),
@@ -118,6 +145,8 @@ async function status(req) {
     metaCapi: metaRows(meta),
     apiKeys: apiKeyRows(keys),
     webhooks: webhookRows(hooks),
+    microsoft: microsoftRows(microsoftConnections),
+    teams: teamsRows(teamsChannels),
   };
   const planNotes = Object.fromEntries(Object.entries(PLAN_FEATURES).map(([kind, feature]) => {
     const message = planService.featureBlock(organization, feature);

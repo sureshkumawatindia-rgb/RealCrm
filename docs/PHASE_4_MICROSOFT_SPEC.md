@@ -1,6 +1,6 @@
 # Phase 4: Excel, Power BI, Outlook and Teams (spec)
 
-Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (questions and defaults are pre-approved up to Phase 10). The user said to start Phase 4 the same day. This is Phase 4, "Microsoft Ecosystem Integration" (inspired by Dynamics 365), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. **4A was built the same day (D82);** what was built and its results are in sections 10 and 11. It is built in two parts:
+Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (questions and defaults are pre-approved up to Phase 10). The user said to start Phase 4 the same day. This is Phase 4, "Microsoft Ecosystem Integration" (inspired by Dynamics 365), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. **4A (D82) and 4B (D83) are built;** what was built and the results are in sections 10–13. It is built in two parts:
 - **4A** needs no Microsoft account: Excel files in and out, and a live data feed for Excel and Power BI.
 - **4B** is Microsoft 365: Outlook calendar, Teams meeting links and Teams channel notes. It works with a mock until the platform owner registers a Microsoft app.
 
@@ -222,3 +222,36 @@ Measured in the isolated preview (port 3100, an in-memory database, the tests' s
 | 5 (4A part) | Phones and Hindi | **Met.** Customers, Leads, Reports and the card at 390 px: no sideways scroll (390/390), in Hindi. |
 
 Targets 3 and 4 (Outlook, Teams) belong to 4B.
+
+## 12. What was built (4B, D83), and how it differs from this spec
+
+Built as specified, with these differences:
+
+1. **The Teams link route** is `POST /events/:id/teams-meeting`, where the events already live, not `/calendar/events/…`.
+2. **A meeting's owner** is its assignee, or else who made it. The Teams link is made in that person's Outlook calendar. When that person has not connected, the CRM says so by name.
+3. **A new `ticket.created` business event** is now sent when a ticket is made, so tickets can post to Teams. Outbound webhooks ignore it: it is not in their list.
+4. **Gmail's sign-in callback** now refuses a Microsoft state, so one provider can never use up the other's sign-in.
+5. **The stand-in (mock)** runs when no `MICROSOFT_CLIENT_ID` is set and `DEV_TOOLS=on` or in tests. Its "consent page" (`/integrations/microsoft/mock-consent`) answers 404 in any other mode.
+   - Like Microsoft, it checks the PKCE verifier and `transactionId`. It can be told to fail or to revoke a sign-in.
+6. **Outlook changes** go through the job queue (2 s after the change, 5 tries). A change made while a sync runs is caught by a second pass of the same job.
+   - The sync writes only `external.microsoft` and `online.joinUrl`, straight to the collection, so the CRM event (and its `updatedAt`) never changes because of Microsoft.
+7. **Teams cards carry no phone numbers,** because a channel may be wide.
+
+Files:
+- **Backend:**
+  - new: `integrations/microsoft/{index,graph,mock}.js`, `models/MicrosoftConnection.js`, `models/TeamsChannel.js`, `constants/microsoft.js`, `services/microsoftService.js`, `services/outlookService.js`, `services/teamsChannelService.js`, `routes/microsoft.js`, `validators/microsoft.js`;
+  - changed: `config/env.js`, `.env.example`, `models/OAuthState.js`, `models/CalendarEvent.js`, `services/eventService.js`, `services/ticketService.js`, `services/integrationStatusService.js`, `routes/index.js`, `routes/workItems.js`, `routes/gmail.js`, `jobs/index.js`.
+- **Frontend:** `js/settings-microsoft.js` (new), `Settings.html`, `js/settings-connections.js`, `js/calendar.js` (the Teams box; `Calendar.html` was not touched), `css/style.css`, and 57 texts (`ms.*`, `teams.*`, `cal.teams.*`, `cal.outlook.*`, and three `conn.*`).
+- **Tests:** `microsoft.test.js` (5), and `integrationRegistry.test.js` changed (two new kinds).
+
+## 13. Phase 4B results (measured 2026-10-22)
+
+Measured in the isolated preview (port 3100, an in-memory database, the Microsoft stand-in; **no real Microsoft account was used**).
+
+| # | Target | Result |
+|---|---|---|
+| 3 | A meeting reaches Outlook; a Microsoft failure changes 0 CRM fields | **Met (stand-in).**<br>• Tests: create, change (time and title), a repeated job (still one Outlook event), a reassignment and a delete all reach the stand-in's Outlook.<br>• With Microsoft "down" (503), the sync is retried and the CRM event's title, description, date, time and `updatedAt` stay exactly as they were.<br>• A revoked sign-in sets `needs_reconnect`, sends the member one bell note, and shows "attention" on Connections.<br>• The job runs 2 s after a change (the queue's own pace). |
+| 4 | A Teams link in 1 click; won leads in a Teams channel | **Met (stand-in).**<br>• In the browser: Calendar → the meeting → **Add Teams meeting** gave "Join in Teams", "Copy link" and "In Outlook".<br>• Tests: a won lead and a new ticket queue one card each; a lead only "Contacted" queues none. The card shows customer, value and source, with no phone. A 503 is retried, and three 404s switch the channel off with the reason. |
+| 5 | Security, 390 px, Hindi | **Met.**<br>• Tests: the state is single-use and expires; a code from another sign-in fails PKCE; tokens are stored only encrypted and never sent to the page; the scopes are exactly `openid email offline_access User.Read Calendars.ReadWrite`; disconnect deletes the tokens; both steps are audited.<br>• The Teams address's secret is stored encrypted and shown only as a hint; non-Teams hosts and `http://` are refused.<br>• My profile, the Teams section and Connections at 390 px: no sideways scroll, in Hindi. |
+
+**Not tested against real Microsoft:** no Microsoft app is registered for this CRM yet. Before real use, the platform owner registers an app in Microsoft Entra ID and sets the four `MICROSOFT_*` values in `.env` (steps in the report). Then one real connect, a meeting with a Teams link, and one Teams test card should be checked by hand.

@@ -4651,6 +4651,75 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   color: var(--warning-text);
   overflow-wrap: anywhere;
 }
+/* Microsoft 365 and Teams (D83) */
+.ms-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ms-row .settings-hint {
+  margin: 4px 0 0;
+}
+.ms-warn {
+  color: var(--warning-text);
+}
+.teams-steps {
+  margin: 6px 0 12px;
+  padding-left: 20px;
+  font-size: 13px;
+}
+.teams-channel {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.teams-channel-main {
+  min-width: 0;
+  flex: 1 1 240px;
+  overflow-wrap: anywhere;
+}
+.teams-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.teams-checks {
+  display: grid;
+  gap: 6px;
+}
+.field .teams-checks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.cal-teams-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cal-teams-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.cal-teams-note.failed {
+  color: var(--warning-text);
+}
 /* Settings → API & webhooks → Excel and Power BI (D82) */
 .int-feed {
   margin-bottom: 10px;

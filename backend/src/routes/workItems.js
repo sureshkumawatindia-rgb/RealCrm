@@ -2,6 +2,7 @@ const express = require('express');
 const crudController = require('../controllers/crudController');
 const taskService = require('../services/taskService');
 const eventService = require('../services/eventService');
+const outlookService = require('../services/outlookService');
 const { authenticate } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -41,6 +42,12 @@ const eventRoutes = resourceRouter(eventService, 'Event', {
   list: schemas.eventList,
   create: schemas.eventCreate,
   patch: schemas.eventPatch,
+});
+
+// A Teams link for a meeting (D83), made in its owner's Outlook calendar.
+eventRoutes.post('/:id/teams-meeting', requirePermission(['calendar'], 'edit'), validate({ params: idParams }), async (req, res) => {
+  const event = await eventService.findVisible(req, req.valid.params.id);
+  res.json({ success: true, data: await outlookService.addTeamsMeeting(req, event) });
 });
 
 module.exports = { taskRoutes, eventRoutes, resourceRouter };

@@ -6,6 +6,10 @@ const oauthStateSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     returnUrl: { type: String, required: true },
+    // D83: whose sign-in this is (Gmail when missing), the member, and Microsoft's PKCE verifier (encrypted).
+    provider: { type: String, enum: ['gmail', 'microsoft'], default: 'gmail' },
+    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
+    codeVerifierEnc: { type: String },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
   },
   { timestamps: true },

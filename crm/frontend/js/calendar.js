@@ -692,6 +692,7 @@ function openModal(id, prefillDate) {
     document.getElementById("fRelatedName").value = ev.relatedName || "";
     document.getElementById("fDescription").value = ev.description || "";
     deleteBtn.style.display = "inline-flex";
+    renderTeamsBox(ev);
   } else {
     document.getElementById("modalTitle").textContent = crmI18n.t("cal.new-event");
     document.getElementById("editId").value = "";
@@ -700,12 +701,68 @@ function openModal(id, prefillDate) {
       prefillDate || activeDayDate || todayStr();
     setAssigneeValue("", "");
     deleteBtn.style.display = "none";
+    renderTeamsBox(null);
   }
 
   overlay.classList.add("open");
 }
 function closeModal() {
   document.getElementById("modalOverlay").classList.remove("open");
+}
+
+// ---------------------------------------------------------------
+// Teams link and Outlook (D83): a box at the end of the event form, made here. It shows when this
+// CRM has Microsoft 365; "Add Teams meeting" makes the link in the meeting owner's Outlook.
+// ---------------------------------------------------------------
+let microsoftMode = "off";
+crmApi("/integrations/microsoft").then((data) => { microsoftMode = data.mode; }).catch(() => {});
+
+function teamsBox() {
+  let box = document.getElementById("teamsBox");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "teamsBox";
+    box.className = "field cal-teams";
+    document.getElementById("eventForm").appendChild(box);
+    box.addEventListener("click", onTeamsClick);
+  }
+  return box;
+}
+
+function renderTeamsBox(ev) {
+  const box = teamsBox();
+  box.hidden = !ev || microsoftMode === "off";
+  if (box.hidden) return;
+  const t = crmI18n.t;
+  const outlook = ev.outlook ? `<p class="cal-teams-note${ev.outlook.state === "failed" ? " failed" : ""}">${escapeHtml(t(`cal.outlook.${ev.outlook.state}`, { why: ev.outlook.error || "" }))}</p>` : "";
+  box.innerHTML = `<label>${escapeHtml(t("cal.teams.title"))}</label>${ev.joinUrl
+    ? `<div class="cal-teams-row"><a class="btn btn-outline" href="${escapeHtml(ev.joinUrl)}" target="_blank" rel="noopener"><i class="fa-solid fa-video"></i> ${escapeHtml(t("cal.teams.join"))}</a><button class="btn btn-outline" type="button" data-teams="copy" data-url="${escapeHtml(ev.joinUrl)}"><i class="fa-regular fa-copy"></i> ${escapeHtml(t("cal.teams.copy"))}</button></div>`
+    : `<button class="btn btn-outline" type="button" data-teams="add" data-id="${escapeHtml(ev.id)}"><i class="fa-solid fa-video"></i> ${escapeHtml(t("cal.teams.add"))}</button>`}${outlook}`;
+}
+
+async function onTeamsClick(event) {
+  const button = event.target.closest("[data-teams]");
+  if (!button) return;
+  if (button.dataset.teams === "copy") {
+    try {
+      await navigator.clipboard.writeText(button.dataset.url);
+      showToast(crmI18n.t("cal.teams.copied"), "success");
+    } catch {
+      window.prompt(crmI18n.t("cal.teams.copy"), button.dataset.url);
+    }
+    return;
+  }
+  button.disabled = true;
+  try {
+    await crmApi(`/events/${button.dataset.id}/teams-meeting`, { method: "POST" });
+    cacheUpsert("events", await crmApi(`/events/${button.dataset.id}`));
+    renderTeamsBox(getEvent(button.dataset.id));
+    showToast(crmI18n.t("cal.teams.added"), "success");
+  } catch (error) {
+    showToast(apiErrorMessage(error, crmI18n.t("cal.teams.failed")), "error");
+  } finally {
+    button.disabled = false;
+  }
 }
 function confirmDelete(id) {
   const ev = getEvent(id);

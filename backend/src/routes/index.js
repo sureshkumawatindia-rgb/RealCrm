@@ -8,6 +8,7 @@ const organizationRoutes = require('./organization');
 const memberRoutes = require('./members');
 const inviteRoutes = require('./invites');
 const gmailRoutes = require('./gmail');
+const { microsoftRoutes, teamsRoutes } = require('./microsoft');
 const contactRoutes = require('./contacts');
 const customFieldRoutes = require('./customFields');
 const approvalRuleRoutes = require('./approvalRules');
@@ -98,6 +99,9 @@ router.use('/audit-logs', auditLogRoutes);
 router.use('/api-keys', apiKeyRoutes);
 router.use('/outbound-webhooks', outboundWebhookRoutes);
 router.use('/meta-conversions', metaConversionsRoutes);
+// Microsoft 365 and Teams (D83), before /integrations (whose router is for owners and admins only).
+router.use('/integrations/microsoft', microsoftRoutes);
+router.use('/integrations/teams-channels', teamsRoutes);
 router.use('/integrations', integrationStatusRoutes); // D78
 
 module.exports = router;

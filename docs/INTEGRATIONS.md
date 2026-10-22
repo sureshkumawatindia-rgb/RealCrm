@@ -20,6 +20,8 @@ Owners and admins set these up in **Settings → API & webhooks**.
 - **Rate limit:** 120 requests a minute per key (`RATE_LIMIT_PUBLIC_API_PER_MINUTE`). Over that: `429 RATE_LIMITED`.
 - **Usage:** every call with a valid key is counted in Settings → Plan & usage ("API calls this month"). It is counted, not limited (D80).
 - **Feeds for Excel and Power BI (D82):** `GET /api/public/v1/feeds/{contacts|leads|quotations|orders|products}` gives every row of a table, flat:
+- **Microsoft Teams channel notes (D83):** Settings → API & webhooks → Microsoft Teams. Paste a Teams Workflows address ("Post to a channel when a webhook request is received") and choose the events (new lead, lead won, quotation accepted, payment received, ticket opened). The CRM posts an Adaptive Card; 5xx is retried, and three refusals in a row switch the channel off. The address is stored encrypted.
+- **Microsoft 365 (D83):** each member connects their own account on Settings → My profile (scopes `openid email offline_access User.Read Calendars.ReadWrite`). Their CRM meetings go to their Outlook calendar (one way), and a meeting can get a Teams link (`POST /api/v1/events/:id/teams-meeting`). The platform needs an app registered in Microsoft Entra ID (`MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT`, `MICROSOFT_REDIRECT_URI`).
   - money in rupees (`valueRupees`, `totalRupees` …), dates in ISO, your own fields as `cf_<key>`;
   - `?format=csv` gives CSV (Excel: Data → From Web; Power BI: Get data → Web, each with the header `Authorization: Bearer <key>`);
   - `?updatedSince=2026-10-01` gives only the changed rows;

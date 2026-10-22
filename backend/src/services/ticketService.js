@@ -3,6 +3,7 @@ const Contact = require('../models/Contact');
 const httpError = require('../utils/httpError');
 const { nextSequence } = require('../utils/counter');
 const { createWorkItemService } = require('./workItemService');
+const automationEvents = require('./automation/events');
 const { TICKET_CLOSED_STATUSES, TICKET_NUMBER_START } = require('../constants/crm');
 
 // Tickets show on Support, Customer 360 and reports, so any of those modules may read them.
@@ -48,10 +49,7 @@ async function resolveCustomer(req, ticket, body) {
   ticket.customerName = contact.name;
 }
 
-module.exports = {
-  MODULES,
-  serializeTicket,
-  ...createWorkItemService({
+const base = createWorkItemService({
     Model: Ticket,
     modules: MODULES,
     entityType: 'Ticket',
@@ -79,5 +77,16 @@ module.exports = {
       if (!closed) ticket.resolvedAt = undefined;
     },
     serialize: serializeTicket,
-  }),
+});
+
+module.exports = {
+  MODULES,
+  serializeTicket,
+  ...base,
+  // A new ticket is a business event too (D83: Teams channel notes).
+  async create(req, body) {
+    const ticket = await base.create(req, body);
+    automationEvents.emit('ticket.created', { organizationId: req.tenant.organizationId, ticketId: ticket.id, contactId: ticket.contactId || null, key: `ticket.created:${ticket.id}` }, req);
+    return ticket;
+  },
 };
