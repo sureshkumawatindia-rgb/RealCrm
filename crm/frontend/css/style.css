@@ -4651,6 +4651,45 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   color: var(--warning-text);
   overflow-wrap: anywhere;
 }
+/* Settings → Pipelines (D84) */
+.pset-stage {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) minmax(150px, 1.3fr) 90px 90px auto;
+  gap: 8px;
+  align-items: end;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.pset-num {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--text-muted);
+  gap: 2px;
+}
+.field .pset-num {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+}
+.pset-tools {
+  display: flex;
+  gap: 2px;
+}
+.pset-held {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .pset-stage {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pset-stage .pset-name,
+  .pset-stage .pset-kind {
+    grid-column: 1 / -1;
+  }
+}
 /* Microsoft 365 and Teams (D83) */
 .ms-row {
   display: flex;

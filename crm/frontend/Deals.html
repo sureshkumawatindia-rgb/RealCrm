@@ -211,14 +211,8 @@
           <!-- Filters on the company's own fields (D74, js/custom-fields.js): board and table -->
           <div class="cf-filter-bar" id="dealCfFilters" hidden></div>
 
-          <div class="nav-bar-kanban-card">
-            <button data-stage="New" data-i18n="deals.new">NEW</button>
-            <button data-stage="Contacted" data-i18n="deals.contacted">CONTACTED</button>
-            <button data-stage="Quote Sent" data-i18n="deals.quote-sent">QUOTE SENT</button>
-            <button data-stage="Negotiation" data-i18n="deals.negotiation">NEGOTIATION</button>
-            <button data-stage="Won" data-i18n="deals.won">WON</button>
-            <button data-stage="Lost" data-i18n="deals.lost">LOST</button>
-          </div>
+          <!-- The pipelines (D84, js/deals.js): one button each, and "Edit pipelines" for managers -->
+          <div class="nav-bar-kanban-card pipe-picker" aria-label="Pipelines" data-i18n-aria-label="pipe.pipelines"></div>
 
           <!-- BOARD + SIDE PANEL -->
           <div class="deals-layout">

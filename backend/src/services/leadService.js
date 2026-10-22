@@ -14,6 +14,7 @@ const customFieldService = require('./customFieldService');
 const customFieldFilters = require('./customFieldFilters');
 const lookupService = require('./lookupService');
 const automationEvents = require('./automation/events');
+const pipelineService = require('./pipelineService');
 
 // Leads are shown on the Leads page and, as a Kanban, on the Deals page (D13).
 const MODULES = ['leads', 'deals'];
@@ -51,6 +52,9 @@ function serializeLead(lead, keys, links) {
     notes: lead.notes,
     noteEntries: lead.noteEntries,
     stageChangedAt: lead.stageChangedAt || null,
+    // Where it sits on the board (D84); none: the default pipeline.
+    pipelineId: lead.pipelineId || null,
+    pipelineStageId: lead.pipelineStageId || null,
     convertedAt: lead.convertedAt || null,
     // Where it came from (D79): the first enquiry's touch and the latest one.
     attribution: lead.attribution?.first?.channel || lead.attribution?.last?.channel ? { first: touchOf(lead.attribution.first), last: touchOf(lead.attribution.last) } : null,
@@ -191,7 +195,13 @@ async function create(req, body) {
     });
     applyStage(lead, body.stage, body.lostReason);
     if (lead.stage === 'Won') await markContactCustomer(req, lead, session);
+    // Its pipeline (D84): the one asked for, else the default; the first stage of its kind.
+    const pipeline = body.pipelineId ? await pipelineService.findOwn(req, body.pipelineId, session) : await pipelineService.ensureDefault(req.tenant.organizationId, session);
+    const stage = ['Won', 'Lost'].includes(lead.stage) ? pipeline.stages[pipeline.stages.length - 1] : pipelineService.stageForKind(pipeline, lead.stage);
+    Object.assign(lead, { pipelineId: pipeline._id, pipelineStageId: stage?._id, pipelineStageAt: new Date() });
+    if (stage && stage.kind === lead.stage) lead.probability = stage.probability;
     await lead.save({ session });
+    await pipelineService.recordMove(req, lead, { pipeline, stage: null, kind: '' }, { pipeline, stage: ['Won', 'Lost'].includes(lead.stage) ? null : stage }, { source: 'create', session, toKind: lead.stage, enteredAt: null });
     await addActivity(req, lead, 'Lead created', 'Lead created', { session });
     created = lead;
     return lead._id;
@@ -201,10 +211,15 @@ async function create(req, body) {
   return loadSerialized(req, leadId);
 }
 
-async function update(req, id, body) {
+// How a change came (the stage history's source).
+const sourceOf = (req, fallback) => (req.automation ? 'automation' : req.apiKey ? 'api' : fallback);
+
+async function update(req, id, body, { source = 'edit' } = {}) {
   let stageChange = null;
+  let boardMove = null;
   await mongoose.connection.transaction(async (session) => {
     stageChange = null;
+    boardMove = null;
     const lead = await findVisible(req, id, session);
     if (body.version !== undefined && body.version !== lead.version) {
       throw httpError(409, 'VERSION_CONFLICT', 'Someone else changed this lead. Reload and try again.');
@@ -221,20 +236,39 @@ async function update(req, id, body) {
     }
     Object.assign(lead, await ownerPatch(req, body));
     const from = lead.stage;
-    if (applyStage(lead, body.stage, body.lostReason)) {
+    const fromStageId = lead.pipelineStageId;
+    const enteredAt = lead.pipelineStageAt || lead.stageChangedAt || lead.createdAt;
+    if (body.pipelineStageId || body.pipelineId) {
+      // A move on the board (D84): to a stage of the lead's pipeline, or into another pipeline.
+      const fromPipeline = await pipelineService.pipelineOfLead(lead, session);
+      const toPipeline = body.pipelineId ? await pipelineService.findOwn(req, body.pipelineId, session) : fromPipeline;
+      const target = body.pipelineStageId ? pipelineService.findStage(toPipeline, body.pipelineStageId) : pipelineService.stageForKind(toPipeline, ['Won', 'Lost'].includes(lead.stage) ? 'New' : lead.stage);
+      if (!target) throw httpError(400, 'STAGE_NOT_IN_PIPELINE', `That stage is not in the "${toPipeline.name}" pipeline. Reload the board and try again.`);
+      const fromStage = pipelineService.effectiveStage(fromPipeline, fromStageId, from);
+      const samePlace = String(fromPipeline._id) === String(toPipeline._id) && fromStage && String(fromStage._id) === String(target._id) && lead.stage === target.kind;
+      if (!samePlace) {
+        if (applyStage(lead, target.kind)) stageChange = { from, to: lead.stage };
+        await pipelineService.recordMove(req, lead, { pipeline: fromPipeline, stage: fromStage, kind: from }, { pipeline: toPipeline, stage: target }, { source: sourceOf(req, source), session, enteredAt });
+        Object.assign(lead, { pipelineId: toPipeline._id, pipelineStageId: target._id, pipelineStageAt: new Date(), probability: target.probability });
+        boardMove = { from: fromStage?.name || from, to: target.name, fromKind: from, toKind: lead.stage };
+      }
+    } else if (applyStage(lead, body.stage, body.lostReason)) {
       stageChange = { from, to: lead.stage };
       if (lead.stage === 'Won') await markContactCustomer(req, lead, session);
+      await pipelineService.followKind(req, lead, { fromKind: from, fromStageId, source: sourceOf(req, source), session, enteredAt });
     }
     lead.version += 1;
     lead.lastActivityAt = new Date();
     await lead.save({ session });
-    if (stageChange) {
+    if (boardMove) {
+      await addActivity(req, lead, 'Stage changed', `${boardMove.from} → ${boardMove.to}`, { meta: { from: boardMove.fromKind, to: boardMove.toKind, fromStage: boardMove.from, toStage: boardMove.to }, session });
+    } else if (stageChange) {
       await addActivity(req, lead, 'Stage changed', `${stageChange.from} → ${stageChange.to}`, { meta: stageChange, session });
     } else {
       await addActivity(req, lead, 'Lead updated', 'Lead details updated', { session });
     }
   });
-  await audit(req, { action: stageChange ? 'lead.stage_changed' : 'lead.updated', entityType: 'Lead', entityId: id, changes: stageChange || Object.keys(body) });
+  await audit(req, { action: stageChange || boardMove ? 'lead.stage_changed' : 'lead.updated', entityType: 'Lead', entityId: id, changes: boardMove || stageChange || Object.keys(body) });
   if (stageChange) await emitStageChange(req, id, stageChange);
   return loadSerialized(req, id);
 }
@@ -253,7 +287,9 @@ async function convert(req, id) {
     const lead = await findVisible(req, id, session);
     const wasConverted = Boolean(lead.convertedAt);
     const from = lead.stage;
-    applyStage(lead, 'Won');
+    const fromStageId = lead.pipelineStageId;
+    const enteredAt = lead.pipelineStageAt || lead.stageChangedAt || lead.createdAt;
+    if (applyStage(lead, 'Won')) await pipelineService.followKind(req, lead, { fromKind: from, fromStageId, source: sourceOf(req, 'convert'), session, enteredAt });
     await markContactCustomer(req, lead, session);
     if (from !== lead.stage || !wasConverted) {
       lead.version += 1;
@@ -291,7 +327,9 @@ async function addNote(req, id, { type = 'Note', text }) {
 module.exports = {
   list, create, update, convert, remove, listActivities, addNote,
   get: loadSerialized,
-  changeStage: (req, id, { stage, lostReason, version }) => update(req, id, { stage, lostReason, version }),
+  changeStage: (req, id, { stage, lostReason, version, pipelineStageId, pipelineId }) => update(req, id, { stage, lostReason, version, pipelineStageId, pipelineId }, { source: 'board' }),
+  // GET /leads/:id/stage-history (D84).
+  stageHistory: async (req, id) => pipelineService.history(await findVisible(req, id)),
   findVisible, addActivity, applyStage, serializeLead, emitStageChange, MODULES,
   listFilter, listSort: (query) => sortSpec(query.sort, SORTS),
 };

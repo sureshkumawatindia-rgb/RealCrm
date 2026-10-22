@@ -170,15 +170,19 @@ module.exports = {
 
   leadCreate: Joi.object({
     ...leadFields,
+    pipelineId: objectId, // D84: else the default pipeline
     contactId: objectId,
     contact: Joi.object({ ...leadContact, name: leadContact.name.required() }),
   }).xor('contactId', 'contact'),
   leadPatch: Joi.object({ ...leadFields, contact: Joi.object(leadContact).min(1), version: Joi.number().integer().min(0) }).min(1),
+  // A fixed stage, or (D84) a stage of a pipeline / another pipeline; not both.
   leadStage: Joi.object({
-    stage: Joi.string().valid(...LEAD_STAGES).required(),
+    stage: Joi.string().valid(...LEAD_STAGES),
+    pipelineStageId: objectId,
+    pipelineId: objectId,
     lostReason: text(500),
     version: Joi.number().integer().min(0),
-  }),
+  }).or('stage', 'pipelineStageId', 'pipelineId').nand('stage', 'pipelineStageId').nand('stage', 'pipelineId'),
   leadList: Joi.object({
     ...listBase,
     stage: Joi.string().valid(...LEAD_STAGES),

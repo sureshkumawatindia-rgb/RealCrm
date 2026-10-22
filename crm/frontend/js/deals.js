@@ -1,13 +1,12 @@
 /**
- * deals.js — Deals page: the Kanban + table view of the lead pipeline (one pipeline for
- * leads and deals). Deals are server leads (getDeals / createLead / updateLeadRecord /
- * changeLeadStage / removeLead in app.js); the follow-up panel shows server tasks with
+ * deals.js — Deals page: the Kanban + table view of the lead pipeline. Since D84 the Kanban is
+ * the chosen pipeline's board from GET /pipelines/:id/board (its own stages, next activity and
+ * flags per lead); the filters narrow its cards. Deals are server leads (getDeals / createLead /
+ * updateLeadRecord / changeLeadStage / removeLead in app.js); the follow-up panel shows server tasks with
  * origin "deal_followup". Reuses shared helpers from app.js (getAgents, getAccounts,
  * getCustomers, showToast, renderSidebarUser, initSidebarToggle, requireAuth).
  */
 
-const STAGES = LEAD_STAGES;
-const DEFAULT_VISIBLE_STAGES = ["New", "Won"];
 // Shown in the form; the server sets the real probability from the stage.
 const STAGE_DEFAULT_PROB = {
   New: 10,
@@ -16,14 +15,6 @@ const STAGE_DEFAULT_PROB = {
   Negotiation: 75,
   Won: 100,
   Lost: 0,
-};
-const STAGE_DOT = {
-  New: "var(--info)",
-  Contacted: "var(--brand-darker)",
-  "Quote Sent": "var(--warning)",
-  Negotiation: "var(--violet)",
-  Won: "var(--success)",
-  Lost: "var(--danger)",
 };
 const STAGE_BADGE_CLASS = {
   New: "badge-stage-lead",
@@ -35,8 +26,6 @@ const STAGE_BADGE_CLASS = {
 };
 
 let currentView = "kanban";
-let draggingId = null;
-let selectedStage = null;
 
 function getDeal(id) {
   return getDeals().find((d) => String(d.id) === String(id));
@@ -180,140 +169,204 @@ function renderKpis() {
 // ---------------------------------------------------------------
 // Kanban view
 // ---------------------------------------------------------------
-function renderKanban() {
-  const deals = getFilteredDeals();
-  const board = document.getElementById("kanbanView");
+// ---------------------------------------------------------------
+// Pipelines (D84): the board of the chosen pipeline, from the server; the filters above narrow its
+// cards and the column totals follow what is shown. A move shows at once; when the server refuses
+// it (someone else moved the deal, a lost reason is missing …) the card goes back and the toast
+// says why.
+// ---------------------------------------------------------------
+let pipelines = [];
+let pipelineId = null;
+let board = null; // the last board from the server
+let boardAsked = null;
 
-  const visibleStages = selectedStage
-    ? [selectedStage]
-    : DEFAULT_VISIBLE_STAGES;
-  board.innerHTML = visibleStages
-    .map((stage) => {
-      const stageDeals = deals.filter((d) => d.stage === stage);
-      const total = stageDeals.reduce(
-        (sum, d) => sum + Number(d.value || 0),
-        0,
-      );
-
-      const cardsHtml = stageDeals.length
-        ? stageDeals.map((d) => dealCardHtml(d)).join("")
-        : `<div class="kanban-col-empty">${escapeHtml(t("deals.noDeals"))}</div>`;
-
-      return `
-      <div class="kanban-col" data-stage="${stage}">
-        <div class="kanban-col-head">
-          <div class="kanban-col-head-title">
-            <span class="kanban-dot" style="background:${STAGE_DOT[stage]}"></span>
-            <h4>${escapeHtml(crmLabel("stage", stage))}</h4>
-          </div>
-          <span class="kanban-count">${stageDeals.length}</span>
-        </div>
-        <div class="kanban-col-value">${formatCurrency(total)}</div>
-        <div class="kanban-col-body" data-drop-stage="${stage}">
-          ${cardsHtml}
-        </div>
-      </div>`;
-    })
-    .join("");
-
-  attachDragEvents();
+async function loadPipelines() {
+  pipelines = await crmApi("/pipelines");
+  const remembered = getPreference("dealsPipeline", "");
+  const chosen = pipelines.find((p) => String(p.id) === remembered) || pipelines.find((p) => p.isDefault) || pipelines[0];
+  pipelineId = chosen ? chosen.id : null;
+  renderPipelinePicker();
 }
 
-// ---------------------------------------------------------------
-// Kanban stage filter buttons (nav-bar-kanban-card)
-// ---------------------------------------------------------------
-function initKanbanStageButtons() {
-  const buttons = document.querySelectorAll(".nav-bar-kanban-card button");
-  buttons.forEach((btn) => {
-    const stage = btn.dataset.stage;
-    if (!stage) return;
-    btn.addEventListener("click", () => {
-      selectedStage = selectedStage === stage ? null : stage;
-      buttons.forEach((button) => {
-        button.classList.toggle("active", button.dataset.stage === selectedStage);
-      });
-      if (currentView === "kanban") renderKanban();
-    });
-  });
+async function loadBoard() {
+  if (!pipelineId) return;
+  const asked = crmApi(`/pipelines/${pipelineId}/board`);
+  boardAsked = asked;
+  const data = await asked;
+  if (boardAsked === asked) board = data;
 }
 
-function dealCardHtml(d) {
-  const overdue =
-    d.closeDate &&
-    d.stage !== "Won" &&
-    d.stage !== "Lost" &&
-    d.closeDate < todayStr();
+function refreshBoard() {
+  return loadBoard()
+    .then(() => { if (currentView === "kanban") renderKanban(); })
+    .catch((error) => showToast(apiErrorMessage(error, t("pipe.loadFailed")), "error"));
+}
+
+function renderPipelinePicker() {
+  const bar = document.querySelector(".nav-bar-kanban-card");
+  if (!bar) return;
+  bar.classList.add("pipe-picker");
+  bar.innerHTML = pipelines.map((p) => `<button type="button" data-pipeline="${escapeHtml(p.id)}" class="${String(p.id) === String(pipelineId) ? "active" : ""}">${escapeHtml(p.name)} <span class="pipe-count">${p.openLeads}</span></button>`).join("")
+    + (isOrgManager() ? `<a class="pipe-settings" href="Settings.html?tab=pipelines"><i class="fa-solid fa-gear" aria-hidden="true"></i> ${escapeHtml(t("pipe.edit"))}</a>` : "");
+}
+
+const paiseToRupees = (paise) => Math.round(Number(paise) || 0) / 100;
+
+function nextActivityText(next) {
+  if (!next) return "";
+  const when = next.date ? formatDate(next.date) : "";
+  if (next.type === "followUp") return t("pipe.next.followUp", { date: when });
+  return `${next.title}${when ? ` · ${when}` : ""}${next.time ? ` ${next.time}` : ""}`;
+}
+
+function boardCardHtml(card, stage) {
+  const deal = getDeal(card.id);
+  const name = deal?.name || card.title;
+  const account = deal?.account || card.company || card.contact;
+  const flags = [
+    card.flags.overdue && `<span class="pipe-flag overdue"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ${escapeHtml(t("pipe.flag.overdue"))}</span>`,
+    card.flags.noNextStep && `<span class="pipe-flag none">${escapeHtml(t("pipe.flag.noNext"))}</span>`,
+    card.flags.quiet && `<span class="pipe-flag quiet"><i class="fa-regular fa-moon" aria-hidden="true"></i> ${escapeHtml(t("pipe.flag.quiet", { days: card.idleDays }))}</span>`,
+  ].filter(Boolean).join("");
+  const next = nextActivityText(card.nextActivity);
   return `
-    <div class="deal-card" draggable="true" data-id="${d.id}">
-      <div class="deal-card__name">${escapeHtml(d.name)}</div>
-      <div class="deal-card__account"><i class="fa-solid fa-building"></i> ${escapeHtml(d.account)}</div>
-      <div class="deal-card__value">${formatCurrency(d.value)}</div>
-      <div class="deal-card__prob-track">
-        <div class="deal-card__prob-fill" style="width:${d.probability}%"></div>
-      </div>
+    <div class="deal-card" draggable="true" data-id="${escapeHtml(card.id)}" data-stage-id="${escapeHtml(stage.id)}">
+      <div class="deal-card__name">${escapeHtml(name)}</div>
+      ${account ? `<div class="deal-card__account"><i class="fa-solid fa-building"></i> ${escapeHtml(account)}</div>` : ""}
+      <div class="deal-card__value">${formatCurrency(paiseToRupees(card.valuePaise))}</div>
+      ${next ? `<div class="deal-card__next${card.flags.overdue ? " overdue" : ""}"><i class="fa-regular fa-calendar" aria-hidden="true"></i> ${escapeHtml(next)}</div>` : ""}
+      ${flags ? `<div class="pipe-flags">${flags}</div>` : ""}
       <div class="deal-card__foot">
         <div class="deal-card__owner">
-          <span class="deal-card__owner-avatar">${initials(d.owner)}</span>
-          ${escapeHtml((d.owner || "").split(" ")[0] || "")}
-        </div>
-        <div class="deal-card__date ${overdue ? "overdue" : ""}">
-          ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${formatDate(d.closeDate)}
+          <span class="deal-card__owner-avatar">${initials(card.owner)}</span>
+          ${escapeHtml((card.owner || "").split(" ")[0] || t("pipe.noOwner"))}
         </div>
       </div>
-      ${kanbanMoveButton(d.id)}
+      ${kanbanMoveButton(card.id)}
     </div>`;
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+function renderKanban() {
+  const el = document.getElementById("kanbanView");
+  if (!board) {
+    el.innerHTML = `<div class="kanban-col-empty">${escapeHtml(t("pipe.loading"))}</div>`;
+    return;
+  }
+  const shown = new Set(getFilteredDeals().map((d) => String(d.id)));
+  const columns = board.columns.map((col) => {
+    const cards = col.leads.filter((card) => shown.has(String(card.id)));
+    const value = cards.reduce((sum, card) => sum + card.valuePaise, 0);
+    const weighted = cards.reduce((sum, card) => sum + Math.round((card.valuePaise * col.stage.probability) / 100), 0);
+    return `
+      <div class="kanban-col" data-stage-id="${escapeHtml(col.stage.id)}">
+        <div class="kanban-col-head">
+          <div class="kanban-col-head-title"><h4>${escapeHtml(col.stage.name)}</h4></div>
+          <span class="kanban-count">${cards.length}</span>
+        </div>
+        <div class="kanban-col-value">${formatCurrency(paiseToRupees(value))} <span class="pipe-weighted" title="${escapeHtml(t("pipe.weightedHint", { pct: col.stage.probability }))}">${escapeHtml(t("pipe.weighted", { value: formatCurrency(paiseToRupees(weighted)) }))}</span></div>
+        <div class="kanban-col-body" data-drop-stage="${escapeHtml(col.stage.id)}">
+          ${cards.length ? cards.map((card) => boardCardHtml(card, col.stage)).join("") : `<div class="kanban-col-empty">${escapeHtml(t("deals.noDeals"))}</div>`}
+          ${col.more ? `<div class="kanban-col-empty">${escapeHtml(t("pipe.more", { n: col.more }))}</div>` : ""}
+        </div>
+      </div>`;
+  });
+  const closed = ["Won", "Lost"].map((stage) => {
+    const total = board.last30Days[stage === "Won" ? "won" : "lost"];
+    return `<div class="kanban-close ${stage.toLowerCase()}" data-close="${stage}">
+      <i class="fa-solid ${stage === "Won" ? "fa-trophy" : "fa-circle-xmark"}" aria-hidden="true"></i>
+      <strong>${escapeHtml(crmLabel("stage", stage))}</strong>
+      <span>${escapeHtml(t("pipe.closed30", { n: total.count, value: formatCurrency(paiseToRupees(total.valuePaise)) }))}</span>
+      <small>${escapeHtml(t("pipe.dropHere"))}</small>
+    </div>`;
+  });
+  el.innerHTML = `${columns.join("")}<div class="kanban-closers">${closed.join("")}</div>`;
+  attachDragEvents();
 }
 
-// A deal to another stage: dropped on a column, or picked in "Move to…" on a touch screen (R2).
-function moveDeal(id, newStage) {
-  const deal = getDeal(id);
-  if (!deal || deal.stage === newStage) return;
-  const lostReason = newStage === "Lost" ? askLostReason(deal.name) : null;
-  if (newStage === "Lost" && !lostReason) return;
-  changeLeadStage(deal.id, newStage, lostReason)
-    .then(() => showToast(t("deals.moved", { name: deal.name, stage: crmLabel("stage", newStage) }), "success"))
-    .catch((error) => showToast(apiErrorMessage(error, t("deals.err.move")), "error"))
-    .finally(renderAll);
+const cardOnBoard = (id) => {
+  for (const col of board?.columns || []) {
+    const card = col.leads.find((l) => String(l.id) === String(id));
+    if (card) return { col, card };
+  }
+  return null;
+};
+
+// A deal to another stage (or Won / Lost): on the board at once; back with the reason if refused.
+async function moveOnBoard(id, target) {
+  const found = cardOnBoard(id);
+  if (!found) return;
+  const { col, card } = found;
+  if (target.stageId && String(col.stage.id) === String(target.stageId)) return;
+  const lostReason = target.close === "Lost" ? askLostReason(card.title) : null;
+  if (target.close === "Lost" && !lostReason) return;
+  const before = JSON.parse(JSON.stringify(board));
+  col.leads = col.leads.filter((l) => l !== card);
+  const toCol = target.stageId ? board.columns.find((c) => String(c.stage.id) === String(target.stageId)) : null;
+  if (toCol) toCol.leads.unshift({ ...card, pipelineStageId: toCol.stage.id });
+  else {
+    const total = board.last30Days[target.close === "Won" ? "won" : "lost"];
+    total.count += 1;
+    total.valuePaise += card.valuePaise;
+  }
+  renderKanban();
+  const where = toCol ? toCol.stage.name : crmLabel("stage", target.close);
+  try {
+    const body = toCol ? { pipelineStageId: toCol.stage.id, version: card.version } : { stage: target.close, version: card.version, ...(lostReason && { lostReason }) };
+    cacheLead(await crmApi(`/leads/${id}/stage`, jsonRequest("POST", body)));
+    showToast(t("deals.moved", { name: card.title, stage: where }), "success");
+    renderKpis();
+    await refreshBoard(); // fresh versions, next steps and flags
+  } catch (error) {
+    board = before; // back where it was
+    renderKanban();
+    const conflict = error?.code === "VERSION_CONFLICT";
+    showToast(conflict ? t("pipe.conflict") : t("pipe.putBack", { why: apiErrorMessage(error, t("deals.err.move")) }), "error");
+    if (conflict) refreshBoard();
+  }
 }
 
+let draggingId = null;
 function attachDragEvents() {
-  document.querySelectorAll(".deal-card").forEach((card) => {
+  document.querySelectorAll("#kanbanView .deal-card").forEach((card) => {
     card.addEventListener("click", () => openModal(card.dataset.id));
     card.querySelector(".kanban-move")?.addEventListener("click", async (event) => {
       event.stopPropagation();
-      const deal = getDeal(card.dataset.id);
-      if (!deal) return;
-      const stage = await crmMoveMenu.open({
-        title: t("deals.moveTo", { name: deal.name }), current: deal.stage, returnFocus: event.currentTarget,
-        options: STAGES.map((s) => ({ value: s, label: crmLabel("stage", s), color: STAGE_DOT[s] })),
+      const found = cardOnBoard(card.dataset.id);
+      if (!found) return;
+      const value = await crmMoveMenu.open({
+        title: t("deals.moveTo", { name: found.card.title }), current: `stage:${found.col.stage.id}`, returnFocus: event.currentTarget,
+        options: [
+          ...board.columns.map((c) => ({ value: `stage:${c.stage.id}`, label: c.stage.name })),
+          { value: "close:Won", label: crmLabel("stage", "Won"), color: "var(--success)" },
+          { value: "close:Lost", label: crmLabel("stage", "Lost"), color: "var(--danger)" },
+        ],
       });
-      if (stage) moveDeal(deal.id, stage);
+      if (!value) return;
+      const [kind, ref] = value.split(":");
+      moveOnBoard(card.dataset.id, kind === "stage" ? { stageId: ref } : { close: ref });
     });
-    card.addEventListener("dragstart", () => {
+    card.addEventListener("dragstart", (event) => {
       draggingId = card.dataset.id;
       card.classList.add("dragging");
+      event.dataTransfer?.setData("text/plain", draggingId);
     });
     card.addEventListener("dragend", () => {
       card.classList.remove("dragging");
       draggingId = null;
     });
   });
-
-  document.querySelectorAll(".kanban-col").forEach((col) => {
-    col.addEventListener("dragover", (e) => {
+  document.querySelectorAll("#kanbanView .kanban-col, #kanbanView .kanban-close").forEach((zone) => {
+    zone.addEventListener("dragover", (e) => {
       e.preventDefault();
-      col.classList.add("drag-over");
+      zone.classList.add("drag-over");
     });
-    col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
-    col.addEventListener("drop", (e) => {
+    zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+    zone.addEventListener("drop", (e) => {
       e.preventDefault();
-      col.classList.remove("drag-over");
-      if (!draggingId) return;
-      moveDeal(draggingId, col.dataset.stage);
+      zone.classList.remove("drag-over");
+      const id = draggingId || e.dataTransfer?.getData("text/plain");
+      if (!id) return;
+      moveOnBoard(id, zone.dataset.close ? { close: zone.dataset.close } : { stageId: zone.dataset.stageId });
     });
   });
 }
@@ -608,7 +661,38 @@ function closeModal() {
   document.getElementById("modalOverlay").classList.remove("open");
 }
 
+// Every stage move of the deal, oldest first, with the time it spent in each (D84).
+const durationText = (ms) => {
+  if (ms === null || ms === undefined) return "";
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor(ms / 3600000);
+  return days >= 1 ? t("pipe.days", { n: days }) : hours >= 1 ? t("pipe.hours", { n: hours }) : t("pipe.lessThanHour");
+};
+async function renderStageHistory(deal) {
+  let box = document.getElementById("stageHistory");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "stageHistory";
+    box.className = "stage-history";
+    document.getElementById("timelineSection").appendChild(box);
+  }
+  box.innerHTML = "";
+  let entries = [];
+  try {
+    entries = await crmApi(`/leads/${deal.id}/stage-history`);
+  } catch {
+    return; // the timeline above still shows the stage changes
+  }
+  if (!entries.length) return;
+  box.innerHTML = `<div class="stage-history-title">${escapeHtml(t("pipe.history"))}</div>${entries.map((e) => `
+    <div class="stage-history-row">
+      <span>${e.from.name ? `${escapeHtml(e.from.name)} → ` : ""}<strong>${escapeHtml(e.to.name)}</strong></span>
+      <span class="meta">${escapeHtml([formatDate(e.at), e.actorName, e.from.name && durationText(e.msInFrom) ? t("pipe.after", { time: durationText(e.msInFrom) }) : ""].filter(Boolean).join(" · "))}</span>
+    </div>`).join("")}`;
+}
+
 async function renderTimeline(deal) {
+  renderStageHistory(deal);
   const el = document.getElementById("timelineList");
   el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(t("deals.loadingActivity"))}</div>`;
   let activities = [];
@@ -666,11 +750,14 @@ async function confirmDelete(id) {
 // ---------------------------------------------------------------
 // Full render
 // ---------------------------------------------------------------
+let boardLoadedOnce = false;
 function renderAll() {
   renderKpis();
   populateFilterOwners();
   if (currentView === "kanban") {
     renderKanban();
+    if (boardLoadedOnce) refreshBoard(); // a save or a delete changed the deals
+    boardLoadedOnce = Boolean(board);
   } else {
     renderTable();
   }
@@ -694,14 +781,30 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebarUser();
   initSidebarToggle();
 
-  crmReady(["leads", "members", "contacts", "tasks"], () => {
+  crmReady(["leads", "members", "contacts", "tasks"], async () => {
+    try {
+      await loadPipelines();
+      await loadBoard();
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("pipe.loadFailed")), "error");
+    }
     renderAll();
     openFromAddress((id) => {
       if (!getDeals().some((d) => d.id === id)) return false;
       openModal(id);
     });
   });
-  initKanbanStageButtons();
+  // The pipeline picker (D84).
+  document.querySelector(".nav-bar-kanban-card")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pipeline]");
+    if (!button || String(button.dataset.pipeline) === String(pipelineId)) return;
+    pipelineId = button.dataset.pipeline;
+    setPreference("dealsPipeline", pipelineId);
+    board = null;
+    renderPipelinePicker();
+    renderKanban();
+    refreshBoard();
+  });
 
   // Search & filters
   [

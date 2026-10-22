@@ -902,6 +902,9 @@
             <button class="settings-tab" data-panel="approvals" id="approvalsTab" style="display: none">
               <i class="fa-solid fa-circle-check"></i> <span data-i18n="set.tab.approvals">Approvals</span>
             </button>
+            <button class="settings-tab" data-panel="pipelines" id="pipelinesTab" style="display: none">
+              <i class="fa-solid fa-diagram-next"></i> <span data-i18n="pset.tab">Pipelines</span>
+            </button>
             <button class="settings-tab" data-panel="ai" id="aiTab" style="display: none">
               <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="set.tab.ai">AI assistant</span>
             </button>
@@ -2232,6 +2235,24 @@
             </div>
           </div>
 
+          <!-- PIPELINES (D84, owners and admins, js/settings-pipelines.js): the deal boards' stages -->
+          <div class="settings-panel" data-settings-panel="pipelines">
+            <div class="panel">
+              <div class="panel-head">
+                <h3 data-i18n="pset.tab">Pipelines</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint" data-i18n="pset.intro">Each pipeline is a board on the Deals page with its own stages. Every stage says what it means to reports and automation (New, Contacted, Quote Sent or Negotiation); Won and Lost end every pipeline.</p>
+                <div class="cf-toolbar">
+                  <span class="settings-hint" style="margin: 0"></span>
+                  <button type="button" class="btn btn-primary" id="psetAdd"><i class="fa-solid fa-plus"></i> <span data-i18n="pset.add">Add pipeline</span></button>
+                </div>
+                <div id="psetEditor"></div>
+                <div id="psetList"><p class="settings-hint">Loading…</p></div>
+              </div>
+            </div>
+          </div>
+
           <!-- APPROVALS (D77, owners and admins, js/settings-approvals.js): limits on quotations -->
           <div class="settings-panel" data-settings-panel="approvals">
             <div class="panel">
@@ -2453,6 +2474,7 @@
     <script src="./js/settings-fields.js"></script>
     <script src="./js/settings-pages.js"></script>
     <script src="./js/settings-approvals.js"></script>
+    <script src="./js/settings-pipelines.js"></script>
     <script src="./js/settings-connections.js"></script>
     <script src="./js/settings-microsoft.js"></script>
     <script src="./js/settings-deletion.js"></script>

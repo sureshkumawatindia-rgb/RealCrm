@@ -27,6 +27,7 @@ const { billingOf, sellerStateCode, DEFAULT_PREFIXES: DEFAULT_PREFIX } = require
 const { toPage, paginationMeta } = require('../utils/pagination');
 const { visibilityFilter } = require('./access');
 const leadService = require('./leadService');
+const pipelineService = require('./pipelineService');
 const contactService = require('./contactService');
 const conversationService = require('./conversationService');
 const templateService = require('./templateService');
@@ -383,7 +384,10 @@ async function changeStatus(req, quotation, status, { rejectedReason, session, v
     // Sending a quote moves an early lead forward (never back from Negotiation, Won or Lost).
     if (lead && ['New', 'Contacted'].includes(lead.stage)) {
       const from = lead.stage;
+      const fromStageId = lead.pipelineStageId;
+      const enteredAt = lead.pipelineStageAt || lead.stageChangedAt || lead.createdAt;
       leadService.applyStage(lead, 'Quote Sent');
+      await pipelineService.followKind(req, lead, { fromKind: from, fromStageId, source: 'quotation', session, enteredAt }); // D84
       lead.version += 1;
       lead.lastActivityAt = new Date();
       await lead.save({ session });

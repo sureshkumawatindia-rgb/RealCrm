@@ -16,6 +16,7 @@ const { objectRoutes: customObjectRoutes, lookupRoutes } = require('./customObje
 const recordRoutes = require('./records');
 const productRoutes = require('./products');
 const leadRoutes = require('./leads');
+const pipelineRoutes = require('./pipelines');
 const quotationRoutes = require('./quotations');
 const orderRoutes = require('./orders');
 const importRoutes = require('./imports');
@@ -62,6 +63,7 @@ router.use('/records', recordRoutes);
 router.use('/lookup', lookupRoutes);
 router.use('/products', productRoutes);
 router.use('/leads', leadRoutes);
+router.use('/pipelines', pipelineRoutes); // D84
 router.use('/quotations', quotationRoutes);
 router.use('/pricing', quotationRoutes.pricingRouter);
 router.use('/orders', orderRoutes);

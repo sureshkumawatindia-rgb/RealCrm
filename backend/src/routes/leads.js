@@ -36,6 +36,10 @@ router.post('/:id/stage', can('edit'), validate({ params: idParams, body: schema
 router.post('/:id/convert', can('edit'), idempotency, byId, async (req, res) => {
   res.json({ success: true, data: await leadService.convert(req, req.valid.params.id), message: 'Converted to customer' });
 });
+// Every stage move, oldest first, with the time in each stage (D84).
+router.get('/:id/stage-history', can('view'), byId, async (req, res) => {
+  res.json({ success: true, data: await leadService.stageHistory(req, req.valid.params.id) });
+});
 router.get('/:id/activities', can('view'), byId, async (req, res) => {
   res.json({ success: true, data: await leadService.listActivities(req, req.valid.params.id) });
 });

@@ -32,6 +32,12 @@ const leadSchema = new mongoose.Schema(
       default: [],
     },
     stageChangedAt: { type: Date },
+    // Where it sits on the board (D84): its pipeline and stage (for Won and Lost, the last open
+    // one), and since when. stage above stays the fixed kind every report reads. No pipeline:
+    // the company's default pipeline.
+    pipelineId: { type: mongoose.Schema.Types.ObjectId, ref: 'Pipeline' },
+    pipelineStageId: { type: mongoose.Schema.Types.ObjectId },
+    pipelineStageAt: { type: Date },
     // A private number (D61): only owners see it (and its leads and chats).
     private: { type: Boolean },
     convertedAt: { type: Date },
