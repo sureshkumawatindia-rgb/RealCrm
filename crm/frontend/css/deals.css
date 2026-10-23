@@ -787,3 +787,6 @@
   color: var(--brand-darker);
   font-weight: 600;
 }
+.mention-list[hidden] {
+  display: none;
+}

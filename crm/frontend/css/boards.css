@@ -362,3 +362,9 @@
   margin: 6px 0 0;
   padding-left: 18px;
 }
+/* They set their own display: [hidden] must still hide them. */
+.brd-bulk[hidden],
+.brd-layouts[hidden],
+.brd-tools[hidden] {
+  display: none;
+}

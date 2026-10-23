@@ -1,6 +1,8 @@
 const Message = require('../models/Message');
 const Call = require('../models/Call');
 const SmsMessage = require('../models/SmsMessage');
+const EmailMessage = require('../models/EmailMessage');
+const { visibleTo: emailsVisibleTo } = require('./gmailSyncService');
 const Note = require('../models/Note');
 const Lead = require('../models/Lead');
 const LeadStageEvent = require('../models/LeadStageEvent');
@@ -26,7 +28,7 @@ const contactService = require('./contactService');
 //   kinds: talk (WhatsApp, calls) · sales (deals, stage moves, quotations, orders, payments) ·
 //          service (tickets) · work (tasks, meetings) · notes · other (enquiries, consent, documents)
 const KINDS = Object.freeze({
-  talk: ['whatsapp', 'call', 'sms'],
+  talk: ['whatsapp', 'call', 'sms', 'email'],
   sales: ['lead', 'stage', 'quotation', 'order', 'payment'],
   service: ['ticket'],
   work: ['task', 'event'],
@@ -73,6 +75,14 @@ const SOURCES = {
     return calls.map((c) => ({
       id: String(c._id), source: 'call', at: c.startedAt, direction: c.direction, status: c.status, outcome: c.outcome || null, durationSec: c.durationSec,
       title: c.direction === 'in' ? 'Call from the customer' : 'Call to the customer', detail: clip(c.notes), actorId: c.memberId || null,
+    }));
+  },
+  // Synced Gmail (D90): shared emails, and the viewer's own private ones.
+  async email({ req, contact, until, take }) {
+    const messages = await EmailMessage.find({ ...emailsVisibleTo(req), contactIds: contact._id, sentAt: { $lte: until } }).sort({ sentAt: -1, _id: -1 }).limit(take).lean();
+    return messages.map((m) => ({
+      id: String(m._id), source: 'email', at: m.sentAt, direction: m.direction, threadId: m.threadId, name: m.subject || '',
+      title: m.subject || '(no subject)', detail: clip(m.snippet, 600), actorId: m.memberId || null,
     }));
   },
   async sms({ contact, until, take }) {

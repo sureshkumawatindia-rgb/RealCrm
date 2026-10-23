@@ -472,7 +472,7 @@ const HIST_LABELS = {
 const CALL_OUTCOMES = ["connected", "interested", "callback", "not_interested", "no_answer", "busy", "wrong_number", "switched_off"];
 const HIST_COLORS = { brand: ["var(--brand-light)", "var(--brand-darker)"], info: ["var(--info-bg)", "var(--info)"], warning: ["var(--warning-bg)", "var(--warning)"], success: ["var(--success-bg, var(--bg))", "var(--success)"], "": ["var(--bg)", "var(--text-muted)"] };
 // seq: a newer reset (another filter, a saved call) wins over a page still on its way.
-const hist = { customer: null, kind: "", items: [], next: null, emails: [], calling: false, loading: false, seq: 0 };
+const hist = { customer: null, kind: "", items: [], next: null, calling: false, loading: false, seq: 0 };
 
 const minutesText = (sec) => (sec >= 60 ? t("call.minutes", { n: Math.round(sec / 60) }) : sec ? t("call.seconds", { n: sec }) : "");
 
@@ -486,9 +486,10 @@ function historyItemHtml(it) {
   const label = it.source === "call" ? t(it.direction === "in" ? "call.in" : "call.out")
     : it.source === "whatsapp" ? t(it.direction === "in" ? "c360.hist.waIn" : "c360.hist.waOut")
     : it.source === "sms" ? t(it.direction === "in" ? "c360.hist.smsIn" : "c360.hist.smsOut")
+    : it.source === "email" ? t(it.direction === "in" ? "c360.hist.emailIn" : "c360.hist.emailOut")
       : it.source === "consent" && it.channel === "sms" ? t("c360.hist.smsConsent")
       : HIST_LABELS[it.source] ? t(HIST_LABELS[it.source]) : "";
-  const title = it.source === "email" || !label ? it.title : it.name ? `${label}: ${it.name}` : label;
+  const title = !label ? it.title : it.name ? `${label}: ${it.name}` : label;
   const when = new Date(it.at).toLocaleString(crmI18n.locale(), { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
   const detail = it.source === "task" ? [it.status, it.due ? t("c360.hist.due", { date: it.due }) : ""].filter(Boolean).join(" · ") : it.detail;
   const meta = [extra, detail && !["call", "whatsapp", "note", "sms"].includes(it.source) ? detail : "", it.actorName, when].filter(Boolean).join(" · ");
@@ -506,10 +507,7 @@ function historyItemHtml(it) {
 
 function renderHistoryList() {
   const list = document.getElementById("c360HistList");
-  const emails = ["", "talk"].includes(hist.kind) ? hist.emails : [];
-  // Emails are merged only into what is already loaded (they come from the viewer's own Gmail).
-  const oldest = hist.items.length && hist.next ? new Date(hist.items[hist.items.length - 1].at) : null;
-  const items = [...hist.items, ...emails.filter((e) => !oldest || new Date(e.at) >= oldest)].sort((x, y) => new Date(y.at) - new Date(x.at));
+  const items = hist.items;
   list.innerHTML = items.length ? items.map(historyItemHtml).join("") : relEmptyBlock("fa-clock-rotate-left", t("c360.empty.timeline"));
   document.getElementById("c360HistMore").hidden = !hist.next;
 }
@@ -531,20 +529,6 @@ async function loadHistory({ reset = false } = {}) {
     if (seq === hist.seq) document.getElementById("c360HistList").innerHTML = relEmptyBlock("fa-triangle-exclamation", apiErrorMessage(error, t("c360.hist.loadFailed")));
   } finally {
     if (seq === hist.seq) hist.loading = false;
-  }
-}
-
-// The viewer's own Gmail with this customer (read-only), when Gmail is connected.
-async function loadEmails(customer) {
-  hist.emails = [];
-  if (!customer.email) return;
-  try {
-    const q = encodeURIComponent(`from:${customer.email} OR to:${customer.email}`);
-    const { messages } = await crmApi(`/gmail/messages?limit=10&q=${q}`);
-    hist.emails = messages.map((m) => ({ id: `gmail-${m.id}`, source: "email", at: m.date ? new Date(m.date).toISOString() : new Date().toISOString(), title: m.subject || t("c360.hist.email"), detail: m.snippet || "", actorName: m.from || "" }));
-    renderHistoryList();
-  } catch {
-    /* Gmail not connected, or not reachable: the rest of the history stays */
   }
 }
 
@@ -596,7 +580,6 @@ function renderTimelineTab(customer) {
     el.querySelector("#c360SmsForm").addEventListener("submit", (event) => sendSms(event, customer));
     el.querySelector("#c360SmsForm").addEventListener("input", (event) => { if (event.target.dataset.blank !== undefined) renderSmsPreview(); });
     el.querySelector("#c360SmsForm").addEventListener("change", (event) => { if (event.target.name === "template") renderSmsForm(customer, event.target.value); });
-    loadEmails(customer);
   }
   loadHistory({ reset: true });
 }

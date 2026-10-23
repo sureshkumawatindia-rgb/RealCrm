@@ -5007,3 +5007,49 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   border-radius: var(--radius-sm);
   padding: 8px 10px;
 }
+
+/* Google (D90): Settings → My profile */
+.goog-features {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.goog-feature {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.goog-feature input {
+  margin-top: 3px;
+  accent-color: var(--brand-dark);
+}
+.goog-feature span {
+  display: grid;
+  gap: 2px;
+}
+.goog-feature small {
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.goog-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.goog-share {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13.5px;
+  margin: 8px 0 12px;
+}
+/* Parts that set their own display still hide with [hidden] (D85 call and SMS forms, D88 MSG91 field). */
+.c360-call-form[hidden],
+.sms-msg91[hidden] {
+  display: none;
+}

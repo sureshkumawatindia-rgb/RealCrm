@@ -44,7 +44,14 @@ function whatsappRows(accounts) {
 function gmailRows(connections) {
   if (!connections.length) return [];
   // Gmail is each person's own mailbox: only how many teammates connected it.
-  return [row('gmail', { name: `${connections.length} teammate${connections.length === 1 ? '' : 's'}`, state: 'working', lastActivityAt: latest(...connections.map((c) => c.updatedAt)) })];
+  // D90: a teammate whose Google access was refused needs to connect again.
+  const stuck = connections.filter((c) => c.status === 'needs_reconnect').length;
+  return [row('gmail', {
+    name: `${connections.length} teammate${connections.length === 1 ? '' : 's'}`,
+    state: stuck ? 'attention' : 'working',
+    lastActivityAt: latest(...connections.map((c) => c.lastSyncAt || c.updatedAt)),
+    problem: stuck ? `${stuck} need${stuck === 1 ? 's' : ''} to connect Google again (Settings → My profile).` : '',
+  })];
 }
 
 function paymentRows(connections) {
@@ -154,7 +161,7 @@ async function status(req) {
   const [organization, accounts, gmail, payments, sources, meta, keys, hooks, microsoftConnections, teamsChannels, telephony, smsConnection] = await Promise.all([
     Organization.findById(organizationId).select('plan subscription entitlementGrants'),
     WhatsAppAccount.find({ organizationId }).select('name verifiedName displayPhone status statusMessage lastWebhookAt').lean(),
-    GmailConnection.find({ organizationId }).select('updatedAt').lean(),
+    GmailConnection.find({ organizationId }).select('updatedAt status lastSyncAt').lean(),
     PaymentConnection.find({ organizationId }).select('name provider status statusMessage lastWebhookAt lastCheckedAt').lean(),
     LeadSourceConnection.find({ organizationId }).select('name type status statusMessage lastLeadAt lastPolledAt lastError lastErrorAt').lean(),
     ConversionsApiConnection.findOne({ organizationId }).select('datasetId datasetName enabled status statusMessage stats').lean(),

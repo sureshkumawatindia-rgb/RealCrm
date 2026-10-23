@@ -279,60 +279,6 @@ async function uploadSelectedLogo() {
   renderLogoUpload(organization.logoUrl);
 }
 
-function setGmailStatus(message, isError = false) {
-  const status = document.getElementById("gmailConnectionStatus");
-  const error = document.getElementById("gmailConnectionError");
-  if (status) status.textContent = isError ? "Connection failed" : message;
-  if (error) {
-    error.textContent = isError ? message : "";
-    error.hidden = !isError;
-  }
-}
-
-async function loadGmailConnection() {
-  try {
-    const connection = await crmApi("/gmail/connection");
-    if (!connection.connected) {
-      setGmailStatus("Not connected");
-      return;
-    }
-    setGmailStatus(`Connected as ${connection.emailAddress}`);
-    const profile = await crmApi("/gmail/profile");
-    setGmailStatus(`Connected as ${profile.emailAddress} · ${profile.messagesTotal || 0} messages`);
-  } catch (error) {
-    setGmailStatus(error.message || "Unable to fetch Gmail connection.", true);
-  }
-}
-
-function showGmailCallbackResult() {
-  const params = new URLSearchParams(window.location.search);
-  const result = params.get("gmail");
-  if (result === "connected") {
-    showToast(`Gmail connected as ${params.get("email") || "your account"}.`, "success");
-    window.history.replaceState({}, document.title, window.location.pathname);
-  } else if (result === "error") {
-    setGmailStatus(`Google authorization failed: ${params.get("reason") || "unknown error"}`, true);
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-}
-
-async function connectGmail() {
-  const button = document.getElementById("connectGmailBtn");
-  button.disabled = true;
-  setGmailStatus("Opening Google authorization...");
-  try {
-    const result = await crmApi("/gmail/connect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ returnUrl: window.location.href }),
-    });
-    window.location.assign(result.authorizationUrl);
-  } catch (error) {
-    button.disabled = false;
-    setGmailStatus(error.message || "Unable to start Gmail authorization.", true);
-  }
-}
-
 document.getElementById("profileForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = document.getElementById("uName").value.trim();
@@ -994,11 +940,8 @@ function resetAllData() {
 // ---------------------------------------------------------------
 initTabs();
 activateRequestedTab();
-showGmailCallbackResult();
 loadProfileForm();
 loadMembershipSections();
-document.getElementById("connectGmailBtn").addEventListener("click", connectGmail);
-loadGmailConnection();
 renderStorageSummary();
 
 document.getElementById("serverImportSection").hidden = !isOrgManager();

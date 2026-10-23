@@ -1000,18 +1000,9 @@
                   </div>
                 </form>
                 <div class="settings-section" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Email Integration</div>
-                  <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap">
-                    <div>
-                      <strong>Gmail</strong>
-                      <p class="settings-hint" id="gmailConnectionStatus" style="margin:4px 0 0">Not connected</p>
-                    </div>
-                    <button class="btn btn-outline" type="button" id="connectGmailBtn">
-                      <i class="fa-solid fa-envelope"></i> Connect Gmail
-                    </button>
-                  </div>
-                  <p class="logo-upload-error" id="gmailConnectionError" role="alert" hidden></p>
-                  <div id="gmailMessageList" style="margin-top:12px"></div>
+                  <!-- Google (D90, js/settings-google.js): Gmail sync, Calendar and Drive -->
+                  <div class="settings-section-label" data-i18n="goog.title">Google: Gmail, Calendar and Drive</div>
+                  <div id="googleCard"><p class="settings-hint" data-i18n="cf.loading">Loading…</p></div>
                 </div>
                 <!-- Microsoft 365 (D83, js/settings-microsoft.js): Outlook calendar and Teams links -->
                 <div class="settings-section" id="msSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px" hidden>
@@ -2511,6 +2502,7 @@
     <script src="./js/settings-sms.js"></script>
     <script src="./js/settings-connections.js"></script>
     <script src="./js/settings-microsoft.js"></script>
+    <script src="./js/settings-google.js"></script>
     <script src="./js/settings-deletion.js"></script>
   </body>
 </html>

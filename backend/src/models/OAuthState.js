@@ -10,6 +10,8 @@ const oauthStateSchema = new mongoose.Schema(
     provider: { type: String, enum: ['gmail', 'microsoft'], default: 'gmail' },
     memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
     codeVerifierEnc: { type: String },
+    // D90: the Google features asked for (calendar, drive), besides Gmail.
+    features: { type: [String], default: undefined },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
   },
   { timestamps: true },

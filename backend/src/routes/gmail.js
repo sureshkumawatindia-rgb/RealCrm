@@ -1,26 +1,15 @@
 const express = require('express');
-const crypto = require('crypto');
-const { google } = require('googleapis');
-const User = require('../models/User');
-const OAuthState = require('../models/OAuthState');
-const GmailConnection = require('../models/GmailConnection');
 const { authenticate } = require('../middleware/auth');
-const { encrypt, decrypt } = require('../utils/secretBox');
+const validate = require('../middleware/validate');
 const env = require('../config/env');
-const logger = require('../config/logger');
+const googleService = require('../services/googleService');
+const gmailSync = require('../services/gmailSyncService');
+const schemas = require('../validators/google');
 
+// Google for one member (Gmail since the start; Calendar and Drive since Phase 9, D90). The
+// sign-in and the sync live in googleService and gmailSyncService, behind the Google adapter
+// (live, or the stand-in in tests and development).
 const router = express.Router();
-const GMAIL_SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
-
-function oauthClient() {
-  if (!env.googleClientSecret) {
-    const error = new Error('GOOGLE_CLIENT_SECRET is not configured');
-    error.statusCode = 500;
-    error.code = 'GOOGLE_CLIENT_SECRET_MISSING';
-    throw error;
-  }
-  return new google.auth.OAuth2(env.googleClientId, env.googleClientSecret, env.googleRedirectUri);
-}
 
 function getSafeReturnUrl(candidate) {
   try {
@@ -42,143 +31,64 @@ function getSafeReturnUrl(candidate) {
 
 function frontendRedirect(params, returnUrl) {
   const url = new URL(getSafeReturnUrl(returnUrl));
+  url.searchParams.set('tab', 'profile');
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
   return url.toString();
 }
 
-function publicConnection(connection) {
-  return {
-    connected: true,
-    emailAddress: connection.emailAddress,
-    scopes: connection.scopes,
-    connectedAt: connection.createdAt,
-    updatedAt: connection.updatedAt,
-  };
-}
-
-async function getGmailClient(connection) {
-  const client = oauthClient();
-  client.setCredentials({
-    access_token: decrypt(connection.encryptedAccessToken),
-    refresh_token: decrypt(connection.encryptedRefreshToken),
-    expiry_date: connection.tokenExpiry?.getTime(),
-  });
-  client.on('tokens', async (tokens) => {
-    if (tokens.access_token) connection.encryptedAccessToken = encrypt(tokens.access_token);
-    if (tokens.expiry_date) connection.tokenExpiry = new Date(tokens.expiry_date);
-    await connection.save();
-  });
-  return google.gmail({ version: 'v1', auth: client });
-}
-
-router.get('/connection', authenticate, async (req, res, next) => {
-  try {
-    const connection = await GmailConnection.findOne({ userId: req.user._id });
-    res.json({ success: true, data: connection ? publicConnection(connection) : { connected: false } });
-  } catch (error) {
-    next(error);
-  }
+router.get('/connection', authenticate, async (req, res) => {
+  res.json({ success: true, data: await googleService.status(req) });
 });
-
-router.post('/connect', authenticate, async (req, res, next) => {
-  try {
-    const state = crypto.randomBytes(32).toString('hex');
-    await OAuthState.create({
-      state,
-      userId: req.user._id,
-      organizationId: req.tenant.organizationId,
-      returnUrl: getSafeReturnUrl(req.body?.returnUrl),
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    });
-    const client = oauthClient();
-    const authorizationUrl = client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      include_granted_scopes: true,
-      scope: GMAIL_SCOPES,
-      state,
-    });
-    res.json({ success: true, data: { authorizationUrl } });
-  } catch (error) {
-    next(error);
-  }
+router.post('/connect', authenticate, validate({ body: schemas.connect }), async (req, res) => {
+  res.json({ success: true, data: await googleService.connect(req, { features: req.body.features, returnUrl: getSafeReturnUrl(req.body.returnUrl) }) });
 });
-
 router.get('/oauth/callback', async (req, res) => {
-  try {
-    const { code, state, error: oauthError } = req.query;
-    if (oauthError) return res.redirect(frontendRedirect({ gmail: 'error', reason: oauthError }));
-    if (!code || !state) return res.redirect(frontendRedirect({ gmail: 'error', reason: 'missing_callback_parameters' }));
-
-    const stateRecord = await OAuthState.findOneAndDelete({ state, provider: { $ne: 'microsoft' } }); // a Microsoft sign-in has its own callback (D83)
-    if (!stateRecord || stateRecord.expiresAt < new Date()) {
-      return res.redirect(frontendRedirect({ gmail: 'error', reason: 'invalid_or_expired_state' }));
-    }
-
-    const client = oauthClient();
-    const { tokens } = await client.getToken(code);
-    if (!tokens.access_token || !tokens.refresh_token) {
-      return res.redirect(frontendRedirect({ gmail: 'error', reason: 'refresh_token_missing' }, stateRecord.returnUrl));
-    }
-    client.setCredentials(tokens);
-    const gmail = google.gmail({ version: 'v1', auth: client });
-    const profile = await gmail.users.getProfile({ userId: 'me' });
-    const user = await User.findById(stateRecord.userId);
-    if (!user) return res.redirect(frontendRedirect({ gmail: 'error', reason: 'crm_user_not_found' }, stateRecord.returnUrl));
-
-    const connection = await GmailConnection.findOneAndUpdate(
-      { userId: user._id },
-      {
-        userId: user._id,
-        organizationId: stateRecord.organizationId || user.organizationId,
-        emailAddress: profile.data.emailAddress,
-        encryptedAccessToken: encrypt(tokens.access_token),
-        encryptedRefreshToken: encrypt(tokens.refresh_token),
-        tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
-        historyId: profile.data.historyId || '',
-        scopes: GMAIL_SCOPES,
-      },
-      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
-    );
-    return res.redirect(frontendRedirect({ gmail: 'connected', email: connection.emailAddress }, stateRecord.returnUrl));
-  } catch (error) {
-    const reason = error.response?.data?.error?.status || error.code || 'gmail_callback_failed';
-    logger.error(`Gmail OAuth callback failed at downstream stage: ${reason}`);
-    return res.redirect(frontendRedirect({ gmail: 'error', reason: String(reason) }));
-  }
+  const { params, returnUrl } = await googleService.callback(req.query);
+  res.redirect(frontendRedirect(params, returnUrl));
+});
+// The stand-in's consent page (tests and development only).
+router.get('/mock-consent', (req, res) => {
+  res.redirect(googleService.mockConsentRedirect(req.query.state));
+});
+router.patch('/connection', authenticate, validate({ body: schemas.connectionPatch }), async (req, res) => {
+  res.json({ success: true, data: await googleService.update(req, req.body) });
+});
+router.delete('/connection', authenticate, async (req, res) => {
+  res.json({ success: true, data: await googleService.disconnect(req) });
+});
+router.post('/sync', authenticate, async (req, res) => {
+  res.json({ success: true, data: await gmailSync.syncNow(req) });
+});
+router.get('/threads/:threadId', authenticate, validate({ params: schemas.threadParams }), async (req, res) => {
+  res.json({ success: true, data: await gmailSync.thread(req, req.valid.params.threadId) });
 });
 
-router.get('/profile', authenticate, async (req, res, next) => {
-  try {
-    const connection = await GmailConnection.findOne({ userId: req.user._id });
-    if (!connection) return res.status(404).json({ success: false, message: 'Gmail is not connected', code: 'GMAIL_NOT_CONNECTED' });
-    const gmail = await getGmailClient(connection);
-    const profile = await gmail.users.getProfile({ userId: 'me' });
-    connection.emailAddress = profile.data.emailAddress;
-    connection.historyId = profile.data.historyId || connection.historyId;
-    await connection.save();
-    res.json({ success: true, data: { emailAddress: connection.emailAddress, messagesTotal: profile.data.messagesTotal, threadsTotal: profile.data.threadsTotal } });
-  } catch (error) {
-    next(error);
-  }
+async function connectionOrFail(req, res) {
+  const connection = await googleService.connectionOf(req);
+  if (!connection) res.status(404).json({ success: false, message: 'Gmail is not connected', code: 'GMAIL_NOT_CONNECTED' });
+  return connection;
+}
+
+router.get('/profile', authenticate, async (req, res) => {
+  const connection = await connectionOrFail(req, res);
+  if (!connection) return;
+  const profile = await googleService.withGoogle(connection, (provider, creds) => provider.profile(creds));
+  res.json({ success: true, data: { emailAddress: profile.emailAddress, messagesTotal: profile.messagesTotal } });
 });
 
-router.get('/messages', authenticate, async (req, res, next) => {
-  try {
-    const connection = await GmailConnection.findOne({ userId: req.user._id });
-    if (!connection) return res.status(404).json({ success: false, message: 'Gmail is not connected', code: 'GMAIL_NOT_CONNECTED' });
-    const gmail = await getGmailClient(connection);
-    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 50);
-    const list = await gmail.users.messages.list({ userId: 'me', maxResults: limit, q: req.query.q || '' });
-    const messages = await Promise.all((list.data.messages || []).map(async ({ id }) => {
-      const result = await gmail.users.messages.get({ userId: 'me', id, format: 'metadata', metadataHeaders: ['From', 'To', 'Subject', 'Date'] });
-      const headers = Object.fromEntries((result.data.payload?.headers || []).map(({ name, value }) => [name.toLowerCase(), value]));
-      return { id, threadId: result.data.threadId, snippet: result.data.snippet || '', ...headers };
+// Live Gmail search (read-only), as before Phase 9.
+router.get('/messages', authenticate, validate({ query: schemas.messages }), async (req, res) => {
+  const connection = await connectionOrFail(req, res);
+  if (!connection) return;
+  const { limit, q } = req.valid.query;
+  const messages = await googleService.withGoogle(connection, async (provider, creds) => {
+    const list = await provider.listMessages(creds, { q, maxResults: limit });
+    return Promise.all(list.messages.map(async ({ id }) => {
+      const m = await provider.getMessage(creds, id);
+      return { id, threadId: m.threadId, snippet: m.snippet, from: m.headers.from, to: m.headers.to, subject: m.headers.subject, date: m.headers.date };
     }));
-    res.json({ success: true, data: { messages } });
-  } catch (error) {
-    next(error);
-  }
+  });
+  res.json({ success: true, data: { messages } });
 });
 
 module.exports = router;

@@ -13,6 +13,8 @@ const schemas = require('../validators/whatsapp');
 const mock = require('../integrations/whatsapp/mock');
 const leadIntake = require('../services/leadIntakeService');
 const leadSchemas = require('../validators/leadSources');
+const Joi = require('joi');
+const google = require('../integrations/google');
 
 // Developer test tools. They do not exist in production, nor in development unless DEV_TOOLS is
 // on (404): the real product never shows simulated chats or leads.
@@ -94,6 +96,21 @@ router.post('/simulate/lead', validate({ body: leadSchemas.simulateLead }), asyn
     return res.status(400).json({ success: false, code: 'LEAD_REJECTED', message: 'The lead needs a valid mobile number or email.', data: result });
   }
   return res.status(201).json({ success: true, data: result });
+});
+
+// Puts an email in the signed-in person's stand-in Google mailbox (D90), as if it arrived or was
+// sent from Gmail; the next sync picks it up. Only while Google runs as the stand-in.
+const mockMail = Joi.object({
+  from: Joi.string().trim().max(200).required(),
+  to: Joi.string().trim().max(500).required(),
+  subject: Joi.string().trim().max(300).allow('').default(''),
+  snippet: Joi.string().trim().max(500).allow('').default(''),
+  threadId: Joi.string().trim().pattern(/^[A-Za-z0-9_-]{1,60}$/),
+});
+router.post('/simulate/gmail', validate({ body: mockMail }), async (req, res) => {
+  if (google.mode() !== 'mock') throw httpError(409, 'GOOGLE_NOT_MOCK', 'Google is not the stand-in here.');
+  const id = google.mock.addMessage(String(req.user.email).toLowerCase(), req.body);
+  res.status(201).json({ success: true, data: { id } });
 });
 
 module.exports = router;
