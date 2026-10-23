@@ -45,6 +45,7 @@ function serializeContact(contact, keys, links) {
     productIds: contact.productIds,
     notes: contact.notes,
     consent: { marketing: contact.consent?.marketing || 'unknown', changedAt: contact.consent?.changedAt || null, method: contact.consent?.method || '' },
+    smsOptOut: contact.smsOptOut?.at ? { at: contact.smsOptOut.at, method: contact.smsOptOut.method || '' } : null,
     becameCustomerAt: contact.becameCustomerAt || null,
     firstTouch: touchOf(contact.firstTouch), // how they first found the company (D79)
     customFields: customFieldService.visibleValues(contact.customFields, keys),

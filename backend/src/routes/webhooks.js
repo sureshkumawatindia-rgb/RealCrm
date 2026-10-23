@@ -7,6 +7,7 @@ const leadWebhooks = require('../services/leadWebhookService');
 const paymentLinks = require('../services/paymentLinkService');
 const billing = require('../services/billingService');
 const calls = require('../services/callService');
+const smsService = require('../services/smsService');
 const queue = require('../jobs/queue');
 const env = require('../config/env');
 const { formatRupees } = require('../utils/money');
@@ -131,6 +132,11 @@ router.post('/leads/googleads/:webhookKey', async (req, res) => {
 // connection's secret (the provider does not sign); any other answer than 200 makes it retry.
 router.post('/calls/:webhookKey', async (req, res) => {
   res.sendStatus(await calls.receiveWebhook(req.params.webhookKey, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), req.headers));
+});
+
+// SMS delivery reports and replies (D88): the key in the address is the connection's secret.
+router.post('/sms/:webhookKey', async (req, res) => {
+  res.sendStatus(await smsService.receiveWebhook(req.params.webhookKey, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), req.headers));
 });
 
 router.post('/payments/:provider/:webhookKey', async (req, res) => {

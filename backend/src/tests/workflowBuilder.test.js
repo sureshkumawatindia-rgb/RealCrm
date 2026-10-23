@@ -109,6 +109,8 @@ describe('Workflow builder: check, preview and recipes', () => {
     expect((await Contact.findById(lead.contactId)).tags).not.toContain('portal');
 
     // An invalid draft is 400 with every problem; a lead the member cannot see is 404.
+    // A draft without a name can be tried (D88 fix).
+    expect((await post(owner.token, '/workflows/preview', { draft: { ...draft, name: '' }, leadId: lead.id })).status).toBe(200);
     const bad = await post(owner.token, '/workflows/preview', { draft: { trigger: { type: 'lead.created' }, steps: [{ type: 'assign', params: {} }, { type: 'rocket' }] }, leadId: lead.id });
     expect(bad.status).toBe(400);
     expect(bad.body.errors.map((e) => e.field)).toEqual(['steps.0.params.memberId', 'steps.1']);

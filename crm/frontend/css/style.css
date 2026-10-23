@@ -4969,3 +4969,41 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   color: var(--text-faint);
   overflow-wrap: anywhere;
 }
+
+/* SMS (D88): Settings → SMS templates and the preview on Customer 360 */
+.sms-tpl {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 10px;
+  display: grid;
+  gap: 8px;
+}
+.sms-tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+.sms-tpl .link-btn {
+  justify-self: start;
+  border: 0;
+  background: none;
+  color: var(--danger);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.sms-head {
+  margin: 8px 0 0;
+}
+.sms-url {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.c360-sms-preview {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}

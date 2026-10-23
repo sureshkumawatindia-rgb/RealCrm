@@ -10,6 +10,8 @@ const { requirePermission, requireRole } = require('../middleware/permissions');
 const tableExport = require('../services/tableExportService');
 const timelineService = require('../services/timelineService');
 const callSchemas = require('../validators/calls');
+const smsSchemas = require('../validators/sms');
+const smsService = require('../services/smsService');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/crm');
@@ -83,6 +85,10 @@ router.get('/:id/consent-history', can('view'), validate({ params: idParams }), 
 router.get('/:id/notes', can('view'), validate({ params: idParams }), async (req, res) => {
   const contact = await contactService.findVisible(req, req.valid.params.id);
   res.json({ success: true, data: await noteService.list(req, 'contact', contact._id) });
+});
+// SMS opt-out (D88): the customer asked not to get SMS (or may again).
+router.post('/:id/sms-consent', can('edit'), validate({ params: idParams, body: smsSchemas.smsConsent }), async (req, res) => {
+  res.json({ success: true, data: await smsService.setConsent(req, req.valid.params.id, req.body) });
 });
 router.post('/:id/notes', can('edit'), validate({ params: idParams, body: schemas.noteCreate }), async (req, res) => {
   const contact = await contactService.findVisible(req, req.valid.params.id);

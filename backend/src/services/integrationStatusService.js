@@ -8,6 +8,7 @@ const WebhookSubscription = require('../models/WebhookSubscription');
 const MicrosoftConnection = require('../models/MicrosoftConnection');
 const TeamsChannel = require('../models/TeamsChannel');
 const TelephonyConnection = require('../models/TelephonyConnection');
+const SmsConnection = require('../models/SmsConnection');
 const Organization = require('../models/Organization');
 const planService = require('./planService');
 const { PLANS, PLAN_KEYS } = require('../constants/plans');
@@ -19,10 +20,10 @@ const { PAYMENT_PROVIDERS } = require('../constants/payments');
 //   state: working | attention (something to fix: problem says what) | off | not_connected
 // A kind with nothing set up is one "not_connected" row, so the screen also says what is possible.
 
-const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams', 'calling']);
+const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams', 'calling', 'sms']);
 // Which Settings tab each kind is managed on.
 const TABS = Object.freeze({
-  whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations', microsoft: 'profile', teams: 'integrations', calling: 'calling',
+  whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations', microsoft: 'profile', teams: 'integrations', calling: 'calling', sms: 'sms',
 });
 // The plan feature each kind needs (Phase 3A, D80): a row whose feature the plan lacks says which
 // plan has it (plan: { feature, needs: { key, name } | null, message }); the server still refuses.
@@ -135,10 +136,22 @@ function callingRows(connection) {
   })];
 }
 
+// SMS (D88): the company's SMS account.
+function smsRows(connection) {
+  if (!connection) return [];
+  return [row('sms', {
+    id: String(connection._id),
+    name: connection.provider === 'mock' ? 'Test provider' : `MSG91 ${connection.senderId || ''}`.trim(),
+    state: connection.status === 'error' ? 'attention' : 'working',
+    lastActivityAt: connection.lastSentAt || null,
+    problem: connection.status === 'error' ? connection.lastError || 'The last SMS could not be sent.' : '',
+  })];
+}
+
 // GET /integrations/status
 async function status(req) {
   const organizationId = req.tenant.organizationId;
-  const [organization, accounts, gmail, payments, sources, meta, keys, hooks, microsoftConnections, teamsChannels, telephony] = await Promise.all([
+  const [organization, accounts, gmail, payments, sources, meta, keys, hooks, microsoftConnections, teamsChannels, telephony, smsConnection] = await Promise.all([
     Organization.findById(organizationId).select('plan subscription entitlementGrants'),
     WhatsAppAccount.find({ organizationId }).select('name verifiedName displayPhone status statusMessage lastWebhookAt').lean(),
     GmailConnection.find({ organizationId }).select('updatedAt').lean(),
@@ -150,6 +163,7 @@ async function status(req) {
     MicrosoftConnection.find({ organizationId }).select('email name status lastSyncAt').lean(),
     TeamsChannel.find({ organizationId }).select('name active disabledReason lastStatus lastError lastSentAt').lean(),
     TelephonyConnection.findOne({ organizationId }).select('provider callerId status lastError lastCallAt').lean(),
+    SmsConnection.findOne({ organizationId }).select('provider senderId status lastError lastSentAt').lean(),
   ]);
   const rows = {
     whatsapp: whatsappRows(accounts),
@@ -162,6 +176,7 @@ async function status(req) {
     microsoft: microsoftRows(microsoftConnections),
     teams: teamsRows(teamsChannels),
     calling: callingRows(telephony),
+    sms: smsRows(smsConnection),
   };
   const planNotes = Object.fromEntries(Object.entries(PLAN_FEATURES).map(([kind, feature]) => {
     const message = planService.featureBlock(organization, feature);

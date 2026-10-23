@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const Call = require('../models/Call');
+const SmsMessage = require('../models/SmsMessage');
 const Note = require('../models/Note');
 const Lead = require('../models/Lead');
 const LeadStageEvent = require('../models/LeadStageEvent');
@@ -25,7 +26,7 @@ const contactService = require('./contactService');
 //   kinds: talk (WhatsApp, calls) · sales (deals, stage moves, quotations, orders, payments) ·
 //          service (tickets) · work (tasks, meetings) · notes · other (enquiries, consent, documents)
 const KINDS = Object.freeze({
-  talk: ['whatsapp', 'call'],
+  talk: ['whatsapp', 'call', 'sms'],
   sales: ['lead', 'stage', 'quotation', 'order', 'payment'],
   service: ['ticket'],
   work: ['task', 'event'],
@@ -72,6 +73,13 @@ const SOURCES = {
     return calls.map((c) => ({
       id: String(c._id), source: 'call', at: c.startedAt, direction: c.direction, status: c.status, outcome: c.outcome || null, durationSec: c.durationSec,
       title: c.direction === 'in' ? 'Call from the customer' : 'Call to the customer', detail: clip(c.notes), actorId: c.memberId || null,
+    }));
+  },
+  async sms({ contact, until, take }) {
+    const messages = await SmsMessage.find({ organizationId: contact.organizationId, contactId: contact._id, createdAt: { $lte: until } }).sort({ createdAt: -1, _id: -1 }).limit(take).lean();
+    return messages.map((m) => ({
+      id: String(m._id), source: 'sms', at: m.createdAt, direction: m.direction, status: m.status, name: m.templateName || '',
+      title: m.direction === 'in' ? 'SMS from the customer' : 'SMS sent', detail: clip(m.text, 600), actorId: m.memberId || null,
     }));
   },
   async note({ contact, until, take }) {
@@ -137,7 +145,8 @@ const SOURCES = {
   },
   async consent({ contact, until, take }) {
     const events = await ConsentEvent.find({ organizationId: contact.organizationId, contactId: contact._id, at: { $lte: until } }).sort({ at: -1, _id: -1 }).limit(take).lean();
-    return events.map((e) => ({ id: String(e._id), source: 'consent', at: e.at, title: `WhatsApp offers: ${e.from} → ${e.to}`, name: `${e.from} → ${e.to}`, detail: e.method || '', actorName: e.actorName || '' }));
+    // channel: WhatsApp offers, or SMS (D88).
+    return events.map((e) => ({ id: String(e._id), source: 'consent', channel: e.channel || 'whatsapp', at: e.at, title: `${e.channel === 'sms' ? 'SMS' : 'WhatsApp offers'}: ${e.from} → ${e.to}`, name: `${e.from} → ${e.to}`, detail: e.method || '', actorName: e.actorName || '' }));
   },
   async document({ req, contact, until, take }) {
     if (!can(req.member, 'documents', 'view') && !can(req.member, 'customers', 'view')) return [];

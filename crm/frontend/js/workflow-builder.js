@@ -8,7 +8,7 @@
  * one. The engine, its runs, pause and stop are the Sales Automation ones (D30s).
  */
 const wfb = {
-  meta: null, members: [], templates: [], sequences: [], workflows: [], recipes: [],
+  meta: null, members: [], templates: [], sequences: [], workflows: [], recipes: [], smsTemplates: [],
   draft: null, problems: [], preview: null, dirty: false, checkTimer: null, checkSeq: 0, dragFrom: null,
 };
 const $w = (id) => document.getElementById(id);
@@ -20,12 +20,12 @@ const TRIGGER_FIELDS = {
 const STEP_DEFAULTS = {
   "whatsapp.text": { text: "" }, "whatsapp.template": { templateId: "", variables: {} }, assign: { memberId: "" }, "tag.add": { tag: "" }, "tag.remove": { tag: "" },
   "stage.change": { stage: "Contacted" }, "task.create": { title: "", dueInDays: 1, assignTo: "owner", priority: "Medium" }, "agent.notify": { to: "owner", message: "" },
-  wait: { amount: 1, unit: "hours" }, "webhook.call": { url: "" }, "sequence.enroll": { sequenceId: "" }, "payment.link": {},
+  wait: { amount: 1, unit: "hours" }, "webhook.call": { url: "" }, "sequence.enroll": { sequenceId: "" }, "payment.link": {}, "sms.send": { template: "", variables: {} },
 };
 const STEP_ICONS = {
   "whatsapp.text": "fa-brands fa-whatsapp", "whatsapp.template": "fa-brands fa-whatsapp", assign: "fa-solid fa-user-check", "tag.add": "fa-solid fa-tag", "tag.remove": "fa-solid fa-tag",
   "stage.change": "fa-solid fa-arrow-right", "task.create": "fa-solid fa-list-check", "agent.notify": "fa-solid fa-bell", wait: "fa-solid fa-hourglass-half",
-  "webhook.call": "fa-solid fa-satellite-dish", "sequence.enroll": "fa-solid fa-route", "payment.link": "fa-solid fa-indian-rupee-sign",
+  "webhook.call": "fa-solid fa-satellite-dish", "sequence.enroll": "fa-solid fa-route", "payment.link": "fa-solid fa-indian-rupee-sign", "sms.send": "fa-solid fa-comment-sms",
 };
 const CONDITION_DEFAULTS = { source: ["IndiaMART"], stage: ["New"], tag: "", owner: "", businessHours: undefined };
 
@@ -77,6 +77,14 @@ function variablesFields(base, params) {
   }).join("");
 }
 
+// One blank of a template: a CRM value, or fixed words (WhatsApp and SMS templates).
+function blankField(path, label, spec) {
+  const fixed = spec.startsWith("text:");
+  const select = `<select data-path="${attr(path)}" data-kind="variable"><option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>${wfb.meta.variableValues.map((v) => `<option value="${v}" ${spec === v ? "selected" : ""}>${escapeHtml(tr(`wfb.var.${v}`, v))}</option>`).join("")}<option value="text:" ${fixed ? "selected" : ""}>${escapeHtml(tr("wfb.fixedText", "Fixed words…"))}</option></select>`;
+  const words = fixed ? `<input type="text" data-path="${attr(path)}" data-kind="fixed" value="${attr(spec.slice(5))}" />` : "";
+  return `<div class="field wfb-field" data-field-path="${attr(path)}"><label>${escapeHtml(label)}</label>${select}${words}<div class="wfb-field-error" hidden></div></div>`;
+}
+
 function stepFields(step, index) {
   const p = step.params || {};
   const base = `steps.${index}.params`;
@@ -108,6 +116,13 @@ function stepFields(step, index) {
       + `${field(`${base}.unit`, "unit", `<select data-path="${base}.unit">${options(["minutes", "hours", "days"], p.unit || "hours", (u) => tr(`wfb.unit.${u}`, u))}</select>`)}</div>`;
     case "webhook.call": return field(`${base}.url`, "url", `<input type="url" data-path="${base}.url" value="${attr(p.url)}" placeholder="https://" />`);
     case "sequence.enroll": return field(`${base}.sequenceId`, "sequenceId", `<select data-path="${base}.sequenceId"><option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>${wfb.sequences.map((s) => `<option value="${attr(s.id)}" ${String(s.id) === String(p.sequenceId) ? "selected" : ""}>${escapeHtml(s.name)}</option>`).join("")}</select>`);
+    case "sms.send": {
+      const templates = wfb.smsTemplates;
+      if (!templates.length) return `<p class="wfb-hint">${escapeHtml(tr("wfb.noSms", "No SMS templates yet: an owner or admin adds them in Settings → SMS."))}</p>`;
+      const chosen = templates.find((x) => x.key === p.template);
+      return field(`${base}.template`, "smsTemplate", `<select data-path="${base}.template"><option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>${templates.map((x) => `<option value="${attr(x.key)}" ${x.key === p.template ? "selected" : ""}>${escapeHtml(x.name)}</option>`).join("")}</select>`)
+        + (chosen ? `<p class="wfb-hint">${escapeHtml(chosen.text)}</p>` + chosen.variables.map((name) => blankField(`${base}.variables.${name}`, `##${name}##`, p.variables?.[name] || "")).join("") : "");
+    }
     case "payment.link": return `<p class="wfb-hint">${escapeHtml(tr("wfb.paymentHint", "Sends the order's payment link on WhatsApp. Use it with order or payment triggers."))}</p>`;
     default: return "";
   }
@@ -304,7 +319,7 @@ function onFlowChange(event) {
     const spec = wfb.meta.conditions.find((f) => f.field === el.value);
     wfb.draft.conditions[index] = { field: el.value, op: spec.ops[0], ...(CONDITION_DEFAULTS[el.value] !== undefined && { value: CONDITION_DEFAULTS[el.value] }) };
     renderFlow();
-  } else if (/^conditions\.\d+\.op$/.test(path) || /^steps\.\d+\.params\.(stage|templateId)$/.test(path)) {
+  } else if (/^conditions\.\d+\.op$/.test(path) || /^steps\.\d+\.params\.(stage|templateId|template)$/.test(path)) {
     renderFlow();
   }
   return scheduleCheck();
@@ -418,6 +433,7 @@ function stepSentence(s) {
     case "wait": return tr("wfb.pv.wait", "", { until: when(f.until) });
     case "webhook.call": return tr("wfb.pv.webhook.call", "", { host: f.host });
     case "sequence.enroll": return tr("wfb.pv.sequence.enroll", "", { sequence: f.sequence });
+    case "sms.send": return tr("wfb.pv.sms.send", "", { template: f.template, text: f.text });
     default: return "";
   }
 }
@@ -584,8 +600,9 @@ function useRecipe(id) {
 async function startBuilder() {
   await crmI18n.ready;
   try {
-    const [meta, workflows, recipes, members, templates, sequences] = await Promise.allSettled([
+    const [meta, workflows, recipes, members, templates, sequences, smsConnection] = await Promise.allSettled([
       crmApi("/workflows/meta"), crmApi("/workflows?limit=100"), crmApi("/workflows/recipes"), crmApi("/members?limit=100"), crmApi("/templates"), crmApi("/sequences?limit=100"),
+      crmApi("/sms/connection"),
     ]);
     if (meta.status !== "fulfilled") throw meta.reason;
     wfb.meta = meta.value;
@@ -594,6 +611,7 @@ async function startBuilder() {
     wfb.members = members.status === "fulfilled" ? members.value : [];
     wfb.templates = templates.status === "fulfilled" ? templates.value : [];
     wfb.sequences = sequences.status === "fulfilled" ? sequences.value : [];
+    wfb.smsTemplates = smsConnection.status === "fulfilled" ? smsConnection.value.templates || [] : [];
     const id = new URLSearchParams(location.search).get("id");
     await openWorkflow(id && wfb.workflows.some((w) => String(w.id) === id) ? id : null);
   } catch (error) {

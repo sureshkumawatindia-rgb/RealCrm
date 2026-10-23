@@ -23,6 +23,7 @@ const leadService = require('./leadService');
 const engine = require('./automation/engine');
 const { VARIABLE_VALUES, fill, resolveVariables } = require('./automation/actions');
 const planService = require('./planService');
+const smsService = require('./smsService');
 
 // Workflows of the automation engine (Sales Automation page, Phase 6): "when <trigger>, if
 // <conditions>, do <steps>". Saving checks what Joi cannot: the people, templates and webhook
@@ -130,6 +131,18 @@ function referenceChecks(req, { conditions = [], steps = [] }, { conditionIndexe
     const field = `steps.${index}.params`;
     const params = step.params || {};
     if (step.type === 'whatsapp.template') checks.push(() => checkTemplateStep(req, params, field));
+    if (step.type === 'sms.send') {
+      checks.push(async () => {
+        const connection = await smsService.connectionOf(req.tenant.organizationId);
+        if (!connection) throw invalid(`${field}.template`, 'Connect an SMS account first (Settings → SMS).', 'SMS_NOT_CONNECTED');
+        const template = smsService.templateOf(connection, params.template);
+        if (!template) throw invalid(`${field}.template`, 'Pick one of your SMS templates.', 'INVALID_TEMPLATE');
+        for (const name of template.variables) {
+          const spec = params.variables?.[name];
+          if (!spec || !(VARIABLE_VALUES.includes(spec) || /^text:.{1,200}$/s.test(spec))) throw invalid(`${field}.variables.${name}`, `Choose what fills ##${name}## in "${template.name}".`, 'VARIABLE_REQUIRED');
+        }
+      });
+    }
     if (step.type === 'assign') {
       checks.push(async () => {
         const member = await activeMember(req, params.memberId, `${field}.memberId`);
@@ -323,7 +336,8 @@ const istDate = (date) => new Date(date.getTime() + 330 * 60000).toISOString().s
 
 async function preview(req, { draft, leadId }) {
   const result = await check(req, draft);
-  const errors = result.problems.filter((p) => p.level === 'error');
+  // A draft needs no name to be tried.
+  const errors = result.problems.filter((p) => p.level === 'error' && p.path !== 'name');
   if (errors.length) throw httpError(400, 'VALIDATION_ERROR', `The workflow has ${errors.length === 1 ? 'a problem' : `${errors.length} problems`}: ${errors[0].message}`, errors.map((p) => ({ field: p.path, code: p.code, message: p.message })));
   const { value } = automationSchemas.workflowDraft.validate(draft, { stripUnknown: true });
   const lead = await leadService.findVisible(req, leadId);
@@ -353,7 +367,7 @@ async function preview(req, { draft, leadId }) {
     return '';
   };
   const conditions = [];
-  for (const [index, condition] of value.conditions.entries()) {
+  for (const [index, condition] of (value.conditions || []).entries()) {
     conditions.push({ index, field: condition.field, op: condition.op, value: condition.value ?? null, passed: engine.conditionsMatch([condition], ctx), actual: await actual(condition) });
   }
 
@@ -418,6 +432,17 @@ async function preview(req, { draft, leadId }) {
       case 'sequence.enroll': {
         const sequence = await Sequence.findOne({ _id: p.sequenceId, organizationId }).select('name');
         out.facts = { sequence: sequence?.name || '' };
+        break;
+      }
+      case 'sms.send': {
+        const connection = await smsService.connectionOf(organizationId);
+        const template = smsService.templateOf(connection, p.template);
+        const values = resolveVariables({ body: p.variables || {} }, ctx).body;
+        const missing = (template?.variables || []).filter((name) => !String(values[name] ?? '').trim());
+        out.facts = { template: template?.name || '', text: template ? smsService.render(template.text, values) : '', to: phone };
+        if (!phone) skip('NO_PHONE');
+        else if (ctx.contact?.smsOptOut?.at) skip('SMS_OPTED_OUT');
+        else if (missing.length) Object.assign(skip('MISSING_VALUE').facts, { missing });
         break;
       }
       case 'payment.link':

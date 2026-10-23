@@ -232,6 +232,33 @@ const ACTIONS = {
 
   // A payment reminder (Phase 8): the order's open payment link (a new one for what is due if
   // none is open) as a text inside the 24-hour window, else the link template of Settings → Payments.
+  // An SMS from an approved template (D88), once per run and step (a retried job finds it sent).
+  async 'sms.send'({ ctx, params, run, workflow }) {
+    if (!ctx.contact) return skipped('There is no customer.');
+    if (ctx.contact.smsOptOut?.at) return skipped('The customer asked not to get SMS.');
+    if (!ctx.contact.phoneE164) return skipped('The customer has no mobile number.');
+    const smsService = require('../smsService'); // eslint-disable-line global-require
+    const sequence = workflow.kind === 'sequence';
+    let message;
+    try {
+      message = await smsService.sendFromStep({
+        organizationId: workflow.organizationId,
+        contact: ctx.contact,
+        lead: ctx.lead,
+        templateKey: params.template,
+        valuesFor: () => resolveVariables({ body: params.variables || {} }, ctx).body,
+        source: sequence ? 'sequence' : 'workflow',
+        idempotencyKey: `${sequence ? 'seq' : 'run'}:${run._id}:${run.stepIndex}`,
+        ...(sequence ? { enrollmentId: run._id } : { runId: run._id }),
+      });
+    } catch (error) {
+      if (['SMS_BLANK_EMPTY', 'SMS_OPTED_OUT', 'NO_PHONE'].includes(error.code)) return skipped(error.message);
+      throw error;
+    }
+    if (message.status === 'failed') throw Object.assign(new Error(message.error || 'The SMS was not sent.'), { statusCode: message.retryable ? 502 : 422 });
+    return done(`SMS "${message.templateName}" sent`);
+  },
+
   async 'payment.link'({ ctx, workflow, req }) {
     const order = ctx.order || (ctx.quotation?.orderId ? await Order.findOne({ _id: ctx.quotation.orderId, organizationId: workflow.organizationId }) : null);
     if (!order) return skipped('There is no order here (use this step with order or payment triggers).');

@@ -460,7 +460,7 @@ async function addNote(customer) {
 // ---------------------------------------------------------------
 const HIST_FILTERS = [["", "c360.hist.f.all"], ["talk", "c360.hist.f.talk"], ["sales", "c360.hist.f.sales"], ["service", "c360.hist.f.service"], ["work", "c360.hist.f.work"], ["notes", "c360.hist.f.notes"]];
 const HIST_ICONS = {
-  whatsapp: ["fa-brands fa-whatsapp", "success"], call: ["fa-solid fa-phone", "info"], email: ["fa-solid fa-envelope", "info"], note: ["fa-solid fa-note-sticky", "brand"],
+  sms: ["fa-solid fa-comment-sms", "info"], whatsapp: ["fa-brands fa-whatsapp", "success"], call: ["fa-solid fa-phone", "info"], email: ["fa-solid fa-envelope", "info"], note: ["fa-solid fa-note-sticky", "brand"],
   lead: ["fa-solid fa-handshake", "brand"], stage: ["fa-solid fa-arrow-right", "brand"], quotation: ["fa-solid fa-file-invoice", "warning"], order: ["fa-solid fa-box", "warning"],
   payment: ["fa-solid fa-indian-rupee-sign", "success"], ticket: ["fa-solid fa-headset", "warning"], task: ["fa-solid fa-list-check", "info"], event: ["fa-solid fa-calendar", "info"],
   enquiry: ["fa-solid fa-inbox", ""], consent: ["fa-solid fa-shield-halved", ""], document: ["fa-solid fa-file-lines", ""],
@@ -481,16 +481,18 @@ function historyItemHtml(it) {
   const [bg, fg] = HIST_COLORS[cls] || HIST_COLORS[""];
   const extra = it.source === "call"
     ? [it.outcome ? t(`call.outcome.${it.outcome}`) : t(`call.status.${it.status}`), minutesText(it.durationSec)].filter(Boolean).join(" · ")
-    : "";
+    : it.source === "sms" && it.direction === "out" ? t(`sms.status.${it.status}`) : "";
   // A translated label for the kind, then the record's own name (the server's `title` is English).
   const label = it.source === "call" ? t(it.direction === "in" ? "call.in" : "call.out")
     : it.source === "whatsapp" ? t(it.direction === "in" ? "c360.hist.waIn" : "c360.hist.waOut")
+    : it.source === "sms" ? t(it.direction === "in" ? "c360.hist.smsIn" : "c360.hist.smsOut")
+      : it.source === "consent" && it.channel === "sms" ? t("c360.hist.smsConsent")
       : HIST_LABELS[it.source] ? t(HIST_LABELS[it.source]) : "";
   const title = it.source === "email" || !label ? it.title : it.name ? `${label}: ${it.name}` : label;
   const when = new Date(it.at).toLocaleString(crmI18n.locale(), { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
   const detail = it.source === "task" ? [it.status, it.due ? t("c360.hist.due", { date: it.due }) : ""].filter(Boolean).join(" · ") : it.detail;
-  const meta = [extra, detail && it.source !== "call" && it.source !== "whatsapp" && it.source !== "note" ? detail : "", it.actorName, when].filter(Boolean).join(" · ");
-  const body = ["call", "whatsapp", "note", "email"].includes(it.source) && it.detail ? `<div class="c360-hist-text">${escapeHtml(it.detail)}</div>` : "";
+  const meta = [extra, detail && !["call", "whatsapp", "note", "sms"].includes(it.source) ? detail : "", it.actorName, when].filter(Boolean).join(" · ");
+  const body = ["call", "whatsapp", "note", "email", "sms"].includes(it.source) && it.detail ? `<div class="c360-hist-text">${escapeHtml(it.detail)}</div>` : "";
   const action = it.source === "call" && !it.outcome && it.id ? `<button type="button" class="link-btn" data-hist="outcome" data-id="${escapeHtml(it.id)}">${escapeHtml(t("call.addOutcome"))}</button>` : "";
   return `<div class="c360-list-item">
       <span class="c360-list-icon" style="background:${bg};color:${fg}"><i class="${icon}"></i></span>
@@ -573,9 +575,11 @@ function renderTimelineTab(customer) {
         <div class="pl-buttons">
           <button type="button" class="btn btn-outline" data-hist="log"><i class="fa-solid fa-phone"></i> ${escapeHtml(t("call.log"))}</button>
           <button type="button" class="btn btn-primary" data-hist="dial" hidden><i class="fa-solid fa-phone-volume"></i> ${escapeHtml(t("call.dial"))}</button>
+          <button type="button" class="btn btn-outline" data-hist="sms" hidden><i class="fa-solid fa-comment-sms"></i> ${escapeHtml(t("sms.send"))}</button>
         </div>
       </div>
       ${callFormHtml(customer)}
+      <form class="c360-call-form" id="c360SmsForm" hidden autocomplete="off"></form>
       <div id="c360HistList"></div>
       <button type="button" class="btn btn-outline c360-hist-more" id="c360HistMore" hidden>${escapeHtml(t("c360.hist.more"))}</button>`;
     el.onclick = (event) => onHistoryClick(event, customer);
@@ -584,6 +588,14 @@ function renderTimelineTab(customer) {
       hist.calling = tel.connected;
       el.querySelector('[data-hist="dial"]').hidden = !tel.connected || !(customer.phone || customer.phoneE164);
     }).catch(() => {});
+    // SMS (D88): when the company has an SMS account with templates, and the customer a number.
+    crmApi("/sms/connection").then((conn) => {
+      hist.sms = conn;
+      el.querySelector('[data-hist="sms"]').hidden = !conn.connected || !conn.templates.length || !(customer.phone || customer.phoneE164);
+    }).catch(() => {});
+    el.querySelector("#c360SmsForm").addEventListener("submit", (event) => sendSms(event, customer));
+    el.querySelector("#c360SmsForm").addEventListener("input", (event) => { if (event.target.dataset.blank !== undefined) renderSmsPreview(); });
+    el.querySelector("#c360SmsForm").addEventListener("change", (event) => { if (event.target.name === "template") renderSmsForm(customer, event.target.value); });
     loadEmails(customer);
   }
   loadHistory({ reset: true });
@@ -608,6 +620,28 @@ async function onHistoryClick(event, customer) {
   }
   if (button.dataset.hist === "cancel") {
     form.hidden = true;
+    return undefined;
+  }
+  if (button.dataset.hist === "sms") {
+    const smsForm = document.getElementById("c360SmsForm");
+    if (smsForm.hidden) renderSmsForm(customer);
+    smsForm.hidden = !smsForm.hidden;
+    return undefined;
+  }
+  if (button.dataset.hist === "sms-cancel") {
+    document.getElementById("c360SmsForm").hidden = true;
+    return undefined;
+  }
+  if (button.dataset.hist === "sms-optout") {
+    const optedOut = !customer.smsOptOut;
+    if (optedOut && !confirm(t("sms.optOutConfirm"))) return undefined;
+    try {
+      const result = await crmApi(`/contacts/${encodeURIComponent(customer.id)}/sms-consent`, jsonRequest("POST", { optedOut }));
+      customer.smsOptOut = result.smsOptOut;
+      renderSmsForm(customer, document.querySelector('#c360SmsForm [name="template"]')?.value);
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("sms.failed")), "error");
+    }
     return undefined;
   }
   if (button.dataset.hist === "dial") {
@@ -635,6 +669,55 @@ async function onHistoryClick(event, customer) {
     }
   }
   return undefined;
+}
+
+// SMS (D88): a DLT template, its blanks (the customer's name and company filled in), a preview.
+function smsTemplateOf(key) {
+  return (hist.sms?.templates || []).find((x) => x.key === key) || hist.sms?.templates?.[0];
+}
+function renderSmsForm(customer, key) {
+  const form = document.getElementById("c360SmsForm");
+  const template = smsTemplateOf(key);
+  if (!template) return;
+  const guess = (name) => (/name/i.test(name) ? customer.name || "" : /company|firm/i.test(name) ? customer.company || "" : "");
+  const optedOut = Boolean(customer.smsOptOut);
+  form.innerHTML = `
+    <select name="template" aria-label="${escapeHtml(t("sms.template"))}">${hist.sms.templates.map((x) => `<option value="${escapeHtml(x.key)}" ${x.key === template.key ? "selected" : ""}>${escapeHtml(x.name)}</option>`).join("")}</select>
+    ${template.variables.map((name) => `<input type="text" data-blank="${escapeHtml(name)}" maxlength="100" value="${escapeHtml(guess(name))}" placeholder="${escapeHtml(name)}" aria-label="${escapeHtml(name)}" />`).join("")}
+    <p class="c360-hist-text c360-sms-preview" id="c360SmsPreview"></p>
+    <p class="c360-list-meta">${escapeHtml(t(optedOut ? "sms.optedOut" : "sms.allowed"))} <button type="button" class="link-btn" data-hist="sms-optout">${escapeHtml(t(optedOut ? "sms.allow" : "sms.optOut"))}</button></p>
+    <div class="pl-buttons"><button class="btn btn-primary" type="submit" ${optedOut ? "disabled" : ""}>${escapeHtml(t("sms.sendNow"))}</button><button class="btn btn-outline" type="button" data-hist="sms-cancel">${escapeHtml(t("common.cancel"))}</button></div>`;
+  renderSmsPreview();
+}
+function renderSmsPreview() {
+  const form = document.getElementById("c360SmsForm");
+  const template = smsTemplateOf(form.querySelector('[name="template"]')?.value);
+  if (!template) return;
+  const values = Object.fromEntries([...form.querySelectorAll("[data-blank]")].map((i) => [i.dataset.blank, i.value]));
+  document.getElementById("c360SmsPreview").textContent = template.text.replace(/##([A-Za-z0-9_]{1,30})##/g, (m, name) => values[name] || `[${name}]`);
+}
+async function sendSms(event, customer) {
+  event.preventDefault();
+  const form = event.target;
+  const values = Object.fromEntries([...form.querySelectorAll("[data-blank]")].map((i) => [i.dataset.blank, i.value.trim()]));
+  const body = { contactId: customer.id, template: form.querySelector('[name="template"]').value, values };
+  // One key per SMS being sent (a changed form is a new SMS), as for calls.
+  const signature = JSON.stringify(body);
+  if (form.dataset.signature !== signature) Object.assign(form.dataset, { signature, key: newIdempotencyKey() });
+  const button = form.querySelector("[type=submit]");
+  button.disabled = true;
+  try {
+    await crmApi("/sms", { ...jsonRequest("POST", body), headers: { "Content-Type": "application/json", "Idempotency-Key": form.dataset.key } });
+    delete form.dataset.signature;
+    delete form.dataset.key;
+    form.hidden = true;
+    showToast(t("sms.sent"), "success");
+    loadHistory({ reset: true });
+  } catch (error) {
+    showToast(apiErrorMessage(error, t("sms.failed")), "error");
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function saveCall(event, customer) {

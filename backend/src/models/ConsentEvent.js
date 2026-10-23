@@ -4,13 +4,13 @@ const mongoose = require('mongoose');
 // how (the customer form, a STOP/START reply, an import, the API, the website form) and by whom.
 // Contact.consent keeps only the current state; these keep the history, never edited.
 const CONSENT_STATES = Object.freeze(['unknown', 'opted_in', 'opted_out']);
-const CONSENT_METHODS = Object.freeze(['manual', 'whatsapp_reply', 'import', 'api', 'website_form']);
+const CONSENT_METHODS = Object.freeze(['manual', 'whatsapp_reply', 'import', 'api', 'website_form', 'sms_reply']);
 
 const consentEventSchema = new mongoose.Schema(
   {
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
     contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact', required: true },
-    channel: { type: String, enum: ['whatsapp'], default: 'whatsapp' },
+    channel: { type: String, enum: ['whatsapp', 'sms'], default: 'whatsapp' }, // sms: D88
     from: { type: String, enum: CONSENT_STATES, required: true },
     to: { type: String, enum: CONSENT_STATES, required: true },
     method: { type: String, enum: CONSENT_METHODS, required: true },

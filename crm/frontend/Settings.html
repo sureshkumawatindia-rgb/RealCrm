@@ -908,6 +908,9 @@
             <button class="settings-tab" data-panel="calling" id="callingTab" style="display: none">
               <i class="fa-solid fa-phone-volume"></i> <span data-i18n="tel.tab">Calling</span>
             </button>
+            <button class="settings-tab" data-panel="sms" id="smsTab" style="display: none">
+              <i class="fa-solid fa-comment-sms"></i> <span data-i18n="smsset.tab">SMS</span>
+            </button>
             <button class="settings-tab" data-panel="ai" id="aiTab" style="display: none">
               <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="set.tab.ai">AI assistant</span>
             </button>
@@ -2251,6 +2254,19 @@
             </div>
           </div>
 
+          <!-- SMS (D88, owners and admins, js/settings-sms.js): the company's MSG91 account and DLT templates -->
+          <div class="settings-panel" data-settings-panel="sms">
+            <div class="panel">
+              <div class="panel-head">
+                <h3 data-i18n="smsset.tab">SMS</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint" data-i18n="smsset.intro">Send SMS to customers from Customer 360, workflows, sequences and boards, through your own MSG91 account. In India every SMS needs a DLT-approved template: add each one here with MSG91's template id. Customers who reply STOP get no more SMS.</p>
+                <div id="smsBox"><p class="settings-hint" data-i18n="cf.loading">Loading…</p></div>
+              </div>
+            </div>
+          </div>
+
           <!-- PIPELINES (D84, owners and admins, js/settings-pipelines.js): the deal boards' stages -->
           <div class="settings-panel" data-settings-panel="pipelines">
             <div class="panel">
@@ -2492,6 +2508,7 @@
     <script src="./js/settings-approvals.js"></script>
     <script src="./js/settings-pipelines.js"></script>
     <script src="./js/settings-calling.js"></script>
+    <script src="./js/settings-sms.js"></script>
     <script src="./js/settings-connections.js"></script>
     <script src="./js/settings-microsoft.js"></script>
     <script src="./js/settings-deletion.js"></script>

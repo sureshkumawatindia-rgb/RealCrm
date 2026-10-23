@@ -102,6 +102,10 @@ async function runStep({ enrollmentId }, job) {
   if (sequence.stopOnReply && (await repliedSince(enrollment))) return finish(enrollment, 'stopped', 'The customer replied on WhatsApp.');
   const ctx = await loadContext({ organizationId: enrollment.organizationId, subject: { leadId: enrollment.leadId, contactId: enrollment.contactId } });
   if (!ctx.contact) return finish(enrollment, 'stopped', 'The customer was removed.');
+  // D88: a customer who said stop (SMS, or WhatsApp offers) gets no more follow-ups; an SMS reply
+  // counts as a reply.
+  if (ctx.contact.smsOptOut?.at || ctx.contact.consent?.marketing === 'opted_out') return finish(enrollment, 'stopped', 'The customer opted out.');
+  if (sequence.stopOnReply && (await require('../smsService').repliedSince(enrollment.organizationId, enrollment.contactId, enrollment.enrolledAt))) return finish(enrollment, 'stopped', 'The customer replied by SMS.'); // eslint-disable-line global-require
   if (sequence.stopOnClose && CLOSED.includes(ctx.lead?.stage)) return finish(enrollment, 'stopped', `The lead was ${ctx.lead.stage.toLowerCase()}.`);
 
   const source = sourceOf(sequence);
