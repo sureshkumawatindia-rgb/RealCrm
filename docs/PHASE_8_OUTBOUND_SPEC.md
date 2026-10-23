@@ -1,6 +1,6 @@
 # Phase 8: Outbound sales — SMS, a power dialer, bulk actions (spec)
 
-Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (all questions and defaults through Phase 10); the user said "Phase 8 shuru karo" on 2026-10-22. This is Phase 8, "Outbound Sales Powerhouse" (inspired by Close), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. It is built in two parts: **8A** the SMS channel, **8B** the power dialer and bulk actions. **8A was built on 2026-10-23 (D88)**; see section 9A.
+Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (all questions and defaults through Phase 10); the user said "Phase 8 shuru karo" on 2026-10-22. This is Phase 8, "Outbound Sales Powerhouse" (inspired by Close), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. It is built in two parts: **8A** the SMS channel, **8B** the power dialer and bulk actions. **8A was built on 2026-10-23 (D88) and 8B the same day (D89)**; see sections 9A, 9B and 10.
 
 ## 1. Goal
 
@@ -104,13 +104,13 @@ A sales team in India works a list: call one customer after another, note what c
 
 ## 7. Acceptance checklist
 
-- [ ] A reply or an opt-out stops future sequence steps (test).
-- [ ] Retries do not duplicate sends (same key → the same message; test).
-- [ ] The dialer logs the outcome on the call (test + browser).
-- [ ] Bulk actions are permission-scoped and partly failed rows are reported (test).
-- [ ] The test provider covers send, deliver, fail, retry, inbound STOP, a wrong key, and a duplicate report (test).
-- [ ] No real call is placed without a person pressing Call, and only with a calling account (test: the dialer never dials by itself).
-- [ ] Browser: Settings → SMS, Send SMS on Customer 360, the dialer, bulk on a board, at 390 px and in Hindi.
+- [x] A reply or an opt-out stops future sequence steps (test).
+- [x] Retries do not duplicate sends (same key → the same message; test).
+- [x] The dialer logs the outcome on the call (test + browser).
+- [x] Bulk actions are permission-scoped and partly failed rows are reported (test).
+- [x] The test provider covers send, deliver, fail, retry, inbound STOP, a wrong key, and a duplicate report (test).
+- [x] No real call is placed without a person pressing Call, and only with a calling account (test: the dialer never dials by itself).
+- [x] Browser: Settings → SMS, Send SMS on Customer 360, the dialer, bulk on a board, at 390 px and in Hindi.
 
 ## 8. Scorecard targets
 
@@ -163,3 +163,35 @@ Measured (tests and the isolated preview with the test SMS provider):
   - the builder's SMS step previewed as skipped for that customer;
   - Settings → SMS found a new template's three blanks by itself.
 - **Full run: 953 of 954 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
+
+## 9B. What was built in 8B (D89), and how it differs from this spec
+
+Built on 2026-10-23, with these differences:
+
+1. **Saving an outcome claims the customer first** (an atomic change from pending to done), then logs the call or puts the outcome on the call placed for it. A second tap finds it done and logs nothing; if logging fails, the customer goes back to pending.
+2. **The follow-up** is set for 10:00 India time on the chosen day (tomorrow, 3 days, a week), through the usual lead update.
+3. **A board** of leads starts a session in its own order and filters; a calendar board is refused (it shows only some dates).
+4. **Bulk "follow-up"** offers tomorrow, 3 days, a week or none. **Bulk SMS** fills a blank called name or company from the customer and asks for the words of the others, then asks to confirm the count. **Bulk add to sequence** needs Sales Automation, and **bulk SMS** needs Customers edit (else 403 for the whole request).
+5. **After a bulk action** the rows that failed stay ticked and are listed by name with the reason, so they can be fixed and done again.
+6. **The dialer page** is linked after Boards (Deals → Boards → Power dialer on every page).
+
+Files:
+- **Backend:** new `models/DialerSession.js`, `services/dialerService.js`, `services/bulkService.js`, `validators/outbound.js`, `routes/outbound.js` (`/dialer`, `/bulk`); changed `routes/index.js`.
+- **Frontend:** new `dialer.html`, `js/dialer.js`, `css/dialer.css`; changed `boards.html`, `js/boards.js` and `css/boards.css` (ticks and the bulk bar), `js/app.js` (the link), and 54 texts (`dialer.*`, `bulk.*`, `nav.dialer`).
+- **Tests:** `outbound.test.js` (4): a session of callable leads, outcomes once, follow-up, skip, finish, someone else's session 404; a call only when pressed and its outcome on that call; a session from a board in its order; bulk assign, stage, tag, follow-up, sequence (with its permission) and SMS (an opted-out row listed), with an idempotent replay and another company's leads all failing.
+
+## 10. Scorecard results (measured 2026-10-23)
+
+| # | Target | Result |
+|---|---|---|
+| 1 | 0 duplicate sends under retries; 0 messages to opted-out customers | **Met (tests).** The same key gives the same message; a sequence step met an outage and sent exactly once when retried; bulk SMS listed the opted-out customer and sent to the rest once. |
+| 2 | A call's outcome and the next customer in ≤ 2 taps in the dialer | **Met: 2 taps** (an outcome, then "Save and next"); with the keyboard, a number key and Enter. The outcome went on the call, and a double tap logged nothing (test). |
+| 3 | 50 leads given to someone (or added to a sequence) in ≤ 4 clicks, with failures listed | **Met: 3 clicks** (tick all, "Give to", the person) for the board's 6 leads; the same for any count up to 200. Bulk SMS on the same board showed "4 of 6 done" and listed the two others by name (opted out; no mobile number). |
+| 4 | Delivery reports: tenant-resolved, deduplicated, never going back | **Met (tests).** A wrong key is 404; another company's address matches nothing; repeats and a late "submitted" changed nothing. |
+| 5 | 0 regressions; 390 px; Hindi | **Met.** **Full run: 963 of 964 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet). The dialer, the bulk bar, Settings → SMS, Send SMS and the builder's SMS step at 390 px had no sideways scroll, in Hindi. |
+
+**Known limits:**
+- Real MSG91 and real Exotel are untested (no accounts here).
+- MSG91's report fields and balance check are UNVERIFIED.
+- The Sales Automation page (the user's file) has no form for the SMS step yet.
+- The dialer never dials by itself: a person presses Call every time, by design.

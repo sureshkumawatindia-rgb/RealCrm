@@ -7,7 +7,7 @@
  * so everyone sees only what they may. Moves use the existing lead and task endpoints.
  */
 (function boards() {
-const brd = { meta: null, views: [], members: [], view: null, items: [], total: 0, truncated: false, month: null, saveTimer: null, loadSeq: 0, dragId: null };
+const brd = { meta: null, views: [], members: [], view: null, items: [], total: 0, truncated: false, month: null, saveTimer: null, loadSeq: 0, dragId: null, selected: new Set() };
 const $b = (id) => document.getElementById(id);
 const btr = (key, fallback, vars) => (crmI18n.has(key) ? t(key, vars) : fallback);
 const battr = (value) => escapeHtml(String(value ?? ""));
@@ -130,19 +130,24 @@ function renderTable() {
   const cols = v.columns.length ? v.columns : brd.meta.objects[v.object].defaultColumns;
   const sortKey = (key) => ({ value: "expectedValuePaise" }[key] || key);
   const sortable = new Set(brd.meta.objects[v.object].sorts);
+  // Leads can be ticked for the bulk bar (D89).
+  const pick = v.object === "lead";
+  const allOn = pick && brd.items.length && brd.items.every((item) => brd.selected.has(String(item.id)));
+  const pickHead = pick ? `<th scope="col" class="brd-pick"><input type="checkbox" data-select-all ${allOn ? "checked" : ""} aria-label="${battr(btr("bulk.selectAll", "Select all"))}" /></th>` : "";
+  const pickCell = (item) => (pick ? `<td class="brd-pick"><input type="checkbox" data-select="${battr(item.id)}" ${brd.selected.has(String(item.id)) ? "checked" : ""} aria-label="${battr(item.title)}" /></td>` : "");
   const head = cols.map((key) => {
     const sk = sortKey(key);
     if (!sortable.has(sk)) return `<th scope="col">${escapeHtml(fieldLabel(key))}</th>`;
     const dir = v.sort === sk ? "asc" : v.sort === `-${sk}` ? "desc" : "";
     return `<th scope="col" aria-sort="${dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}"><button type="button" class="brd-sort" data-sort="${sk}">${escapeHtml(fieldLabel(key))} <i class="fa-solid ${dir === "asc" ? "fa-arrow-up" : dir === "desc" ? "fa-arrow-down" : "fa-sort"}" aria-hidden="true"></i></button></th>`;
   }).join("");
-  const rows = brd.items.map((item) => `<tr>${cols.map((key, i) => {
+  const rows = brd.items.map((item) => `<tr>${pickCell(item)}${cols.map((key, i) => {
     const text = escapeHtml(cell(item, key));
     if (i === 0 && v.object === "lead" && item.contactId) return `<td><a href="customer-360.html?id=${encodeURIComponent(item.contactId)}">${text}</a></td>`;
     return `<td>${text}</td>`;
   }).join("")}</tr>`).join("");
   $b("brdBody").innerHTML = brd.items.length
-    ? `<div class="brd-table-wrap"><table class="brd-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>${brd.total > brd.items.length ? `<p class="brd-hint">${escapeHtml(btr("board.showing", "Showing {n} of {total}.", { n: brd.items.length, total: brd.total }))}</p>` : ""}`
+    ? `<div class="brd-table-wrap"><table class="brd-table"><thead><tr>${pickHead}${head}</tr></thead><tbody>${rows}</tbody></table></div>${brd.total > brd.items.length ? `<p class="brd-hint">${escapeHtml(btr("board.showing", "Showing {n} of {total}.", { n: brd.items.length, total: brd.total }))}</p>` : ""}`
     : `<p class="brd-empty">${escapeHtml(btr("board.empty", "Nothing here with these filters."))}</p>`;
 }
 
@@ -214,6 +219,113 @@ function renderCalendar() {
     ${brd.items.length ? "" : `<p class="brd-empty">${escapeHtml(btr("board.emptyMonth", "Nothing on these dates."))}</p>`}`;
 }
 
+// The bulk bar (D89): how many are ticked, and what to do with them.
+function renderBulk() {
+  const bar = $b("brdBulk");
+  const n = brd.selected.size;
+  bar.hidden = !n || brd.view?.object !== "lead" || brd.view?.layout !== "table";
+  if (bar.hidden) return;
+  bar.querySelector(".brd-bulk-count").textContent = btr("bulk.selected", "{n} selected", { n });
+}
+
+const FOLLOW_UP_DAYS = [[1, "dialer.fu.tomorrow"], [3, "dialer.fu.3days"], [7, "dialer.fu.week"], [null, "bulk.noFollowUp"]];
+async function bulkParams(action) {
+  const menu = (title, options) => crmMoveMenu.open({ title, current: "", options });
+  switch (action) {
+    case "assign": {
+      const to = await menu(btr("bulk.assign", "Give to…"), [...brd.members.filter((m) => m.status === "active").map((m) => ({ value: String(m.id), label: m.name })), { value: "none", label: btr("board.nobody", "Nobody") }]);
+      return to ? { ownerId: to === "none" ? null : to } : null;
+    }
+    case "stage": {
+      const stage = await menu(btr("bulk.stage", "Move to…"), LEAD_STAGES.map((s) => ({ value: s, label: valueLabel("stage", s) })));
+      if (!stage) return null;
+      if (stage !== "Lost") return { stage };
+      const lostReason = prompt(btr("board.lostReason", "Why was it lost?"));
+      return lostReason ? { stage, lostReason } : null;
+    }
+    case "followUp": {
+      const pick = await menu(btr("bulk.followUp", "Follow up…"), FOLLOW_UP_DAYS.map(([days, key]) => ({ value: String(days), label: btr(key, key) })));
+      if (!pick) return null;
+      if (pick === "null") return { at: null };
+      const at = new Date(Date.now() + Number(pick) * 24 * 60 * 60 * 1000);
+      at.setUTCHours(4, 30, 0, 0);
+      return { at: at.toISOString() };
+    }
+    case "tag": {
+      const tag = prompt(btr("bulk.tagPrompt", "Tag to add"));
+      return tag && tag.trim() ? { tag: tag.trim().slice(0, 50) } : null;
+    }
+    case "sequence": {
+      const sequences = await crmApi("/sequences?limit=100").catch(() => []);
+      const active = sequences.filter((s) => s.status === "Active");
+      if (!active.length) {
+        showToast(btr("bulk.noSequences", "No active sequences."), "error");
+        return null;
+      }
+      const id = await menu(btr("bulk.sequence", "Add to sequence…"), active.map((s) => ({ value: String(s.id), label: s.name })));
+      return id ? { sequenceId: id } : null;
+    }
+    case "sms": {
+      const conn = await crmApi("/sms/connection").catch(() => ({ templates: [] }));
+      if (!conn.templates?.length) {
+        showToast(btr("bulk.noSms", "No SMS templates: an owner or admin adds them in Settings → SMS."), "error");
+        return null;
+      }
+      const key = await menu(btr("bulk.sms", "Send SMS…"), conn.templates.map((x) => ({ value: x.key, label: x.name })));
+      const template = conn.templates.find((x) => x.key === key);
+      if (!template) return null;
+      const variables = {};
+      for (const name of template.variables) {
+        if (/name/i.test(name)) variables[name] = "contact.name";
+        else if (/company|firm/i.test(name)) variables[name] = "contact.company";
+        else {
+          const words = prompt(btr("bulk.smsBlank", "Words for ##{name}##", { name }));
+          if (!words) return null;
+          variables[name] = `text:${words.slice(0, 200)}`;
+        }
+      }
+      if (!confirm(btr("bulk.smsConfirm", "Send “{name}” to {n} customers?", { name: template.name, n: brd.selected.size }))) return null;
+      return { template: key, variables };
+    }
+    default:
+      return null;
+  }
+}
+
+async function runBulk(action) {
+  const ids = [...brd.selected];
+  if (!ids.length) return;
+  if (action === "dialer") {
+    try {
+      const session = await crmApi("/dialer/sessions", jsonRequest("POST", { leadIds: ids, name: brd.view.name }));
+      location.href = `dialer.html?id=${encodeURIComponent(session.id)}`;
+    } catch (error) {
+      showToast(apiErrorMessage(error, btr("bulk.failed", "Could not do it.")), "error");
+    }
+    return;
+  }
+  const params = await bulkParams(action);
+  if (!params) return;
+  const bar = $b("brdBulk");
+  bar.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+  try {
+    const result = await crmApi("/bulk/leads", { ...jsonRequest("POST", { action, ids, params }), headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() } });
+    const titleOf = (id) => brd.items.find((x) => String(x.id) === String(id))?.title || id;
+    $b("brdBulkResult").innerHTML = result.failed.length
+      ? `<p>${escapeHtml(btr("bulk.partly", "{done} of {total} done. These were not:", { done: result.done, total: result.total }))}</p><ul>${result.failed.map((f) => `<li><strong>${escapeHtml(titleOf(f.id))}</strong>: ${escapeHtml(f.message)}</li>`).join("")}</ul>`
+      : "";
+    $b("brdBulkResult").hidden = !result.failed.length;
+    showToast(btr("bulk.done", "{done} of {total} done.", { done: result.done, total: result.total }), result.failed.length ? "info" : "success");
+    brd.selected = new Set(result.failed.map((f) => String(f.id)));
+    await loadItems();
+  } catch (error) {
+    showToast(apiErrorMessage(error, btr("bulk.failed", "Could not do it.")), "error");
+  } finally {
+    bar.querySelectorAll("button").forEach((b) => { b.disabled = false; });
+    renderBulk();
+  }
+}
+
 function renderBody() {
   if (!brd.view) {
     $b("brdBody").innerHTML = `<div class="brd-start"><p>${escapeHtml(btr("board.startHint", "A board shows your leads or tasks the way you like: a table, columns to drag between, or a calendar."))}</p>
@@ -221,6 +333,7 @@ function renderBody() {
     return;
   }
   ({ table: renderTable, kanban: renderKanban, calendar: renderCalendar })[brd.view.layout]();
+  renderBulk();
 }
 
 // ---------------------------------------------------------------- loading and saving
@@ -275,6 +388,8 @@ function change(patch, { reload = true, debounce = 0 } = {}) {
 }
 
 async function openView(id) {
+  brd.selected = new Set();
+  $b("brdBulkResult").hidden = true;
   brd.view = id ? { ...(brd.views.find((x) => String(x.id) === String(id)) || await crmApi(`/boards/${encodeURIComponent(id)}`)) } : null;
   brd.month = brd.month || new Date();
   history.replaceState(null, "", brd.view ? `?id=${encodeURIComponent(brd.view.id)}` : location.pathname);
@@ -475,6 +590,23 @@ async function startBoards() {
     return undefined;
   });
   setupKanban();
+  $b("brdBody").addEventListener("change", (event) => {
+    if (event.target.matches("[data-select-all]")) {
+      brd.items.forEach((item) => (event.target.checked ? brd.selected.add(String(item.id)) : brd.selected.delete(String(item.id))));
+      renderTable();
+    } else if (event.target.matches("[data-select]")) {
+      if (event.target.checked) brd.selected.add(event.target.dataset.select); else brd.selected.delete(event.target.dataset.select);
+    } else return;
+    renderBulk();
+  });
+  $b("brdBulk").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-bulk]");
+    if (button?.dataset.bulk === "clear") {
+      brd.selected = new Set();
+      renderTable();
+      renderBulk();
+    } else if (button) runBulk(button.dataset.bulk);
+  });
 }
 
 startBoards();

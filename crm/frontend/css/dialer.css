@@ -1,0 +1,211 @@
+/* The power dialer (Phase 8B, D89): the current customer in a card, the list beside it. */
+.dl-start {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.dl-start-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dl-start-row select {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.dl-recent {
+  display: grid;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+.dl-recent span {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.dl-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dl-head h3 {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dl-progress {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.dl-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-soft);
+  margin: 10px 0 16px;
+  overflow: hidden;
+}
+.dl-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--brand);
+  transition: width 0.3s var(--ease);
+}
+.dl-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+.dl-card {
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+.dl-who h3 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+.dl-who p {
+  margin: 0;
+  color: var(--text-muted);
+}
+.dl-note {
+  margin-top: 6px !important;
+  font-size: 13px;
+  font-style: italic;
+}
+.dl-call {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dl-call-btn {
+  font-size: 16px;
+  padding: 12px 20px;
+}
+.dl-phone {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.dl-outcomes,
+.dl-followups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.dl-outcome,
+.dl-fu {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dl-outcome kbd {
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+.dl-outcome.active,
+.dl-fu.active {
+  border-color: var(--brand-dark);
+  background: var(--brand-light);
+  color: var(--brand-darker);
+  font-weight: 600;
+}
+.dl-followups span {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.dl-card input[type="text"] {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.dl-keys {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.dl-done {
+  text-align: center;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 20px 0;
+}
+.dl-done > i {
+  font-size: 28px;
+  color: var(--brand-dark);
+}
+.dl-queue {
+  display: grid;
+  gap: 4px;
+  max-height: 70vh;
+  overflow: auto;
+}
+.dl-q {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dl-q span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dl-q small {
+  color: var(--text-muted);
+}
+.dl-q.current {
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 2px var(--brand-ring);
+}
+.dl-q-done i {
+  color: var(--success);
+}
+.dl-q-skipped,
+.dl-q:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+@media (max-width: 900px) {
+  .dl-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dl-queue {
+    max-height: none;
+  }
+}

@@ -314,3 +314,51 @@
     grid-auto-columns: minmax(78vw, 1fr);
   }
 }
+
+/* Bulk actions on ticked leads (D89) */
+.brd-pick {
+  width: 36px;
+}
+.brd-pick input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-dark);
+}
+.brd-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--brand);
+  background: var(--brand-light);
+  border-radius: var(--radius-md);
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+}
+.brd-bulk-count {
+  font-weight: 700;
+  margin-right: 6px;
+}
+.brd-bulk .link-btn {
+  border: 0;
+  background: none;
+  color: var(--brand-darker);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.brd-bulk-result {
+  border: 1px solid var(--warning);
+  background: var(--warning-bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.brd-bulk-result ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}

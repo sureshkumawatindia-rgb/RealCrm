@@ -158,6 +158,19 @@
             </div>
           </div>
           <div class="brd-filters" id="brdFilters"></div>
+          <!-- Bulk actions on ticked leads (D89) -->
+          <div class="brd-bulk" id="brdBulk" hidden role="toolbar" aria-label="Bulk actions" data-i18n-aria-label="bulk.toolbar">
+            <span class="brd-bulk-count"></span>
+            <button type="button" class="btn btn-outline" data-bulk="assign" data-i18n="bulk.assignBtn">Give to</button>
+            <button type="button" class="btn btn-outline" data-bulk="stage" data-i18n="bulk.stageBtn">Move</button>
+            <button type="button" class="btn btn-outline" data-bulk="followUp" data-i18n="bulk.followUpBtn">Follow-up</button>
+            <button type="button" class="btn btn-outline" data-bulk="tag" data-i18n="bulk.tagBtn">Tag</button>
+            <button type="button" class="btn btn-outline" data-bulk="sequence" data-i18n="bulk.sequenceBtn">Sequence</button>
+            <button type="button" class="btn btn-outline" data-bulk="sms" data-i18n="bulk.smsBtn">SMS</button>
+            <button type="button" class="btn btn-primary" data-bulk="dialer"><i class="fa-solid fa-headset"></i> <span data-i18n="bulk.dialerBtn">Call in the dialer</span></button>
+            <button type="button" class="link-btn" data-bulk="clear" data-i18n="bulk.clear">Clear</button>
+          </div>
+          <div class="brd-bulk-result" id="brdBulkResult" hidden></div>
           <div id="brdBody" aria-live="polite"><p class="brd-hint" data-i18n="cf.loading">Loading…</p></div>
         </div>
       </div>

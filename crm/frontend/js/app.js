@@ -2085,6 +2085,7 @@ const PAGE_MODULES = {
   "Sales Automation.html": "automation",
   "workflow-builder.html": "automation", // D86
   "boards.html": ["leads", "deals", "tasks"], // D87
+  "dialer.html": "customers", // D89
   "Tasks.html": "tasks",
   "Calendar.html": "calendar",
   "Documents.html": "documents",
@@ -2265,6 +2266,7 @@ const NAV_KEYS = {
   "sales automation.html": "nav.automation",
   "workflow-builder.html": "nav.workflowBuilder",
   "boards.html": "nav.boards",
+  "dialer.html": "nav.dialer",
   "tasks.html": "nav.tasks",
   "calendar.html": "nav.calendar",
   "documents.html": "nav.documents",
@@ -2332,6 +2334,13 @@ function injectGlobalNavItems() {
       icon: "fa-table-columns",
       label: "Boards",
       afterHref: "Deals.html",
+    },
+    // The power dialer (D89), right after Boards.
+    {
+      href: "dialer.html",
+      icon: "fa-headset",
+      label: "Power dialer",
+      afterHref: "boards.html",
     },
     // The visual workflow builder (D86), under Sales Automation.
     {
