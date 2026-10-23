@@ -6,6 +6,7 @@ const env = require('../../config/env');
 //   GOOGLE_RECONNECT (409, reconnect) — the grant was revoked or expired: connect again
 //   GOOGLE_SCOPE (409) — the member did not give this feature's access
 //   GOOGLE_NOT_FOUND (404) — e.g. a stale Gmail historyId (HISTORY_GONE: sync everything again)
+//   GOOGLE_DUPLICATE (409) — an event with this id is there already (a retried insert)
 //   GOOGLE_FAILED (502, retry) — anything else
 const SCOPES = Object.freeze({
   gmail: 'https://www.googleapis.com/auth/gmail.readonly',
@@ -27,6 +28,7 @@ function failure(error) {
     return Object.assign(new Error('This Google feature was not allowed when connecting.'), { statusCode: 409, code: 'GOOGLE_SCOPE' });
   }
   if (status === 404) return Object.assign(new Error('Not found at Google.'), { statusCode: 404, code: 'GOOGLE_NOT_FOUND' });
+  if (status === 409) return Object.assign(new Error('It is at Google already.'), { statusCode: 409, code: 'GOOGLE_DUPLICATE' });
   return Object.assign(new Error(`Google did not answer: ${error.message}`), { statusCode: 502, code: 'GOOGLE_FAILED', retry: true });
 }
 const call = async (fn) => {
@@ -84,10 +86,13 @@ async function history(creds, { startHistoryId, pageToken }) {
 
 // Calendar (9B): the member's primary calendar.
 const calendar = (creds) => google.calendar({ version: 'v3', auth: oauth(creds) });
-async function upsertEvent(creds, id, event) {
-  const { data } = await call(() => (id
-    ? calendar(creds).events.update({ calendarId: 'primary', eventId: id, requestBody: event })
-    : calendar(creds).events.insert({ calendarId: 'primary', requestBody: event })));
+// event.id is ours (base32hex), so a retried insert answers GOOGLE_DUPLICATE instead of a copy.
+async function insertEvent(creds, event) {
+  const { data } = await call(() => calendar(creds).events.insert({ calendarId: 'primary', requestBody: event }));
+  return { id: data.id, htmlLink: data.htmlLink || '' };
+}
+async function updateEvent(creds, id, event) {
+  const { data } = await call(() => calendar(creds).events.update({ calendarId: 'primary', eventId: id, requestBody: { ...event, status: 'confirmed' } }));
   return { id: data.id, htmlLink: data.htmlLink || '' };
 }
 async function deleteEvent(creds, id) {
@@ -104,4 +109,4 @@ async function createFile(creds, { name, mimeType }) {
   return { id: data.id, name: data.name, mimeType: data.mimeType, webViewLink: data.webViewLink };
 }
 
-module.exports = { name: 'google', SCOPES, authorizeUrl, exchangeCode, refresh, profile, listMessages, getMessage, history, upsertEvent, deleteEvent, createFile, failure };
+module.exports = { name: 'google', SCOPES, authorizeUrl, exchangeCode, refresh, profile, listMessages, getMessage, history, insertEvent, updateEvent, deleteEvent, createFile, failure };

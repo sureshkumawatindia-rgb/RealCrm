@@ -22,7 +22,11 @@ const calendarEventSchema = new mongoose.Schema(
     // D83: an online meeting (a Teams link once Outlook made it), and where this event is in the
     // owner's Outlook calendar (id, whose calendar, sync state). Sync writes only these two fields.
     online: { provider: { type: String, enum: ['', 'teams'], default: '' }, joinUrl: { type: String, default: '' } },
-    external: { microsoft: { id: String, memberId: mongoose.Schema.Types.ObjectId, state: String, error: String, syncedAt: Date } },
+    external: {
+      microsoft: { id: String, memberId: mongoose.Schema.Types.ObjectId, state: String, error: String, syncedAt: Date },
+      // D90: the same in the owner's Google Calendar; generation numbers our event ids.
+      google: { id: String, memberId: mongoose.Schema.Types.ObjectId, state: String, error: String, syncedAt: Date, generation: Number },
+    },
     legacyIds: { type: [String], default: undefined },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdByMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },

@@ -1,6 +1,6 @@
 # Phase 9: Google Workspace — Gmail, Calendar and Drive (spec)
 
-Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (all questions and defaults through Phase 10); the user said "Phase 9 shuru karo" on 2026-10-23. This is Phase 9, "Google Workspace Integration" (inspired by Copper), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. It is built in two parts: **9A** the Google connection and Gmail sync, **9B** Google Calendar and Drive. **9A was built on 2026-10-23 (D90)**; see section 9A.
+Status: **approved with its defaults by the user's go-ahead of 2026-10-21** (all questions and defaults through Phase 10); the user said "Phase 9 shuru karo" on 2026-10-23. This is Phase 9, "Google Workspace Integration" (inspired by Copper), of `docs/CRM_10_FEATURE_IMPLEMENTATION_PROMPT.md`. It is built in two parts: **9A** the Google connection and Gmail sync, **9B** Google Calendar and Drive. **9A was built on 2026-10-23 (D90) and 9B the same day (D91)**; see sections 9A, 9B and 10.
 
 ## 1. Goal
 
@@ -105,11 +105,11 @@ Most Indian SMB teams live in Gmail and Google Calendar. The CRM should pick up,
 
 ## 7. Acceptance checklist
 
-- [ ] The mock covers the OAuth state (single use, expiry), token refresh, a revoked grant (needs reconnect, a bell note), incremental sync (history), a 404 history (a full sync), duplicates, and tenant isolation (tests).
-- [ ] Only customers' emails are stored; the team sees shared ones; private ones only their member (test).
-- [ ] Calendar: create, change, reassign and delete in the CRM reach Google once each (test).
-- [ ] Drive: a Doc for a deal is created and attached; links are recognised (test).
-- [ ] Browser: connect Google (mock), sync, emails on Customer 360, a new Google Doc on a deal, at 390 px and in Hindi.
+- [x] The mock covers the OAuth state (single use, expiry), token refresh, a revoked grant (needs reconnect, a bell note), incremental sync (history), a 404 history (a full sync), duplicates, and tenant isolation (tests).
+- [x] Only customers' emails are stored; the team sees shared ones; private ones only their member (test).
+- [x] Calendar: create, change, reassign and delete in the CRM reach Google once each (test).
+- [x] Drive: a Doc for a deal is created and attached; links are recognised (test).
+- [x] Browser: connect Google (mock), sync, emails on Customer 360, a new Google Doc on a deal, at 390 px and in Hindi.
 
 ## 8. Scorecard targets
 
@@ -155,3 +155,46 @@ Measured (tests and the isolated preview with the stand-in):
 - **0 duplicates, 0 non-customer emails:** a full sync after Google's history ran out found the 3 kept emails and stored none again (test).
 - **A revoked grant is reported:** sync answered "connect again", the connection showed it, the member got one bell note, and the job stopped (test).
 - **Full run: 970 of 971 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
+
+## 9B. What was built in 9B (D91), and how it differs from this spec
+
+Built on 2026-10-23, with these differences:
+
+1. **Google event ids are ours**:
+   - `crm<CRM event id><generation>` (Google accepts our own ids);
+   - an insert whose answer was lost is retried, finds the event (409) and updates it instead of making a copy;
+   - a meeting deleted in Google by hand comes back under the next generation's id (one-way sync), and so does a meeting moved away and back.
+2. **The Calendar sync is queued with the Outlook one** on every create, change and delete (a 2-second pause, retries).
+   - It uses the Google connection only when Calendar was given; meetings from the day of connecting.
+   - An all-day meeting is sent as dates; a timed one with its time zone (Asia/Kolkata unless set), and 30 minutes when it has no end.
+3. **Drive files** are made in the member's own Drive and attached as link documents; deleting the CRM document leaves the file.
+   - Pasted Google links (Docs, Sheets, Slides, Forms, Drive files and folders) are recognised when a document is saved, and show their kind and icon.
+4. **Screens:**
+   - Customer 360's Documents tab and the deal box have "New Google Doc" and "New Google Sheet" (shown only when the member gave Drive), and list Google files as links;
+   - the deal box asks the server for the deal's documents (that page keeps none);
+   - a meeting in the calendar says whether it is in the owner's Google Calendar (also when Microsoft 365 is off).
+
+Files:
+- **Backend:**
+  - new: `services/googleCalendarService.js`, `services/googleDriveService.js`, `integrations/google/links.js`, `routes/google.js`;
+  - changed: `integrations/google/{workspace,mock}.js` (insert/update with our ids; 409 → duplicate), `models/CalendarEvent.js` and `models/Document.js` (`external.google`), `services/eventService.js`, `services/documentService.js`, `routes/index.js`, `jobs/index.js`.
+- **Frontend:** `js/app.js` (the shared Google file helpers), `js/customer-360.js`, `js/deals.js`, `js/calendar.js`, `css/style.css`, and 17 texts (`gdrive.*`, `cal.google.*`).
+- **Tests:** `googleCalendarDrive.test.js` (3):
+  - create, change, reassign out and back, delete;
+  - a lost insert answer (no copy); all-day; before the connection day; without Calendar no job;
+  - Drive missing, a Doc and a Sheet, pasted links, the Documents permission.
+
+## 10. Scorecard results (measured 2026-10-23)
+
+| # | Target | Result |
+|---|---|---|
+| 1 | A customer's emails on their history with 0 copying, within one sync | **Met.** After Sync now, Customer 360 showed the email from the customer and the reply, in Hindi at 390 px; the personal email was not kept. |
+| 2 | 0 duplicate emails across full and incremental syncs; 0 non-customer emails stored | **Met (tests).** A full sync after a history 404 stored none of the 3 kept emails again. A history sync stored only the new one. Emails with no customer address are counted and dropped. |
+| 3 | A revoked Google grant is reported to the member, and nothing breaks | **Met (test).** `needs_reconnect`, one bell note "Connect Google again", the sync job stopped, the rest of the CRM unaffected; connecting again resumes it. |
+| 4 | A Google Doc for a deal in ≤ 2 clicks | **Met: 1 click** in the open deal box ("New Google Sheet"/"New Google Doc"); on Customer 360, 2 (the Documents tab, then the button). The file is in the member's Drive and listed as a link. |
+| 5 | 0 regressions; 0 cross-company leaks; 390 px; Hindi | **Met.** **Full run: 973 of 974 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet). Tests: another company's customer at the same address sees none of the emails; private emails only to their member; Microsoft 365 sync unchanged. The Google card, Customer 360 emails and documents, and the deal box at 390 px had no sideways scroll, in Hindi. |
+
+**Known limits:**
+- Real Google is untested here. Using it needs the platform's Google app with the Gmail read-only, Calendar events and Drive file scopes (`GOOGLE_CLIENT_SECRET` is already in `.env` for Gmail; Google's app verification may be needed for these scopes).
+- Calendar is one way (CRM → Google).
+- Emails are read, not sent.

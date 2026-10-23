@@ -22,6 +22,8 @@ const documentSchema = new mongoose.Schema(
     // SHA-256 of the file, to spot duplicates and damaged files.
     checksum: { type: String, default: '' },
     linkUrl: { type: String, trim: true, default: '' },
+    // D90: a link to a Google file (made by the CRM in Drive, or pasted): its id and kind.
+    external: { google: { fileId: String, kind: String } },
     legacyIds: { type: [String], default: undefined },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdByMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },

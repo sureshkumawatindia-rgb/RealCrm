@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { googleFileOf } = require('../integrations/google/links');
 const path = require('path');
 const Document = require('../models/Document');
 const httpError = require('../utils/httpError');
@@ -17,6 +18,8 @@ const MODULES = ['documents', 'customers'];
 const EDITABLE = ['name', 'description', 'category'];
 const RELATED_KEYS = ['relatedType', 'relatedId', 'relatedName'];
 const NO_FILE = { storageKey: undefined, fileName: '', mimeType: '', sizeBytes: 0, checksum: '' };
+// A link to a Google file is recognised (D90), without asking Google.
+const linkFields = (url) => ({ linkUrl: url, external: { google: googleFileOf(url) || undefined } });
 
 function serializeDocument(doc) {
   return {
@@ -35,6 +38,7 @@ function serializeDocument(doc) {
     sizeBytes: doc.sizeBytes,
     checksum: doc.checksum,
     linkUrl: doc.linkUrl,
+    google: doc.external?.google?.fileId ? { fileId: doc.external.google.fileId, kind: doc.external.google.kind } : null,
     createdByMemberId: doc.createdByMemberId || null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
@@ -131,7 +135,7 @@ async function create(req, body, file) {
   });
   await applyFields(req, doc, body);
   if (file) Object.assign(doc, await storeFile(req, file));
-  else doc.linkUrl = body.linkUrl;
+  else Object.assign(doc, linkFields(body.linkUrl));
   try {
     await doc.save();
   } catch (error) {
@@ -152,7 +156,7 @@ async function update(req, id, body, file) {
   if (file) {
     Object.assign(doc, await storeFile(req, file));
   } else if (body.linkUrl) {
-    Object.assign(doc, NO_FILE, { linkUrl: body.linkUrl });
+    Object.assign(doc, NO_FILE, linkFields(body.linkUrl));
   } else if ('linkUrl' in body && !doc.storageKey) {
     throw fileOrLink();
   }

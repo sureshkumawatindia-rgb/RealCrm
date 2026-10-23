@@ -67,12 +67,23 @@ async function history(creds, { startHistoryId, pageToken }) {
   return { messageIds: added.slice(start, start + 50), historyId: String(b.historyId), nextPageToken: start + 50 < added.length ? String(start + 50) : null };
 }
 
-async function upsertEvent(creds, id, event) {
+let failNextCalendar = 0;
+async function insertEvent(creds, event) {
   const b = guard(creds);
-  const eventId = id || `mock-gcal-${crypto.randomBytes(5).toString('hex')}`;
-  if (id && !b.events.has(id)) throw Object.assign(new Error('Not found at Google.'), { statusCode: 404, code: 'GOOGLE_NOT_FOUND' });
-  b.events.set(eventId, { ...event });
-  return { id: eventId, htmlLink: `https://calendar.google.com/mock/${eventId}` };
+  const id = event.id || `mockgcal${crypto.randomBytes(5).toString('hex')}`;
+  if (b.events.has(id)) throw Object.assign(new Error('It is at Google already.'), { statusCode: 409, code: 'GOOGLE_DUPLICATE' });
+  b.events.set(id, { ...event, id });
+  if (failNextCalendar > 0) {
+    failNextCalendar -= 1; // made at Google, but the answer was lost: the job will retry
+    throw Object.assign(new Error('Google did not answer.'), { statusCode: 502, code: 'GOOGLE_FAILED', retry: true });
+  }
+  return { id, htmlLink: `https://calendar.google.com/mock/${id}` };
+}
+async function updateEvent(creds, id, event) {
+  const b = guard(creds);
+  if (!b.events.has(id)) throw Object.assign(new Error('Not found at Google.'), { statusCode: 404, code: 'GOOGLE_NOT_FOUND' });
+  b.events.set(id, { ...event, id });
+  return { id, htmlLink: `https://calendar.google.com/mock/${id}` };
 }
 async function deleteEvent(creds, id) {
   guard(creds).events.delete(id);
@@ -100,9 +111,11 @@ const revoke = (email) => { box(email).revoked = true; };
 const forgetHistory = (email) => { const b = box(email); b.oldestHistoryId = b.historyId + 1; };
 const events = (email) => [...box(email).events.entries()].map(([id, event]) => ({ id, ...event }));
 const files = (email) => [...box(email).files.values()];
-const reset = () => boxes.clear();
+// The next insert reaches Google but its answer is lost (a retry must not make a copy).
+const loseNextInsertAnswer = () => { failNextCalendar += 1; };
+const reset = () => { boxes.clear(); failNextCalendar = 0; };
 
 module.exports = {
-  name: 'mock', SCOPES, authorizeUrl, exchangeCode, refresh, profile, listMessages, getMessage, history, upsertEvent, deleteEvent, createFile,
-  addMessage, revoke, forgetHistory, events, files, reset,
+  name: 'mock', SCOPES, authorizeUrl, exchangeCode, refresh, profile, listMessages, getMessage, history, insertEvent, updateEvent, deleteEvent, createFile,
+  addMessage, revoke, forgetHistory, events, files, loseNextInsertAnswer, reset,
 };

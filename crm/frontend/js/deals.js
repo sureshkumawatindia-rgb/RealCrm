@@ -691,8 +691,26 @@ async function renderStageHistory(deal) {
     </div>`).join("")}`;
 }
 
+// A deal's Google files (D90): its documents (asked from the server: this page keeps no
+// documents), and New Google Doc / Sheet.
+async function renderDealFiles(deal) {
+  let box = document.getElementById("dealFiles");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "dealFiles";
+    box.className = "deal-files";
+    document.getElementById("timelineList").insertAdjacentElement("beforebegin", box);
+  }
+  box.dataset.deal = deal.id;
+  const docs = await crmApi(`/documents?relatedId=${encodeURIComponent(deal.id)}&limit=50`).catch(() => []);
+  if (box.dataset.deal !== String(deal.id)) return; // another deal was opened meanwhile
+  box.innerHTML = `<div class="deal-files-head"><span>${escapeHtml(t("gdrive.title"))}</span>${googleFileButtonsHtml()}</div>${docs.map(documentRowHtml).join("")}`;
+  wireGoogleFileButtons(box, { name: deal.name, relatedType: "Lead", relatedId: deal.id, onMade: () => renderDealFiles(deal) });
+}
+
 async function renderTimeline(deal) {
   renderStageHistory(deal);
+  renderDealFiles(deal);
   const el = document.getElementById("timelineList");
   el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(t("deals.loadingActivity"))}</div>`;
   let activities = [];

@@ -2,6 +2,7 @@ const CalendarEvent = require('../models/CalendarEvent');
 const httpError = require('../utils/httpError');
 const { createWorkItemService } = require('./workItemService');
 const outlookService = require('./outlookService');
+const googleCalendarService = require('./googleCalendarService');
 
 // Events show on the Calendar and also on the dashboard, Customer 360 and reports.
 const MODULES = ['calendar', 'dashboard', 'customers', 'reports'];
@@ -24,6 +25,7 @@ function serializeEvent(event) {
     // D83: its Teams link, and where it stands in the owner's Outlook calendar.
     joinUrl: event.online?.joinUrl || '',
     outlook: event.external?.microsoft?.state ? { state: event.external.microsoft.state, error: event.external.microsoft.error || '' } : null,
+    google: event.external?.google?.state ? { state: event.external.google.state, error: event.external.google.error || '' } : null,
     createdByMemberId: event.createdByMemberId || null,
     createdAt: event.createdAt,
     updatedAt: event.updatedAt,
@@ -55,8 +57,12 @@ const base = createWorkItemService({
     serialize: serializeEvent,
 });
 
-// Every change also goes to the owner's Outlook calendar when they connected Microsoft 365 (D83).
-const sync = (doc) => outlookService.queueSync(doc);
+// Every change also goes to the owner's Outlook calendar when they connected Microsoft 365 (D83),
+// and to their Google Calendar when they connected Google with Calendar (D90).
+const sync = async (doc) => {
+  await outlookService.queueSync(doc);
+  await googleCalendarService.queueSync(doc);
+};
 module.exports = {
   MODULES,
   serializeEvent,

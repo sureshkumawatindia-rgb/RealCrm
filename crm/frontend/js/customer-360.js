@@ -395,25 +395,13 @@ function renderTicketsTab(customer) {
     .join("");
 }
 
+// Documents, with "New Google Doc / Sheet" when the member connected Google with Drive (D90).
 function renderDocumentsTab(customer) {
   const docs = relatedDocuments(customer);
   const el = document.getElementById("c360Documents");
-  if (!docs.length) {
-    el.innerHTML = relEmptyBlock("fa-file-lines", t("c360.empty.documents"));
-    return;
-  }
-  el.innerHTML = docs
-    .map(
-      (d) => `
-      <div class="c360-list-item">
-        <span class="c360-list-icon" style="background:var(--bg);color:var(--text-muted)"><i class="fa-solid fa-file-lines"></i></span>
-        <div class="c360-list-body">
-          <div class="c360-list-title">${escapeHtml(d.name)}</div>
-          <div class="c360-list-meta">${escapeHtml(crmLabel("docCategory", d.category))} · ${formatDate(d.createdAt)}</div>
-        </div>
-      </div>`,
-    )
-    .join("");
+  el.innerHTML = `<div class="c360-hist-bar"><span></span>${googleFileButtonsHtml()}</div>
+    ${docs.length ? docs.map(documentRowHtml).join("") : relEmptyBlock("fa-file-lines", t("c360.empty.documents"))}`;
+  wireGoogleFileButtons(el, { name: customer.name, relatedType: "Customer", relatedId: customer.id, onMade: () => renderDocumentsTab(customer) });
 }
 
 function renderNotesTab(customer) {

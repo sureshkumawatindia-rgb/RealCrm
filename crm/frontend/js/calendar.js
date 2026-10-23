@@ -731,13 +731,19 @@ function teamsBox() {
 
 function renderTeamsBox(ev) {
   const box = teamsBox();
-  box.hidden = !ev || microsoftMode === "off";
-  if (box.hidden) return;
   const t = crmI18n.t;
+  // The meeting in the owner's Google Calendar (D90), with or without Microsoft 365.
+  const googleNote = ev?.google ? `<p class="cal-teams-note${ev.google.state === "failed" ? " failed" : ""}">${escapeHtml(t(`cal.google.${ev.google.state}`, { why: ev.google.error || "" }))}</p>` : "";
+  box.hidden = !ev || (microsoftMode === "off" && !googleNote);
+  if (box.hidden) return;
+  if (microsoftMode === "off") {
+    box.innerHTML = googleNote;
+    return;
+  }
   const outlook = ev.outlook ? `<p class="cal-teams-note${ev.outlook.state === "failed" ? " failed" : ""}">${escapeHtml(t(`cal.outlook.${ev.outlook.state}`, { why: ev.outlook.error || "" }))}</p>` : "";
   box.innerHTML = `<label>${escapeHtml(t("cal.teams.title"))}</label>${ev.joinUrl
     ? `<div class="cal-teams-row"><a class="btn btn-outline" href="${escapeHtml(ev.joinUrl)}" target="_blank" rel="noopener"><i class="fa-solid fa-video"></i> ${escapeHtml(t("cal.teams.join"))}</a><button class="btn btn-outline" type="button" data-teams="copy" data-url="${escapeHtml(ev.joinUrl)}"><i class="fa-regular fa-copy"></i> ${escapeHtml(t("cal.teams.copy"))}</button></div>`
-    : `<button class="btn btn-outline" type="button" data-teams="add" data-id="${escapeHtml(ev.id)}"><i class="fa-solid fa-video"></i> ${escapeHtml(t("cal.teams.add"))}</button>`}${outlook}`;
+    : `<button class="btn btn-outline" type="button" data-teams="add" data-id="${escapeHtml(ev.id)}"><i class="fa-solid fa-video"></i> ${escapeHtml(t("cal.teams.add"))}</button>`}${outlook}${googleNote}`;
 }
 
 async function onTeamsClick(event) {

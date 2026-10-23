@@ -917,6 +917,64 @@ async function saveDocument(id, form, file) {
   const doc = await crmApi(id ? `/documents/${id}` : "/documents", { method: id ? "PATCH" : "POST", body: data });
   return toLegacyDocument(cacheUpsert("documents", doc));
 }
+// Google Drive (D90): whether this member connected Google with Drive (asked once per page), and
+// a new Google Doc or Sheet for a customer or deal, attached as a CRM document.
+let googleDriveAsked = null;
+function googleDriveReady() {
+  if (!googleDriveAsked) {
+    googleDriveAsked = crmApi("/gmail/connection")
+      .then((c) => Boolean(c.connected && c.status === "active" && c.features?.drive))
+      .catch(() => false);
+  }
+  return googleDriveAsked;
+}
+async function createGoogleFile({ kind, name, relatedType, relatedId }) {
+  const doc = await crmApi("/google/drive/files", jsonRequest("POST", { kind, name: name.slice(0, 200), relatedType, relatedId }));
+  return toLegacyDocument(cacheUpsert("documents", doc));
+}
+const GOOGLE_FILE_ICONS = { doc: "fa-solid fa-file-word", sheet: "fa-solid fa-file-excel", slides: "fa-solid fa-file-powerpoint", form: "fa-solid fa-list-check", folder: "fa-solid fa-folder", file: "fa-brands fa-google-drive" };
+// One document as a list row: Google files and links open in a new tab.
+function documentRowHtml(d) {
+  const icon = d.google ? GOOGLE_FILE_ICONS[d.google.kind] || "fa-brands fa-google-drive" : "fa-solid fa-file-lines";
+  const name = escapeHtml(d.name);
+  const title = d.linkUrl ? `<a href="${escapeHtml(d.linkUrl)}" target="_blank" rel="noopener">${name}</a>` : name;
+  return `<div class="c360-list-item">
+      <span class="c360-list-icon" style="background:var(--bg);color:${d.google ? "var(--info)" : "var(--text-muted)"}"><i class="${icon}" aria-hidden="true"></i></span>
+      <div class="c360-list-body">
+        <div class="c360-list-title">${title}</div>
+        <div class="c360-list-meta">${escapeHtml([d.google ? t(`gdrive.kind.${d.google.kind}`) : crmLabel("docCategory", d.category), d.createdAt ? new Date(d.createdAt).toLocaleDateString(crmI18n.locale(), { day: "2-digit", month: "short", year: "numeric" }) : ""].filter(Boolean).join(" · "))}</div>
+      </div>
+    </div>`;
+}
+// Two buttons that make a Google Doc or Sheet; shown when the member has Drive.
+function googleFileButtonsHtml() {
+  return `<div class="pl-buttons gdrive-buttons" hidden>
+      <button type="button" class="btn btn-outline" data-gdrive="doc"><i class="fa-solid fa-file-word"></i> ${escapeHtml(t("gdrive.newDoc"))}</button>
+      <button type="button" class="btn btn-outline" data-gdrive="sheet"><i class="fa-solid fa-file-excel"></i> ${escapeHtml(t("gdrive.newSheet"))}</button>
+    </div>`;
+}
+// Shows the buttons in container when allowed, and makes the file on a click; then onMade(doc).
+function wireGoogleFileButtons(container, { name, relatedType, relatedId, onMade }) {
+  const box = container.querySelector(".gdrive-buttons");
+  if (!box) return;
+  googleDriveReady().then((ok) => { box.hidden = !ok; });
+  box.onclick = async (event) => {
+    const button = event.target.closest("[data-gdrive]");
+    if (!button) return;
+    const kind = button.dataset.gdrive;
+    box.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    try {
+      const doc = await createGoogleFile({ kind, name: `${name}: ${t(kind === "doc" ? "gdrive.notes" : "gdrive.sheet")}`, relatedType, relatedId });
+      showToast(t("gdrive.made", { name: doc.name }), "success");
+      onMade(doc);
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("gdrive.failed")), "error");
+    } finally {
+      box.querySelectorAll("button").forEach((b) => { b.disabled = false; });
+    }
+  };
+}
+
 async function removeDocument(id) {
   await crmApi(`/documents/${id}`, { method: "DELETE" });
   cacheDrop("documents", id);
