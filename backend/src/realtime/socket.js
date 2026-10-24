@@ -5,6 +5,7 @@ const Conversation = require('../models/Conversation');
 const env = require('../config/env');
 const logger = require('../config/logger');
 const bus = require('./bus');
+const { createRelay } = require('./relay');
 const { verifyAccessToken } = require('../utils/tokens');
 const { isManager } = require('../constants/permissions');
 const { serializeConversation, serializeMessage, seesAll } = require('../services/conversationService');
@@ -21,6 +22,8 @@ const { maskPhonesIn } = require('../utils/phoneMask');
 // Server → browser events: conversation:updated, message:new, message:status, note:new,
 // notification:new, whatsapp:sync, inbox:refresh.
 // Agents and viewers whose company hides customers' numbers (D65) get every event masked.
+// With more than one server (F6), every update goes through the relay (realtime/relay.js): each
+// server applies it to its own browsers.
 const rooms = {
   member: (id) => `member:${id}`,
   all: (organizationId) => `org:${organizationId}:inbox-all`,
@@ -63,7 +66,9 @@ function targetsFor(conversation, previousAssigneeId) {
   return [...targets];
 }
 
-function attachRealtime(httpServer) {
+// relay: share updates with the other servers (F6); listen: false = a server that only replays
+// the others' updates (tests stand in a second server in the same process with it).
+function attachRealtime(httpServer, { relay: relayOn = env.realtimeRelay, listen = true } = {}) {
   const io = new Server(httpServer, { cors: { origin: env.corsOrigins, credentials: true } });
   io.use(authenticateSocket);
   io.on('connection', (socket) => {
@@ -88,58 +93,79 @@ function attachRealtime(httpServer) {
     }
   }
 
+  // What a server does with an update (its own, or another server's through the relay).
+  async function apply(op) {
+    if (op.type === 'emit') return emitTo(op.targets, op.event, op.payload);
+    if (op.type === 'broadcast') {
+      io.to(op.targets).emit(op.event, op.payload);
+      return undefined;
+    }
+    if (op.type === 'phones') {
+      const targets = [rooms.all(op.organizationId), rooms.queue(op.organizationId)];
+      for (const socket of await io.in(targets).fetchSockets()) {
+        socket.data.maskPhones = Boolean(op.hidePhonesFromAgents) && !isManager(socket.data.member);
+      }
+      io.to(targets).emit('inbox:refresh');
+      return undefined;
+    }
+    if (op.type === 'disconnect') io.in(rooms.member(op.memberId)).disconnectSockets(true);
+    return undefined;
+  }
+  const relay = createRelay({ apply, enabled: relayOn });
+  const send = (targets, event, payload) => relay.send({ type: 'emit', targets, event, payload });
+
   const load = (id) => Conversation.findById(id).populate(POPULATE);
   const handlers = {
     'conversation:updated': async ({ conversation, previousAssigneeId }) => {
       const full = await load(conversation._id);
-      if (full) await emitTo(targetsFor(full, previousAssigneeId), 'conversation:updated', serializeConversation(full));
+      if (full) await send(targetsFor(full, previousAssigneeId), 'conversation:updated', serializeConversation(full));
     },
     'message:new': async ({ conversation, message }) => {
       const full = await load(conversation._id);
-      if (full) await emitTo(targetsFor(full), 'message:new', { conversation: serializeConversation(full), message: serializeMessage(message) });
+      if (full) await send(targetsFor(full), 'message:new', { conversation: serializeConversation(full), message: serializeMessage(message) });
     },
     'message:status': async ({ message }) => {
       const conversation = await Conversation.findById(message.conversationId);
-      if (conversation) await emitTo(targetsFor(conversation), 'message:status', serializeMessage(message));
+      if (conversation) await send(targetsFor(conversation), 'message:status', serializeMessage(message));
     },
     'note:new': async ({ conversation, note }) => {
-      await emitTo(targetsFor(conversation), 'note:new', { conversationId: conversation._id, note });
+      await send(targetsFor(conversation), 'note:new', { conversationId: conversation._id, note });
     },
     // Importing a connected WhatsApp Business app number's contacts and chats (D60): to the
     // owners and admins, who connect numbers.
     'whatsapp:sync': async ({ organizationId, accountId, sync }) => {
-      io.to(rooms.all(organizationId)).emit('whatsapp:sync', { accountId, sync });
+      await relay.send({ type: 'broadcast', targets: [rooms.all(organizationId)], event: 'whatsapp:sync', payload: { accountId, sync } });
     },
     // A number was made private or visible again (D61): open Inbox pages reload their list.
     'privacy:changed': async ({ organizationId }) => {
-      io.to([rooms.all(organizationId), rooms.queue(organizationId)]).emit('inbox:refresh');
+      await relay.send({ type: 'broadcast', targets: [rooms.all(organizationId), rooms.queue(organizationId)], event: 'inbox:refresh' });
     },
     // "Hide customer phone numbers from agents" was switched (D65): open browsers follow at once.
     'privacy:phones-changed': async ({ organizationId, hidePhonesFromAgents }) => {
-      const targets = [rooms.all(organizationId), rooms.queue(organizationId)];
-      for (const socket of await io.in(targets).fetchSockets()) {
-        socket.data.maskPhones = Boolean(hidePhonesFromAgents) && !isManager(socket.data.member);
-      }
-      io.to(targets).emit('inbox:refresh');
+      await relay.send({ type: 'phones', organizationId, hidePhonesFromAgents: Boolean(hidePhonesFromAgents) });
     },
     // The bell (Phase 6): only to the member it is for.
     'notification:new': async ({ memberId, notification }) => {
-      await emitTo(rooms.member(memberId), 'notification:new', notification);
+      await send([rooms.member(memberId)], 'notification:new', notification);
     },
     // Role, pages or status changed, or the member was removed: drop their sockets. The browser
     // reconnects and gets the rooms that match the new access (or is refused).
     'member:access-changed': async ({ memberId }) => {
-      io.in(rooms.member(memberId)).disconnectSockets(true);
+      await relay.send({ type: 'disconnect', memberId: String(memberId) });
     },
   };
-  const listeners = Object.entries(handlers).map(([event, handler]) => {
+  const listeners = !listen ? [] : Object.entries(handlers).map(([event, handler]) => {
     const listener = (payload) => handler(payload).catch((error) => logger.error(`Realtime ${event} failed: ${error.message}`));
     bus.on(event, listener);
     return [event, listener];
   });
 
   // Stops forwarding (tests start and stop servers several times).
-  io.detach = () => listeners.forEach(([event, listener]) => bus.off(event, listener));
+  io.detach = () => {
+    listeners.forEach(([event, listener]) => bus.off(event, listener));
+    return relay.close();
+  };
+  io.relayReady = () => relay.ready();
   return io;
 }
 

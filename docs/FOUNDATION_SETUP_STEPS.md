@@ -211,3 +211,48 @@ In the same **Shell**:
 
 Tell me what you saw (not the keys), and we go on to week 3 (two servers).
 
+---
+
+# Week 3: two servers (F6)
+
+The CRM can now run on more than one server at once:
+- the live inbox reaches every browser, whichever server it is connected to;
+- the sign-in limits count together;
+- the data migrations run once;
+- a WhatsApp message is handled by one server only.
+
+Staging moves to two servers first. Production follows only after your file copy (section K) shows nothing missing.
+
+## N. Staging on two servers
+
+1. Push the week 3 commit to `staging`:
+
+   ```bash
+   git push origin main:staging
+   ```
+
+2. Render → **Blueprints** → sync. **yellow-crm-staging** now shows **2 instances**. This adds about $7 a month (unverified; check Render's pricing).
+3. Open `https://<staging address>/api/v1/health` a few times. The `instance` value changes between the two servers.
+4. On staging:
+   - **Settings → WhatsApp**: add a test number, if there is none;
+   - open **Inbox** in a second browser window;
+   - in **Settings → WhatsApp**, send a message with the message simulator.
+
+   It appears in the Inbox window at once, whichever server each window is connected to.
+
+## O. Production on two servers (after section K)
+
+**Only when `node scripts/files-to-r2.js --check` says 0 missing, 0 failed.** Removing the disk deletes the files on it; R2 has the copies by then.
+
+1. Tell me "copy check is 0 missing". I then make one small commit for `render.yaml`: production without the disk, on 2 instances.
+2. Before you push that commit, set `STORAGE_DISK_FALLBACK` = `off` on **yellow-crm**: nothing is read from the disk any more.
+3. Push. Render moves production to two servers.
+4. Check `/api/v1/health` and the Inbox as in section N.
+
+## P. Good to know
+
+- If a browser cannot use WebSockets (some office networks block them), the live inbox falls back to slower requests. Those may not work across two servers: Render does not keep a browser on one server. The Inbox still works; it just is not live there.
+- The general API limit (300 requests a minute) is counted by each server separately, so with two servers someone can make up to 600. The sign-in and company-name limits are counted together.
+
+Tell me what you saw, and we go on to week 4 (2FA and the restore drill).
+

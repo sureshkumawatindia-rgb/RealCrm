@@ -224,3 +224,48 @@ Your steps: sections I–M of `docs/FOUNDATION_SETUP_STEPS.md`.
 
 **Full run: 994 of 995 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
 
+## 11. Week 3: what was built (D95, 2026-10-24), and how it differs from the plan
+
+Your steps: sections N–P of `docs/FOUNDATION_SETUP_STEPS.md`.
+
+**F6. Two servers**
+
+- **The live inbox across servers** (`realtime/relay.js`):
+  - every live update (who gets it, the event, what it carries) goes through a short-lived MongoDB collection;
+  - each server follows it with a change stream and sends the other servers' updates to its own browsers, with phone numbers masked as before;
+  - access changes drop the member's browsers on every server;
+  - updates are kept one hour; a broken stream reopens by itself;
+  - on in production (`REALTIME_RELAY`), off in tests and on this computer.
+  - **Different from the plan:** a relay of our own, not Socket.IO's MongoDB adapter package. It does the same job without another package, as with R2 and Sentry.
+- **Sign-in limits counted together** (`middleware/rateLimitStore.js`):
+  - the sign-in and company-name limits keep their counts in MongoDB, per minute (TTL);
+  - the other limits stay per server (written down in section P);
+  - wrong-code tries were already counted in the database.
+- **Migrations once:** `runMigrations` runs under a server lock (`utils/serverLock.js`). The lock has an owner and an end time that its holder keeps extending; a lock left by a dead server is taken over. Each holder has its own name, so even two starts in one server wait for each other (found by the test).
+- **A WhatsApp event on one server only:**
+  - taking an event now marks it `processing` until done, or for 5 minutes;
+  - the other server's retry skips it;
+  - one whose server stopped is picked up after those 5 minutes.
+  - Before, both servers' retry loops could handle the same event, and add to unread counts twice.
+- **Checked and already safe:**
+  - the job queue (MongoDB locks);
+  - the web-push keys (made once, kept in the database);
+  - wrong sign-in codes (counted in the database);
+  - the 30-second "hide numbers" cache (each server refreshes its own).
+- **`/api/v1/health`** also names the instance that answered (Render's `RENDER_INSTANCE_ID`).
+- **`render.yaml`:** staging runs on 2 instances.
+- **Different from the plan:** production keeps its disk until your copy check (section K) says nothing is missing. Removing it deletes its files, so that is a separate commit after you say so (section O).
+
+**Checked:**
+- In two preview servers on one database, a WhatsApp message received by the first appeared at once in the Inbox of a browser connected to the second ("Live", unread badge).
+- Real Render with two instances is UNVERIFIED until your steps.
+
+**Tests:** `twoServers.test.js` (5):
+- **live updates:** an update reaches browsers on both servers once, and access changes drop browsers on the other server;
+- **sign-in limits:** counted together across two apps;
+- **server lock:** one holder at a time, and a dead holder taken over;
+- **migrations:** two starts apply each migration once;
+- **WhatsApp:** an event handled once, and a stuck one picked up while another server's live claim is left alone.
+
+**Full run: 999 of 1000 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
+

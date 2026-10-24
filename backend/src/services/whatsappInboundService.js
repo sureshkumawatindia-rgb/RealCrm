@@ -531,10 +531,14 @@ async function handleStatus(account, { status }, attempts) {
 }
 
 // --- processing ----------------------------------------------------------------
+// One server takes an event (F6): it is "processing" until done, or until CLAIM_MS has passed
+// (a server that stopped halfway); the other server skips it meanwhile.
+const CLAIM_MS = 5 * 60 * 1000;
 async function processEvent(id) {
+  const now = new Date();
   const event = await InboundEvent.findOneAndUpdate(
-    { _id: id, status: { $in: ['received', 'failed'] }, attempts: { $lt: MAX_ATTEMPTS } },
-    { $inc: { attempts: 1 } },
+    { _id: id, attempts: { $lt: MAX_ATTEMPTS }, $or: [{ status: { $in: ['received', 'failed'] } }, { status: 'processing', claimedUntil: { $lt: now } }] },
+    { $inc: { attempts: 1 }, $set: { status: 'processing', claimedUntil: new Date(now.getTime() + CLAIM_MS) } },
     { returnDocument: 'after' },
   );
   if (!event) return;
@@ -550,10 +554,10 @@ async function processEvent(id) {
       account_update: () => handleAccountUpdate(account, event.payload),
     };
     const outcome = !account || !handlers[event.kind] ? 'ignored' : await handlers[event.kind]();
-    await InboundEvent.updateOne({ _id: event._id }, { status: outcome, processedAt: new Date(), error: '' });
+    await InboundEvent.updateOne({ _id: event._id }, { status: outcome, processedAt: new Date(), error: '', $unset: { claimedUntil: 1 } });
   } catch (error) {
     logger.error(`WhatsApp event ${event.eventId} failed: ${error.message}`);
-    await InboundEvent.updateOne({ _id: event._id }, { status: 'failed', error: str(error.message, 500) });
+    await InboundEvent.updateOne({ _id: event._id }, { status: 'failed', error: str(error.message, 500), $unset: { claimedUntil: 1 } });
   }
 }
 
@@ -576,8 +580,8 @@ async function idle() {
 // Picks up events left behind by a restart or a failure (runs at start-up and every few minutes).
 async function retryPending() {
   const stale = await InboundEvent.find({
-    provider: 'whatsapp', status: { $in: ['received', 'failed'] }, attempts: { $lt: MAX_ATTEMPTS },
-    updatedAt: { $lt: new Date(Date.now() - 60 * 1000) },
+    provider: 'whatsapp', attempts: { $lt: MAX_ATTEMPTS },
+    $or: [{ status: { $in: ['received', 'failed'] }, updatedAt: { $lt: new Date(Date.now() - 60 * 1000) } }, { status: 'processing', claimedUntil: { $lt: new Date() } }],
   }).sort({ createdAt: 1 }).limit(500).select('_id');
   await processNow(stale.map((event) => event._id));
   return stale.length;

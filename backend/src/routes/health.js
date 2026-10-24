@@ -30,6 +30,8 @@ router.get('/', async (req, res) => {
       timestamp: new Date().toISOString(),
       environment: env.appEnv,
       version: env.release || null,
+      // Which server answered (Render names each instance), to see both at work (F6).
+      instance: process.env.RENDER_INSTANCE_ID || null,
       queueDelaySeconds,
     },
   });

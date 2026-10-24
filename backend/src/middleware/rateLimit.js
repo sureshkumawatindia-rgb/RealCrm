@@ -1,6 +1,7 @@
 const { rateLimit } = require('express-rate-limit');
 const env = require('../config/env');
 const httpError = require('../utils/httpError');
+const { MongoRateLimitStore } = require('./rateLimitStore');
 
 function perMinute(limit, options = {}) {
   return rateLimit({
@@ -15,7 +16,8 @@ function perMinute(limit, options = {}) {
 
 // The launcher polls /health while the server starts, so it is not counted.
 const apiLimiter = perMinute(env.rateLimit.apiPerMinute, { skip: (req) => req.path === '/health' });
-const authLimiter = perMinute(env.rateLimit.authPerMinute);
+// Sign-in (F6): counted in MongoDB, so two servers count together and guessing gains nothing.
+const authLimiter = perMinute(env.rateLimit.authPerMinute, { store: new MongoRateLimitStore('auth') });
 // Meta sends webhooks in bursts from a few addresses; this only stops floods.
 const webhookLimiter = perMinute(env.rateLimit.webhookPerMinute);
 // Website enquiry forms: a person sends one or two; more from one address is a bot.
@@ -27,7 +29,7 @@ const linkLimiter = perMinute(60, {
 
 // The login page checks the company as it is typed (D66); more than this from one address is
 // someone guessing company names.
-const workspaceLimiter = perMinute(env.rateLimit.workspacePerMinute);
+const workspaceLimiter = perMinute(env.rateLimit.workspacePerMinute, { store: new MongoRateLimitStore('workspace') });
 
 // The login page asks every 2 seconds whether its QR code was allowed (D58).
 const qrPollLimiter = perMinute(120);

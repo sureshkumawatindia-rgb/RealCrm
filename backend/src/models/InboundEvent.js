@@ -12,8 +12,10 @@ const inboundEventSchema = new mongoose.Schema(
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     sourceId: { type: mongoose.Schema.Types.ObjectId },
     payload: { type: mongoose.Schema.Types.Mixed },
-    status: { type: String, enum: ['received', 'processed', 'ignored', 'failed'], default: 'received' },
+    // processing: taken by one server (F6) until claimedUntil, so two servers never handle it twice.
+    status: { type: String, enum: ['received', 'processing', 'processed', 'ignored', 'failed'], default: 'received' },
     attempts: { type: Number, default: 0 },
+    claimedUntil: { type: Date },
     error: { type: String, default: '' },
     processedAt: { type: Date },
   },

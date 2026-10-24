@@ -69,6 +69,8 @@ const schema = Joi.object({
   // Which copy of the CRM this is (F2): production, or staging (production settings, made-up
   // data, and the test stand-ins instead of real WhatsApp, SMS, calls, Google and Microsoft).
   APP_ENV: Joi.string().valid('production', 'staging', 'development', 'test'),
+  // The live inbox across servers (F6, realtime/relay.js): on by default in production.
+  REALTIME_RELAY: Joi.boolean().truthy('on').falsy('off').default(process.env.NODE_ENV === 'production'),
   // Error reports to Sentry (F3). Without a DSN nothing is sent.
   SENTRY_DSN: Joi.string().uri({ scheme: ['http', 'https'] }).allow('').default(''),
   SENTRY_ENVIRONMENT: Joi.string().pattern(/^[A-Za-z0-9_.-]{1,64}$/).allow('').default(''),
@@ -167,6 +169,7 @@ const env = {
   isStaging: appEnv === 'staging',
   // The deployed commit (Render sets RENDER_GIT_COMMIT): on /health and in error reports.
   release: String(process.env.RENDER_GIT_COMMIT || process.env.APP_VERSION || '').slice(0, 12),
+  realtimeRelay: value.REALTIME_RELAY,
   sentry: {
     dsn: value.SENTRY_DSN,
     environment: value.SENTRY_ENVIRONMENT || appEnv,

@@ -69,6 +69,8 @@ services:
     runtime: node
     region: singapore
     plan: 0.5c-512mb
+    # F6: two servers, to prove the CRM works on more than one before production does.
+    numInstances: 2
     branch: staging
     buildCommand: cd backend && npm ci --omit=dev
     startCommand: cd backend && node src/server.js

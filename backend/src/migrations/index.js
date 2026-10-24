@@ -1,5 +1,6 @@
 const Migration = require('../models/Migration');
 const logger = require('../config/logger');
+const { withServerLock } = require('../utils/serverLock');
 
 // Data migrations run once each, in this order, when the server starts.
 // Every migration must be idempotent: safe to run again if the server stops halfway.
@@ -13,7 +14,12 @@ const MIGRATIONS = [
   require('./007-lead-pipelines'),
 ];
 
-async function runMigrations() {
+// Two servers starting together (F6): one runs them, the other waits and then finds them done.
+function runMigrations() {
+  return withServerLock('migrations', applyAll);
+}
+
+async function applyAll() {
   for (const migration of MIGRATIONS) {
     if (await Migration.exists({ name: migration.name })) continue;
     const result = await migration.up();
