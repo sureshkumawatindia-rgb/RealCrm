@@ -119,6 +119,12 @@ async function crmRequest(path, options = {}, { retried = false, blob = false } 
     error.code = body.code;
     error.errors = body.errors;
     if (UPGRADE_CODES.has(body.code)) crmPlan.nudge(error.message);
+    // An owner or admin past the grace days without the authenticator app (F7): the set-up page.
+    if (body.code === "TOTP_SETUP_REQUIRED" && currentPageName() !== "two-factor.html") {
+      leavingPage = true;
+      window.location.href = "two-factor.html?required=1";
+      return new Promise(() => {});
+    }
     throw error;
   }
   return body;
@@ -1528,6 +1534,23 @@ const crmMoveMenu = (() => {
 
 const isOrgOwner = () => getCurrentMember()?.role === "owner";
 
+// Owners and admins without the authenticator app (F7): by when it is needed, and the way there.
+async function mountTwoFactorBanner(twoFactor) {
+  const topbar = document.querySelector(".main > .topbar");
+  if (!topbar || !twoFactor?.required || twoFactor.enabled || !twoFactor.requiredBy || currentPageName() === "two-factor.html") return;
+  await crmI18n.ready;
+  document.getElementById("tfaBanner")?.remove();
+  const by = new Date(twoFactor.requiredBy).toLocaleDateString(crmI18n.locale(), { day: "numeric", month: "long" });
+  const el = document.createElement("div");
+  el.id = "tfaBanner";
+  el.className = "plan-banner tfa-banner";
+  el.setAttribute("role", "status");
+  el.innerHTML = `<i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+    <span class="plan-banner-text">${escapeHtml(t("tfa.banner", { date: by }))}</span>
+    <a class="btn btn-primary" href="two-factor.html">${escapeHtml(t("tfa.turnOn"))}</a>`;
+  topbar.insertAdjacentElement("afterend", el);
+}
+
 // Staging (F2): a band on every page so nobody takes it for the real CRM, and for owners and
 // admins a button that fills their company with made-up data (once).
 async function mountStagingBand() {
@@ -2369,6 +2392,7 @@ async function syncMembership() {
         return;
       }
     }
+    mountTwoFactorBanner(me.twoFactor);
     const before = localStorage.getItem(KEYS.MEMBER);
     const after = JSON.stringify({ ...me.member, organizationId: me.organization?.id ?? getCurrentMember()?.organizationId });
     if (before === after) return;

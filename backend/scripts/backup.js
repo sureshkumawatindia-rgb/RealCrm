@@ -3,6 +3,8 @@
 //   node scripts/backup.js list          the backups in R2_BACKUP_BUCKET, newest first
 //   node scripts/backup.js run           make one now (the job also does it every Sunday)
 //   node scripts/backup.js check [day]   download, decrypt and count one (default: the newest)
+//   node scripts/backup.js restore <day> <address of an EMPTY database>   the restore drill (F4b):
+//     everything back into a temporary database, counted against the manifest (never the CRM's own)
 // Backups are encrypted with a key made from DATA_ENCRYPTION_KEY: keep that key safe.
 const mongoose = require('mongoose');
 const env = require('../src/config/env');
@@ -29,8 +31,15 @@ const backups = require('../src/services/backupService');
     console.log(`Backup ${result.day}: ${result.ok ? 'OK' : 'PROBLEMS'}${result.collections ? `, ${result.collections} collections, ${result.documents} documents` : ''}`);
     result.problems.forEach((line) => console.log(`- ${line}`));
     process.exitCode = result.ok ? 0 : 1;
+  } else if (command === 'restore') {
+    const target = process.argv[4];
+    if (!day || !target) throw new Error('Usage: node scripts/backup.js restore <day> <address of an empty database>');
+    const result = await backups.restore(day, { targetUri: target });
+    console.log(`Restore of ${result.day}: ${result.ok ? 'OK' : 'PROBLEMS'}, ${result.collections} collections, ${result.documents} documents in ${result.seconds} seconds`);
+    result.problems.forEach((line) => console.log(`- ${line}`));
+    process.exitCode = result.ok ? 0 : 1;
   } else {
-    throw new Error(`Unknown command "${command}" (list, run or check)`);
+    throw new Error(`Unknown command "${command}" (list, run, check or restore)`);
   }
 })().catch((error) => {
   console.error(error.message);

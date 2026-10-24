@@ -10,6 +10,10 @@ async function updateMember(req, res) {
   res.json({ success: true, data: await memberService.update(req, req.valid.params.id, req.body), message: 'Member updated' });
 }
 
+async function resetMemberTotp(req, res) {
+  res.json({ success: true, data: await memberService.resetTotp(req, req.valid.params.id), message: '2-step login turned off' });
+}
+
 async function removeMember(req, res) {
   await memberService.remove(req, req.valid.params.id);
   res.json({ success: true, data: { removed: true }, message: 'Member removed' });
@@ -37,4 +41,4 @@ async function lookupInvite(req, res) {
   res.json({ success: true, data: await inviteService.lookup(req.body.token) });
 }
 
-module.exports = { listMembers, updateMember, removeMember, listInvites, createInvite, resendInvite, revokeInvite, lookupInvite };
+module.exports = { listMembers, updateMember, resetMemberTotp, removeMember, listInvites, createInvite, resendInvite, revokeInvite, lookupInvite };

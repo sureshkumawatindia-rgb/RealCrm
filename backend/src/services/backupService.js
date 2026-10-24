@@ -145,6 +145,43 @@ async function check(day, { client = r2Client() } = {}) {
   return { day, ok: !problems.length, collections: manifest.collections.length, documents, problems };
 }
 
+// The restore drill (F4b): a backup back into another, EMPTY database (never the CRM's own), and
+// each collection counted against the manifest. targetUri: a temporary database's address;
+// targetDb: a database handle (tests).
+async function restore(day, { client = r2Client(), targetUri, targetDb } = {}) {
+  const started = Date.now();
+  if (!targetDb && (!targetUri || targetUri.trim() === env.mongoUri.trim())) throw new Error('Give the address of another, empty database to restore into');
+  const bucket = env.storage.r2.backupBucket;
+  const manifestBytes = await client.getBuffer(bucket, `backups/${day}/manifest.json`);
+  if (!manifestBytes) throw new Error(`No complete backup for ${day}`);
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
+  const connection = targetDb ? null : await mongoose.createConnection(targetUri).asPromise();
+  const db = targetDb || connection.db;
+  try {
+    const existing = (await db.listCollections({}, { nameOnly: true }).toArray()).filter((c) => !c.name.startsWith('system.'));
+    if (existing.length) throw new Error(`The database to restore into is not empty (${existing.length} collections): use a new, empty one`);
+    const { key } = backupKey();
+    const problems = [];
+    let documents = 0;
+    for (const entry of manifest.collections) {
+      const buffer = await client.getBuffer(bucket, entry.file);
+      if (!buffer) {
+        problems.push(`${entry.name}: file missing`);
+        continue;
+      }
+      const docs = decryptFile(buffer, key).map((line) => EJSON.parse(line, { relaxed: false }));
+      for (let i = 0; i < docs.length; i += 1000) await db.collection(entry.name).insertMany(docs.slice(i, i + 1000), { ordered: false });
+      if (!docs.length) await db.createCollection(entry.name).catch(() => {});
+      const count = await db.collection(entry.name).countDocuments();
+      if (count !== entry.count) problems.push(`${entry.name}: ${count} restored, the manifest says ${entry.count}`);
+      documents += count;
+    }
+    return { day, ok: !problems.length, collections: manifest.collections.length, documents, problems, seconds: Math.round((Date.now() - started) / 1000) };
+  } finally {
+    if (connection) await connection.close();
+  }
+}
+
 function register(queue) {
   queue.define(JOB, () => run(), { maxAttempts: 3 });
   if (configured()) {
@@ -154,4 +191,4 @@ function register(queue) {
   }
 }
 
-module.exports = { JOB, run, list, check, register, nextRun, decryptFile, backupKey, configured };
+module.exports = { JOB, run, list, check, restore, register, nextRun, decryptFile, backupKey, configured };

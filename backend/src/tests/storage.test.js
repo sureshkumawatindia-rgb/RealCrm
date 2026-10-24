@@ -1,6 +1,7 @@
 jest.mock('../integrations/google/idToken', () => require('./helpers/fakeGoogle'));
 
 const fs = require('fs');
+const mongoose = require('mongoose');
 const path = require('path');
 const env = require('../config/env');
 const Document = require('../models/Document');
@@ -159,6 +160,25 @@ describe('Weekly backup copy (F4a)', () => {
       expect((await backups.list({ client })).map((b) => [b.day, b.complete])).toEqual([['2026-11-02', true], ['2026-10-25', true]]);
     } finally {
       env.storage.backupKeepWeeks = keep;
+    }
+  });
+
+  it('restores a backup into an empty database and counts it (the drill, F4b)', async () => {
+    await login('f4b-owner@example.com');
+    const backup = await backups.run({ client, now: new Date('2026-11-08T21:00:00Z') });
+    const target = mongoose.connection.client.db(`restore_drill_${process.pid}`);
+    try {
+      const result = await backups.restore(backup.day, { client, targetDb: target });
+      expect(result).toMatchObject({ day: backup.day, ok: true, problems: [] });
+      expect(result.documents).toBe(backup.documents);
+      const user = await target.collection('users').findOne({ email: 'f4b-owner@example.com' });
+      expect(user._id).toBeInstanceOf(mongoose.Types.ObjectId); // ids and dates come back as they were
+      expect(user.createdAt).toBeInstanceOf(Date);
+      // Never into a database with data, nor the CRM's own.
+      await expect(backups.restore(backup.day, { client, targetDb: target })).rejects.toThrow('is not empty');
+      await expect(backups.restore(backup.day, { client, targetUri: env.mongoUri })).rejects.toThrow('another, empty database');
+    } finally {
+      await target.dropDatabase();
     }
   });
 

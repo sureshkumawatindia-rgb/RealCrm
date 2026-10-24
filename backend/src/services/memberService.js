@@ -5,6 +5,8 @@ const { audit } = require('../utils/audit');
 const { revokeMemberSessions } = require('./sessionService');
 const bus = require('../realtime/bus');
 const planService = require('./planService');
+const totpService = require('./totpService');
+const notificationService = require('./notificationService');
 
 const MANAGER_ROLES = ['owner', 'admin'];
 
@@ -24,6 +26,8 @@ function serializeMember(member) {
     title: member.title,
     assignable: member.assignable,
     joinedAt: member.createdAt,
+    // F7: whether they log in with an authenticator app (owners and admins may reset it).
+    totpEnabled: Boolean(user?.totp?.enabledAt),
   };
 }
 
@@ -31,14 +35,14 @@ async function list(req, pageQuery) {
   const repo = tenantRepository(OrganizationMember, req.tenant.organizationId);
   const { items, pagination } = await repo.paginate({}, pageQuery, {
     sort: { createdAt: 1 },
-    populate: { path: 'userId', select: 'name email picture' },
+    populate: { path: 'userId', select: 'name email picture totp.enabledAt' },
   });
   return { items: items.map(serializeMember), pagination };
 }
 
 async function findInOrg(req, id) {
   const member = await tenantRepository(OrganizationMember, req.tenant.organizationId)
-    .findById(id).populate({ path: 'userId', select: 'name email picture' });
+    .findById(id).populate({ path: 'userId', select: 'name email picture totp.enabledAt' });
   if (!member) throw httpError(404, 'NOT_FOUND', 'Member not found');
   return member;
 }
@@ -106,4 +110,21 @@ async function remove(req, id) {
   await audit(req, { action: 'member.removed', entityType: 'OrganizationMember', entityId: member._id, changes: { role: member.role } });
 }
 
-module.exports = { list, update, remove, serializeMember };
+// POST /members/:id/totp-reset (F7): a teammate lost the phone with their authenticator app.
+async function resetTotp(req, id) {
+  const member = await findInOrg(req, id);
+  await totpService.assertMayReset(req, member);
+  const userId = member.userId?._id || member.userId;
+  await totpService.resetFor(userId);
+  await audit(req, { action: 'member.totp_reset', entityType: 'OrganizationMember', entityId: member._id });
+  const by = req.member.displayName || req.user.name || req.user.email;
+  await notificationService.notify(req.tenant.organizationId, [member._id], {
+    title: 'Your 2-step login was turned off',
+    body: `${by} turned off the authenticator app for your login. Turn it on again from your profile.`,
+    link: 'two-factor.html',
+    source: 'security',
+  }).catch(() => {});
+  return serializeMember(await findInOrg(req, id));
+}
+
+module.exports = { list, update, remove, resetTotp, serializeMember };

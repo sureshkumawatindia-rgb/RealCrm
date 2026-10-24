@@ -17,6 +17,20 @@ const userSchema = new mongoose.Schema(
     // 2-step verification (D60, Settings → Your Profile): on a new browser, a WhatsApp code to
     // that number after Google. Off unless switched on.
     twoStepEnabledAt: { type: Date },
+    // 2-step login with an authenticator app (F7). The secret is encrypted; backup codes are
+    // hashed and used once; lastStep keeps a code from being used twice; wrong tries lock it for a
+    // while; requiredBy is when it becomes required for an owner or admin.
+    totp: {
+      secretEnc: { type: String },
+      enabledAt: { type: Date },
+      pendingSecretEnc: { type: String },
+      pendingAt: { type: Date },
+      lastStep: { type: Number },
+      backupCodes: { type: [{ hash: String, usedAt: Date, _id: false }], default: undefined },
+      failedCount: { type: Number },
+      lockedUntil: { type: Date },
+      requiredBy: { type: Date },
+    },
     // The CRM's language and theme for this person on every device (CP5). Not set = English and
     // the device's theme; the language picked on the login page is saved at the first sign-in.
     preferences: {

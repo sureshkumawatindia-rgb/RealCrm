@@ -121,6 +121,19 @@
             </p>
           </div>
 
+          <!-- 2-step login with an authenticator app (F7) -->
+          <div class="login-step" id="appStep" hidden>
+            <p class="login-who"><i class="fa-solid fa-circle-check"></i> <span id="appWho"></span> <button type="button" class="login-link" id="appChangeGoogle" data-i18n="login.change">Change</button></p>
+            <p class="login-hint" id="appHint" data-i18n="login.appHint">Open your authenticator app and enter the 6-digit code it shows for YELLOW CRM.</p>
+            <form class="login-form" id="appForm" autocomplete="off">
+              <input type="text" id="appCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-i18n-placeholder="login.codePlaceholder" placeholder="6-digit code" aria-label="6-digit code" data-i18n-aria-label="login.codePlaceholder" required />
+              <button class="btn btn-primary" type="submit" id="appVerifyBtn" data-i18n="login.logIn">Log in</button>
+            </form>
+            <p class="login-links">
+              <button type="button" class="login-link" id="appBackup" data-i18n="login.useBackup">Use a backup code</button>
+            </p>
+          </div>
+
           <!-- A computer logged in from a phone (opened as login.html?with=phone) -->
           <div class="login-step" id="qrStep" hidden>
             <div class="login-qr" id="qrBox">

@@ -170,6 +170,7 @@ async function startSession(req, user, { invitedOrganizationId = null, inviteErr
       organizationId,
       member: memberSummary(member),
       memberships: await describeMemberships(user._id),
+      twoFactor: require('./totpService').summaryOf(user, member), // eslint-disable-line global-require
       ...(inviteError && { inviteError }),
     },
   };
@@ -228,6 +229,8 @@ async function me(req) {
     organization: { id: organization?._id, name: organization?.name || '', logoUrl: organization?.logoUrl || '', hiddenModules: hiddenModulesOf(organization) },
     member: memberSummary(req.member),
     memberships: await describeMemberships(req.user._id),
+    // 2-step login with the app (F7): on or off, and for owners and admins by when it is needed.
+    twoFactor: require('./totpService').summaryOf(req.user, req.member), // eslint-disable-line global-require
   };
 }
 

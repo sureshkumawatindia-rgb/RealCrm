@@ -9,6 +9,7 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { signLoginChallenge, verifyLoginChallenge, randomToken, hashToken } = require('../utils/tokens');
 const otpService = require('./otpService');
+const totpService = require('./totpService');
 const authService = require('./authService');
 
 // Logging in (D58, changed by D60): Google; then, for people with 2-step verification on (or
@@ -81,6 +82,15 @@ async function linkRememberedBrowser(req, user, familyId) {
 // Called by authService.loginWithGoogle. → null (sign in now) or what the login page needs for
 // steps 2 and 3.
 async function secondStepFor(req, user, { invitedOrganizationId, inviteError, workspaceId = null }) {
+  // The authenticator app (F7) comes first: it is the stronger step.
+  if (totpService.enabled(user)) {
+    if (await trustedFor(req, user)) return null;
+    return {
+      step: 'authenticator',
+      challenge: signLoginChallenge({ userId: user._id, invitedOrganizationId, inviteError, workspaceId }),
+      user: { email: user.email, name: user.name, picture: user.picture },
+    };
+  }
   if (!secondStepOn(user) || await trustedFor(req, user)) return null;
   const verified = user.phoneE164 && user.phoneVerifiedAt ? user.phoneE164 : '';
   return {
@@ -146,6 +156,21 @@ async function verifyCode(req, { challenge, phone, code, stayLoggedIn }) {
   return { ...session, device: stayLoggedIn ? await rememberDevice(req, user._id, session.familyId) : null };
 }
 
+// POST /auth/login/app { challenge, code, stayLoggedIn } — the authenticator app's code (or a
+// backup code) after Google (F7).
+async function verifyApp(req, { challenge, code, stayLoggedIn }) {
+  const { user, claims } = await userOfChallenge(challenge);
+  const used = await totpService.checkCode(user, code);
+  const session = await authService.startSession(req, await User.findById(user._id), {
+    invitedOrganizationId: claims.inv, inviteError: claims.err || null, workspaceId: claims.ws || null, method: `google+${used === 'backup' ? 'backup-code' : 'app'}`,
+  });
+  if (used === 'backup') {
+    req.user = user;
+    await audit(req, { organizationId: session.data.organizationId, action: 'auth.totp_backup_used', entityType: 'User', entityId: user._id });
+  }
+  return { ...session, device: stayLoggedIn ? await rememberDevice(req, user._id, session.familyId) : null };
+}
+
 // --- QR: log in a computer from the phone -------------------------------------------------------------
 const linkUrlOf = (id, secret) => `${env.publicUrl}/crm/frontend/link-device.html#${id}.${secret}`;
 
@@ -202,6 +227,6 @@ async function pollQr(req, { id, secret, stayLoggedIn }) {
 }
 
 module.exports = {
-  secondStepFor, sendCode, verifyCode, startQr, peekQr, approveQr, pollQr, readDeviceCookie, trustedFor, forgetDevice, linkRememberedBrowser,
+  secondStepFor, sendCode, verifyCode, verifyApp, startQr, peekQr, approveQr, pollQr, readDeviceCookie, trustedFor, forgetDevice, linkRememberedBrowser,
   secondStepOn, masked, shortAgent, DEVICE_COOKIE,
 };

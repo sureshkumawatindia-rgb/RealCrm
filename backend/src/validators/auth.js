@@ -29,6 +29,9 @@ module.exports = {
   // Signing in after Google, and from the phone by QR (D58).
   loginCode: Joi.object({ challenge, phone, channel: Joi.string().valid('whatsapp', 'sms').default('whatsapp') }),
   loginVerify: Joi.object({ challenge, phone, code, stayLoggedIn: Joi.boolean().default(false) }),
+  // F7: the app's 6 digits, or a backup code ("abcd-efgh").
+  loginApp: Joi.object({ challenge, code: Joi.string().trim().min(6).max(20).required(), stayLoggedIn: Joi.boolean().default(false) }),
+  totpCode: Joi.object({ code: Joi.string().trim().min(6).max(20).required() }),
   qrPoll: Joi.object({ secret, stayLoggedIn: Joi.boolean().default(false) }),
   qrSecret: Joi.object({ secret }),
   qrApprove: Joi.object({ secret, allow: Joi.boolean().default(true) }),

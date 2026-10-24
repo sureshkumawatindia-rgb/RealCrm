@@ -459,6 +459,7 @@ function renderMembers(members) {
         <div style="display:flex; align-items:center; gap:8px;">
           ${editable
             ? `<select data-member-role="${escapeHtml(m.id)}" aria-label="Role">${roleOptions(m.role)}</select>
+               ${m.totpEnabled ? `<button class="icon-btn" type="button" data-reset-totp="${escapeHtml(m.id)}" data-member-name="${escapeHtml(m.name || m.email)}" title="Turn off their 2-step login (lost phone)"><i class="fa-solid fa-shield-halved"></i></button>` : ""}
                <button class="icon-btn danger" type="button" data-remove-member="${escapeHtml(m.id)}" data-member-name="${escapeHtml(m.name || m.email)}" title="Remove from team"><i class="fa-solid fa-user-minus"></i></button>`
             : `<span class="badge badge-brand">${ROLE_LABELS[m.role] || escapeHtml(m.role)}</span>`}
         </div>
@@ -530,6 +531,19 @@ document.getElementById("teamMemberList").addEventListener("change", async (e) =
 });
 
 document.getElementById("teamMemberList").addEventListener("click", async (e) => {
+  // A teammate lost the phone with their authenticator app (F7).
+  const reset = e.target.closest("[data-reset-totp]");
+  if (reset) {
+    if (!confirm(`Turn off 2-step login for ${reset.dataset.memberName}? Do it only when you are sure it is them who lost their phone. They can log in with Google alone until they set it up again.`)) return;
+    try {
+      await crmApi(`/members/${reset.dataset.resetTotp}/totp-reset`, { method: "POST" });
+      showToast("2-step login turned off. They have been told.", "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Couldn't turn it off."), "error");
+    }
+    loadTeam();
+    return;
+  }
   const button = e.target.closest("[data-remove-member]");
   if (!button) return;
   if (!confirm(`Remove ${button.dataset.memberName} from the team? They will lose access right away.`)) return;

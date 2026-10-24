@@ -204,6 +204,7 @@ const STEPS = {
   phone: { panel: "phoneStep", sub: "subPhone" },
   code: { panel: "codeStep", sub: "subCode" },
   qr: { panel: "qrStep", sub: "subQr" },
+  app: { panel: "appStep", sub: "subApp" }, // the authenticator app's code (F7)
   busy: { panel: "busyStep", sub: "subGoogle" },
 };
 const login = { challenge: "", phone: "", channel: "whatsapp", smsBackup: false, step: "google", sent: null, phoneHintKey: "" };
@@ -229,7 +230,7 @@ function showStep(name) {
   Object.values(STEPS).forEach(({ panel }) => {
     $(panel).hidden = panel !== step.panel;
   });
-  $("stayRow").hidden = !["code", "qr"].includes(name);
+  $("stayRow").hidden = !["code", "qr", "app"].includes(name);
   $("smsRow").hidden = name !== "code" || !login.smsBackup;
   $("toGoogle").hidden = name !== "qr";
   renderStepTexts();
@@ -238,10 +239,12 @@ function showStep(name) {
   if (name === "google") renderCompany();
   if (name === "phone") ($("loginPhone").value ? $("sendCodeBtn") : $("loginPhone")).focus();
   if (name === "code") $("loginCode").focus();
+  if (name === "app") $("appCode").focus();
 }
 
 function backToGoogle(message) {
   Object.assign(login, { challenge: "", phone: "", channel: "whatsapp", sent: null, phoneHintKey: "" });
+  useBackupCode(false);
   $("loginCode").value = "";
   $("loginPhone").value = "";
   clearInterval(resendTimer);
@@ -264,6 +267,16 @@ async function handleGoogleCredentialResponse(response) {
   showStep("busy");
   try {
     const auth = await crmApi("/auth/google", postJson({ credential: response.credential, inviteToken, workspace, language: crmI18n.language() }));
+    // 2-step login with an authenticator app (F7): its code next.
+    if (auth.step === "authenticator") {
+      login.challenge = auth.challenge;
+      $("appWho").textContent = auth.user?.email || lt("signedInGoogle");
+      $("appCode").value = "";
+      useBackupCode(false);
+      if (note.key !== "noteInvite") setLoginNote("");
+      showStep("app");
+      return;
+    }
     if (auth.step !== "whatsapp-code") {
       rememberCompany();
       await completeSignIn(auth);
@@ -369,6 +382,50 @@ $("codeForm").addEventListener("submit", async (event) => {
 });
 
 $("changeGoogle").addEventListener("click", () => backToGoogle(""));
+
+// ---------------------------------------------------------------
+// The authenticator app's code, or a backup code (F7)
+// ---------------------------------------------------------------
+function useBackupCode(on) {
+  login.backup = on;
+  const input = $("appCode");
+  input.value = "";
+  input.maxLength = on ? 9 : 6;
+  input.inputMode = on ? "text" : "numeric";
+  input.placeholder = lt(on ? "backupPlaceholder" : "codePlaceholder");
+  input.setAttribute("aria-label", input.placeholder);
+  $("appHint").textContent = lt(on ? "backupHint" : "appHint");
+  $("appBackup").textContent = lt(on ? "useApp" : "useBackup");
+}
+$("appBackup").addEventListener("click", () => {
+  useBackupCode(!login.backup);
+  $("appCode").focus();
+});
+$("appChangeGoogle").addEventListener("click", () => backToGoogle(""));
+$("appCode").addEventListener("input", () => {
+  if (!login.backup) $("appCode").value = $("appCode").value.replace(/\D/g, "").slice(0, 6);
+});
+$("appForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!login.challenge) return backToGoogle("");
+  $("appVerifyBtn").disabled = true;
+  try {
+    const auth = await crmApi("/auth/login/app", postJson({ challenge: login.challenge, code: $("appCode").value.trim(), stayLoggedIn: stayLoggedIn() }));
+    rememberCompany();
+    await completeSignIn(auth);
+  } catch (error) {
+    $("appVerifyBtn").disabled = false;
+    if (error.code === "LOGIN_EXPIRED") return backToGoogle(errorText(error));
+    if (["NOT_IN_WORKSPACE", "WORKSPACE_NOT_FOUND"].includes(error.code)) {
+      backToGoogle("");
+      return companyRefused(error);
+    }
+    showStep("app");
+    showToast(errorText(error, "errApp"), "error");
+    $("appCode").select();
+  }
+  return undefined;
+});
 $("changePhone").addEventListener("click", () => {
   clearInterval(resendTimer);
   resendLeft = 0;

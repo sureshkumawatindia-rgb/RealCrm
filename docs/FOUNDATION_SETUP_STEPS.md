@@ -256,3 +256,70 @@ Staging moves to two servers first. Production follows only after your file copy
 
 Tell me what you saw, and we go on to week 4 (2FA and the restore drill).
 
+---
+
+# Week 4: 2-step login with an authenticator app, and the restore drill (F7, F4b)
+
+## Q. Turn on 2-step login (everyone, and owners and admins must)
+
+1. Install **Google Authenticator** (or Microsoft Authenticator) on your phone.
+2. In the CRM: **Settings → Your Profile → 2-step login → Set up 2-step login**. You can also use the yellow band shown to owners and admins.
+3. In the app, scan the QR code (or type the key shown under it). Enter the 6-digit code the app shows → **Turn on 2-step login**.
+4. The CRM shows **10 backup codes** once. **Download** them (or copy them) and keep them somewhere safe that is **not** your phone: a password manager, or printed. Each code logs you in once if the phone is lost.
+5. From now on, after Google, the CRM asks for the app's code. "Stay logged in on this browser" skips it on that browser for 30 days.
+
+**Owners and admins must use it:**
+- From the day they are first seen after this update, they get **7 days** (the yellow band says by when).
+- After that, the CRM opens only the 2-step login page until they turn it on.
+- They cannot turn it off themselves; they can only make new backup codes.
+
+## R. When someone loses their phone
+
+- **They have a backup code:** they log in with it (on the login page, "Use a backup code"), then on the 2-step login page they make new backup codes. When they have a new phone, an owner or admin resets it (below) so they can set it up again.
+- **Another owner or admin can reset it:** **Settings → Team & Access** → the shield button next to the person → confirm. Do this only when you are sure it is really them, for example by calling the number you already know.
+  - They are told on the bell.
+  - They log in with Google alone until they set it up again.
+  - An owner or admin among them gets a fresh 7 days.
+- **Only support can reset it** (you, on Render) when the person is the only owner, or belongs to other companies too:
+  1. Check who is asking.
+  2. Render → **yellow-crm** → **Shell**.
+  3. Type the command below. It is written to the audit log of each of their companies.
+
+  ```bash
+  cd backend && node scripts/totp-reset.js their@email.com --yes
+  ```
+
+## S. The restore drill (once a month)
+
+This proves the weekly copy (section L) can really be put back. It never touches production's database.
+
+1. **A temporary database:** Atlas → your staging project (or a new one) → **Create** a new **M0** cluster named `restore-drill` → a database user → **Network Access** as before → **Connect → Drivers** → copy its address.
+2. Render → **yellow-crm** → **Shell**. List the copies:
+
+   ```bash
+   cd backend && node scripts/backup.js list
+   ```
+
+3. Restore the newest one into the temporary database. Use that day and the address from step 1, in quotes:
+
+   ```bash
+   cd backend && node scripts/backup.js restore 2026-11-01 "mongodb+srv://…restore-drill…"
+   ```
+
+   It refuses production's own address and any database that is not empty. It ends with `OK, N collections, M documents in S seconds`.
+4. Write down the date, the line it printed and how long it took (the goal is under an hour, all of it).
+5. **Delete** the `restore-drill` cluster in Atlas: it holds a copy of your customers' data.
+
+## T. Check that week 4 works
+
+| Check | How | Expected |
+|---|---|---|
+| Set up | Staging: Your Profile → Set up 2-step login | QR code, then 10 backup codes |
+| Asked after Google | Log out, log in again | "Enter the code from your authenticator app" |
+| Backup code | "Use a backup code" on the login page | Logs in once; the same code a second time is refused |
+| Owners required | An owner without it, after 7 days | Only the 2-step login page opens |
+| Reset | Team & Access → shield button | The person logs in with Google alone and sees a bell note |
+| Restore drill | Section S | OK, counts match, under an hour |
+
+That completes the 30-day foundation. The last step left is production on two servers (section O), after your copy check.
+

@@ -2,6 +2,7 @@ const authService = require('../services/authService');
 const otpService = require('../services/otpService');
 const loginService = require('../services/loginService');
 const deviceService = require('../services/deviceService');
+const totpService = require('../services/totpService');
 const workspaceService = require('../services/workspaceService');
 const { REFRESH_COOKIE, readCookie, setRefreshCookie, clearRefreshCookie } = require('../utils/cookies');
 
@@ -55,6 +56,26 @@ async function loginCode(req, res) {
 async function loginVerify(req, res) {
   finishSignIn(req, res, await loginService.verifyCode(req, req.body));
 }
+async function loginApp(req, res) {
+  finishSignIn(req, res, await loginService.verifyApp(req, req.body));
+}
+
+// 2-step login with an authenticator app (F7).
+async function totpStatus(req, res) {
+  res.json({ success: true, data: totpService.status(req) });
+}
+async function totpSetup(req, res) {
+  res.json({ success: true, data: await totpService.setup(req) });
+}
+async function totpEnable(req, res) {
+  res.json({ success: true, data: await totpService.enable(req, req.body), message: '2-step login is on' });
+}
+async function totpBackupCodes(req, res) {
+  res.json({ success: true, data: await totpService.newCodes(req, req.body), message: 'New backup codes made' });
+}
+async function totpDisable(req, res) {
+  res.json({ success: true, data: await totpService.disable(req, req.body), message: '2-step login is off' });
+}
 
 // Logging in a computer from the phone (QR).
 async function qrStart(req, res) {
@@ -107,6 +128,7 @@ async function preferences(req, res) {
 }
 
 module.exports = {
-  preferences, google, workspace, refresh, logout, me, switchOrganization, loginCode, loginVerify, qrStart, qrPoll, qrPeek, qrApprove,
+  preferences, google, workspace, refresh, logout, me, switchOrganization, loginCode, loginVerify, loginApp, qrStart, qrPoll, qrPeek, qrApprove,
   devices, deviceLogOut, devicesLogOutOthers, phoneStatus, phoneRequest, phoneVerify, phoneUnlink, twoStep,
+  totpStatus, totpSetup, totpEnable, totpBackupCodes, totpDisable,
 };

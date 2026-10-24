@@ -1063,6 +1063,14 @@
                     <a class="btn btn-primary" href="link-device.html"><i class="fa-solid fa-qrcode"></i> Scan the computer's code</a>
                   </div>
                 </div>
+                <!-- 2-step login with an authenticator app (F7, js/settings-totp.js) -->
+                <div class="settings-section" id="totpSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
+                  <div class="settings-section-label" data-i18n="tfa.title">2-step login</div>
+                  <p class="settings-hint" id="totpStatus" data-i18n="tfa.profileHint">After Google, a code from an authenticator app on your phone (Google Authenticator, Microsoft Authenticator…).</p>
+                  <div class="data-actions">
+                    <a class="btn btn-outline" href="two-factor.html" id="totpLink"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="tfa.manage">Set up 2-step login</span></a>
+                  </div>
+                </div>
                 <div class="settings-section" id="devicesSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
                   <div class="settings-section-label">Where you're logged in</div>
                   <p class="settings-hint">Every browser and phone where your account is open, like WhatsApp's linked devices. Log out one you don't know or no longer use.</p>
@@ -2504,5 +2512,6 @@
     <script src="./js/settings-microsoft.js"></script>
     <script src="./js/settings-google.js"></script>
     <script src="./js/settings-deletion.js"></script>
+    <script src="./js/settings-totp.js"></script>
   </body>
 </html>

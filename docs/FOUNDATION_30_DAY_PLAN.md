@@ -269,3 +269,50 @@ Your steps: sections N–P of `docs/FOUNDATION_SETUP_STEPS.md`.
 
 **Full run: 999 of 1000 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
 
+## 12. Week 4: what was built (D96, 2026-10-24), and how it differs from the plan
+
+Your steps: sections Q–T of `docs/FOUNDATION_SETUP_STEPS.md`.
+
+**F7. 2-step login with an authenticator app**
+- **The codes** (`utils/totp.js`): RFC 6238 (HMAC-SHA1, 30 seconds, 6 digits) without a library. They match all six of the RFC's SHA-1 test values, and base32 matches RFC 4648.
+- **Set up** (`two-factor.html`, `services/totpService.js`):
+  - a QR code and the key to type instead;
+  - the first code turns it on;
+  - 10 backup codes (`abcd-efgh`, hashed, one use each), shown once, to copy or download;
+  - the secret is encrypted with `DATA_ENCRYPTION_KEY`.
+- **After Google** (`POST /auth/login/app`): the app's code (or a backup code) comes before a session, through the same sign-in challenge as the WhatsApp code (D58). The app comes first when both are on.
+  - Each 30-second code is accepted once, also when two requests bring it together.
+  - 5 wrong codes lock it for 15 minutes; the count is kept in the database, so two servers count together.
+  - "Stay logged in on this browser" skips it for 30 days, as before.
+  - A QR login approved from a signed-in phone needs no code.
+- **Owners and admins:**
+  - From the first time they are seen they get 7 days (`TOTP_GRACE_DAYS`, the band says by when).
+  - After that, every API answer except the sign-in ones is `TOTP_SETUP_REQUIRED`, and the pages send them to the set-up page.
+  - They cannot turn it off; they can make new backup codes.
+  - `TOTP_REQUIRED_FOR_MANAGERS=off` makes it optional for all.
+- **Reset:**
+  - Another owner or admin can reset it from Team & Access (an admin never an owner's; nobody their own). The person is told on the bell, their remembered browsers are forgotten, and an owner or admin among them gets a fresh grace period.
+  - **Different from the plan:** a person who also belongs to another company can only be reset by support (`scripts/totp-reset.js <email> --yes`, written to each company's audit log). Without this, one company's admin could weaken another company's login.
+- **Audit:** turning it on and off, new backup codes, a backup code used, and a reset are all written to the audit log.
+
+**F4b. The restore drill**
+- `node scripts/backup.js restore <day> <address>` puts a weekly copy back into a temporary database and counts each collection against the manifest. Ids and dates come back as they were.
+- It refuses production's own address and any database that is not empty.
+- Indexes are not copied; the CRM builds them when it starts on a database.
+
+**Checked in the isolated preview:**
+- an owner saw the band ("by 31 October");
+- 2-step login was set up with the QR key and a code from the same algorithm, and 10 backup codes were shown;
+- after logging out, Google led to "Enter the code from your authenticator app", and the next code logged in;
+- an owner past the grace days opening Leads was sent to `two-factor.html?required=1`;
+- the page in Hindi at 390 px had no sideways scroll.
+- A real phone app is UNVERIFIED until your steps; the RFC test values make a mismatch unlikely.
+
+**Tests:**
+- `totp.test.js` (3): the RFC values and windows; set up, asked after Google, each code once, backup codes once, the lock, the remembered browser, an agent turning it off; owners required after the grace days, kept on, reset by an owner (not by an admin for an owner, not for oneself, not across companies), the bell note.
+- `storage.test.js` (+1): the restore drill.
+
+**Full run: 1012 of 1013 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
+
+**The 30-day foundation is done.** What is left is yours: the set-up steps A–T, and production on two servers after the copy check (section O).
+

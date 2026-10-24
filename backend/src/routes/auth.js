@@ -18,6 +18,8 @@ router.post('/switch-organization', authenticate, validate({ body: schemas.switc
 // After Google: the mobile number and a WhatsApp code (D58).
 router.post('/login/code', authLimiter, validate({ body: schemas.loginCode }), controller.loginCode);
 router.post('/login/verify', authLimiter, validate({ body: schemas.loginVerify }), controller.loginVerify);
+// Or the authenticator app's code (F7).
+router.post('/login/app', authLimiter, validate({ body: schemas.loginApp }), controller.loginApp);
 // Logging in a computer by scanning its QR code with the phone (D58).
 router.post('/qr', authLimiter, controller.qrStart);
 router.post('/qr/:id/poll', qrPollLimiter, validate({ params: idParams, body: schemas.qrPoll }), controller.qrPoll);
@@ -34,6 +36,12 @@ router.post('/phone/verify', authLimiter, authenticate, validate({ body: schemas
 router.delete('/phone', authenticate, controller.phoneUnlink);
 // 2-step verification: the WhatsApp code after Google on a new browser (optional, D60).
 router.put('/two-step', authenticate, validate({ body: schemas.twoStep }), controller.twoStep);
+// 2-step login with an authenticator app (F7): status, set up, turn on, new backup codes, off.
+router.get('/totp', authenticate, controller.totpStatus);
+router.post('/totp/setup', authenticate, controller.totpSetup);
+router.post('/totp/enable', authLimiter, authenticate, validate({ body: schemas.totpCode }), controller.totpEnable);
+router.post('/totp/backup-codes', authLimiter, authenticate, validate({ body: schemas.totpCode }), controller.totpBackupCodes);
+router.post('/totp/disable', authLimiter, authenticate, validate({ body: schemas.totpCode }), controller.totpDisable);
 // One's own language and theme, the same on every device (CP5).
 router.patch('/preferences', authenticate, validate({ body: schemas.preferences }), controller.preferences);
 

@@ -117,6 +117,10 @@ const schema = Joi.object({
   // optional (default) = only people who switch on 2-step verification in Settings → Your
   // Profile; required = everyone; off = Google alone for all.
   LOGIN_WHATSAPP_CODE: Joi.string().valid('required', 'optional', 'off').default('optional'),
+  // 2-step login with an authenticator app (F7): owners and admins must turn it on within
+  // TOTP_GRACE_DAYS of first being asked; off = optional for everyone.
+  TOTP_REQUIRED_FOR_MANAGERS: Joi.boolean().truthy('on').falsy('off').default(true),
+  TOTP_GRACE_DAYS: Joi.number().integer().min(0).max(90).default(7),
   WHATSAPP_OTP_PHONE_NUMBER_ID: Joi.string().allow('').default(''),
   WHATSAPP_OTP_ACCESS_TOKEN: Joi.string().allow('').default(''),
   WHATSAPP_OTP_TEMPLATE: Joi.string().allow('').default(''),
@@ -237,6 +241,8 @@ const env = {
   },
   login: {
     whatsappCode: value.LOGIN_WHATSAPP_CODE,
+    totpRequiredForManagers: value.TOTP_REQUIRED_FOR_MANAGERS,
+    totpGraceDays: value.TOTP_GRACE_DAYS,
   },
   otp: {
     provider: value.NODE_ENV === 'production' && value.OTP_PROVIDER === 'mock' ? 'off' : value.OTP_PROVIDER,
