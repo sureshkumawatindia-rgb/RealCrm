@@ -8,6 +8,7 @@ const mock = require('./mock');
 //   off  — neither: connecting Google is not offered
 function mode() {
   if (env.isTest) return 'mock';
+  if (env.isStaging) return env.devTools ? 'mock' : 'off'; // F2: never real mailboxes from staging
   if (env.googleClientSecret) return 'live';
   if (env.devTools) return 'mock';
   return 'off';

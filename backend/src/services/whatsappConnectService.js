@@ -49,6 +49,7 @@ async function connect(req, options) {
 }
 
 async function connectHeld(req, { code, wabaId, phoneNumberId, mode }) {
+  if (env.isStaging) throw httpError(400, 'STAGING_TEST_NUMBERS_ONLY', 'Staging uses test numbers only, so no real customer gets a message from it.'); // F2
   if (!signup.available()) throw httpError(409, 'CONNECT_NOT_AVAILABLE', 'Connecting WhatsApp is still being set up for this CRM. Please try again later.');
   const { organizationId } = req.tenant;
   const coexistence = mode === 'coexistence';

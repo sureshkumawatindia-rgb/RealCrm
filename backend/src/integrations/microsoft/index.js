@@ -8,6 +8,7 @@ const mock = require('./mock');
 //   mock  — tests, and development with DEV_TOOLS=on: the stand-in (mock.js)
 //   off   — neither: the connection is not offered
 function mode() {
+  if (env.isStaging) return env.devTools ? 'mock' : 'off'; // F2: never real calendars from staging
   if (env.microsoft.clientId) return 'live';
   if (env.isTest || env.devTools) return 'mock';
   return 'off';

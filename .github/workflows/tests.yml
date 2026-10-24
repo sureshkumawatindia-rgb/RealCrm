@@ -1,0 +1,52 @@
+# Every push and pull request runs the whole test suite (F1, docs/FOUNDATION_30_DAY_PLAN.md).
+# Render deploys `main` (production) and `staging` only when these checks pass
+# (render.yaml: autoDeployTrigger: checksPass).
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend and pages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # The in-memory MongoDB the tests start (mongodb-memory-server) is downloaded once and kept.
+      MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.mongodb-binaries
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Keep the test MongoDB between runs
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.mongodb-binaries
+          key: mongodb-${{ runner.os }}-${{ hashFiles('backend/package-lock.json') }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Tests
+        # Two workers: more make the shared in-memory database time out on small machines.
+        run: npx jest -w 2 --ci
+
+      - name: Alert watchdog tests
+        working-directory: ops/alert-worker
+        run: node --test worker.test.js

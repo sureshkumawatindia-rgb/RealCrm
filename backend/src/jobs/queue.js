@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const os = require('os');
 const Job = require('../models/Job');
 const logger = require('../config/logger');
+const errorReporter = require('../services/errorReporter');
 
 // Background jobs on MongoDB (D10). Small on purpose: define a handler, enqueue work (now, later
 // or every N ms), and a worker in each server process claims due jobs one at a time with an
@@ -99,6 +100,7 @@ async function run(job) {
       await Job.updateOne(mine, { $set: { status: 'queued', runAt: new Date(Date.now() + backoffMs(job.attempts)), lastError: message }, $unset: unlock });
     } else {
       await Job.updateOne(mine, { $set: { status: 'failed', finishedAt: new Date(), lastError: message }, $unset: { ...unlock, liveKey: 1 } });
+      errorReporter.capture(error, { source: 'job', tags: { job: job.name } }); // F3: a job that gave up
     }
   }
 }

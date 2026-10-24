@@ -21,6 +21,43 @@ const CRM_API_BASE =
     ? `${window.location.origin}/api/v1`
     : "http://127.0.0.1:3000/api/v1";
 
+// Errors in the pages reach the team (F3): at most 5 from one page, sent to the server, which
+// takes customers' numbers and emails out before Sentry sees them. Errors from browser add-ons
+// (another address) and the API's own answers (already known to the server) are left out.
+(function reportPageErrors() {
+  let sent = 0;
+  function send(details) {
+    if (!details.message || sent >= 5) return;
+    sent += 1;
+    try {
+      fetch(`${CRM_API_BASE}/client-errors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: String(details.message).slice(0, 500),
+          stack: String(details.stack || "").slice(0, 4000),
+          source: String(details.source || "").split("?")[0].slice(0, 300),
+          ...(Number.isInteger(details.line) && { line: details.line }),
+          ...(Number.isInteger(details.column) && { column: details.column }),
+          page: window.location.pathname.slice(0, 300),
+        }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      /* reporting must never break the page */
+    }
+  }
+  window.addEventListener("error", (event) => {
+    if (event.filename && !event.filename.startsWith(window.location.origin)) return;
+    send({ message: event.message, stack: event.error?.stack, source: event.filename, line: event.lineno, column: event.colno });
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    if (reason && typeof reason.status === "number") return;
+    send({ message: reason?.message || String(reason ?? ""), stack: reason?.stack });
+  });
+})();
+
 // Auth endpoints answer 401 for their own reasons; never try a token refresh for them.
 const NO_REFRESH_PATHS = new Set(["/auth/google", "/auth/refresh", "/auth/logout", "/auth/login/code", "/auth/login/verify", "/auth/qr"]);
 let refreshInFlight = null;
@@ -1491,6 +1528,47 @@ const crmMoveMenu = (() => {
 
 const isOrgOwner = () => getCurrentMember()?.role === "owner";
 
+// Staging (F2): a band on every page so nobody takes it for the real CRM, and for owners and
+// admins a button that fills their company with made-up data (once).
+async function mountStagingBand() {
+  if (!isAuthenticated() || !document.querySelector(".sidebar")) return;
+  let health;
+  try {
+    health = await (await fetch(`${CRM_API_BASE}/health`)).json();
+  } catch {
+    return;
+  }
+  if (health?.data?.environment !== "staging") return;
+  await crmI18n.ready;
+  const band = document.createElement("div");
+  band.className = "staging-band";
+  band.setAttribute("role", "note");
+  band.innerHTML = `<i class="fa-solid fa-flask" aria-hidden="true"></i><span>${escapeHtml(t("stg.band"))}</span>${isOrgManager() ? `<button type="button" class="btn btn-outline" id="stagingSample">${escapeHtml(t("stg.sample"))}</button><button type="button" class="btn btn-outline" id="stagingTestError">${escapeHtml(t("stg.testError"))}</button>` : ""}`;
+  (document.querySelector(".main") || document.body).prepend(band);
+  document.getElementById("stagingSample")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = t("stg.sampleBusy");
+    try {
+      const made = await crmApi("/staging/sample-data", { method: "POST" });
+      showToast(t("stg.sampleDone", { leads: made.leads, tasks: made.tasks }), "success");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = t("stg.sample");
+      showToast(apiErrorMessage(error, t("stg.sampleFailed")), "error");
+    }
+  });
+  // A deliberate server error (F3): its report should reach Sentry and its email.
+  document.getElementById("stagingTestError")?.addEventListener("click", async () => {
+    try {
+      await crmApi("/dev/test-error", { method: "POST" });
+    } catch (error) {
+      showToast(error.status === 500 ? t("stg.testErrorSent") : apiErrorMessage(error, t("stg.sampleFailed")), error.status === 500 ? "success" : "error");
+    }
+  });
+}
+
 // "+919829070001" → "+91 98290 70001" (how numbers are read in India); others unchanged.
 function formatPhoneE164(phone) {
   const match = /^\+91(\d{5})(\d{5})$/.exec(String(phone || ""));
@@ -2530,6 +2608,7 @@ document.addEventListener("DOMContentLoaded", () => {
   fillSearchFromAddress();
   crmPlan.mountBanner();
   mountWhatsAppReminder();
+  mountStagingBand();
   // The Inbox page keeps its own count up to date live.
   if (moduleForPage(currentPageName()) !== "inbox") refreshInboxNavBadge();
 

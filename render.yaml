@@ -1,4 +1,5 @@
-# Render Blueprint for YELLOW CRM (D18). Step-by-step: docs/RENDER_SETUP.md.
+# Render Blueprint for YELLOW CRM (D18). Step-by-step: docs/RENDER_SETUP.md and, for staging,
+# Sentry and the deploy gate, docs/FOUNDATION_SETUP_STEPS.md.
 # One web service runs everything (pages, API, webhooks, live inbox, background jobs).
 # A disk keeps uploaded logos, documents and WhatsApp media across deploys (a disk needs a paid
 # instance and keeps the service to one instance, which this CRM needs anyway).
@@ -11,7 +12,8 @@ services:
     buildCommand: cd backend && npm ci --omit=dev
     startCommand: cd backend && node src/server.js
     healthCheckPath: /api/v1/health
-    autoDeployTrigger: commit # every push to main deploys
+    # F1: a push to main deploys only when its GitHub checks (the tests) pass.
+    autoDeployTrigger: checksPass
     disk:
       name: crm-files
       mountPath: /var/data
@@ -20,6 +22,8 @@ services:
       - key: NODE_VERSION
         value: "24"
       - key: NODE_ENV
+        value: production
+      - key: APP_ENV
         value: production
       - key: TRUST_PROXY
         value: "1"
@@ -52,3 +56,45 @@ services:
       #   META_APP_SECRET, META_ES_CONFIG_ID, META_WEBHOOK_VERIFY_TOKEN
       # - Who runs the CRM, on invoices and the Privacy/Terms pages: BILLING_SELLER_NAME,
       #   BILLING_SELLER_EMAIL, BILLING_SELLER_ADDRESS, BILLING_SELLER_GSTIN
+      # - Error reports (F3): SENTRY_DSN (docs/FOUNDATION_SETUP_STEPS.md)
+
+  # Staging (F2): the same code from the `staging` branch, its own database with made-up data,
+  # and only the test stand-ins for WhatsApp, SMS, calls, Google and Microsoft (APP_ENV=staging),
+  # so nothing reaches real customers. No disk: files there are lost on each deploy until they
+  # move to Cloudflare R2 (F5).
+  - type: web
+    name: yellow-crm-staging
+    runtime: node
+    region: singapore
+    plan: 0.5c-512mb
+    branch: staging
+    buildCommand: cd backend && npm ci --omit=dev
+    startCommand: cd backend && node src/server.js
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: APP_ENV
+        value: staging
+      - key: DEV_TOOLS
+        value: "on"
+      - key: TRUST_PROXY
+        value: "1"
+      # Staging's own keys (never production's): sessions and secrets do not carry over.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      - key: GMAIL_TOKEN_ENCRYPTION_KEY
+        generateValue: true
+      # Set by you in the service's Environment tab: the STAGING database (never production's),
+      # the same Google sign-in client id, and the staging address.
+      - key: MONGO_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: PUBLIC_URL
+        sync: false

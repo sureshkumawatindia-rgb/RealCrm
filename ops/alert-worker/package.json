@@ -1,0 +1,9 @@
+{
+  "name": "yellow-crm-alert-worker",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker that checks the CRM's health and sends WhatsApp alerts (F3)",
+  "scripts": {
+    "test": "node --test worker.test.js"
+  }
+}

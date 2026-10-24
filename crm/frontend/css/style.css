@@ -5135,3 +5135,28 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   font-size: 13px;
   color: var(--text-muted);
 }
+/* Staging (F2): the band on every page, so nobody takes it for the real CRM. */
+.staging-band {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 28px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--warning-bg);
+  border-bottom: 1px solid var(--warning);
+  color: var(--text);
+}
+.staging-band .fa-flask {
+  color: var(--warning);
+}
+.staging-band .btn {
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
+@media (max-width: 700px) {
+  .staging-band {
+    padding: 8px 16px;
+  }
+}

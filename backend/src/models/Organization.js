@@ -94,6 +94,8 @@ const organizationSchema = new mongoose.Schema(
       hiddenModules: { type: [String], default: undefined },
       // D92: a won deal starts its delivery project by itself, with this template.
       projectsOnWon: { enabled: { type: Boolean, default: false }, templateId: { type: mongoose.Schema.Types.ObjectId } },
+      // F2: when made-up data was added on staging (once per company).
+      sampleDataAt: { type: Date },
     },
     // First steps after sign-up (D64): when an owner or admin finished or skipped "Invite your team".
     onboarding: {

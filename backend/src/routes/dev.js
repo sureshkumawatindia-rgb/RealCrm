@@ -107,6 +107,11 @@ const mockMail = Joi.object({
   snippet: Joi.string().trim().max(500).allow('').default(''),
   threadId: Joi.string().trim().pattern(/^[A-Za-z0-9_-]{1,60}$/),
 });
+// A deliberate server error (F3), to check that error reports and their alerts arrive.
+router.post('/test-error', () => {
+  throw new Error('Test error from the developer tools (F3)');
+});
+
 router.post('/simulate/gmail', validate({ body: mockMail }), async (req, res) => {
   if (google.mode() !== 'mock') throw httpError(409, 'GOOGLE_NOT_MOCK', 'Google is not the stand-in here.');
   const id = google.mock.addMessage(String(req.user.email).toLowerCase(), req.body);

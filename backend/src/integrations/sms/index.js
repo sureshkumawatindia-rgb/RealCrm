@@ -29,6 +29,7 @@ const PROVIDERS = { msg91: flow, mock };
 const mockAllowed = () => env.isTest || env.devTools;
 function providerFor(name) {
   if (name === 'mock' && !mockAllowed()) return null;
+  if (env.isStaging && name !== 'mock') return null; // F2: no real SMS from staging
   return PROVIDERS[name] || null;
 }
 

@@ -22,6 +22,13 @@ const frontendDir = path.resolve(__dirname, '..', '..', 'crm', 'frontend');
 if (env.trustProxy) app.set('trust proxy', env.trustProxy);
 
 app.use(requestId);
+// Staging (F2) is never shown by search engines.
+if (env.isStaging) {
+  app.use((req, res, next) => {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    next();
+  });
+}
 
 // The CRM pages, so this one server runs the whole CRM (see start-crm.vbs).
 // Served before helmet: its headers would block the pages' inline scripts and Google sign-in.

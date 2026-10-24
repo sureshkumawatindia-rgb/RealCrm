@@ -1,4 +1,5 @@
 const logger = require('../config/logger');
+const errorReporter = require('../services/errorReporter');
 
 // Maps library errors to the API error shape. Errors without an explicit statusCode are
 // unexpected: they are logged in full but answered with a generic message.
@@ -14,7 +15,10 @@ function normalize(err) {
 
 const errorHandler = (err, req, res, next) => {
   const { statusCode, code, message, errors } = normalize(err);
-  if (statusCode >= 500) logger.error(`${req.id || ''} - ${err.message}`, { stack: err.stack });
+  if (statusCode >= 500) {
+    logger.error(`${req.id || ''} - ${err.message}`, { stack: err.stack });
+    errorReporter.capture(err, { req }); // F3: to Sentry, without customers' data
+  }
   else logger.warn(`${req.id || ''} - ${statusCode} ${code}: ${message}`);
 
   const response = {

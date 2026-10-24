@@ -9,6 +9,7 @@ const mockAllowed = () => env.isTest || env.devTools;
 
 function providerFor(name) {
   if (name === 'mock' && !mockAllowed()) return null;
+  if (env.isStaging && name !== 'mock') return null; // F2: no real calls from staging
   return PROVIDERS[name] || null;
 }
 

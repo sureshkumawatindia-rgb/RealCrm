@@ -1,5 +1,7 @@
 const express = require('express');
 const healthRoutes = require('./health');
+const clientErrorRoutes = require('./clientErrors');
+const stagingRoutes = require('./staging');
 const siteRoutes = require('./site');
 const privacyRoutes = require('./privacy');
 const searchRoutes = require('./search');
@@ -53,6 +55,8 @@ const { apiKeyRoutes, webhookRoutes: outboundWebhookRoutes, metaConversionsRoute
 const router = express.Router();
 
 router.use('/health', healthRoutes);
+router.use('/client-errors', clientErrorRoutes); // F3: errors in the pages
+router.use('/staging', stagingRoutes); // F2: staging only
 router.use('/site', siteRoutes);
 router.use('/privacy', privacyRoutes);
 router.use('/search', searchRoutes);

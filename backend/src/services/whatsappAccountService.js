@@ -111,6 +111,9 @@ async function create(req, body) {
 
 async function createHeld(req, body) {
   const provider = body.provider || 'meta';
+  if (provider !== 'mock' && env.isStaging) {
+    throw httpError(400, 'STAGING_TEST_NUMBERS_ONLY', 'Staging uses test numbers only, so no real customer gets a message from it.');
+  }
   if (provider === 'mock' && !env.devTools) {
     throw httpError(400, 'VALIDATION_ERROR', 'Test numbers are developer test tools (DEV_TOOLS=on, never in production).');
   }

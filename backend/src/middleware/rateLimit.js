@@ -32,7 +32,10 @@ const workspaceLimiter = perMinute(env.rateLimit.workspacePerMinute);
 // The login page asks every 2 seconds whether its QR code was allowed (D58).
 const qrPollLimiter = perMinute(120);
 
+// Errors from the pages (F3): app.js sends at most 5 a page; more from one address is noise.
+const clientErrorLimiter = perMinute(20);
+
 // The public API (Phase 10C): per API key, after the key is checked.
 const publicApiLimiter = perMinute(env.rateLimit.publicApiPerMinute, { keyGenerator: (req) => `key:${req.apiKey.prefix}` });
 
-module.exports = { apiLimiter, authLimiter, webhookLimiter, formLimiter, linkLimiter, publicApiLimiter, qrPollLimiter, workspaceLimiter };
+module.exports = { apiLimiter, authLimiter, clientErrorLimiter, webhookLimiter, formLimiter, linkLimiter, publicApiLimiter, qrPollLimiter, workspaceLimiter };

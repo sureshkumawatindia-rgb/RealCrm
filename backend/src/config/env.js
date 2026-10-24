@@ -47,8 +47,14 @@ const schema = Joi.object({
   META_ES_CONFIG_ID: Joi.string().pattern(/^\d*$/).allow('').default(''),
   META_WEBHOOK_VERIFY_TOKEN: Joi.string().allow('').default(''),
   // Developer test tools (test numbers, the message simulator): never in production, and in
-  // development only when switched on.
+  // development and staging only when switched on.
   DEV_TOOLS: Joi.boolean().truthy('on').falsy('off').default(false),
+  // Which copy of the CRM this is (F2): production, or staging (production settings, made-up
+  // data, and the test stand-ins instead of real WhatsApp, SMS, calls, Google and Microsoft).
+  APP_ENV: Joi.string().valid('production', 'staging', 'development', 'test'),
+  // Error reports to Sentry (F3). Without a DSN nothing is sent.
+  SENTRY_DSN: Joi.string().uri({ scheme: ['http', 'https'] }).allow('').default(''),
+  SENTRY_ENVIRONMENT: Joi.string().pattern(/^[A-Za-z0-9_.-]{1,64}$/).allow('').default(''),
   // IndiaMART CRM Pull API v2 (changed only for tests).
   INDIAMART_PULL_URL: Joi.string().uri({ scheme: ['http', 'https'] }).default('https://mapi.indiamart.com/wservce/crm/crmListing/v2/'),
   RATE_LIMIT_API_PER_MINUTE: Joi.number().integer().min(1).default(300),
@@ -127,12 +133,21 @@ const publicUrl = value.PUBLIC_URL.replace(/\/+$/, '');
 const frontendUrl = value.FRONTEND_URL || `${publicUrl}/crm/frontend`;
 const configuredOrigins = value.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
 const isProduction = value.NODE_ENV === 'production';
+const appEnv = value.APP_ENV || (isProduction ? 'production' : value.NODE_ENV);
 
 const env = {
   port: value.PORT,
   nodeEnv: value.NODE_ENV,
   isProduction,
   isTest: value.NODE_ENV === 'test',
+  appEnv,
+  isStaging: appEnv === 'staging',
+  // The deployed commit (Render sets RENDER_GIT_COMMIT): on /health and in error reports.
+  release: String(process.env.RENDER_GIT_COMMIT || process.env.APP_VERSION || '').slice(0, 12),
+  sentry: {
+    dsn: value.SENTRY_DSN,
+    environment: value.SENTRY_ENVIRONMENT || appEnv,
+  },
   mongoUri: value.MONGO_URI,
   googleClientId: value.GOOGLE_CLIENT_ID,
   googleClientSecret: value.GOOGLE_CLIENT_SECRET,
@@ -176,9 +191,10 @@ const env = {
     esConfigId: value.META_ES_CONFIG_ID,
     webhookVerifyToken: value.META_WEBHOOK_VERIFY_TOKEN,
   },
-  // Read each time, so it can never be on while isProduction is.
+  // Read each time, so it can never be on in production (staging runs with production settings
+  // and may switch it on: its data is made up).
   get devTools() {
-    return !this.isProduction && value.DEV_TOOLS;
+    return (!this.isProduction || this.isStaging) && value.DEV_TOOLS;
   },
   login: {
     whatsappCode: value.LOGIN_WHATSAPP_CODE,

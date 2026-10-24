@@ -87,7 +87,7 @@ These are environment variables on Render (service → **Environment**). Saving 
 
 ## Updating
 
-Every push to `main` on GitHub deploys by itself. Render builds, restarts, and runs any new data migration once.
+A push to `main` on GitHub deploys once its tests pass on GitHub (`.github/workflows/tests.yml`; since D93). Render builds, restarts, and runs any new data migration once. A `staging` branch deploys to the staging service the same way (`docs/FOUNDATION_SETUP_STEPS.md`).
 
 With a disk, a deploy has a short pause of a few seconds while the old instance stops.
 
