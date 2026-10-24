@@ -1,0 +1,326 @@
+/* Projects after the sale (Phase 10, D92): the list on the left, the open project beside it. */
+.pj-page [hidden] {
+  display: none !important;
+}
+.pj-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.pj-bar input[type="search"],
+.pj-bar select,
+.pj-page .pj-add input,
+.pj-page .pj-add select,
+.pj-dialog input[type="text"],
+.pj-dialog input[type="number"],
+.pj-dialog select {
+  padding: 9px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  min-width: 0;
+}
+.pj-bar input[type="search"] {
+  flex: 1 1 220px;
+}
+.pj-mine,
+.pj-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+}
+.pj-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.pj-list {
+  display: grid;
+  gap: 8px;
+}
+.pj-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pj-card:hover,
+.pj-card.active {
+  border-color: var(--brand-dark);
+}
+.pj-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pj-card-top strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pj-card-meta {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.pj-meter {
+  display: block;
+  height: 6px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+.pj-progress .pj-meter {
+  flex: 1 1 120px;
+}
+.pj-meter span {
+  display: block;
+  height: 100%;
+  background: var(--brand-dark);
+}
+.pj-status {
+  white-space: nowrap;
+}
+.pj-in_progress {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.pj-on_hold {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.pj-completed {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.pj-cancelled {
+  background: var(--border-soft);
+  color: var(--text-muted);
+}
+.pj-detail {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  scroll-margin-top: 12px;
+}
+.pj-detail h4 {
+  margin: 4px 0 0;
+}
+.pj-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pj-head h3 {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+.pj-number {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pj-head select {
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.pj-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.pj-progress strong {
+  color: var(--text);
+}
+.pj-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.pj-facts dt {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pj-facts dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+.pj-facts a {
+  margin-right: 10px;
+}
+.pj-milestones {
+  display: grid;
+  gap: 10px;
+}
+.pj-milestone {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.pj-ms-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pj-ms-head small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.pj-milestone.done .pj-ms-head strong {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.pj-tasks {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0 24px;
+}
+.pj-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  padding: 4px 0;
+}
+.pj-task span {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pj-task small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pj-task.done > span {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.pj-task input,
+.pj-ms-head input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+.pj-add {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pj-add input[type="text"] {
+  flex: 1 1 200px;
+}
+.pj-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.pj-page .link-btn,
+.pj-dialog .link-btn {
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  color: var(--brand-darker);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  justify-self: start;
+}
+.pj-dialog {
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 0;
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  background: var(--surface);
+  color: var(--text);
+}
+.pj-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+.pj-dialog-body {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.pj-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pj-dialog h3,
+.pj-dialog h4 {
+  margin: 0;
+}
+#pjTplBody {
+  display: grid;
+  gap: 12px;
+}
+.pj-tpl-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pj-tpl {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 12px;
+}
+.pj-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pj-row label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  flex: 1 1 160px;
+}
+.pj-row input[type="text"] {
+  flex: 1 1 200px;
+}
+.pj-row input[type="number"] {
+  width: 90px;
+}
+.pj-row label input[type="number"] {
+  width: auto;
+}
+@media (max-width: 860px) {
+  .pj-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pj-bar > * {
+    flex: 1 1 auto;
+  }
+  .pj-bar input[type="search"] {
+    flex-basis: 100%;
+  }
+  .pj-tasks {
+    margin-left: 12px;
+  }
+}

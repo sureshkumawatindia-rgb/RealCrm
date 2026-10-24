@@ -1,6 +1,8 @@
 const express = require('express');
 const crudController = require('../controllers/crudController');
 const leadService = require('../services/leadService');
+const projectService = require('../services/projectService');
+const projectSchemas = require('../validators/projects');
 const quotationService = require('../services/quotationService');
 const { authenticate } = require('../middleware/auth');
 const { requirePermission, requireRole } = require('../middleware/permissions');
@@ -44,6 +46,11 @@ router.get('/:id/activities', can('view'), byId, async (req, res) => {
   res.json({ success: true, data: await leadService.listActivities(req, req.valid.params.id) });
 });
 // Who can be @mentioned on this deal (D87): teammates who can open it.
+// "Start the project" on a won deal (D92): idempotent; Projects create, and the deal visible.
+router.post('/:id/project', requirePermission('projects', 'create'), validate({ params: idParams, body: projectSchemas.startFromLead }), async (req, res) => {
+  const { project, created } = await projectService.startFromLead(req, req.valid.params.id, req.body);
+  res.status(created ? 201 : 200).json({ success: true, data: project, created });
+});
 router.get('/:id/mentionable', can('view'), validate({ params: idParams, query: schemas.mentionQuery }), async (req, res) => {
   res.json({ success: true, data: await leadService.mentionable(req, req.valid.params.id, req.valid.query) });
 });

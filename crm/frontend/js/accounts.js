@@ -90,6 +90,7 @@ const MODULES = [
   { key: "accounts", label: "Accounts", icon: "fa-building" },
   { key: "deals", label: "Deals", icon: "fa-handshake" },
   { key: "tasks", label: "Tasks", icon: "fa-list-check" },
+  { key: "projects", label: "Projects", icon: "fa-briefcase" },
   { key: "calendar", label: "Calendar", icon: "fa-calendar-days" },
   { key: "marketing", label: "Marketing", icon: "fa-bullhorn" },
   { key: "automation", label: "Sales Automation", icon: "fa-robot" },
@@ -102,7 +103,7 @@ const MODULES = [
 ];
 const MODULE_LABEL = Object.fromEntries(MODULES.map((m) => [m.key, m.label]));
 // A new agent starts with the everyday sales and service pages.
-const DEFAULT_AGENT_MODULES = ["dashboard", "inbox", "customers", "leads", "deals", "tasks", "calendar", "support", "documents", "products"];
+const DEFAULT_AGENT_MODULES = ["dashboard", "inbox", "customers", "leads", "deals", "tasks", "calendar", "support", "documents", "products", "projects"];
 
 const agentModalOverlay = document.getElementById("agentModalOverlay");
 const agentForm = document.getElementById("agentForm");

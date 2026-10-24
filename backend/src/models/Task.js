@@ -19,6 +19,8 @@ const taskSchema = new mongoose.Schema(
     relatedType: { type: String, enum: RELATED_TYPES, default: '' },
     relatedId: { type: mongoose.Schema.Types.ObjectId },
     relatedName: { type: String, trim: true, default: '' },
+    // A project task's milestone (D92).
+    milestoneId: { type: mongoose.Schema.Types.ObjectId },
     origin: { type: String, enum: TASK_ORIGINS, default: 'manual' },
     legacyIds: { type: [String], default: undefined },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

@@ -26,7 +26,7 @@ const PRIORITY_BADGE_CLASS = {
 };
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 };
 // What a task is linked to: the server keeps the English type, the page shows the word.
-const RELATED_KEYS = { Customer: "orders.customer", Lead: "dash.add.lead", Account: "deals.col.account", Deal: "dash.add.deal" };
+const RELATED_KEYS = { Customer: "orders.customer", Lead: "dash.add.lead", Account: "deals.col.account", Deal: "dash.add.deal", Project: "proj.title" };
 const relatedLabel = (type) => (RELATED_KEYS[type] ? crmI18n.t(RELATED_KEYS[type]) : type);
 
 let currentView = "kanban";
@@ -432,6 +432,8 @@ function openModal(id) {
   const form = document.getElementById("taskForm");
   form.reset();
   closeAssigneeMenu();
+  // A project's task shows its project; it is not a choice for other tasks (D92).
+  document.querySelector('#fRelatedType option[value="Project"]')?.remove();
   populateRelatedOptions(document.getElementById("fRelatedType").value);
 
   const deleteBtn = document.getElementById("deleteBtn");
@@ -448,6 +450,7 @@ function openModal(id) {
     document.getElementById("fDueDate").value = task.dueDate || "";
     document.getElementById("fPriority").value = task.priority;
     document.getElementById("fStatus").value = task.status;
+    if (task.relatedType === "Project") document.getElementById("fRelatedType").insertAdjacentHTML("beforeend", `<option value="Project">${escapeHtml(relatedLabel("Project"))}</option>`);
     document.getElementById("fRelatedType").value = task.relatedType || "";
     populateRelatedOptions(task.relatedType || "");
     document.getElementById("fRelatedName").value = task.relatedName || "";

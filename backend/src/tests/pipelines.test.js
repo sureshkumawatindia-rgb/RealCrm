@@ -162,7 +162,8 @@ describe('Pipelines, moves and the board (Phase 5A)', () => {
   it('puts old leads into the default pipeline once, by their kind (migration 007)', async () => {
     const owner = await login('migrate-owner@example.com', { name: 'Esha' });
     const organizationId = new mongoose.Types.ObjectId(owner.data.organizationId);
-    const old = (stage) => ({ _id: new mongoose.Types.ObjectId(), organizationId, contactId: new mongoose.Types.ObjectId(), title: `Old ${stage}`, stage, createdAt: new Date(Date.now() - 20 * DAY), stageChangedAt: new Date(Date.now() - 10 * DAY), deletedAt: null });
+    const changedAt = new Date(Date.now() - 10 * DAY); // one time for all three, so they compare equal
+    const old = (stage) => ({ _id: new mongoose.Types.ObjectId(), organizationId, contactId: new mongoose.Types.ObjectId(), title: `Old ${stage}`, stage, createdAt: new Date(Date.now() - 20 * DAY), stageChangedAt: changedAt, deletedAt: null });
     const rows = [old('New'), old('Negotiation'), old('Won')];
     await Lead.collection.insertMany(rows);
     const first = await migration.up();

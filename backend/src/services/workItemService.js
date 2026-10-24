@@ -1,5 +1,6 @@
 const Contact = require('../models/Contact');
 const Lead = require('../models/Lead');
+const Project = require('../models/Project');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { toPage, paginationMeta } = require('../utils/pagination');
@@ -17,7 +18,10 @@ async function resolveRelated(req, { relatedType = '', relatedId, relatedName = 
 
   const organizationId = req.tenant.organizationId;
   let name = null;
-  if (relatedType === 'Customer' || relatedType === 'Contact') {
+  if (relatedType === 'Project') {
+    const project = await Project.findOne({ _id: relatedId, organizationId }).select('name');
+    name = project?.name;
+  } else if (relatedType === 'Customer' || relatedType === 'Contact') {
     const contact = await Contact.findOne({ _id: relatedId, organizationId }).select('name');
     name = contact?.name;
   } else {
@@ -62,7 +66,9 @@ function createWorkItemService(config) {
       item.assigneeId = await resolveAssigneeId(req, body.assigneeId);
       if (item.assigneeId) item.assigneeName = '';
     }
-    if (RELATED_KEYS.some((key) => key in body)) {
+    // A project's task stays on its project (D92): the Tasks page's form cannot take it off.
+    const onProject = !item.isNew && item.relatedType === 'Project';
+    if (!onProject && RELATED_KEYS.some((key) => key in body)) {
       const related = await resolveRelated(req, {
         relatedType: 'relatedType' in body ? body.relatedType : item.relatedType,
         relatedId: 'relatedId' in body ? body.relatedId : item.relatedId,

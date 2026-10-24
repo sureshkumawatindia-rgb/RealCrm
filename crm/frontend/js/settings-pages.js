@@ -19,6 +19,7 @@
     ["marketing", "nav.marketing", "fa-solid fa-bullhorn"],
     ["automation", "nav.automation", "fa-solid fa-gears"],
     ["tasks", "nav.tasks", "fa-solid fa-list-check"],
+    ["projects", "nav.projects", "fa-solid fa-briefcase"],
     ["calendar", "nav.calendar", "fa-solid fa-calendar-days"],
     ["documents", "nav.documents", "fa-solid fa-file-lines"],
     ["support", "nav.support", "fa-solid fa-headset"],

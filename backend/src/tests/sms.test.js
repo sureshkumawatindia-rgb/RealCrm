@@ -129,7 +129,7 @@ describe('SMS to customers', () => {
     const step = { day: 0, type: 'sms.send', params: { template: connection.templates[0].key, variables: { name: 'contact.name', org: 'org.name' } } };
     const bad = await o.post('/sequences', { name: 'Bad', steps: [{ ...step, params: { template: connection.templates[0].key, variables: { name: 'contact.name' } } }] });
     expect(bad.body.errors[0].code).toBe('VARIABLE_REQUIRED');
-    const sequence = (await o.post('/sequences', { name: 'SMS chase', stopOnReply: true, steps: [step, { ...step, day: 2 }, { ...step, day: 4 }] })).body.data;
+    const sequence = (await o.post('/sequences', { name: 'SMS chase', stopOnReply: true, workingHoursOnly: false, steps: [step, { ...step, day: 2 }, { ...step, day: 4 }] })).body.data;
     const enrollment = (await o.post(`/sequences/${sequence.id}/enroll`, { leadId: lead.id }, 'enroll-key-1')).body.data;
 
     sms.mock.failNext({ retryable: true });
@@ -149,7 +149,7 @@ describe('SMS to customers', () => {
     expect(sms.mock.sent()).toHaveLength(1);
 
     // An opt-out stops a sequence even without stop-on-reply.
-    const quiet = (await o.post('/sequences', { name: 'No reply stop', stopOnReply: false, steps: [{ ...step, day: 1 }] })).body.data;
+    const quiet = (await o.post('/sequences', { name: 'No reply stop', stopOnReply: false, workingHoursOnly: false, steps: [{ ...step, day: 1 }] })).body.data;
     const second = (await o.post(`/sequences/${quiet.id}/enroll`, { leadId: lead.id }, 'enroll-key-2')).body.data;
     await o.post(`/contacts/${contactId}/sms-consent`, { optedOut: true });
     await fastForward();

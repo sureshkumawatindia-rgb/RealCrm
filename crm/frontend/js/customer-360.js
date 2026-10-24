@@ -322,9 +322,29 @@ function renderFields(customer) {
 // ---------------------------------------------------------------
 // Tab panels
 // ---------------------------------------------------------------
+// The customer's delivery projects (D92), under their deals: status and progress, each a link.
+async function renderCustomerProjects(customer) {
+  const el = document.getElementById("c360Deals");
+  const summary = await crmApi(`/projects/summary?contactId=${encodeURIComponent(customer.id)}`).catch(() => null);
+  if (!summary || !summary.count) return;
+  el.querySelector(".c360-projects")?.remove();
+  const box = document.createElement("div");
+  box.className = "c360-projects";
+  box.innerHTML = `<h4 class="c360-projects-title">${escapeHtml(t("nav.projects"))}</h4>${summary.items.length
+    ? summary.items.map((p) => `<a class="c360-list-item c360-record c360-project" href="projects.html?id=${encodeURIComponent(p.id)}">
+        <span class="c360-list-icon" style="background:var(--info-bg);color:var(--info)"><i class="fa-solid fa-briefcase"></i></span>
+        <span class="c360-list-body"><span class="c360-list-title">${escapeHtml(p.name)}</span>
+        <span class="c360-list-meta">${escapeHtml([p.number, crmI18n.t(`proj.status.${p.status}`), t("proj.percentDone", { n: p.progress }), p.overdue ? t("proj.late") : ""].filter(Boolean).join(" · "))}</span></span>
+      </a>`).join("")
+    : `<p class="c360-list-meta">${escapeHtml(t("proj.hasProjects", { n: summary.count }))}</p>`}`;
+  if (el.querySelector(".empty-state")) el.innerHTML = "";
+  el.appendChild(box);
+}
+
 function renderDealsTab(customer) {
   const deals = relatedDeals(customer);
   const el = document.getElementById("c360Deals");
+  renderCustomerProjects(customer);
   if (!deals.length) {
     el.innerHTML = relEmptyBlock("fa-handshake", t("c360.empty.deals"));
     return;

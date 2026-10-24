@@ -92,6 +92,8 @@ const organizationSchema = new mongoose.Schema(
       // D76: pages the company does not use, left out of everyone's menu and search (not a
       // permission: a direct link still opens). Only HIDEABLE_MODULES; missing = every page used.
       hiddenModules: { type: [String], default: undefined },
+      // D92: a won deal starts its delivery project by itself, with this template.
+      projectsOnWon: { enabled: { type: Boolean, default: false }, templateId: { type: mongoose.Schema.Types.ObjectId } },
     },
     // First steps after sign-up (D64): when an owner or admin finished or skipped "Invite your team".
     onboarding: {

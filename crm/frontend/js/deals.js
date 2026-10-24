@@ -708,8 +708,59 @@ async function renderDealFiles(deal) {
   wireGoogleFileButtons(box, { name: deal.name, relatedType: "Lead", relatedId: deal.id, onMade: () => renderDealFiles(deal) });
 }
 
+// A won deal's delivery project (D92): "Start the project" (with a template) for people with
+// Projects, or the project's status and progress with a link to it.
+async function renderDealProject(deal) {
+  let box = document.getElementById("dealProject");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "dealProject";
+    box.className = "deal-files deal-project";
+    document.getElementById("timelineList").insertAdjacentElement("beforebegin", box);
+  }
+  box.dataset.deal = deal.id;
+  box.innerHTML = "";
+  const canProjects = canOpenPage("projects.html");
+  const summary = await crmApi(`/projects/summary?leadId=${encodeURIComponent(deal.id)}`).catch(() => null);
+  if (!summary || box.dataset.deal !== String(deal.id)) return;
+  const head = `<div class="deal-files-head"><span>${escapeHtml(t("proj.title"))}</span></div>`;
+  if (summary.items.length) {
+    box.innerHTML = head + summary.items.map((p) => `<a class="c360-list-item c360-record c360-project" href="projects.html?id=${encodeURIComponent(p.id)}">
+        <span class="c360-list-icon"><i class="fa-solid fa-briefcase" aria-hidden="true"></i></span>
+        <span class="c360-list-body"><span class="c360-list-title">${escapeHtml(p.name)}</span>
+        <span class="c360-list-meta">${escapeHtml([crmI18n.t(`proj.status.${p.status}`), t("proj.percentDone", { n: p.progress }), p.overdue ? t("proj.late") : ""].filter(Boolean).join(" · "))}</span></span>
+      </a>`).join("");
+    return;
+  }
+  if (summary.count) {
+    box.innerHTML = `${head}<p class="deal-project-note">${escapeHtml(t("proj.hasProject"))}</p>`;
+    return;
+  }
+  if (deal.stage !== "Won" || !canProjects) return;
+  const templates = await crmApi("/project-templates").catch(() => []);
+  if (box.dataset.deal !== String(deal.id)) return;
+  box.innerHTML = `${head}<div class="deal-project-row">
+      ${templates.length ? `<select id="dealProjectTpl" aria-label="${escapeHtml(t("proj.pickTemplate"))}">${templates.map((x) => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join("")}<option value="">${escapeHtml(t("proj.noTemplate"))}</option></select>` : ""}
+      <button class="btn btn-primary" type="button" id="dealProjectStart"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> ${escapeHtml(t("proj.start"))}</button>
+    </div>`;
+  const button = document.getElementById("dealProjectStart");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    const templateId = document.getElementById("dealProjectTpl")?.value;
+    try {
+      await crmApi(`/leads/${encodeURIComponent(deal.id)}/project`, jsonRequest("POST", templateId ? { templateId } : {}));
+      showToast(t("proj.started"), "success");
+      renderDealProject(deal);
+    } catch (error) {
+      button.disabled = false;
+      showToast(apiErrorMessage(error, t("proj.saveFailed")), "error");
+    }
+  });
+}
+
 async function renderTimeline(deal) {
   renderStageHistory(deal);
+  renderDealProject(deal);
   renderDealFiles(deal);
   const el = document.getElementById("timelineList");
   el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(t("deals.loadingActivity"))}</div>`;

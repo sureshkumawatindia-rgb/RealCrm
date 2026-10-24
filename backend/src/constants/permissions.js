@@ -7,6 +7,7 @@ const INVITABLE_ROLES = Object.freeze(['admin', 'agent', 'viewer']);
 const MODULES = Object.freeze([
   'dashboard', 'customers', 'leads', 'accounts', 'deals', 'tasks', 'calendar', 'marketing',
   'automation', 'support', 'reports', 'insights', 'documents', 'products', 'settings', 'inbox',
+  'projects', // D92
 ]);
 
 // The page names the Account Champions grid shows (old browser data stored these labels).
@@ -14,7 +15,7 @@ const MODULE_LABELS = Object.freeze({
   dashboard: 'Dashboard', customers: 'Customers', leads: 'Leads', accounts: 'Accounts', deals: 'Deals',
   tasks: 'Tasks', calendar: 'Calendar', marketing: 'Marketing', automation: 'Sales Automation', support: 'Support',
   reports: 'Reports & Analytics', insights: 'AI Insights', documents: 'Documents', products: 'Products', settings: 'Settings',
-  inbox: 'Inbox',
+  inbox: 'Inbox', projects: 'Projects',
 });
 
 const ACTIONS = Object.freeze(['view', 'create', 'edit', 'delete']);
@@ -24,7 +25,7 @@ const ACTIONS = Object.freeze(['view', 'create', 'edit', 'delete']);
 const PERMISSION_PATTERN = new RegExp(`^(${MODULES.join('|')}):(delete|view_all)$`);
 
 const DEFAULT_MODULES = Object.freeze({
-  agent: ['dashboard', 'inbox', 'customers', 'leads', 'deals', 'tasks', 'calendar', 'support', 'documents', 'products'],
+  agent: ['dashboard', 'inbox', 'customers', 'leads', 'deals', 'tasks', 'calendar', 'support', 'documents', 'products', 'projects'],
   viewer: ['dashboard', 'customers', 'leads', 'deals', 'reports'],
 });
 

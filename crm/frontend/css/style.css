@@ -5099,3 +5099,39 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   color: var(--text-faint);
   margin-top: 2px;
 }
+/* Projects (D92): a deal's and a customer's delivery projects, each a link. */
+.c360-project .c360-list-body,
+.c360-project .c360-list-title,
+.c360-project .c360-list-meta {
+  display: block;
+}
+.deal-project .c360-list-icon {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.deal-project-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.deal-project-row select {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.deal-project-note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.c360-projects-title {
+  margin: 14px 16px 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
