@@ -57,6 +57,8 @@ services:
       # - Who runs the CRM, on invoices and the Privacy/Terms pages: BILLING_SELLER_NAME,
       #   BILLING_SELLER_EMAIL, BILLING_SELLER_ADDRESS, BILLING_SELLER_GSTIN
       # - Error reports (F3): SENTRY_DSN (docs/FOUNDATION_SETUP_STEPS.md)
+      # - Files on R2 and the weekly backup copy (F5, F4a): STORAGE_DRIVER=r2, R2_ACCOUNT_ID,
+      #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_BACKUP_BUCKET (steps I–L)
 
   # Staging (F2): the same code from the `staging` branch, its own database with made-up data,
   # and only the test stand-ins for WhatsApp, SMS, calls, Google and Microsoft (APP_ENV=staging),
@@ -98,3 +100,4 @@ services:
         sync: false
       - key: PUBLIC_URL
         sync: false
+      # Later (F5): STORAGE_DRIVER=r2 with its own R2_BUCKET (steps I–J), no backup bucket.

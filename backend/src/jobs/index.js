@@ -23,6 +23,7 @@ const teamsChannels = require('../services/teamsChannelService');
 const gmailSync = require('../services/gmailSyncService');
 const googleCalendar = require('../services/googleCalendarService');
 const projects = require('../services/projectService');
+const backups = require('../services/backupService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
@@ -35,7 +36,7 @@ const projects = require('../services/projectService');
 // to the companies' own systems, lead stages to Meta's Conversions API, and the AI assistant answers
 // customers when a company lets it (Phase 10); a WhatsApp Business app number connected with Meta's
 // popup asks Meta for its contacts and chats (D60); owners get the evening team summary (D61).
-const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register, organizationDeletion.register, whatsappConnect.register, teamSummary.register, usage.register, outlook.register, teamsChannels.register, gmailSync.register, googleCalendar.register, projects.register];
+const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register, organizationDeletion.register, whatsappConnect.register, teamSummary.register, usage.register, outlook.register, teamsChannels.register, gmailSync.register, googleCalendar.register, projects.register, backups.register];
 
 function start(config) {
   definitions.forEach((register) => register(queue));

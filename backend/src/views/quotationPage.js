@@ -1,7 +1,6 @@
-const fs = require('fs/promises');
 const path = require('path');
 const QRCode = require('qrcode');
-const env = require('../config/env');
+const { logoStorage } = require('../storage');
 const { amountInWords, formatRupees } = require('../utils/money');
 const { stateName } = require('../constants/gst');
 const { billingOf, fileNameFromUrl } = require('../services/organizationService');
@@ -75,8 +74,8 @@ async function logoDataUrl(organization) {
   const type = types[path.extname(fileName).slice(1).toLowerCase()];
   if (!type) return '';
   try {
-    const bytes = await fs.readFile(path.resolve(env.uploadDir, path.basename(fileName)));
-    return bytes.length <= 2 * 1024 * 1024 ? `data:${type};base64,${bytes.toString('base64')}` : '';
+    const bytes = await logoStorage.read(path.basename(fileName));
+    return bytes && bytes.length <= 2 * 1024 * 1024 ? `data:${type};base64,${bytes.toString('base64')}` : '';
   } catch {
     return '';
   }

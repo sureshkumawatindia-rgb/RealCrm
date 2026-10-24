@@ -121,3 +121,93 @@ A small Cloudflare Worker checks both sites every 2 minutes. After 2 failed chec
 | Backups | Atlas → production → **Backup** | A snapshot from today |
 
 Tell me what you saw (not the keys), and we go on to week 2 (files on Cloudflare R2).
+
+---
+
+# Week 2: files on Cloudflare R2, and the weekly backup copy (F5, F4a)
+
+After these steps, uploads (documents, WhatsApp media, logos) go to R2 instead of the server's disk. Old files are still read from the disk until the copy is done. Every Sunday at 2:30 in India, an encrypted copy of the database goes to a separate R2 bucket.
+
+## I. R2 buckets and a key (Cloudflare)
+
+1. Cloudflare dashboard → **R2 Object Storage**. The first time, Cloudflare may ask for a payment method. R2's free monthly allowance (about 10 GB) should cover this CRM for now (unverified: check Cloudflare's R2 pricing page).
+2. **Create bucket** three times. Keep each one private (no public access):
+
+   | Bucket | For |
+   |---|---|
+   | `yellow-crm-files` | production's files |
+   | `yellow-crm-files-staging` | staging's files |
+   | `yellow-crm-backups` | the weekly database copies |
+
+3. **R2 → Manage API tokens** → **Create API token** → permission **Object Read & Write** → apply to the three buckets → **Create**.
+4. Cloudflare shows the **Access Key ID** and the **Secret Access Key** once. Keep them in your password manager.
+5. Copy your **Account ID** from the R2 overview page.
+
+## J. Render: switch the files to R2
+
+1. **yellow-crm** (production) → **Environment** → add these, then **Save**:
+
+   | Key | Value |
+   |---|---|
+   | `STORAGE_DRIVER` | `r2` |
+   | `R2_ACCOUNT_ID` | your Account ID |
+   | `R2_ACCESS_KEY_ID` | the Access Key ID |
+   | `R2_SECRET_ACCESS_KEY` | the Secret Access Key |
+   | `R2_BUCKET` | `yellow-crm-files` |
+   | `R2_BACKUP_BUCKET` | `yellow-crm-backups` |
+
+2. **yellow-crm-staging** → **Environment**: the same, but `R2_BUCKET` = `yellow-crm-files-staging`, and **no** `R2_BACKUP_BUCKET` (staging's data is made up).
+3. Render deploys both. New uploads now go to R2; old ones are read from the disk until step K.
+
+## K. Copy the old files (production, once)
+
+1. Render → **yellow-crm** → **Shell**.
+2. Type:
+
+   ```bash
+   cd backend && node scripts/files-to-r2.js
+   ```
+
+3. It ends with a line like `120 files: 0 already in R2, 120 copied, 0 missing, 0 failed`.
+4. Then check, which changes nothing:
+
+   ```bash
+   cd backend && node scripts/files-to-r2.js --check
+   ```
+
+   It must say **0 missing, 0 failed**.
+
+The disk stays as it is. It is removed in week 3, when the CRM moves to two servers.
+
+## L. The backup copy (production)
+
+In the same **Shell**:
+1. Make the first copy now (the job then makes one every Sunday):
+
+   ```bash
+   cd backend && node scripts/backup.js run
+   ```
+
+2. Read it back, which downloads, decrypts and counts every collection:
+
+   ```bash
+   cd backend && node scripts/backup.js check
+   ```
+
+   It must say **OK**.
+3. `node scripts/backup.js list` shows the copies; the newest 8 are kept.
+
+**Important:** the copies are encrypted with a key made from `DATA_ENCRYPTION_KEY`. Without it they cannot be read. Make sure that value from Render's Environment tab is in your password manager.
+
+## M. Check that week 2 works
+
+| Check | How | Expected |
+|---|---|---|
+| New uploads on R2 | Upload a document on staging; Cloudflare → `yellow-crm-files-staging` → **Objects** | A file under `documents/` |
+| Old files still open | Production: open a document uploaded before the switch | It downloads |
+| Copy complete | `node scripts/files-to-r2.js --check` | 0 missing, 0 failed |
+| Logo | Settings → company logo shows; a quotation PDF shows the logo | Same as before |
+| Backup readable | `node scripts/backup.js check` | OK |
+
+Tell me what you saw (not the keys), and we go on to week 3 (two servers).
+

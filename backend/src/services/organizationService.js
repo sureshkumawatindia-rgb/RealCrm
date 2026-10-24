@@ -1,11 +1,13 @@
 const crypto = require('crypto');
-const fs = require('fs/promises');
 const path = require('path');
 const Organization = require('../models/Organization');
 const env = require('../config/env');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { validateLogoFile } = require('../utils/logoFile');
+const { logoStorage } = require('../storage');
+
+const LOGO_TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', svg: 'image/svg+xml' };
 const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
 const { stateCodeFor, stateName } = require('../constants/gst');
 const { codeFromName, uniqueCode, followsName } = require('../utils/workspaceCode');
@@ -88,11 +90,7 @@ function fileNameFromUrl(logoUrl) {
 async function removeStoredLogo(logoUrl) {
   const fileName = fileNameFromUrl(logoUrl);
   if (!fileName) return;
-  try {
-    await fs.unlink(path.resolve(env.uploadDir, fileName));
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-  }
+  await logoStorage.remove(fileName).catch(() => {}); // a name the storage does not know: nothing to remove
 }
 
 async function setLogo(req, file) {
@@ -101,9 +99,8 @@ async function setLogo(req, file) {
   const organization = await loadOrganization(req);
 
   const oldLogoUrl = organization.logoUrl;
-  await fs.mkdir(path.resolve(env.uploadDir), { recursive: true });
   const fileName = `${organization._id}-${crypto.randomUUID()}.${extension}`;
-  await fs.writeFile(path.resolve(env.uploadDir, fileName), file.buffer);
+  await logoStorage.put(fileName, file.buffer, { contentType: LOGO_TYPES[extension] }); // F5: disk or R2
   organization.logoUrl = `${env.publicUrl}/uploads/${fileName}`;
   await organization.save();
   await removeStoredLogo(oldLogoUrl);

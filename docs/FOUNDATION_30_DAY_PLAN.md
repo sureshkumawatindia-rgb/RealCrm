@@ -187,3 +187,40 @@ Your steps are in `docs/FOUNDATION_SETUP_STEPS.md`.
 - `ops/alert-worker/worker.test.js` (7): checks, the two-failure rule, reminders, back up, the template message, state between runs, no writes while healthy.
 - **Full run: 989 of 990 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
 
+## 10. Week 2: what was built (D94, 2026-10-24), and how it differs from the plan
+
+Your steps: sections I–M of `docs/FOUNDATION_SETUP_STEPS.md`.
+
+**F5. Files on Cloudflare R2**
+- `STORAGE_DRIVER=r2` keeps documents, WhatsApp media, attachments and imports (`documentStorage`) and, new, the companies' logos (`logoStorage`) on R2. `disk` (the default) keeps them in the two folders, as before.
+- R2 is reached by the S3 protocol (`storage/r2Client.js`, `storage/s3Signer.js`), signed with SigV4 without the AWS SDK. The signer matches AWS's signing test suite (botocore's `get-vanilla` and `get-vanilla-query-order-key`).
+- Large files are sent in parts. Every request has a timeout.
+- **Keys stay the same:** documents keep their saved key under `documents/`, logos their file name under `logos/`, so nothing in the database changes.
+- **Old files still open:** with R2, a file not found there is read from the disk folders (`STORAGE_DISK_FALLBACK`, on by default) until the copy is done.
+- **Logos:** `/uploads/<name>` now comes from the storage, at the same address as before, with the same "no scripts" header. Unknown or unsafe names get 404. The quotation PDF and page read the logo from the storage too.
+- **The copy:** `scripts/files-to-r2.js` copies each file and checks it (MD5 ETag, else the bytes). `--check` only compares. Nothing on the disk is changed.
+
+**F4a (the rest). The weekly backup copy**
+- `services/backupService.js`, job `backup.weekly`, every Sunday at 2:30 in India, when `R2_BACKUP_BUCKET` is set.
+- **Format:** one file per collection, Extended JSON lines (ids and dates kept), gzipped, encrypted with AES-256-GCM under a key derived (HKDF) from `DATA_ENCRYPTION_KEY`.
+- **Manifest:** a manifest with counts, sizes and SHA-256 is written last, so a copy without it is incomplete.
+- **Kept:** the newest 8 copies (`BACKUP_KEEP_WEEKS`).
+- **By hand:** `scripts/backup.js list | run | check`. `check` downloads, decrypts and counts every file against the manifest, and finds a changed file.
+
+**Different from the plan:**
+- The R2 code was written without a library, as the CRM's Excel and Sentry code were.
+- Restoring a copy into a database is week 4 (F4b); this week proves a copy can be read back and counted.
+
+**Checked:**
+- In the isolated preview, with a stand-in R2 that checks every signature: a logo and a document went to R2, came back (200, `image/png`; the file's text), and the logo showed on the page.
+- Real R2 is UNVERIFIED until your steps.
+
+**Tests:** `storage.test.js` (5):
+- the AWS signing vectors;
+- the client: put, get, head, list page by page, multipart, a wrong key → 403;
+- documents on R2 with the old one from the disk; logos at `/uploads`, unsafe names 404;
+- the copy, a second run, a changed copy caught;
+- backups: encrypted (no email in the file), read back, a changed file caught, old ones removed; the Sunday time.
+
+**Full run: 994 of 995 tests passed**; the one failure is the user's uncommitted `Sales Automation.html` (75 `auto.*` texts not added yet).
+

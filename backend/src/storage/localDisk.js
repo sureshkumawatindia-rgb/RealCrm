@@ -6,6 +6,9 @@ const path = require('path');
 // browser sent, so a key can never point outside the storage folder. Files have no extension,
 // so the development server (nodemon) does not restart when one is written.
 const KEY_PATTERN = /^[a-f0-9]{24}\/[a-f0-9]{32}$/;
+// Logos keep a file name made by the CRM ("<organization id>-<uuid>.png"): letters, digits,
+// dots, dashes and underscores only, so it stays inside its folder too.
+const NAME_PATTERN = /^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
 
 function createLocalDiskStorage(rootDir) {
   const root = path.resolve(rootDir);
@@ -50,4 +53,42 @@ function createLocalDiskStorage(rootDir) {
   };
 }
 
-module.exports = { createLocalDiskStorage };
+// Files kept by name in one folder (the logos in UPLOAD_DIR), F5.
+function createLocalNamedStorage(rootDir) {
+  const root = path.resolve(rootDir);
+
+  function fullPath(name) {
+    if (!NAME_PATTERN.test(name || '')) throw new Error('Invalid file name');
+    return path.join(root, name);
+  }
+
+  return {
+    async put(name, buffer) {
+      await fs.promises.mkdir(root, { recursive: true });
+      await fs.promises.writeFile(fullPath(name), buffer);
+    },
+    async open(name) {
+      const file = fullPath(name);
+      try {
+        await fs.promises.access(file, fs.constants.R_OK);
+      } catch {
+        return null;
+      }
+      return fs.createReadStream(file);
+    },
+    async read(name) {
+      try {
+        return await fs.promises.readFile(fullPath(name));
+      } catch (error) {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      }
+    },
+    async remove(name) {
+      if (!name) return;
+      await fs.promises.rm(fullPath(name), { force: true });
+    },
+  };
+}
+
+module.exports = { createLocalDiskStorage, createLocalNamedStorage, KEY_PATTERN, NAME_PATTERN };

@@ -34,6 +34,23 @@ const schema = Joi.object({
     .when('NODE_ENV', { is: 'production', then: Joi.string().min(32).required().disallow('') }),
   UPLOAD_DIR: Joi.string().default('uploads'),
   DOCUMENT_DIR: Joi.string().default('storage/documents'),
+  // Where files live (F5): disk = UPLOAD_DIR and DOCUMENT_DIR on this server; r2 = Cloudflare R2
+  // (S3 protocol), so more than one server can run. With r2, files not found there are still read
+  // from the disk folders until the copy (scripts/files-to-r2.js) is done.
+  STORAGE_DRIVER: Joi.string().valid('disk', 'r2').default('disk'),
+  STORAGE_DISK_FALLBACK: Joi.boolean().truthy('on').falsy('off').default(true),
+  R2_ACCOUNT_ID: Joi.string().pattern(/^[A-Za-z0-9]{8,64}$/).allow('').default(''),
+  R2_ACCESS_KEY_ID: Joi.string().allow('').default('')
+    .when('STORAGE_DRIVER', { is: 'r2', then: Joi.string().required().disallow('') }),
+  R2_SECRET_ACCESS_KEY: Joi.string().allow('').default('')
+    .when('STORAGE_DRIVER', { is: 'r2', then: Joi.string().required().disallow('') }),
+  R2_BUCKET: Joi.string().pattern(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/).allow('').default('')
+    .when('STORAGE_DRIVER', { is: 'r2', then: Joi.string().required().disallow('') }),
+  // The weekly backup copy (F4a): its own bucket; empty = no weekly copy.
+  R2_BACKUP_BUCKET: Joi.string().pattern(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/).allow('').default(''),
+  BACKUP_KEEP_WEEKS: Joi.number().integer().min(1).max(104).default(8),
+  // Another S3-compatible address instead of <account>.r2.cloudflarestorage.com (tests).
+  R2_ENDPOINT: Joi.string().uri({ scheme: ['http', 'https'] }).allow('').default(''),
   DOCUMENT_MAX_MB: Joi.number().integer().min(1).max(100).default(10),
   CORS_ORIGINS: Joi.string().allow('').default(''),
   // WhatsApp Cloud API (Meta Graph API). Keep the version current (developers.facebook.com/docs/graph-api/changelog).
@@ -120,6 +137,12 @@ const schema = Joi.object({
 }).unknown(true);
 
 const { error, value } = schema.validate(process.env, { abortEarly: false });
+if (!error && value.STORAGE_DRIVER === 'r2' && !value.R2_ACCOUNT_ID && !value.R2_ENDPOINT) {
+  const message = 'Invalid environment configuration (backend/.env):\n- R2_ACCOUNT_ID is required when STORAGE_DRIVER is r2';
+  if (value.NODE_ENV === 'test') throw new Error(message);
+  console.error(message);
+  process.exit(1);
+}
 if (error) {
   // Only key names and rules are reported, never the values.
   const problems = error.details.map((detail) => `- ${detail.message.replace(/"/g, '')}`).join('\n');
@@ -158,6 +181,19 @@ const env = {
   publicUrl,
   uploadDir: value.UPLOAD_DIR,
   documentDir: value.DOCUMENT_DIR,
+  storage: {
+    driver: value.STORAGE_DRIVER,
+    diskFallback: value.STORAGE_DISK_FALLBACK,
+    r2: {
+      accountId: value.R2_ACCOUNT_ID,
+      accessKeyId: value.R2_ACCESS_KEY_ID,
+      secretAccessKey: value.R2_SECRET_ACCESS_KEY,
+      bucket: value.R2_BUCKET,
+      backupBucket: value.R2_BACKUP_BUCKET,
+      endpoint: value.R2_ENDPOINT.replace(/\/+$/, ''),
+    },
+    backupKeepWeeks: value.BACKUP_KEEP_WEEKS,
+  },
   documentMaxBytes: value.DOCUMENT_MAX_MB * 1024 * 1024,
   trustProxy: value.TRUST_PROXY,
   orgDeletionGraceDays: value.ORG_DELETION_GRACE_DAYS,

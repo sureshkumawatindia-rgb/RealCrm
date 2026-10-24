@@ -15,6 +15,8 @@ const publicApiRoutes = require('./routes/publicApi');
 const logger = require('./config/logger');
 const path = require('path');
 const env = require('./config/env');
+const { logoStorage } = require('./storage');
+const { NAME_PATTERN } = require('./storage/localDisk');
 
 const app = express();
 const frontendDir = path.resolve(__dirname, '..', '..', 'crm', 'frontend');
@@ -60,11 +62,25 @@ app.use('/api/v1/imports/localstorage', express.json({ limit: '25mb' }));
 app.use(express.json({ limit: '5mb' }));
 app.use(rejectUnsafeKeys);
 
-// Uploaded files (logos) are never allowed to run scripts, even when opened directly.
-app.use('/uploads', (req, res, next) => {
+// Uploaded files (logos) are never allowed to run scripts, even when opened directly. They come
+// from the storage (F5: the disk folder or R2), at the same addresses as before.
+const LOGO_TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', svg: 'image/svg+xml' };
+app.get('/uploads/:name', async (req, res, next) => {
   res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
-  next();
-}, express.static(path.resolve(env.uploadDir)));
+  const type = LOGO_TYPES[path.extname(req.params.name).slice(1).toLowerCase()];
+  if (!type || !NAME_PATTERN.test(req.params.name)) return res.status(404).end();
+  try {
+    const stream = await logoStorage.open(req.params.name);
+    if (!stream) return res.status(404).end();
+    res.setHeader('Content-Type', type);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    stream.on('error', next);
+    return stream.pipe(res);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 // Paths only: query strings can carry OAuth codes and invite tokens; webhook keys are masked.
 morgan.token('path', (req) => req.originalUrl.split('?')[0].replace(/^(\/api\/v1\/webhooks\/(?:leads\/|payments\/)?[a-z-]+\/)[^/]+/, '$1…'));

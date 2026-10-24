@@ -93,7 +93,7 @@ With a disk, a deploy has a short pause of a few seconds while the old instance 
 
 ## Backups
 
-- **Database:** turn on Atlas Cloud Backup.
+- **Database:** turn on Atlas Cloud Backup. A second, encrypted copy goes to Cloudflare R2 every Sunday when `R2_BACKUP_BUCKET` is set (D94, `docs/FOUNDATION_SETUP_STEPS.md` section L).
 - **Disk:** Render keeps daily snapshots of the disk (service → **Disks**).
 - **Settings:** keep `backend/.env` and the Render environment values in a password manager.
 
