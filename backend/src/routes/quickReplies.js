@@ -20,6 +20,10 @@ router.post('/', can('create'), validate({ body: schemas.quickReplyCreate }), as
 router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.quickReplyPatch }), async (req, res) => {
   res.json({ success: true, data: await quickReplyService.update(req, req.valid.params.id, req.body), message: 'Quick reply updated' });
 });
+// Filled for one chat's customer before it goes into the message box (D99).
+router.post('/:id/fill', can('view'), validate({ params: idParams, body: schemas.quickReplyFill }), async (req, res) => {
+  res.json({ success: true, data: await quickReplyService.fill(req, req.valid.params.id, req.body) });
+});
 router.delete('/:id', can('delete'), validate({ params: idParams }), async (req, res) => {
   await quickReplyService.remove(req, req.valid.params.id);
   res.json({ success: true, data: { deleted: true }, message: 'Quick reply deleted' });

@@ -834,12 +834,36 @@ crmI18n.ready.then(function inbox() {
       : `<div class="quick-empty">${escapeHtml(t("inbox.quick.none"))} <a href="#" data-quick-manage="1">${escapeHtml(t("inbox.quick.add"))}</a></div>`;
     menu.hidden = false;
   }
-  function useQuickReply(id) {
+  // A detail of a quick reply ("{{contact.cf.zone}}") in words: "Customer: Zone".
+  const objectWord = (object) => t(object === "contact" ? "wfb.cf.contact" : "wfb.cf.lead");
+  function detailName(placeholder) {
+    const spec = placeholder.replace(/[{}\s]/g, "");
+    const [object, cf, key] = spec.split(".");
+    if (cf === "cf") {
+      const field = cfFields(object).find((f) => f.key === key);
+      return field ? `${objectWord(object)}: ${field.label}` : spec;
+    }
+    return crmI18n.has(`wfb.ph.${spec}`) ? t(`wfb.ph.${spec}`) : crmI18n.has(`wfb.var.${spec}`) ? t(`wfb.var.${spec}`) : spec;
+  }
+  // {{contact.name}}, {{lead.title}}, {{contact.cf.<key>}} … are filled for this chat's customer by
+  // the server (D99), as this member may see them; what stayed empty is named so they can look.
+  async function useQuickReply(id) {
     const reply = state.quickReplies.find((r) => String(r.id) === String(id));
     if (!reply) return;
-    composer.value = reply.body;
     $("quickMenu").hidden = true;
+    let text = reply.body;
+    if (reply.body.includes("{{") && state.current) {
+      try {
+        const filled = await crmApi(`/quick-replies/${encodeURIComponent(reply.id)}/fill`, jsonRequest("POST", { conversationId: state.current.id }));
+        text = filled.text;
+        if (filled.missing.length) showToast(t("inbox.quick.missing", { names: filled.missing.map(detailName).join(", ") }), "info");
+      } catch (error) {
+        showToast(apiErrorMessage(error, t("inbox.quick.fillFailed")), "error");
+      }
+    }
+    composer.value = text;
     autoSize();
+    syncSendButton();
     composer.focus();
   }
 
@@ -1239,15 +1263,40 @@ crmI18n.ready.then(function inbox() {
     // Taking a chat can make you the owner of the customer's lead (D25): reload when that changes.
     state.contextAssignee = String(c.assigneeId || "");
     const id = encodeURIComponent(c.contact.id);
-    const [leads, quotes, orders, tasks] = await Promise.all([
+    const [leads, quotes, orders, tasks, customer] = await Promise.all([
       crmApi(`/leads?contactId=${id}&limit=5`).catch(() => null),
       crmApi(`/quotations?contactId=${id}&limit=3`).catch(() => null),
       crmApi(`/orders?contactId=${id}&limit=3`).catch(() => null),
       crmApi(`/tasks?relatedType=Customer&relatedId=${id}&limit=50`).catch(() => null),
+      // The customer's own fields (D99) need the Customers page.
+      memberCan("customers", "view") ? crmApi(`/contacts/${id}`).catch(() => null) : null,
     ]);
     if (!state.current || String(state.current.id) !== String(c.id)) return;
-    state.context = { leads, quotes, orders, tasks };
+    state.context = { leads, quotes, orders, tasks, customer };
     renderContext();
+  }
+
+  // The company's own fields (D73, D99) as this member may see them (the server leaves out the
+  // hidden ones): the customer's under "Customer details", each lead's under the lead.
+  function fieldRow({ label, text, heading }, i, rows) {
+    const title = heading && heading !== rows[i - 1]?.heading ? `<div class="details-fields-heading">${escapeHtml(heading)}</div>` : "";
+    return `${title}<div class="details-field"><span class="k">${escapeHtml(label)}</span><span class="v">${escapeHtml(text)}</span></div>`;
+  }
+  async function renderFields() {
+    const id = String(state.current?.id || "");
+    const { leads, customer } = state.context || {};
+    const stillHere = () => String(state.current?.id || "") === id;
+    const filled = customer ? await cfFilledValues("contact", customer.customFields, customer.customFieldLinks) : [];
+    if (!stillHere()) return;
+    $("detailsFieldsSection").hidden = !filled.length;
+    $("detailsFields").innerHTML = filled.map(fieldRow).join("");
+    for (const lead of Array.isArray(leads) ? leads : []) {
+      const rows = await cfFilledValues("lead", lead.customFields, lead.customFieldLinks);
+      const box = stillHere() && $("detailsLeads").querySelector(`[data-lead-fields="${CSS.escape(String(lead.id))}"]`);
+      if (!box) continue;
+      box.hidden = !rows.length;
+      box.innerHTML = rows.map(({ label, text }) => `<span><span class="k">${escapeHtml(label)}:</span> ${escapeHtml(text)}</span>`).join("");
+    }
   }
   function renderContext() {
     const { leads, quotes, orders, tasks } = state.context || {};
@@ -1266,6 +1315,7 @@ crmI18n.ready.then(function inbox() {
               <div class="ctx-main">
                 <div class="ctx-title">${escapeHtml(title)}${l.expectedValuePaise ? ` · ${rupees(l.expectedValuePaise)}` : ""}</div>
                 <div class="ctx-meta">${escapeHtml(l.ownerId ? t("inbox.ctx.owner", { name: memberNameOf(l.ownerId) }) : t("inbox.ctx.noOwner"))}</div>
+                <div class="ctx-fields" data-lead-fields="${escapeHtml(l.id)}" hidden></div>
               </div>
               ${stage}
             </div>`;
@@ -1323,6 +1373,7 @@ crmI18n.ready.then(function inbox() {
           )
           .join("")
       : `<p class="ctx-empty">${escapeHtml(t("inbox.ctx.noFollowUp"))}</p>`;
+    renderFields();
   }
   $("detailsOrders").addEventListener("click", (e) => {
     const button = e.target.closest("[data-pay-order], [data-pay-quote], [data-pay-contact]");
@@ -1566,8 +1617,34 @@ crmI18n.ready.then(function inbox() {
   function openQuickManager() {
     resetQuickForm();
     renderQuickManager();
+    fillQuickInsert();
     $("quickModal").classList.add("open");
   }
+  // "Insert a detail…" under the message: the customer's and the lead's details, their own fields
+  // too (D99, those this member may see), put in at the cursor as {{…}}.
+  const QUICK_DETAILS = ["contact.name", "contact.company", "contact.city", "contact.phone", "lead.title", "lead.stage", "owner.name", "org.name"];
+  async function fillQuickInsert() {
+    const [contactFields, leadFields] = await Promise.all([cfLoad("contact"), cfLoad("lead")]);
+    const option = (spec, label) => `<option value="${escapeHtml(spec)}">${escapeHtml(label)}</option>`;
+    const group = (label, items) => (items.length ? `<optgroup label="${escapeHtml(label)}">${items.join("")}</optgroup>` : "");
+    const builtIn = (...prefixes) => QUICK_DETAILS.filter((s) => prefixes.some((p) => s.startsWith(p))).map((s) => option(s, detailName(s)));
+    const own = (object, fields) => (fields || []).map((f) => option(`${object}.cf.${f.key}`, `${objectWord(object)}: ${f.label}`));
+    $("quickInsert").innerHTML = option("", t("wfb.insert"))
+      + group(objectWord("contact"), [...builtIn("contact."), ...own("contact", contactFields)])
+      + group(objectWord("lead"), [...builtIn("lead."), ...own("lead", leadFields)])
+      + group(t("wfb.insert.other"), builtIn("owner.", "org."));
+  }
+  $("quickInsert").addEventListener("change", () => {
+    const body = $("quickBody");
+    const detail = $("quickInsert").value;
+    $("quickInsert").value = "";
+    if (!detail) return;
+    const text = `{{${detail}}}`;
+    const start = body.selectionStart ?? body.value.length;
+    body.value = body.value.slice(0, start) + text + body.value.slice(body.selectionEnd ?? start);
+    body.focus();
+    body.setSelectionRange(start + text.length, start + text.length);
+  });
   $("quickModalClose").addEventListener("click", () => $("quickModal").classList.remove("open"));
   $("quickModal").addEventListener("click", (e) => {
     if (e.target.id === "quickModal") $("quickModal").classList.remove("open");

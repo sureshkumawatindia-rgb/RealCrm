@@ -67,7 +67,8 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
 | PATCH | `/contacts/:id` | contacts:write | The same fields |
 | GET | `/leads` | leads:read | `?stage=`, `?source=`, `?cf=` (custom fields), `?updatedSince=` |
 | GET | `/leads/:id` | leads:read | One lead with its customer |
-| POST | `/leads` | leads:write | An enquiry: `{ contact: { name?, phone?, email?, company?, city?, state? }, title? or product?, quantity?, message?, externalId? }`. See the notes below the table. |
+| POST | `/leads` | leads:write | An enquiry: `{ contact: { name?, phone?, email?, company?, city?, state? }, title? or product?, quantity?, message?, externalId?, customFields? }`. See the notes below the table. |
+| PATCH | `/leads/:id` | leads:write | `{ title?, notes?, quantity?, expectedValuePaise?, expectedCloseDate?, customFields? }` (D99). The stage goes through `POST /leads/:id/stage`; the owner follows the CRM's assignment rules |
 | POST | `/leads/:id/stage` | leads:write | `{ stage: New / Contacted / Quote Sent / Negotiation / Won / Lost, lostReason? }` |
 | GET | `/quotations`, `/quotations/:id` | quotations:read | `?status=`, `?contactId=`; lines, GST and totals |
 | GET | `/orders`, `/orders/:id` | orders:read | `?stage=`, `?contactId=`; with `paymentStatus`, `amountPaidPaise`, `duePaise` and `payments` |
@@ -87,6 +88,7 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
 - Sending the same `externalId` again does nothing (`outcome: duplicate`).
 - Assignment and auto-reply rules run as for any enquiry.
 - API leads are never stopped by the plan's contact limit.
+- **The lead's own fields (D99):** `customFields` is checked first, like the CRM's form; a wrong value gets `400` and nothing is saved. The values go on the new lead, or on the open lead that gets the enquiry (only the fields you send; an enquiry never clears one), before assignment rules and automations see the lead. A repeated `externalId` changes nothing.
 - **Where it came from (D79):** add `utm: { source, medium, campaign, term, content }`, `referrer` and `landingPage`. Tags you leave out are read from `landingPage`'s address (`?utm_source=…&gclid=…`). The lead keeps its first and last touch; Reports → Leads groups leads by channel and campaign.
 
 **How `POST /messages` works.**
@@ -114,8 +116,7 @@ A call outside the key's scopes gets `403 SCOPE_MISSING`. A missing, wrong or re
   - checkbox: `true` (an unticked box is absent);
   - dropdown: **the choice's name** (`"Wholesale"`). If someone renames a choice, the new name is sent from then on.
   - link (D75): the linked record's id (a customer, a lead, or a record of one of the company's own objects).
-- **Writing** (`POST`/`PATCH /contacts`): the same `customFields` object. A dropdown takes a choice's name (capitals ignored) or its value (`o2`). `null` or `""` clears a field. A wrong value gets `400 VALIDATION_ERROR` with `field: "customFields.<key>"`. A field marked required never stops the API.
-  - Leads' fields cannot be written through the API yet.
+- **Writing** (`POST`/`PATCH /contacts`, and since D99 `POST /leads` and `PATCH /leads/:id`): the same `customFields` object. A dropdown takes a choice's name (capitals ignored) or its value (`o2`). `null` or `""` clears a field. A wrong value gets `400 VALIDATION_ERROR` with `field: "customFields.<key>"`. A field marked required never stops the API.
 - **Filtering** (`GET /contacts`, `GET /leads`): `?cf=<key>:<operator>[:<value>]`, up to 5 times. Every filter must match. Operators by type:
   - text and long text: `has`, `is`, `empty`, `filled`;
   - number: `eq`, `gt`, `gte`, `lt`, `lte`, `empty`, `filled`;

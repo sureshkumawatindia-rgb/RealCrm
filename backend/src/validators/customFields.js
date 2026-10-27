@@ -137,10 +137,11 @@ module.exports = {
     object: fixed('A record cannot move to another object.'),
   }).min(1),
 
-  // The link picker: GET /lookup?target=&q=
+  // The link picker: GET /lookup?target=&q= (or &id= for the name of one chosen record, D99)
   lookupQuery: Joi.object({
     target: object.required(),
     q: Joi.string().trim().max(100).allow(''),
+    id: objectId,
     limit: Joi.number().integer().min(1).max(20).default(20),
   }),
 };

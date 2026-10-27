@@ -266,6 +266,10 @@
                 <div class="sub" id="detailsCompany"></div>
                 <a class="btn btn-outline" id="details360" href="#"><i class="fa-solid fa-address-card"></i> <span data-i18n="nav.customer360">Customer 360°</span></a>
               </div>
+              <div class="details-section" id="detailsFieldsSection" hidden>
+                <label data-i18n="inbox.details.fields">Customer details</label>
+                <div class="details-fields" id="detailsFields"></div>
+              </div>
               <div class="details-section">
                 <label for="detailsAssignee" data-i18n="inbox.details.assigned">Assigned to</label>
                 <select id="detailsAssignee"></select>
@@ -344,6 +348,8 @@
             <div class="field">
               <label for="quickBody" data-i18n="inbox.quick.message">Message</label>
               <textarea id="quickBody" rows="3" maxlength="4096" required></textarea>
+              <select id="quickInsert" class="quick-insert" aria-label="Insert a detail…" data-i18n-aria-label="wfb.insert"></select>
+              <p class="details-hint" data-i18n="inbox.quick.detailsHint">A detail such as {{contact.name}} is filled in with the chat's customer when you pick the reply.</p>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 8px">
               <button class="btn btn-outline" id="quickReset" type="button" data-i18n="common.clear">Clear</button>
@@ -419,6 +425,7 @@
     <script src="./js/app.js"></script>
     <script src="./js/payment-links.js"></script>
     <script src="./js/voice-note.js"></script>
+    <script src="./js/custom-fields.js"></script>
     <script src="./js/inbox.js"></script>
   </body>
 </html>

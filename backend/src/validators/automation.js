@@ -2,7 +2,10 @@ const Joi = require('joi');
 const { objectId } = require('./common');
 const { paginationQuery } = require('../utils/pagination');
 const { LEAD_STAGES, LEAD_SOURCES, ORDER_STAGES, AUTOMATION_STATUSES, TASK_PRIORITIES } = require('../constants/crm');
-const { TRIGGER_TYPES, CONDITION_FIELDS, ACTION_TYPES, RUN_STATUSES, SEQUENCE_STEP_TYPES, ENROLLMENT_STATUSES } = require('../constants/automation');
+const {
+  TRIGGER_TYPES, CONDITION_FIELDS, FIELD_CONDITION, FIELD_CONDITION_OPS, NO_VALUE_OPS, ACTION_TYPES, RUN_STATUSES, SEQUENCE_STEP_TYPES, ENROLLMENT_STATUSES,
+} = require('../constants/automation');
+const { MAX_FILTER_CHOICES } = require('../constants/customFields');
 
 // Workflows of the automation engine (Phase 6): the trigger, conditions and steps are checked
 // field by field for their type, so the engine only ever sees settings it understands.
@@ -84,8 +87,31 @@ const conditionValue = {
   owner: Joi.when('op', { is: Joi.valid('is', 'isNot'), then: objectId.required(), otherwise: Joi.any().strip() }),
   businessHours: Joi.any().strip(),
 };
-const conditionSchema = Joi.object({ field: Joi.string().valid(...Object.keys(CONDITION_FIELDS)).required(), op: Joi.string().required(), value: Joi.any() })
+// A company's own field (D99): only the shape here; the field, its type and the value are checked
+// against the company's fields when the workflow is saved (automation/fields.checkCondition).
+const FIELD_OPS = new Set(Object.values(FIELD_CONDITION_OPS).flat());
+const fieldValue = Joi.alternatives(Joi.string().max(100), Joi.number(), Joi.array().items(Joi.string().max(10)).max(MAX_FILTER_CHOICES));
+function fieldCondition(value, helpers) {
+  if (!FIELD_OPS.has(value.op)) return helpers.message(`"${value.op}" does not go with a custom field`);
+  if (NO_VALUE_OPS.has(value.op)) return { field: value.field, op: value.op };
+  const missing = value.value === undefined || value.value === null || value.value === '' || (Array.isArray(value.value) && !value.value.length);
+  // The Sales Automation page has no inputs for these values: the workflow builder has.
+  if (missing) return helpers.message('Choose what to compare the custom field with (custom field conditions are set in the workflow builder)');
+  const { error, value: checked } = fieldValue.validate(value.value);
+  if (error) return helpers.message('The value of the custom field condition is not valid');
+  return { field: value.field, op: value.op, value: checked };
+}
+
+const conditionSchema = Joi.object({
+  field: Joi.alternatives(
+    Joi.string().valid(...Object.keys(CONDITION_FIELDS)),
+    Joi.string().pattern(FIELD_CONDITION).messages({ 'string.pattern.base': 'Choose what the condition checks' }),
+  ).required().messages({ 'alternatives.match': 'Choose what the condition checks' }),
+  op: Joi.string().required(),
+  value: Joi.any(),
+})
   .custom((value, helpers) => {
+    if (FIELD_CONDITION.test(value.field)) return fieldCondition(value, helpers);
     if (!CONDITION_FIELDS[value.field].ops.includes(value.op)) return helpers.message(`"${value.op}" does not go with ${value.field}`);
     const { error, value: checked } = Joi.object({ op: Joi.string(), value: conditionValue[value.field] }).validate({ op: value.op, value: value.value });
     if (error) return helpers.message(`Condition on ${value.field}: ${error.message.replace(/"/g, '')}`);

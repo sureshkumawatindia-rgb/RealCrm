@@ -44,10 +44,12 @@ function visible(req, target, filter, limit) {
   return query;
 }
 
-// GET /lookup?target=&q= — up to 20 records for the link picker, newest first.
-async function search(req, { target, q = '', limit = 20 }) {
+// GET /lookup?target=&q= — up to 20 records for the link picker, newest first. &id= instead: that
+// one record, if this member may see it (a picker showing what was chosen before, D99).
+async function search(req, { target, q = '', id, limit = 20 }) {
   if (!canView(req, target)) throw httpError(403, 'FORBIDDEN', 'You do not have permission to do this.');
   if (isObject(target) && !(await activeObject(req, target))) throw httpError(404, 'NOT_FOUND', 'Not found');
+  if (id) return (await visible(req, target, { _id: id }, 1)).map((doc) => ({ id: String(doc._id), ...describe(target, doc) }));
   const term = String(q).trim().slice(0, 100);
   let filter = {};
   if (term) {

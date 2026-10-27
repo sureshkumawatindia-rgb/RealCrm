@@ -204,6 +204,15 @@
   font-size: 12.5px;
   margin: 0;
 }
+/* "Insert a detail…" under a text (D99): small, under the box it fills. */
+.wfb-field select.wfb-insert {
+  width: auto;
+  max-width: 100%;
+  margin-top: 6px;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
 .wfb-condition {
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
@@ -436,5 +445,8 @@
   }
   .wfb-icon-btn {
     min-width: 40px;
+  }
+  .wfb-field select.wfb-insert {
+    min-height: 40px;
   }
 }

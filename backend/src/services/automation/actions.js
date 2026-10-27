@@ -23,15 +23,16 @@ const leadService = require('../leadService');
 // log, and throws for a failure (a 4xx httpError is final; anything else is retried by the job).
 // `workflow` is the workflow, or a sequence that runs its steps through here (Phase 6B):
 // { _id, organizationId, name, kind: "workflow" | "sequence", actorName? }.
-// Texts may use {{contact.name}}, {{lead.title}}, {{owner.name}}, {{order.number}} … (fill()).
+// Texts may use {{contact.name}}, {{lead.title}}, {{owner.name}}, {{order.number}} … (fill()),
+// and the company's own fields as {{contact.cf.<key>}} / {{lead.cf.<key>}} (D99).
 const done = (detail) => ({ status: 'done', detail });
 const skipped = (detail) => ({ status: 'skipped', detail });
 
-const PLACEHOLDER = /\{\{\s*([a-z]+)\.([a-zA-Z]+)\s*\}\}/g;
+const PLACEHOLDER = /\{\{\s*([a-z]+)\.([a-zA-Z]+)(?:\.([a-z][a-z0-9_]{0,39}))?\s*\}\}/g;
 function valuesOf(ctx) {
   return {
-    contact: { name: ctx.contact?.name, company: ctx.contact?.company, city: ctx.contact?.city, phone: ctx.contact?.phone || ctx.contact?.phoneE164 },
-    lead: { title: ctx.lead?.title, stage: ctx.lead?.stage, source: ctx.lead?.source, product: ctx.lead?.title },
+    contact: { name: ctx.contact?.name, company: ctx.contact?.company, city: ctx.contact?.city, phone: ctx.contact?.phone || ctx.contact?.phoneE164, cf: ctx.fieldTexts?.contact || {} },
+    lead: { title: ctx.lead?.title, stage: ctx.lead?.stage, source: ctx.lead?.source, product: ctx.lead?.title, cf: ctx.fieldTexts?.lead || {} },
     owner: { name: ctx.ownerName },
     org: { name: ctx.organization?.name },
     order: {
@@ -44,20 +45,31 @@ function valuesOf(ctx) {
     message: { text: ctx.event?.text },
   };
 }
-function fill(text, ctx) {
-  const values = valuesOf(ctx);
-  return String(text || '').replace(PLACEHOLDER, (match, group, key) => String(values[group]?.[key] ?? ''));
+// group.key, or group.cf.<field key> for a field's value as words ('' when it is empty).
+function valueAt(values, group, key, field) {
+  const value = values[group]?.[key];
+  if (key === 'cf') return field ? value?.[field] ?? '' : '';
+  return field || (value && typeof value === 'object' && !(value instanceof Date)) ? '' : value ?? '';
 }
 
-// What fills a template variable: a CRM value, or fixed words ("text:…").
+function fill(text, ctx) {
+  const values = valuesOf(ctx);
+  return String(text || '').replace(PLACEHOLDER, (match, group, key, field) => String(valueAt(values, group, key, field)));
+}
+
+// The placeholders a text uses, as written ("{{contact.name}}").
+const placeholdersIn = (text) => [...String(text || '').matchAll(PLACEHOLDER)].map((match) => match[0]);
+
+// What fills a template variable: a CRM value, fixed words ("text:…"), or one of the company's own
+// fields ("contact.cf.<key>", checked by automation/fields.isSpec when saved).
 const VARIABLE_VALUES = ['contact.name', 'contact.company', 'contact.city', 'lead.product', 'owner.name', 'org.name', 'order.number', 'order.due', 'quotation.number'];
 function resolveVariables(variables = {}, ctx) {
   const values = valuesOf(ctx);
   const valueOf = (spec) => {
     const text = String(spec || '');
     if (text.startsWith('text:')) return fill(text.slice(5), ctx);
-    const [group, key] = text.split('.');
-    return String(values[group]?.[key] ?? '');
+    const [group, key, field] = text.split('.');
+    return String(valueAt(values, group, key, field));
   };
   return Object.fromEntries(['header', 'body', 'buttons'].map((part) => [part, Object.fromEntries(Object.entries(variables[part] || {}).map(([name, spec]) => [name, valueOf(spec)]))]));
 }
@@ -272,4 +284,4 @@ const ACTIONS = {
   },
 };
 
-module.exports = { ACTIONS, fill, resolveVariables, VARIABLE_VALUES };
+module.exports = { ACTIONS, fill, placeholdersIn, resolveVariables, VARIABLE_VALUES };

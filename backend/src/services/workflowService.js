@@ -11,7 +11,9 @@ const { toPage, paginationMeta } = require('../utils/pagination');
 const { assertPublicHttps } = require('../utils/safeWebhook');
 const { isManager } = require('../constants/permissions');
 const { LEAD_STAGES, LEAD_SOURCES, ORDER_STAGES } = require('../constants/crm');
-const { TRIGGERS, TRIGGER_TYPES, CONDITION_FIELDS, ACTIONS, ACTION_TYPES, RUN_STATUSES, SEQUENCE_STEP_TYPES, WORKFLOW_RECIPES } = require('../constants/automation');
+const {
+  TRIGGERS, TRIGGER_TYPES, CONDITION_FIELDS, FIELD_CONDITION, FIELD_CONDITION_OPS, ACTIONS, ACTION_TYPES, RUN_STATUSES, SEQUENCE_STEP_TYPES, WORKFLOW_RECIPES,
+} = require('../constants/automation');
 const Conversation = require('../models/Conversation');
 const automationSchemas = require('../validators/automation');
 const { loadContext } = require('./automation/context');
@@ -22,6 +24,7 @@ const templateService = require('./templateService');
 const leadService = require('./leadService');
 const engine = require('./automation/engine');
 const { VARIABLE_VALUES, fill, resolveVariables } = require('./automation/actions');
+const automationFields = require('./automation/fields');
 const planService = require('./planService');
 const smsService = require('./smsService');
 
@@ -98,6 +101,9 @@ async function activeMember(req, id, field) {
   return member;
 }
 
+// A blank's value: a CRM value, fixed words, or a field of the company this member may use (D99).
+const goodSpec = async (req, spec) => Boolean(spec) && (VARIABLE_VALUES.includes(spec) || /^text:.{1,200}$/s.test(spec) || automationFields.isSpec(req, spec));
+
 // field: where the params sit in the request ("steps.2.params"), or "" at the top (broadcasts).
 async function checkTemplateStep(req, params, field = '') {
   const at = (name) => (field ? `${field}.${name}` : name);
@@ -111,11 +117,12 @@ async function checkTemplateStep(req, params, field = '') {
     ...shape.buttons.filter((b) => b.variables.length).map((b) => ['buttons', String(b.index)]),
   ];
   for (const [part, name] of needed) {
-    const spec = params.variables?.[part]?.[name];
-    if (!spec || !(VARIABLE_VALUES.includes(spec) || /^text:.{1,200}$/s.test(spec))) {
+    if (!(await goodSpec(req, params.variables?.[part]?.[name]))) {
       throw invalid(at(`variables.${part}.${name}`), `Choose what fills {{${name}}} in "${template.name}".`, 'VARIABLE_REQUIRED');
     }
   }
+  // Fixed words may use fields too (D99).
+  await automationFields.checkTexts(req, params.variables || {}, at('variables'));
 }
 
 // Each check throws its problem (a 400 with the field). conditionIndexes/stepIndexes: only those
@@ -125,12 +132,15 @@ function referenceChecks(req, { conditions = [], steps = [] }, { conditionIndexe
   for (const [index, condition] of conditions.entries()) {
     if (conditionIndexes && !conditionIndexes.has(index)) continue;
     if (condition.field === 'owner' && ['is', 'isNot'].includes(condition.op)) checks.push(() => activeMember(req, condition.value, `conditions.${index}.value`));
+    if (FIELD_CONDITION.test(condition.field)) checks.push(() => automationFields.checkCondition(req, condition, `conditions.${index}`));
   }
   for (const [index, step] of steps.entries()) {
     if (stepIndexes && !stepIndexes.has(index)) continue;
     const field = `steps.${index}.params`;
     const params = step.params || {};
     if (step.type === 'whatsapp.template') checks.push(() => checkTemplateStep(req, params, field));
+    // {{contact.cf.<key>}} in messages, task titles and bell notes (D99).
+    if (['whatsapp.text', 'task.create', 'agent.notify'].includes(step.type)) checks.push(() => automationFields.checkTexts(req, params, field));
     if (step.type === 'sms.send') {
       checks.push(async () => {
         const connection = await smsService.connectionOf(req.tenant.organizationId);
@@ -138,9 +148,9 @@ function referenceChecks(req, { conditions = [], steps = [] }, { conditionIndexe
         const template = smsService.templateOf(connection, params.template);
         if (!template) throw invalid(`${field}.template`, 'Pick one of your SMS templates.', 'INVALID_TEMPLATE');
         for (const name of template.variables) {
-          const spec = params.variables?.[name];
-          if (!spec || !(VARIABLE_VALUES.includes(spec) || /^text:.{1,200}$/s.test(spec))) throw invalid(`${field}.variables.${name}`, `Choose what fills ##${name}## in "${template.name}".`, 'VARIABLE_REQUIRED');
+          if (!(await goodSpec(req, params.variables?.[name]))) throw invalid(`${field}.variables.${name}`, `Choose what fills ##${name}## in "${template.name}".`, 'VARIABLE_REQUIRED');
         }
+        await automationFields.checkTexts(req, params.variables || {}, `${field}.variables`);
       });
     }
     if (step.type === 'assign') {
@@ -315,6 +325,9 @@ async function check(req, draft = {}) {
   }
 
   // Warnings.
+  for (const { index, label } of await automationFields.archivedConditions(req, conditions.map((c, i) => (goodConditions.has(i) ? c : null)))) {
+    problems.push(warning(`conditions.${index}`, 'FIELD_ARCHIVED', `${label} was archived: until it is restored, this condition sees it as empty.`));
+  }
   if (steps.length && steps.at(-1)?.type === 'wait') problems.push(warning(`steps.${steps.length - 1}`, 'WAIT_LAST', 'A wait at the end does nothing: add a step after it, or remove it.'));
   let late = triggerOk && DELAY_MINUTES[trigger.type] ? DELAY_MINUTES[trigger.type](trigger.params || {}) : 0;
   steps.slice(0, 20).forEach((step, index) => {
@@ -364,7 +377,7 @@ async function preview(req, { draft, leadId }) {
     if (condition.field === 'source' || condition.field === 'stage') return ctx.lead?.[condition.field] || '';
     if (condition.field === 'tag') return (ctx.contact?.tags || []).join(', ');
     if (condition.field === 'owner') return nameOf(ctx.lead?.ownerId);
-    return '';
+    return automationFields.actualText(ctx, condition);
   };
   const conditions = [];
   for (const [index, condition] of (value.conditions || []).entries()) {
@@ -506,16 +519,24 @@ async function cancelRun(req, id) {
   return serializeRun(run);
 }
 
-// What the workflow builder offers (labels and choices).
-function meta() {
+// What the builders offer (labels and choices). The company's own fields (D99) that this member
+// may use come as conditions ("Customer: Zone" for screens without their own words; the details
+// in customField), template blanks ("contact.cf.zone") and placeholders, and in customFields.
+async function meta(req) {
+  const fields = await automationFields.metaOf(req);
+  const specs = fields.map((f) => `${f.object}.cf.${f.key}`);
   return {
     triggers: Object.entries(TRIGGERS).map(([type, { label, kind }]) => ({ type, label, kind })),
-    conditions: Object.entries(CONDITION_FIELDS).map(([field, { label, ops }]) => ({ field, label, ops })),
+    conditions: [
+      ...Object.entries(CONDITION_FIELDS).map(([field, { label, ops }]) => ({ field, label, ops })),
+      ...fields.map((f) => ({ field: `cf.${f.object}.${f.key}`, label: `${automationFields.NAMES[f.object]}: ${f.label}`, ops: FIELD_CONDITION_OPS[f.type], customField: f })),
+    ],
     actions: Object.entries(ACTIONS).map(([type, label]) => ({ type, label })),
     sequenceSteps: SEQUENCE_STEP_TYPES,
-    variableValues: VARIABLE_VALUES,
+    variableValues: [...VARIABLE_VALUES, ...specs],
     placeholders: ['contact.name', 'contact.company', 'contact.city', 'contact.phone', 'lead.title', 'lead.stage', 'lead.source', 'owner.name', 'org.name',
-      'order.number', 'order.stage', 'order.total', 'order.paid', 'order.due', 'quotation.number', 'quotation.total', 'task.title', 'task.due', 'message.text'],
+      'order.number', 'order.stage', 'order.total', 'order.paid', 'order.due', 'quotation.number', 'quotation.total', 'task.title', 'task.due', 'message.text', ...specs],
+    customFields: fields,
     leadStages: LEAD_STAGES,
     orderStages: ORDER_STAGES,
     sources: LEAD_SOURCES,

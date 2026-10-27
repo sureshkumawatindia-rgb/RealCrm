@@ -74,7 +74,17 @@ module.exports = {
     utm: Joi.object({ source: text(200), medium: text(200), campaign: text(200), term: text(200), content: text(200) }),
     referrer: text(2000),
     landingPage: text(2000),
+    customFields: customFieldValues, // D99: the lead's own fields, a dropdown by its choice's name or value
   }),
+  // D99: the lead's details and own fields (stage: POST /leads/:id/stage; owner: the CRM's rules).
+  leadPatch: Joi.object({
+    title: text(200),
+    notes: text(5000),
+    quantity: Joi.number().min(0).max(1e9).allow(null),
+    expectedValuePaise: Joi.number().integer().min(0).max(1e13).allow(null),
+    expectedCloseDate: Joi.date().iso().allow(null),
+    customFields: customFieldValues,
+  }).min(1),
   leadStage: Joi.object({ stage: Joi.string().valid(...LEAD_STAGES).required(), lostReason: text(500) }),
   quotationList: list({ status: Joi.string().valid(...QUOTATION_STATUSES), contactId: objectId }),
   orderList: list({ stage: Joi.string().valid(...ORDER_STAGES), contactId: objectId }),

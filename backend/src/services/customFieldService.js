@@ -447,6 +447,48 @@ function readImportValue(field, raw) {
   }
 }
 
+// --- values as words (messages, D99) ----------------------------------------------------------
+
+// One stored value as people read it: a dropdown's choice name, a date as "17 Oct 2026", a number
+// as "1,25,000", a tick as "Yes", a link as the linked record's name ('' when hidden or gone).
+function displayText(field, value, link) {
+  if (isEmpty(value)) return '';
+  switch (field.type) {
+    case 'dropdown':
+      return (field.options || []).find((o) => o.value === value)?.label || '';
+    case 'checkbox':
+      return value === true ? 'Yes' : '';
+    case 'number':
+      return typeof value === 'number' ? value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : String(value);
+    case 'date': {
+      if (!validDate(String(value))) return String(value);
+      const [year, month, day] = String(value).split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    }
+    case 'lookup':
+      return link?.name || '';
+    default:
+      return String(value);
+  }
+}
+
+// A record's filled active fields as words, only those this member may see (D77): { key: text }.
+async function displayTexts(req, object, doc) {
+  if (!doc?.customFields) return {};
+  const fields = (await fieldsSeenBy(req, object)).filter((field) => field.status === 'active');
+  let links = {};
+  if (fields.some((field) => field.type === 'lookup' && !isEmpty(doc.customFields[field.key]))) {
+    const lookupService = require('./lookupService'); // eslint-disable-line global-require
+    links = (await lookupService.linksFor(req, object, [doc])).get(String(doc._id)) || {};
+  }
+  const texts = {};
+  for (const field of fields) {
+    const text = displayText(field, doc.customFields[field.key], links[field.key]);
+    if (text) texts[field.key] = text;
+  }
+  return texts;
+}
+
 // The public API's shape (D74): active fields only, a dropdown as its choice's name.
 function publicValues(values, fields) {
   const out = {};
@@ -495,4 +537,6 @@ module.exports = {
   loose,
   publicValues,
   fromPublicValues,
+  displayText,
+  displayTexts,
 };

@@ -23,6 +23,21 @@ const CONDITION_FIELDS = Object.freeze({
   businessHours: { label: 'Working hours', ops: ['open', 'closed'] },
 });
 
+// The company's own fields (D73) as conditions (D99): field "cf.contact.<key>" or "cf.lead.<key>",
+// with the list filters' words (D74), plus "is none of" for a dropdown. empty, filled, yes and no
+// take no value.
+const FIELD_CONDITION = /^cf\.(contact|lead)\.([a-z][a-z0-9_]{1,39})$/;
+const FIELD_CONDITION_OPS = Object.freeze({
+  text: ['has', 'is', 'empty', 'filled'],
+  textarea: ['has', 'is', 'empty', 'filled'],
+  number: ['eq', 'gt', 'gte', 'lt', 'lte', 'empty', 'filled'],
+  date: ['eq', 'before', 'after', 'from', 'to', 'empty', 'filled'],
+  dropdown: ['in', 'notIn', 'empty', 'filled'],
+  checkbox: ['yes', 'no'],
+  lookup: ['is', 'empty', 'filled'],
+});
+const NO_VALUE_OPS = Object.freeze(new Set(['empty', 'filled', 'yes', 'no']));
+
 const ACTIONS = Object.freeze({
   'whatsapp.text': 'Send a WhatsApp message (only within 24 hours of the customer\'s last message)',
   'whatsapp.template': 'Send an approved WhatsApp template',
@@ -101,4 +116,7 @@ const WORKFLOW_RECIPES = Object.freeze([
   },
 ]);
 
-module.exports = { TRIGGERS, TRIGGER_TYPES, CONDITION_FIELDS, ACTIONS, ACTION_TYPES, RUN_STATUSES, MAX_CHAIN, SEQUENCE_STEP_TYPES, ENROLLMENT_STATUSES, WORKFLOW_RECIPES };
+module.exports = {
+  TRIGGERS, TRIGGER_TYPES, CONDITION_FIELDS, FIELD_CONDITION, FIELD_CONDITION_OPS, NO_VALUE_OPS, ACTIONS, ACTION_TYPES, RUN_STATUSES, MAX_CHAIN, SEQUENCE_STEP_TYPES,
+  ENROLLMENT_STATUSES, WORKFLOW_RECIPES,
+};

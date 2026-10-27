@@ -32,6 +32,7 @@ router.post('/leads', requireScope('leads:write'), validate({ body: schemas.lead
   const result = await api.createLead(req, req.body);
   send(res, result, result.outcome === 'created' ? 201 : 200);
 });
+router.patch('/leads/:id', requireScope('leads:write'), validate({ params: idParams, body: schemas.leadPatch }), async (req, res) => send(res, await api.updateLead(req, req.valid.params.id, req.body)));
 router.post('/leads/:id/stage', requireScope('leads:write'), validate({ params: idParams, body: schemas.leadStage }), async (req, res) => send(res, await api.changeLeadStage(req, req.valid.params.id, req.body)));
 
 router.get('/quotations', requireScope('quotations:read'), validate({ query: schemas.quotationList }), async (req, res) => send(res, await api.listQuotations(req, req.valid.query)));

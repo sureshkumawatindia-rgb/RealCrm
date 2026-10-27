@@ -237,15 +237,29 @@ module.exports = {
 
   // POST /leads — an enquiry, like a lead source: the same customer's open lead gets it, else a
   // new lead; assignment and auto-reply rules run; externalId makes a repeat harmless.
+  // customFields (D99): the lead's own fields, checked like the CRM's form before anything is
+  // saved (a required field never stops the API); they go on the lead that gets the enquiry.
   async createLead(req, body) {
+    const input = await customFieldService.fromPublicValues(req, 'lead', body.customFields);
+    const customFields = input ? await customFieldService.applyValues(req, 'lead', input, undefined, { enforceRequired: false }) : undefined;
     const result = await leadIntake.intake({
       organizationId: org(req), source: 'API', sourceRef: body.externalId || `api-${crypto.randomUUID()}`,
       person: body.contact, enquiry: { product: body.product || body.title, quantity: body.quantity, message: body.message }, raw: body,
       touch: { utm: body.utm, referrer: body.referrer, landingPage: body.landingPage }, // D79
+      customFields,
     });
     if (result.outcome === 'rejected') throw httpError(400, 'VALIDATION_ERROR', 'A lead needs a valid mobile number or email.', [{ field: 'contact.phone', message: 'Give a valid mobile number or email.' }]);
     const lead = await one(Lead, req, result.leadId, await withFields(req, publicLead), { path: 'contactId', select: CONTACT_FIELDS });
     return { outcome: result.outcome, lead };
+  },
+  // PATCH /leads/:id (D99): its title, value, quantity, expected close date, notes and own fields
+  // (only the fields sent change; empty clears one; a required field never stops the API).
+  async updateLead(req, id, body) {
+    const serialize = await withFields(req, publicLead);
+    await one(Lead, req, id, serialize);
+    const customFields = await customFieldService.fromPublicValues(req, 'lead', body.customFields);
+    await leadService.update(req, id, { ...body, ...(body.customFields !== undefined && { customFields }) }, { source: 'api', enforceRequired: false });
+    return one(Lead, req, id, serialize, { path: 'contactId', select: CONTACT_FIELDS });
   },
   async changeLeadStage(req, id, body) {
     const serialize = await withFields(req, publicLead);

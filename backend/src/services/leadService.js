@@ -222,7 +222,8 @@ async function create(req, body) {
 // How a change came (the stage history's source).
 const sourceOf = (req, fallback) => (req.automation ? 'automation' : req.apiKey ? 'api' : fallback);
 
-async function update(req, id, body, { source = 'edit' } = {}) {
+// enforceRequired: false for the public API (D73: it is never stopped by a required field).
+async function update(req, id, body, { source = 'edit', enforceRequired = true } = {}) {
   let stageChange = null;
   let boardMove = null;
   await mongoose.connection.transaction(async (session) => {
@@ -239,7 +240,7 @@ async function update(req, id, body, { source = 'edit' } = {}) {
 
     for (const key of EDITABLE) if (key in body) lead[key] = body[key];
     if (body.customFields !== undefined) {
-      lead.customFields = await customFieldService.applyValues(req, 'lead', body.customFields, lead.customFields);
+      lead.customFields = await customFieldService.applyValues(req, 'lead', body.customFields, lead.customFields, { enforceRequired });
       lead.markModified('customFields');
     }
     Object.assign(lead, await ownerPatch(req, body));

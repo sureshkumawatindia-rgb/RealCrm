@@ -69,6 +69,8 @@ module.exports = {
     title: Joi.string().trim().max(100).allow(''),
     body: Joi.string().trim().min(1).max(4096),
   }).min(1),
+  // A quick reply filled for one chat's customer (D99).
+  quickReplyFill: Joi.object({ conversationId: objectId.required() }),
   // Products from the WhatsApp catalog (Phase 8C): one, or a list of up to 30 with a heading.
   productsSend: Joi.object({
     productIds: Joi.array().items(objectId).min(1).max(30).unique().required(),

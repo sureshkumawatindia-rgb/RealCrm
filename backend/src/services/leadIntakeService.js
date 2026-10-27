@@ -94,7 +94,10 @@ async function countOutcome(connectionId, outcome) {
  * @returns {{ outcome: 'created'|'attached'|'duplicate'|'rejected', leadId?, contactId?, contactCreated? }}
  */
 // touch (D79): what tells where it came from: utm, gclid/fbclid, referrer, landingPage, ad.
-async function intake({ organizationId, source, sourceRef, connectionId, person = {}, enquiry = {}, raw, receivedAt, touch }) {
+// customFields (D99, the public API): the lead's own fields, already checked
+// (customFieldService.applyValues); they are set on the new lead, or on the open lead that gets
+// the enquiry, before anything else (rules, automations) sees it.
+async function intake({ organizationId, source, sourceRef, connectionId, person = {}, enquiry = {}, raw, receivedAt, touch, customFields }) {
   const ref = str(sourceRef, 200);
   const summary = describe(source, { product: str(enquiry.product, 200), quantity: str(enquiry.quantity, 50), message: str(enquiry.message, 1500) });
   let record;
@@ -128,13 +131,15 @@ async function intake({ organizationId, source, sourceRef, connectionId, person 
     const openLead = ownLead ? null : await Lead.findOne({ organizationId, contactId: contact._id, stage: { $in: OPEN_STAGES } }).sort({ createdAt: -1 });
     let lead;
     let outcome;
+    const fieldValues = Object.fromEntries(Object.entries(customFields || {}).map(([key, value]) => [`customFields.${key}`, value]));
     if (ownLead) {
       outcome = 'created';
       lead = ownLead;
+      if (Object.keys(fieldValues).length) await Lead.updateOne({ _id: lead._id }, { $set: fieldValues });
     } else if (openLead) {
       outcome = 'attached';
       lead = openLead;
-      await Lead.updateOne({ _id: lead._id }, { $set: { followUpAt: now, lastActivityAt: now }, $inc: { version: 1 } });
+      await Lead.updateOne({ _id: lead._id }, { $set: { followUpAt: now, lastActivityAt: now, ...fieldValues }, $inc: { version: 1 } });
       await LeadActivity.create({
         organizationId, leadId: lead._id, contactId: contact._id, type: 'Enquiry', text: summary, actorName: source, meta: { source, sourceRef: ref },
       });
@@ -147,6 +152,7 @@ async function intake({ organizationId, source, sourceRef, connectionId, person 
         stage: 'New', probability: STAGE_PROBABILITY.New, source, sourceRef: ref,
         ...(product && { productId: product._id }), ...(Number.isFinite(quantity) && quantity > 0 && { quantity }),
         notes: str(enquiry.message, 5000), followUpAt: now, stageChangedAt: now, lastActivityAt: now,
+        ...(Object.keys(fieldValues).length && { customFields: { ...customFields } }),
       });
       await LeadActivity.create({
         organizationId, leadId: lead._id, contactId: contact._id, type: 'Lead created', text: summary, actorName: source, meta: { source, sourceRef: ref },

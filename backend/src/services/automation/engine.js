@@ -16,6 +16,7 @@ const { loadContext, leadOfContact, systemReq } = require('./context');
 const sequences = require('./sequences');
 const bot = require('./bot');
 const consent = require('./consent');
+const customFields = require('./fields');
 
 // The automation engine (Phase 6). Business events (services call automation/events.emit)
 // become "automation.event" jobs; each Active workflow whose trigger and conditions fit starts
@@ -71,7 +72,8 @@ function conditionsMatch(conditions = [], ctx) {
         const open = isOpen(businessHoursOf(ctx.organization));
         return op === 'closed' ? !open : open;
       }
-      default: return false;
+      // cf.contact.<key> / cf.lead.<key>: the company's own fields (D99).
+      default: return customFields.matches(ctx, condition);
     }
   });
 }

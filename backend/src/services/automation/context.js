@@ -7,6 +7,7 @@ const OrganizationMember = require('../../models/OrganizationMember');
 const Quotation = require('../../models/Quotation');
 const Task = require('../../models/Task');
 const { OPEN_STAGES } = require('../../constants/crm');
+const customFields = require('./fields');
 
 // What workflow runs and sequence steps work on (Phase 6): the records loaded fresh for each
 // step, and the request-like object their actions change records with.
@@ -19,8 +20,12 @@ async function loadContext({ organizationId, subject = {}, event = {} }) {
   ]);
   const contactId = subject.contactId || lead?.contactId || order?.contactId || quotation?.contactId || conversation?.contactId;
   const contact = contactId ? await Contact.findOne({ _id: contactId, organizationId }) : null;
-  const owner = lead?.ownerId ? await OrganizationMember.findById(lead.ownerId).populate('userId', 'name') : null;
-  return { organization, lead, contact, order, quotation, task, conversation, event, ownerName: owner?.displayName || owner?.userId?.name || '' };
+  const [owner, { fields, fieldTexts }] = await Promise.all([
+    lead?.ownerId ? OrganizationMember.findById(lead.ownerId).populate('userId', 'name') : null,
+    // The company's own fields (D99): for conditions, and their values as words for messages.
+    customFields.contextOf(organizationId, { contact, lead }),
+  ]);
+  return { organization, lead, contact, order, quotation, task, conversation, event, ownerName: owner?.displayName || owner?.userId?.name || '', fields, fieldTexts };
 }
 
 // The newest open lead of a customer (else their newest lead).

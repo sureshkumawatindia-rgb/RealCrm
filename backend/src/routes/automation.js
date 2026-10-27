@@ -22,8 +22,8 @@ workflowRoutes.get('/', can('view'), validate({ query: automationSchemas.workflo
   res.json({ success: true, data: items, pagination });
 });
 // What the workflow builder offers (before /:id).
-workflowRoutes.get('/meta', can('view'), (req, res) => {
-  res.json({ success: true, data: workflowService.meta() });
+workflowRoutes.get('/meta', can('view'), async (req, res) => {
+  res.json({ success: true, data: await workflowService.meta(req) });
 });
 // The visual builder (Phase 7A, D86): every problem of a draft, a dry run on one lead, recipes.
 workflowRoutes.post('/check', can('view'), validate({ body: automationSchemas.workflowCheck }), async (req, res) => {

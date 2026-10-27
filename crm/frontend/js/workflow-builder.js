@@ -6,10 +6,13 @@
  * card and field. "Try it on a lead" (POST /workflows/preview) shows what the workflow would do
  * to one real lead, sending and changing nothing. Recipes (GET /workflows/recipes) start a new
  * one. The engine, its runs, pause and stop are the Sales Automation ones (D30s).
+ * The company's own fields (D99) are conditions ("cf.contact.<key>"), template blanks and
+ * {{contact.cf.<key>}} placeholders; "Insert a detail" under a text puts one in at the cursor.
  */
 const wfb = {
   meta: null, members: [], templates: [], sequences: [], workflows: [], recipes: [], smsTemplates: [],
   draft: null, problems: [], preview: null, dirty: false, checkTimer: null, checkSeq: 0, dragFrom: null,
+  linkNames: {}, // id → name of records chosen in link-field conditions
 };
 const $w = (id) => document.getElementById(id);
 
@@ -44,6 +47,87 @@ function chips(path, list, chosen, labelOf = (v) => v) {
 }
 const fieldLabel = (key) => tr(`wfb.field.${key}`, key);
 const field = (path, key, control) => `<div class="field wfb-field" data-field-path="${attr(path)}"><label>${escapeHtml(fieldLabel(key))}</label>${control}<div class="wfb-field-error" hidden></div></div>`;
+
+// ---------------------------------------------------------------- the company's own fields (D99)
+const objectName = (object) => tr(`wfb.cf.${object}`, object === "contact" ? "Customer" : "Lead");
+const customFieldOf = (object, key) => (wfb.meta.customFields || []).find((f) => f.object === object && f.key === key);
+// "contact.cf.zone" (a blank or placeholder) → "Customer: Zone"; a built-in one by its own words.
+function detailLabel(spec) {
+  const [object, cf, key] = spec.split(".");
+  const custom = cf === "cf" ? customFieldOf(object, key) : null;
+  if (custom) return `${objectName(object)}: ${custom.label}`;
+  return tr(`wfb.ph.${spec}`, tr(`wfb.var.${spec}`, spec));
+}
+const conditionSpec = (field) => wfb.meta.conditions.find((f) => f.field === field) || null;
+function conditionLabel(field) {
+  const spec = conditionSpec(field);
+  if (spec?.customField) return `${objectName(spec.customField.object)}: ${spec.customField.label}`;
+  if (/^cf\./.test(field)) return tr("wfb.cf.unknown", "A field you cannot use here");
+  return tr(`wfb.cond.${field}`, spec?.label || field);
+}
+function opLabel(spec, op) {
+  if (!spec?.customField) return tr(`wfb.op.${op}`, op);
+  if (op === "notIn") return tr("wfb.op.notIn", "is none of");
+  if (op === "eq" && spec.customField.type === "date") return tr("cf.op.on", "is on");
+  return tr(`cf.op.${op}`, op);
+}
+const NO_VALUE_OPS = new Set(["empty", "filled", "yes", "no"]);
+
+function fieldConditionValue(custom, condition, base) {
+  if (NO_VALUE_OPS.has(condition.op)) return "";
+  const path = `${base}.value`;
+  switch (custom.type) {
+    case "number": return `<input type="number" step="any" data-path="${attr(path)}" data-kind="number" value="${attr(condition.value ?? "")}" aria-label="${attr(tr("wfb.cf.value", "Value"))}" />`;
+    case "date": return `<input type="date" data-path="${attr(path)}" value="${attr(condition.value || "")}" aria-label="${attr(tr("wfb.cf.value", "Value"))}" />`;
+    case "dropdown": return chips(path, (custom.options || []).map((o) => o.value), condition.value, (v) => custom.options.find((o) => o.value === v)?.label || v);
+    case "lookup": {
+      const id = condition.value || "";
+      return cfLinkPickerHtml(`wfbLink_${base.replace(/\W/g, "_")}`, custom.lookupTarget, id, wfb.linkNames[id] || "", ` aria-label="${attr(tr("wfb.cf.value", "Value"))}"`)
+        .replace('class="cf-link-value"', `class="cf-link-value" data-path="${attr(path)}"`);
+    }
+    default: return `<input type="text" maxlength="100" data-path="${attr(path)}" value="${attr(condition.value || "")}" aria-label="${attr(tr("wfb.cf.value", "Value"))}" />`;
+  }
+}
+
+// The names of records chosen in link-field conditions, for the pickers (GET /lookup?id=).
+async function loadLinkNames(conditions) {
+  const wanted = (conditions || []).filter((c) => conditionSpec(c.field)?.customField?.type === "lookup" && c.value && !wfb.linkNames[c.value]);
+  await Promise.all(wanted.map(async (c) => {
+    try {
+      const [record] = await crmApi(`/lookup?target=${encodeURIComponent(conditionSpec(c.field).customField.lookupTarget)}&id=${encodeURIComponent(c.value)}`);
+      wfb.linkNames[c.value] = record?.name || tr("cf.hidden", "Hidden");
+    } catch {
+      wfb.linkNames[c.value] = tr("cf.hidden", "Hidden");
+    }
+  }));
+}
+
+// "Insert a detail…" under a text: the customer's, the lead's (their own fields too) and others.
+function insertPicker(path) {
+  const all = wfb.meta.placeholders || [];
+  const group = (name, list) => (list.length ? `<optgroup label="${attr(name)}">${list.map((p) => `<option value="${attr(p)}">${escapeHtml(detailLabel(p))}</option>`).join("")}</optgroup>` : "");
+  return `<select class="wfb-insert" data-insert-for="${attr(path)}" aria-label="${attr(tr("wfb.insert", "Insert a detail…"))}">
+    <option value="">${escapeHtml(tr("wfb.insert", "Insert a detail…"))}</option>
+    ${group(objectName("contact"), all.filter((p) => p.startsWith("contact.")))}
+    ${group(objectName("lead"), all.filter((p) => p.startsWith("lead.")))}
+    ${group(tr("wfb.insert.other", "Other"), all.filter((p) => !/^(contact|lead)\./.test(p)))}
+  </select>`;
+}
+
+// Puts {{detail}} in at the cursor of the text it belongs to.
+function insertDetail(select) {
+  const target = $w("wfbFlow").querySelector(`[data-path="${CSS.escape(select.dataset.insertFor)}"]`);
+  const detail = select.value;
+  select.value = "";
+  if (!target || !detail) return;
+  const text = `{{${detail}}}`;
+  const start = target.selectionStart ?? target.value.length;
+  const end = target.selectionEnd ?? target.value.length;
+  target.value = target.value.slice(0, start) + text + target.value.slice(end);
+  target.focus();
+  target.setSelectionRange(start + text.length, start + text.length);
+  target.dispatchEvent(new Event("input", { bubbles: true }));
+}
 const memberOptions = (current, extra = []) => `<option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>${extra.map(([v, label]) => `<option value="${v}" ${v === current ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}${wfb.members.filter((m) => m.status === "active").map((m) => `<option value="${attr(m.id)}" ${String(m.id) === String(current) ? "selected" : ""}>${escapeHtml(m.name || m.email)}</option>`).join("")}`;
 const stageLabel = (s) => tr(`stage.${s}`, s);
 
@@ -71,7 +155,7 @@ function variablesFields(base, params) {
     const path = `${base}.variables.${part}.${name}`;
     const spec = params.variables?.[part]?.[name] || "";
     const fixed = spec.startsWith("text:");
-    const select = `<select data-path="${attr(path)}" data-kind="variable">${`<option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>`}${wfb.meta.variableValues.map((v) => `<option value="${v}" ${spec === v ? "selected" : ""}>${escapeHtml(tr(`wfb.var.${v}`, v))}</option>`).join("")}<option value="text:" ${fixed ? "selected" : ""}>${escapeHtml(tr("wfb.fixedText", "Fixed words…"))}</option></select>`;
+    const select = `<select data-path="${attr(path)}" data-kind="variable">${`<option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>`}${wfb.meta.variableValues.map((v) => `<option value="${v}" ${spec === v ? "selected" : ""}>${escapeHtml(detailLabel(v))}</option>`).join("")}<option value="text:" ${fixed ? "selected" : ""}>${escapeHtml(tr("wfb.fixedText", "Fixed words…"))}</option></select>`;
     const words = fixed ? `<input type="text" data-path="${attr(path)}" data-kind="fixed" value="${attr(spec.slice(5))}" />` : "";
     return `<div class="field wfb-field" data-field-path="${attr(path)}"><label>${escapeHtml(`{{${name}}}`)}</label>${select}${words}<div class="wfb-field-error" hidden></div></div>`;
   }).join("");
@@ -80,7 +164,7 @@ function variablesFields(base, params) {
 // One blank of a template: a CRM value, or fixed words (WhatsApp and SMS templates).
 function blankField(path, label, spec) {
   const fixed = spec.startsWith("text:");
-  const select = `<select data-path="${attr(path)}" data-kind="variable"><option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>${wfb.meta.variableValues.map((v) => `<option value="${v}" ${spec === v ? "selected" : ""}>${escapeHtml(tr(`wfb.var.${v}`, v))}</option>`).join("")}<option value="text:" ${fixed ? "selected" : ""}>${escapeHtml(tr("wfb.fixedText", "Fixed words…"))}</option></select>`;
+  const select = `<select data-path="${attr(path)}" data-kind="variable"><option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>${wfb.meta.variableValues.map((v) => `<option value="${v}" ${spec === v ? "selected" : ""}>${escapeHtml(detailLabel(v))}</option>`).join("")}<option value="text:" ${fixed ? "selected" : ""}>${escapeHtml(tr("wfb.fixedText", "Fixed words…"))}</option></select>`;
   const words = fixed ? `<input type="text" data-path="${attr(path)}" data-kind="fixed" value="${attr(spec.slice(5))}" />` : "";
   return `<div class="field wfb-field" data-field-path="${attr(path)}"><label>${escapeHtml(label)}</label>${select}${words}<div class="wfb-field-error" hidden></div></div>`;
 }
@@ -93,7 +177,7 @@ function stepFields(step, index) {
     : `<input type="text" data-path="${base}.${key}" value="${attr(value)}" />`);
   const hint = `<p class="wfb-hint">${escapeHtml(tr("wfb.placeholderHint", "Use {{contact.name}}, {{lead.title}}, {{owner.name}} … for the customer's own details."))}</p>`;
   switch (step.type) {
-    case "whatsapp.text": return field(`${base}.text`, "text", text("text", p.text, "textarea")) + hint;
+    case "whatsapp.text": return field(`${base}.text`, "text", text("text", p.text, "textarea") + insertPicker(`${base}.text`)) + hint;
     case "whatsapp.template": {
       const sendable = wfb.templates.filter((x) => x.sendable);
       const control = sendable.length
@@ -106,12 +190,12 @@ function stepFields(step, index) {
     case "tag.remove": return field(`${base}.tag`, "tag", text("tag", p.tag));
     case "stage.change": return field(`${base}.stage`, "stage", `<select data-path="${base}.stage">${options(wfb.meta.leadStages, p.stage, stageLabel)}</select>`)
       + (p.stage === "Lost" ? field(`${base}.lostReason`, "lostReason", text("lostReason", p.lostReason)) : "");
-    case "task.create": return field(`${base}.title`, "title", text("title", p.title))
+    case "task.create": return field(`${base}.title`, "title", text("title", p.title) + insertPicker(`${base}.title`))
       + `<div class="wfb-row">${field(`${base}.dueInDays`, "dueInDays", `<input type="number" min="0" max="365" data-path="${base}.dueInDays" data-kind="number" value="${attr(p.dueInDays ?? 1)}" />`)}`
       + `${field(`${base}.priority`, "priority", `<select data-path="${base}.priority">${options(["Low", "Medium", "High"], p.priority || "Medium", (v) => tr(`priority.${v}`, v))}</select>`)}</div>`
       + field(`${base}.assignTo`, "assignTo", `<select data-path="${base}.assignTo">${memberOptions(p.assignTo || "owner", [["owner", tr("wfb.owner", "The lead's owner")]])}</select>`) + hint;
     case "agent.notify": return field(`${base}.to`, "to", `<select data-path="${base}.to">${memberOptions(p.to || "owner", [["owner", tr("wfb.owner", "The lead's owner")], ["managers", tr("wfb.managers", "Owners and admins")]])}</select>`)
-      + field(`${base}.message`, "message", text("message", p.message, "textarea")) + hint;
+      + field(`${base}.message`, "message", text("message", p.message, "textarea") + insertPicker(`${base}.message`)) + hint;
     case "wait": return `<div class="wfb-row">${field(`${base}.amount`, "amount", `<input type="number" min="1" max="999" data-path="${base}.amount" data-kind="number" value="${attr(p.amount ?? 1)}" />`)}`
       + `${field(`${base}.unit`, "unit", `<select data-path="${base}.unit">${options(["minutes", "hours", "days"], p.unit || "hours", (u) => tr(`wfb.unit.${u}`, u))}</select>`)}</div>`;
     case "webhook.call": return field(`${base}.url`, "url", `<input type="url" data-path="${base}.url" value="${attr(p.url)}" placeholder="https://" />`);
@@ -131,16 +215,20 @@ function stepFields(step, index) {
 function conditionRow(condition, index) {
   const base = `conditions.${index}`;
   const fields = wfb.meta.conditions;
-  const spec = fields.find((f) => f.field === condition.field) || fields[0];
+  // A field this member may not use, or one archived since (D99), stays as it is: its own entry.
+  const kept = !fields.some((f) => f.field === condition.field) && /^cf\./.test(condition.field);
+  const spec = kept ? { field: condition.field, ops: [condition.op] } : fields.find((f) => f.field === condition.field) || fields[0];
+  const choices = [...(kept ? [condition.field] : []), ...fields.map((f) => f.field)];
   let value = "";
   if (condition.field === "source") value = chips(`${base}.value`, wfb.meta.sources, condition.value);
   else if (condition.field === "stage") value = chips(`${base}.value`, wfb.meta.leadStages, condition.value, stageLabel);
   else if (condition.field === "tag") value = `<input type="text" data-path="${base}.value" value="${attr(condition.value)}" />`;
   else if (condition.field === "owner" && ["is", "isNot"].includes(condition.op)) value = `<select data-path="${base}.value">${memberOptions(condition.value)}</select>`;
+  else if (spec.customField) value = fieldConditionValue(spec.customField, condition, base);
   return `<div class="wfb-condition" data-card="condition" data-index="${index}">
     <div class="wfb-row">
-      <select data-path="${base}.field" aria-label="${attr(tr("wfb.field.conditionField", "What to check"))}">${options(fields.map((f) => f.field), condition.field, (f) => tr(`wfb.cond.${f}`, f))}</select>
-      <select data-path="${base}.op" aria-label="${attr(tr("wfb.field.op", "How"))}">${options(spec.ops, condition.op, (o) => tr(`wfb.op.${o}`, o))}</select>
+      <select data-path="${base}.field" aria-label="${attr(tr("wfb.field.conditionField", "What to check"))}">${options(choices, condition.field, conditionLabel)}</select>
+      <select data-path="${base}.op" aria-label="${attr(tr("wfb.field.op", "How"))}">${options(spec.ops, condition.op, (o) => opLabel(spec, o))}</select>
       <button type="button" class="btn btn-outline wfb-icon-btn" data-act="remove-condition" data-index="${index}" aria-label="${attr(tr("wfb.remove", "Remove"))}"><i class="fa-solid fa-xmark"></i></button>
     </div>
     ${value ? `<div class="wfb-field" data-field-path="${base}.value">${value}</div>` : ""}
@@ -292,6 +380,13 @@ function readControl(el) {
 
 function onFlowChange(event) {
   const el = event.target;
+  if (el.matches(".wfb-insert")) return insertDetail(el);
+  // A record picked in a link-field condition (D99): its name is kept for the next drawing.
+  if (el.matches(".cf-link-value")) {
+    if (el.value) wfb.linkNames[el.value] = el.closest(".cf-link").querySelector(".cf-link-search").value;
+    setAt(el.dataset.path, el.value);
+    return scheduleCheck();
+  }
   const chipGroup = el.closest(".wfb-chips");
   if (chipGroup) {
     setAt(chipGroup.dataset.path, [...chipGroup.querySelectorAll("input:checked")].map((i) => i.value));
@@ -317,7 +412,7 @@ function onFlowChange(event) {
   } else if (/^conditions\.\d+\.field$/.test(path)) {
     const index = Number(path.split(".")[1]);
     const spec = wfb.meta.conditions.find((f) => f.field === el.value);
-    wfb.draft.conditions[index] = { field: el.value, op: spec.ops[0], ...(CONDITION_DEFAULTS[el.value] !== undefined && { value: CONDITION_DEFAULTS[el.value] }) };
+    if (spec) wfb.draft.conditions[index] = { field: el.value, op: spec.ops[0], ...(CONDITION_DEFAULTS[el.value] !== undefined && { value: CONDITION_DEFAULTS[el.value] }) };
     renderFlow();
   } else if (/^conditions\.\d+\.op$/.test(path) || /^steps\.\d+\.params\.(stage|templateId|template)$/.test(path)) {
     renderFlow();
@@ -518,6 +613,7 @@ async function openWorkflow(id) {
   } else {
     const w = await crmApi(`/workflows/${encodeURIComponent(id)}`);
     wfb.draft = { id: w.id, name: w.name, status: w.status, trigger: w.trigger, conditions: w.conditions, steps: w.steps };
+    await loadLinkNames(w.conditions);
   }
   wfb.preview = null;
   wfb.problems = [];
@@ -620,6 +716,7 @@ async function startBuilder() {
   }
 
   const flow = $w("wfbFlow");
+  cfWireLinks(flow); // link-field conditions (D99)
   flow.addEventListener("change", onFlowChange);
   flow.addEventListener("input", (event) => { if (event.target.matches("input[type=text], input[type=url], textarea")) onFlowChange(event); });
   flow.addEventListener("click", onFlowClick);

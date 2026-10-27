@@ -36,7 +36,7 @@ the user's "go" for the next. Every feature follows the prompt's common rules: t
 (D65) everywhere, no business data in `localStorage`, Hindi and dark mode on new screens, rules
 of Meta, GST and Resend checked in their current official docs (with "checked on <date>").
 
-**A. Custom field gaps** (small)
+**A. Custom field gaps** (small) — done 2026-10-27 (D99)
 - Custom fields as conditions in automations and the workflow builder.
 - Custom fields as variables in messages (quick replies, sequences, template variables).
 - The Inbox contact panel shows them (with field access, D77).

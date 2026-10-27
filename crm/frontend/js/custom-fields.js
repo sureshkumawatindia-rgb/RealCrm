@@ -512,11 +512,18 @@ function cfLinkClose(box) {
   box.querySelector(".cf-link-search").removeAttribute("aria-activedescendant");
 }
 
+// The chosen record changed (a pick, ×, or typing that drops the pick): a "change" event on the
+// hidden value, for pages that keep the choice themselves (the workflow builder, D99).
+function cfLinkChanged(box) {
+  box.querySelector(".cf-link-value").dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 function cfLinkPick(box, item) {
   box.querySelector(".cf-link-value").value = item.dataset.id;
   box.querySelector(".cf-link-search").value = item.dataset.name;
   box.querySelector(".cf-link-clear").hidden = false;
   cfLinkClose(box);
+  cfLinkChanged(box);
 }
 
 // The pickers inside a container (a form, a filter box): typing searches the records this member
@@ -529,7 +536,10 @@ function cfWireLinks(container) {
     const input = event.target.closest(".cf-link-search");
     if (!input) return;
     const box = input.closest(".cf-link");
-    box.querySelector(".cf-link-value").value = "";
+    const value = box.querySelector(".cf-link-value");
+    const had = value.value;
+    value.value = "";
+    if (had) cfLinkChanged(box);
     box.querySelector(".cf-link-clear").hidden = !input.value;
     clearTimeout(timer);
     timer = setTimeout(() => cfLinkSearch(box), 250);
@@ -584,6 +594,7 @@ function cfWireLinks(container) {
     box.querySelector(".cf-link-value").value = "";
     box.querySelector(".cf-link-search").value = "";
     clear.hidden = true;
+    cfLinkChanged(box);
     box.querySelector(".cf-link-search").focus();
   });
 }
