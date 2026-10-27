@@ -125,6 +125,7 @@
 }
 .wfb-card-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   margin-top: 10px;
 }
@@ -208,6 +209,7 @@
   border-radius: var(--radius-sm);
   padding: 10px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .wfb-condition .wfb-row select {
@@ -289,6 +291,7 @@
 }
 .wfb-side {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   position: sticky;
   top: 16px;
@@ -296,6 +299,7 @@
 .wfb-side .panel-body {
   padding: 14px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 .wfb-side input[type="search"] {
@@ -309,6 +313,7 @@
 }
 .wfb-lead {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   width: 100%;
   text-align: left;
   border: 1px solid var(--border-soft);
@@ -347,6 +352,7 @@
   flex: 1;
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   font-size: 13px;
 }
 .wfb-run-label small {
@@ -372,6 +378,7 @@
 }
 .wfb-recipes {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   padding: 16px;
   max-height: 70vh;
@@ -382,6 +389,7 @@
   border-radius: var(--radius-sm);
   padding: 12px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   justify-items: start;
 }
@@ -413,5 +421,18 @@
   }
   .wfb-grip {
     display: none;
+  }
+}
+/* Touch (2026-10-24 audit): the On switch, the "+" between steps and the step buttons big enough for a finger. */
+@media (pointer: coarse) {
+  .wfb-switch {
+    min-height: 40px;
+  }
+  .wfb-add {
+    width: 40px;
+    height: 40px;
+  }
+  .wfb-icon-btn {
+    min-width: 40px;
   }
 }

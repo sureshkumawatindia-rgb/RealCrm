@@ -26,6 +26,11 @@
   color: var(--on-brand);
   font-weight: 600;
 }
+/* On the yellow tab the count takes the tab's dark text (the muted grey is unreadable there in dark mode). */
+.o-tab.active .count {
+  color: inherit;
+  opacity: 0.75;
+}
 
 .o-steps {
   display: grid;

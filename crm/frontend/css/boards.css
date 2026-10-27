@@ -85,6 +85,7 @@
 }
 .brd-start {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   justify-items: start;
   padding: 24px;
@@ -159,6 +160,7 @@
 }
 .brd-col-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .brd-card {
@@ -167,6 +169,7 @@
   border-radius: var(--radius-sm);
   padding: 10px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   cursor: grab;
   box-shadow: var(--shadow-card);
@@ -222,6 +225,7 @@
   border-right: 1px solid var(--border-soft);
   border-bottom: 1px solid var(--border-soft);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 3px;
   min-width: 0;
@@ -270,6 +274,7 @@
 .brd-dialog .brd-dialog-body {
   padding: 16px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .brd-dialog h3 {
@@ -367,4 +372,16 @@
 .brd-layouts[hidden],
 .brd-tools[hidden] {
   display: none;
+}
+/* Touch (2026-10-24 audit): the layout switch and "Share with the team" big enough for a finger. */
+@media (pointer: coarse) {
+  .brd-layouts button,
+  .brd-share {
+    min-height: 40px;
+  }
+  /* The Kanban card's "Move to…": the touch twin of dragging (R2). */
+  .brd-move {
+    min-height: 40px;
+    padding: 0 10px;
+  }
 }

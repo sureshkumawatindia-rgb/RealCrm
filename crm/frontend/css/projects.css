@@ -42,10 +42,12 @@
 }
 .pj-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .pj-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--border-soft);
@@ -112,6 +114,7 @@
 .pj-detail {
   padding: 16px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   scroll-margin-top: 12px;
 }
@@ -171,6 +174,7 @@
 }
 .pj-milestones {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 .pj-milestone {
@@ -194,6 +198,7 @@
 }
 .pj-tasks {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   margin: 6px 0 0 24px;
 }
@@ -206,6 +211,7 @@
 }
 .pj-task span {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -263,6 +269,7 @@
 .pj-dialog-body {
   padding: 16px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .pj-dialog-head {
@@ -277,6 +284,7 @@
 }
 #pjTplBody {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .pj-tpl-list {
@@ -286,6 +294,7 @@
 }
 .pj-tpl {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   border-top: 1px solid var(--border-soft);
   padding-top: 12px;
@@ -297,6 +306,7 @@
 }
 .pj-row label {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   font-size: 13px;
   flex: 1 1 160px;
@@ -322,5 +332,22 @@
   }
   .pj-tasks {
     margin-left: 12px;
+  }
+}
+/* Touch (2026-10-24 audit): rows and links big enough for a finger. */
+@media (pointer: coarse) {
+  .pj-mine,
+  .pj-switch,
+  .pj-ms-head,
+  .pj-task {
+    min-height: 40px;
+    align-items: center;
+  }
+  .pj-facts a,
+  .pj-page .link-btn,
+  .pj-dialog .link-btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
   }
 }

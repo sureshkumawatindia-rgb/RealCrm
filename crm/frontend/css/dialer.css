@@ -2,6 +2,7 @@
 .dl-start {
   padding: 16px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .dl-start-row {
@@ -21,6 +22,7 @@
 }
 .dl-recent {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   padding: 10px 12px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
@@ -70,6 +72,7 @@
 .dl-card {
   padding: 18px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 .dl-who h3 {
@@ -152,6 +155,7 @@
 .dl-done {
   text-align: center;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   justify-items: center;
   padding: 20px 0;
@@ -162,6 +166,7 @@
 }
 .dl-queue {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   max-height: 70vh;
   overflow: auto;
@@ -207,5 +212,13 @@
   }
   .dl-queue {
     max-height: none;
+  }
+}
+/* Touch (2026-10-24 audit): the outcome and follow-up buttons big enough for a finger. */
+@media (pointer: coarse) {
+  .dl-outcome,
+  .dl-fu,
+  .dl-q {
+    min-height: 40px;
   }
 }

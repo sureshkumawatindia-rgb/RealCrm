@@ -33,6 +33,7 @@
   --warning-bg: #fff4e5;
   --danger: #ff453a;
   --danger-bg: #ffeceb;
+  --badge-danger: #ff453a; /* red count badges with white digits */
   --danger-text: #c42b21; /* red text on white that is easy to read (--danger is for fills) */
   --info: #4a6cf7;
   --info-bg: #eef1ff;
@@ -111,6 +112,7 @@
     --warning-bg: rgba(255, 159, 10, 0.16);
     --warning-text: #fbbf24;
     --danger: #ff6961;
+    --badge-danger: #e5484d; /* white digits stay readable (3.9:1); --danger is too light for them */
     --danger-bg: rgba(255, 69, 58, 0.16);
     --danger-soft: rgba(255, 69, 58, 0.14);
     --danger-text: #ff8a80;
@@ -163,6 +165,7 @@
   --warning-bg: rgba(255, 159, 10, 0.16);
   --warning-text: #fbbf24;
   --danger: #ff6961;
+  --badge-danger: #e5484d;
   --danger-bg: rgba(255, 69, 58, 0.16);
   --danger-soft: rgba(255, 69, 58, 0.14);
   --danger-text: #ff8a80;
@@ -668,6 +671,13 @@ button {
 }
 .login-who .fa-circle-check {
   color: var(--wa);
+}
+/* A long email with no spaces wraps instead of running off both sides of a phone. */
+.login-who > span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 .login-form {
   display: grid;
@@ -2696,7 +2706,7 @@ html.i18n-pending body {
   height: 16px;
   padding: 0 4px;
   border-radius: var(--radius-pill);
-  background: var(--danger);
+  background: var(--badge-danger, var(--danger));
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -3236,6 +3246,26 @@ html.i18n-pending body {
     display: inline-block;
     padding: 12px 6px;
     margin: -12px -6px;
+  }
+  /* Added after R2 (the 2026-10-24 audit): banners' buttons, filter chips, the pipeline picker,
+     and the small text buttons of the newer screens. */
+  .btn,
+  .plan-banner .btn,
+  .staging-band .btn,
+  .chip-radio,
+  .pipe-picker button,
+  .login-link,
+  .tfa-card .link-btn,
+  .c360-tab {
+    min-height: 40px;
+  }
+  .c360-hist-filters .chip {
+    min-height: 40px;
+  }
+  .pipe-settings {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
   }
 }
 
@@ -3895,6 +3925,20 @@ body.search-open {
   .topbar-search span,
   .topbar-search kbd {
     display: none;
+  }
+}
+/* On touch, the search icon is a 40px square that never shrinks in a full top bar (2026-10-24 audit). */
+@media (max-width: 1100px) and (pointer: coarse) {
+  .main .topbar .topbar-search {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+}
+/* On phones the buttons on the right keep their room; the page title shrinks instead. */
+@media (max-width: 600px) {
+  .main > .topbar .topbar-right {
+    flex-shrink: 0;
   }
 }
 @media (max-width: 600px) {
