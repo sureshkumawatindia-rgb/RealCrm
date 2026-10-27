@@ -181,7 +181,7 @@
   height: 20px;
   padding: 0 6px;
   border-radius: var(--radius-pill);
-  background: var(--wa);
+  background: var(--wa-badge, var(--wa));
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -1009,7 +1009,7 @@
 }
 .followup-form {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 6px;
   margin-top: 6px;
 }
@@ -1069,6 +1069,7 @@
   display: grid;
   gap: 8px;
   max-height: 50vh;
+  max-height: 50dvh;
   overflow-y: auto;
 }
 .template-item {

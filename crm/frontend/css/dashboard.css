@@ -121,7 +121,7 @@
 
 .dash-grid {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -304,7 +304,7 @@
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .dash-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

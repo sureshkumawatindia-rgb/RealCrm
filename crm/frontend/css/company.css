@@ -48,7 +48,7 @@
    ============================================================ */
 .company-review-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px 18px;
 }
 .company-review-grid .review-item.full {
@@ -86,7 +86,7 @@
 
 @media (max-width: 860px) {
   .company-review-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .company-setup-card {
     padding: 26px 22px 22px;

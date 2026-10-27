@@ -291,7 +291,7 @@
 
 @media (max-width: 860px) {
   .automation-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .dynamic-row {
     flex-wrap: wrap;
@@ -838,7 +838,7 @@
 }
 @media (max-width: 960px) {
   .au-bot-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 .au-inline[hidden] {

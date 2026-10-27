@@ -214,6 +214,7 @@
 }
 .wfb-condition .wfb-row select {
   flex: 1 1 120px;
+  min-width: 0;
 }
 .wfb-condition .wfb-row .wfb-icon-btn {
   flex: 0 0 auto;
@@ -382,6 +383,7 @@
   gap: 10px;
   padding: 16px;
   max-height: 70vh;
+  max-height: 70dvh;
   overflow: auto;
 }
 .wfb-recipe {

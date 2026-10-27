@@ -400,11 +400,11 @@
         padding: 8px 10px 2px;
       }
       .lr-hours {
-        grid-template-columns: 1fr 1fr 1.4fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
       }
       @media (max-width: 600px) {
         .lr-hours {
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         }
         .lr-rule {
           flex-wrap: wrap;
@@ -733,7 +733,7 @@
       }
       @media (max-width: 640px) {
         .profile-top-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
           gap: 0;
         }
         .logo-upload-zone {

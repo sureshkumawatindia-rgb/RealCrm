@@ -64,6 +64,7 @@
 }
 .brd-filters input[type="search"] {
   flex: 1 1 200px;
+  min-width: 0;
 }
 .brd-chips {
   display: flex;
