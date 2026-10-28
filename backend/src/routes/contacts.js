@@ -18,6 +18,8 @@ const schemas = require('../validators/crm');
 const { contactImport } = require('../validators/marketing');
 const attribution = require('../services/attributionService');
 const consentHistory = require('../services/consentService');
+const contactMerge = require('../services/contactMergeService');
+const idempotency = require('../middleware/idempotency');
 
 const router = express.Router();
 const controller = crudController(contactService, 'Contact');
@@ -63,7 +65,25 @@ router.get('/export', requireRole('owner', 'admin'), validate({ query: schemas.c
   res.setHeader('Cache-Control', 'private, no-store');
   res.send(body);
 });
+// The customers ticked in the list (D100).
+router.post('/export', requireRole('owner', 'admin'), validate({ body: schemas.selectedExport }), async (req, res) => {
+  const { fileName, type, body } = await tableExport.exportSelected(req, 'contacts', req.body);
+  res.attachment(fileName);
+  res.type(type);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.send(body);
+});
 router.post('/', can('create'), validate({ body: schemas.contactCreate }), controller.create);
+// Possible duplicates and merging two customers into one (D100): owners and admins.
+router.get('/duplicates', requireRole('owner', 'admin'), async (req, res) => {
+  res.json({ success: true, data: await contactMerge.duplicates(req) });
+});
+router.get('/:id/merge-preview', requireRole('owner', 'admin'), validate({ params: idParams, query: schemas.mergePreview }), async (req, res) => {
+  res.json({ success: true, data: await contactMerge.preview(req, req.valid.params.id, req.valid.query.with) });
+});
+router.post('/:id/merge', requireRole('owner', 'admin'), idempotency, validate({ params: idParams, body: schemas.contactMerge }), async (req, res) => {
+  res.json({ success: true, data: await contactMerge.merge(req, req.valid.params.id, req.body), message: 'Customers merged' });
+});
 router.get('/:id', can('view'), validate({ params: idParams }), controller.get);
 router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.contactPatch }), controller.update);
 router.delete('/:id', can('delete'), validate({ params: idParams }), controller.remove);

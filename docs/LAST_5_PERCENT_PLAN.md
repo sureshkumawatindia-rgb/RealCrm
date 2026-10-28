@@ -42,7 +42,7 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
 - The Inbox contact panel shows them (with field access, D77).
 - The public API writes leads' custom fields (D74 left them read-only).
 
-**B. Bulk actions and duplicates**
+**B. Bulk actions and duplicates** — done 2026-10-28 (D100)
 - Leads and Customers lists: tick boxes, "Select all N matching" (the whole filter, not only the
   page). Actions: owner, stage (leads), add/remove tag, segment (customers), sequence, export,
   delete (with a confirm).

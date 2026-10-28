@@ -209,6 +209,16 @@ cfExportButton({
   },
 });
 
+// Tick customers and act on all of them (D100): owner, tags, sequence, Excel, delete.
+const customersBulk = crmBulkBar({
+  object: "contact",
+  bar: document.getElementById("customersBulk"),
+  onDone: async () => {
+    await crmLoad(["contacts"], { force: true });
+    renderTable();
+  },
+});
+
 function renderTable() {
   const searchTerm = document.getElementById("searchInput").value.toLowerCase();
   const statusFilter = document.getElementById("filterStatus").value;
@@ -230,17 +240,19 @@ function renderTable() {
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-users"></i><p>${escapeHtml(t("customers.empty"))}</p></div>`;
+    customersBulk.wire(container, []);
     return;
   }
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("leads.phone"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("customers.col.tags"))}</th><th>${escapeHtml(t("col.status"))}</th>${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}<th></th></tr></thead>
+      <thead><tr>${customersBulk.head()}<th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("leads.phone"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("customers.col.tags"))}</th><th>${escapeHtml(t("col.status"))}</th>${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}<th></th></tr></thead>
       <tbody>
         ${filtered
           .map(
             (c) => `
           <tr>
+            ${customersBulk.cell(c.id, c.name)}
             <td>${escapeHtml(c.name)}</td>
             <td>${escapeHtml(c.email)}</td>
             <td>${escapeHtml(c.phone) || "—"}</td>
@@ -260,6 +272,7 @@ function renderTable() {
           .join("")}
       </tbody>
     </table>`;
+  customersBulk.wire(container, filtered);
 
   container.querySelectorAll(".edit-btn").forEach((btn) =>
     btn.addEventListener("click", () => {

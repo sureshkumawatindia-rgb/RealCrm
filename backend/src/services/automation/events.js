@@ -6,6 +6,8 @@ const bus = require('../../realtime/bus');
 // up the request. req.automation (set when an automation itself made the change) carries the
 // chain of workflows behind it, so automations cannot trigger each other in a loop.
 // key: what makes this event unique (a retried job must not start a workflow twice).
+// req.skipWorkflows (a bulk change without "Run automations too", D100): the event still ends
+// sequences and reaches webhooks, but starts no workflow.
 function emit(type, payload, req) {
   const event = {
     type,
@@ -14,6 +16,7 @@ function emit(type, payload, req) {
     at: new Date(),
     ...payload,
     organizationId: String(payload.organizationId),
+    ...(req?.skipWorkflows && { skipWorkflows: true }),
   };
   bus.emit('automation:event', event);
   return event;

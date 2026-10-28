@@ -42,6 +42,8 @@ const contactSchema = new mongoose.Schema(
     // The company's own fields (D73): { key: value }, checked by services/customFieldService.js.
     customFields: { type: mongoose.Schema.Types.Mixed },
     legacyIds: { type: [String], default: undefined },
+    // Merged into another customer (D100): this one is deleted, everything it had moved there.
+    mergedIntoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },

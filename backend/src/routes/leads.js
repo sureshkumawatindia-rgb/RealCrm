@@ -27,6 +27,14 @@ router.get('/export', requireRole('owner', 'admin'), validate({ query: schemas.l
   res.setHeader('Cache-Control', 'private, no-store');
   res.send(body);
 });
+// The leads ticked in the list (D100).
+router.post('/export', requireRole('owner', 'admin'), validate({ body: schemas.selectedExport }), async (req, res) => {
+  const { fileName, type, body } = await tableExport.exportSelected(req, 'leads', req.body);
+  res.attachment(fileName);
+  res.type(type);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.send(body);
+});
 router.post('/', can('create'), idempotency, validate({ body: schemas.leadCreate }), controller.create);
 router.get('/:id', can('view'), byId, controller.get);
 router.patch('/:id', can('edit'), validate({ params: idParams, body: schemas.leadPatch }), controller.update);

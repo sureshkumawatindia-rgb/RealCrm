@@ -5307,3 +5307,268 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   cursor: pointer;
   justify-self: start;
 }
+/* Tick rows and act on all of them: the Leads and Customers lists (D100, js/bulk-bar.js). */
+.bulk-bar-wrap {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  margin-bottom: 12px;
+}
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--brand);
+  background: var(--brand-light);
+  border-radius: var(--radius-md);
+}
+.bulk-bar[hidden] {
+  display: none;
+}
+.bulk-count {
+  font-weight: 700;
+}
+.bulk-bar select,
+.bulk-bar input[type="text"],
+.bulk-bar input[type="date"] {
+  flex: 0 1 220px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+}
+.bulk-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.bulk-bar .link-btn,
+.bulk-report .link-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--brand-darker);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bulk-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.bulk-pick {
+  width: 36px;
+  text-align: center;
+}
+.bulk-pick input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+.bulk-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.bulk-progress progress {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 10px;
+}
+.bulk-report {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 13px;
+}
+.bulk-report-line {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.bulk-report-line.all i {
+  color: var(--success);
+}
+.bulk-report-line.partly i {
+  color: var(--warning);
+}
+.bulk-report ul {
+  margin: 6px 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+@media (pointer: coarse) {
+  .bulk-bar select,
+  .bulk-bar input[type="text"],
+  .bulk-bar input[type="date"],
+  .bulk-bar .btn,
+  .bulk-bar .link-btn,
+  .bulk-auto,
+  .bulk-report .link-btn {
+    min-height: 40px;
+  }
+  .bulk-pick input {
+    width: 22px;
+    height: 22px;
+  }
+}
+/* Possible duplicates and merging two customers (D100, js/contact-merge.js). */
+.merge-hint {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.merge-empty {
+  margin: 0;
+  color: var(--text-muted);
+}
+.merge-empty i {
+  color: var(--success);
+}
+.dup-group {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.dup-group > .btn {
+  justify-self: start;
+}
+.dup-reasons {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-darker);
+  overflow-wrap: anywhere;
+}
+.dup-people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 8px;
+}
+.dup-people li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.merge-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+.merge-pair .field {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.merge-pair select {
+  min-width: 0;
+}
+.merge-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 10px;
+}
+.merge-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed; /* the two customers get the same room */
+}
+.merge-table thead th:first-child {
+  width: 24%;
+}
+.merge-table th,
+.merge-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.merge-table tbody th {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.merge-pick {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.merge-pick input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.merge-sub {
+  margin: 6px 0 4px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.merge-moves {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 13px;
+  columns: 2 200px;
+}
+.merge-warn {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  font-size: 13px;
+}
+.merge-final {
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-weight: 600;
+}
+.merge-confirm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .merge-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .merge-swap {
+    justify-self: start;
+  }
+}
+@media (pointer: coarse) {
+  .merge-pick,
+  .merge-confirm,
+  .merge-swap {
+    min-height: 40px;
+  }
+}
+.bulk-auto[hidden],
+.bulk-progress[hidden],
+.bulk-report[hidden] {
+  display: none;
+}

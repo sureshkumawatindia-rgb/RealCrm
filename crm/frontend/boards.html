@@ -168,6 +168,8 @@
             <button type="button" class="btn btn-outline" data-bulk="sequence" data-i18n="bulk.sequenceBtn">Sequence</button>
             <button type="button" class="btn btn-outline" data-bulk="sms" data-i18n="bulk.smsBtn">SMS</button>
             <button type="button" class="btn btn-primary" data-bulk="dialer"><i class="fa-solid fa-headset"></i> <span data-i18n="bulk.dialerBtn">Call in the dialer</span></button>
+            <!-- D100: a bulk move starts the company's workflows only when ticked -->
+            <label class="bulk-auto"><input type="checkbox" id="brdRunAutomations" /> <span data-i18n="bulkbar.runAutomations">Run automations too</span></label>
             <button type="button" class="link-btn" data-bulk="clear" data-i18n="bulk.clear">Clear</button>
           </div>
           <div class="brd-bulk-result" id="brdBulkResult" hidden></div>

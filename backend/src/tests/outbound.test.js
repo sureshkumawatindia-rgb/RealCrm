@@ -108,7 +108,7 @@ describe('Bulk actions on leads', () => {
     const ids = leads.map((l) => l.id);
 
     const assigned = (await o.post('/bulk/leads', { action: 'assign', ids, params: { ownerId: agentId } }, 'bulk-assign-1')).body.data;
-    expect(assigned).toEqual({ action: 'assign', total: 3, done: 3, failed: [] });
+    expect(assigned).toEqual({ status: 'done', object: 'lead', action: 'assign', total: 3, done: 3, failed: [], failedCount: 0, reasons: {} });
     const replay = (await o.post('/bulk/leads', { action: 'assign', ids, params: { ownerId: agentId } }, 'bulk-assign-1')).body.data;
     expect(replay).toEqual(assigned);
     expect((await Lead.find({ _id: { $in: ids } })).every((l) => String(l.ownerId) === agentId)).toBe(true);

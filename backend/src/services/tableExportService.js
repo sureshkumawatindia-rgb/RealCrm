@@ -192,20 +192,24 @@ const feedCell = (by) => (value) => {
 const csvOf = (columns, rows, by = 'header') => `﻿${[columns.map((c) => c[by]).map(csvCell).join(','), ...rows.map((row) => row.map(feedCell(by)).join(','))].join('\r\n')}\r\n`;
 
 // GET /contacts/export and /leads/export (owners and admins): the list as on screen, as a file.
+// POST with { ids } (D100): the rows ticked in the list, those this member may see.
 const LIST_SERVICES = { contacts: contactService, leads: leadService };
-async function exportList(req, table, query) {
+async function listFile(req, table, { query, ids }) {
   const service = LIST_SERVICES[table];
-  const filter = { ...(await service.listFilter(req, query)), organizationId: req.tenant.organizationId };
+  const filter = { ...(await service.listFilter(req, query)), organizationId: req.tenant.organizationId, ...(ids && { _id: { $in: ids } }) };
   const result = await tableOf(req, table, { filter, sort: service.listSort(query), max: LIST_MAX });
   if (result.tooMany) {
     throw httpError(400, 'TOO_MANY_ROWS', `That is ${result.tooMany.toLocaleString('en-IN')} rows; a file takes at most ${LIST_MAX.toLocaleString('en-IN')}. Narrow the search or the filters, then download again.`);
   }
-  await audit(req, { action: `${table}.exported`, entityType: table === 'contacts' ? 'Contact' : 'Lead', changes: { rows: result.rows.length, format: query.format, filtered: Boolean(query.q || query.cf || query.stage || query.lifecycle || query.status || query.ownerId || query.tag || query.consent) } });
+  const filtered = Boolean(ids || query.q || query.cf || query.stage || query.lifecycle || query.status || query.ownerId || query.tag || query.consent);
+  await audit(req, { action: `${table}.exported`, entityType: table === 'contacts' ? 'Contact' : 'Lead', changes: { rows: result.rows.length, format: query.format, filtered, ...(ids && { selected: ids.length }) } });
   const name = `${table}-${stamp()}`;
   if (query.format === 'csv') return { fileName: `${name}.csv`, type: 'text/csv; charset=utf-8', body: csvOf(result.columns, result.rows) };
   const title = table === 'contacts' ? 'Contacts' : 'Leads';
   return { fileName: `${name}.xlsx`, type: xlsx.XLSX_TYPE, body: xlsx.write([{ name: title, rows: [result.columns.map((c) => c.header), ...result.rows] }]) };
 }
+const exportList = (req, table, query) => listFile(req, table, { query });
+const exportSelected = (req, table, { ids, format }) => listFile(req, table, { query: { format }, ids });
 
 // GET /api/public/v1/feeds/:table — every row of a table for Excel or Power BI (the key's
 // company, what its member may see), as JSON objects or CSV, optionally only those changed since.
@@ -223,4 +227,4 @@ async function feed(req, table, { format = 'json', updatedSince } = {}) {
   return { rows: result.rows.map((row) => Object.fromEntries(result.columns.map((column, i) => [column.key, row[i] instanceof Date ? row[i].toISOString() : row[i] ?? null]))) };
 }
 
-module.exports = { TABLES, TABLE_KEYS, LIST_MAX, FEED_MAX, tableOf, exportList, feed };
+module.exports = { TABLES, TABLE_KEYS, LIST_MAX, FEED_MAX, tableOf, exportList, exportSelected, feed };

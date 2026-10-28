@@ -135,8 +135,9 @@ async function crmApi(path, options = {}) {
 }
 
 // Downloads a file the API only gives to signed-in members (a plain link can't send the token).
-async function crmDownload(path, fileName) {
-  const file = await crmRequest(path, {}, { blob: true });
+// options: a POST with a body, e.g. the rows ticked in a list (D100).
+async function crmDownload(path, fileName, options = {}) {
+  const file = await crmRequest(path, options, { blob: true });
   const url = URL.createObjectURL(file);
   const link = document.createElement("a");
   link.href = url;

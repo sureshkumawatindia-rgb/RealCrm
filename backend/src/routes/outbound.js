@@ -38,11 +38,19 @@ dialerRoutes.post('/sessions/:id/finish', customers('edit'), validate({ params: 
   res.json({ success: true, data: await dialerService.finish(req, req.valid.params.id) });
 });
 
-// Bulk actions on leads: each row checked on its own; an Idempotency-Key replays the answer.
+// Bulk actions on leads and customers (D89, D100): each row checked on its own; an
+// Idempotency-Key replays the answer. More than 200 rows: 202 with the job to follow.
 const bulkRoutes = express.Router();
 bulkRoutes.use(authenticate);
+const bulkAnswer = (res, data) => res.status(data.jobId ? 202 : 200).json({ success: true, data });
 bulkRoutes.post('/leads', requirePermission(leadService.MODULES, 'edit'), idempotency, validate({ body: schemas.bulkLeads }), async (req, res) => {
-  res.json({ success: true, data: await bulkService.leads(req, req.body, req.get('Idempotency-Key')) });
+  bulkAnswer(res, await bulkService.start(req, 'lead', req.body, req.get('Idempotency-Key')));
+});
+bulkRoutes.post('/contacts', requirePermission('customers', 'edit'), idempotency, validate({ body: schemas.bulkContacts }), async (req, res) => {
+  bulkAnswer(res, await bulkService.start(req, 'contact', req.body, req.get('Idempotency-Key')));
+});
+bulkRoutes.get('/jobs/:id', validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await bulkService.getJob(req, req.valid.params.id) });
 });
 
 module.exports = { dialerRoutes, bulkRoutes };

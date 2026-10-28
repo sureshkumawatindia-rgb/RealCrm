@@ -10,20 +10,30 @@ const PARAMS = {
   stage: Joi.object({ stage: Joi.string().valid(...LEAD_STAGES).required(), lostReason: Joi.when('stage', { is: 'Lost', then: Joi.string().trim().min(1).max(500).required(), otherwise: Joi.string().trim().max(500).allow('') }) }),
   followUp: Joi.object({ at: Joi.date().iso().allow(null).required() }),
   tag: Joi.object({ tag: Joi.string().trim().min(1).max(50).required() }),
+  untag: Joi.object({ tag: Joi.string().trim().min(1).max(50).required() }), // D100
   sequence: Joi.object({ sequenceId: objectId.required() }),
   sms: Joi.object({ template: Joi.string().trim().min(1).max(20).required(), variables: Joi.object().pattern(/^[A-Za-z0-9_]{1,30}$/, variableSpec).default({}) }),
+  delete: Joi.object({}), // D100
 };
+// Customers (D100): the same settings, fewer actions.
+const CONTACT_ACTIONS = ['assign', 'tag', 'untag', 'sequence', 'delete'];
+
+// Up to 5,000 rows (D100): more than 200 go to a background job. runAutomations: a stage change
+// also starts the company's workflows (off unless ticked).
+const bulkBody = (actions) => Joi.object({
+  action: Joi.string().valid(...actions).required(),
+  ids: Joi.array().items(objectId).min(1).max(5000).required(),
+  params: Joi.object().unknown(true).default({}),
+  runAutomations: Joi.boolean().default(false),
+}).custom((value, helpers) => {
+  const { error, value: params } = PARAMS[value.action].validate(value.params, { stripUnknown: true });
+  return error ? helpers.message(error.message.replace(/"/g, '')) : { ...value, params };
+});
 
 module.exports = {
   PARAMS,
-  bulkLeads: Joi.object({
-    action: Joi.string().valid(...Object.keys(PARAMS)).required(),
-    ids: Joi.array().items(objectId).min(1).max(200).required(),
-    params: Joi.object().unknown(true).default({}),
-  }).custom((value, helpers) => {
-    const { error, value: params } = PARAMS[value.action].validate(value.params, { stripUnknown: true });
-    return error ? helpers.message(error.message.replace(/"/g, '')) : { ...value, params };
-  }),
+  bulkLeads: bulkBody(Object.keys(PARAMS)),
+  bulkContacts: bulkBody(CONTACT_ACTIONS),
   sessionCreate: Joi.object({ leadIds: Joi.array().items(objectId).max(200), boardId: objectId, name: Joi.string().trim().max(80).allow('') }).xor('leadIds', 'boardId'),
   itemParams: Joi.object({ id: objectId.required(), n: Joi.number().integer().min(0).max(199).required() }),
   itemResult: Joi.object({

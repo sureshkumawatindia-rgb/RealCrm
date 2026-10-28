@@ -226,6 +226,8 @@ function renderBulk() {
   bar.hidden = !n || brd.view?.object !== "lead" || brd.view?.layout !== "table";
   if (bar.hidden) return;
   bar.querySelector(".brd-bulk-count").textContent = btr("bulk.selected", "{n} selected", { n });
+  // Only owners and admins give records to someone else (the server says no to anyone else, D100).
+  bar.querySelector('[data-bulk="assign"]').hidden = !isOrgManager();
 }
 
 const FOLLOW_UP_DAYS = [[1, "dialer.fu.tomorrow"], [3, "dialer.fu.3days"], [7, "dialer.fu.week"], [null, "bulk.noFollowUp"]];
@@ -309,7 +311,9 @@ async function runBulk(action) {
   const bar = $b("brdBulk");
   bar.querySelectorAll("button").forEach((b) => { b.disabled = true; });
   try {
-    const result = await crmApi("/bulk/leads", { ...jsonRequest("POST", { action, ids, params }), headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() } });
+    // A move starts workflows only with "Run automations too" (D100).
+    const runAutomations = action === "stage" && $b("brdRunAutomations").checked;
+    const result = await crmApi("/bulk/leads", { ...jsonRequest("POST", { action, ids, params, runAutomations }), headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() } });
     const titleOf = (id) => brd.items.find((x) => String(x.id) === String(id))?.title || id;
     $b("brdBulkResult").innerHTML = result.failed.length
       ? `<p>${escapeHtml(btr("bulk.partly", "{done} of {total} done. These were not:", { done: result.done, total: result.total }))}</p><ul>${result.failed.map((f) => `<li><strong>${escapeHtml(titleOf(f.id))}</strong>: ${escapeHtml(f.message)}</li>`).join("")}</ul>`

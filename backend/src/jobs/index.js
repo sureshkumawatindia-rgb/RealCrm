@@ -24,6 +24,7 @@ const gmailSync = require('../services/gmailSyncService');
 const googleCalendar = require('../services/googleCalendarService');
 const projects = require('../services/projectService');
 const backups = require('../services/backupService');
+const bulk = require('../services/bulkService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
@@ -35,8 +36,9 @@ const backups = require('../services/backupService');
 // (webhooks, a check every 6 hours, trial reminders) and outbound webhooks send business events
 // to the companies' own systems, lead stages to Meta's Conversions API, and the AI assistant answers
 // customers when a company lets it (Phase 10); a WhatsApp Business app number connected with Meta's
-// popup asks Meta for its contacts and chats (D60); owners get the evening team summary (D61).
-const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register, organizationDeletion.register, whatsappConnect.register, teamSummary.register, usage.register, outlook.register, teamsChannels.register, gmailSync.register, googleCalendar.register, projects.register, backups.register];
+// popup asks Meta for its contacts and chats (D60); owners get the evening team summary (D61);
+// bulk actions on more than 200 leads or customers run row by row (D100).
+const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register, organizationDeletion.register, whatsappConnect.register, teamSummary.register, usage.register, outlook.register, teamsChannels.register, gmailSync.register, googleCalendar.register, projects.register, backups.register, bulk.register];
 
 function start(config) {
   definitions.forEach((register) => register(queue));

@@ -196,6 +196,14 @@ module.exports = {
   // Download Excel (D82): the list's own filters, and the file type.
   contactExport: Joi.object({ ...listBase, lifecycle: Joi.string().valid(...CONTACT_LIFECYCLES), status: Joi.string().valid(...CONTACT_STATUSES), ownerId: objectId, tag: Joi.string().trim().max(50), consent: Joi.string().valid('unknown', 'opted_in', 'opted_out'), cf: fieldFilters, format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
   leadExport: Joi.object({ ...listBase, stage: Joi.string().valid(...LEAD_STAGES), ownerId: objectId, productId: objectId, contactId: objectId, followUpFrom: Joi.date(), followUpTo: Joi.date(), cf: fieldFilters, format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
+  // The rows ticked in the Leads or Customers list (D100).
+  selectedExport: Joi.object({ ids: Joi.array().items(objectId).min(1).max(5000).unique().required(), format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
+  // Merging two customers (D100): keep says which side each field comes from.
+  mergePreview: Joi.object({ with: objectId.required() }),
+  contactMerge: Joi.object({
+    otherId: objectId.required(),
+    keep: Joi.object().pattern(/^(name|email|phone|company|gstin|city|state|address|ownerId|status|cf\.[a-z][a-z0-9_]{1,39})$/, Joi.string().valid('main', 'other')).max(80).default({}),
+  }),
   leadNote: Joi.object({ text: Joi.string().trim().min(1).max(5000).required(), type: Joi.string().trim().max(40).default('Note'), mentions: Joi.array().items(objectId).max(10).unique().default([]) }),
   mentionQuery: Joi.object({ q: Joi.string().trim().max(60).allow('') }),
 

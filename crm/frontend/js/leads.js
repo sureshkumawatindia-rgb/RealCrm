@@ -726,6 +726,17 @@ cfExportButton({
   },
 });
 
+// Tick leads and act on all of them (D100): owner, stage, follow-up, tags, sequence, Excel, delete.
+const leadsBulk = crmBulkBar({
+  object: "lead",
+  bar: document.getElementById("leadsBulk"),
+  onDone: async () => {
+    await crmLoad(["leads"], { force: true });
+    renderProductsPanel();
+    renderTable();
+  },
+});
+
 function renderTable() {
   const searchTerm = document.getElementById("searchInput").value.toLowerCase();
   const statusFilter = document.getElementById("filterStatus").value;
@@ -748,12 +759,13 @@ function renderTable() {
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>${escapeHtml(t("leads.empty.leads"))}</p></div>`;
+    leadsBulk.wire(container, []);
     return;
   }
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("leads.col.source"))}</th><th>${escapeHtml(t("leads.col.owner"))}</th><th>${escapeHtml(t("col.status"))}</th><th>${escapeHtml(t("col.value"))}</th><th>${escapeHtml(t("leads.col.followUp"))}</th>${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}<th></th></tr></thead>
+      <thead><tr>${leadsBulk.head()}<th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("leads.col.source"))}</th><th>${escapeHtml(t("leads.col.owner"))}</th><th>${escapeHtml(t("col.status"))}</th><th>${escapeHtml(t("col.value"))}</th><th>${escapeHtml(t("leads.col.followUp"))}</th>${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}<th></th></tr></thead>
       <tbody>
         ${filtered
           .map((l) => {
@@ -762,6 +774,7 @@ function renderTable() {
             const productText = l.product ? getProductName(l.product) : l.title && !/ enquiry$/.test(l.title) ? l.title : "—";
             return `
           <tr data-id="${l.id}">
+            ${leadsBulk.cell(l.id, l.name)}
             <td class="inline-edit-cell" data-field="name">${escapeHtml(l.name)}</td>
             <td class="inline-edit-cell" data-field="company">${escapeHtml(l.company) || "—"}</td>
             <td class="inline-edit-cell" data-field="email">${escapeHtml(l.email) || "—"}</td>
@@ -787,6 +800,7 @@ function renderTable() {
           .join("")}
       </tbody>
     </table>`;
+  leadsBulk.wire(container, filtered);
   container.querySelectorAll(".edit-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
       const lead = getLeads().find((l) => l.id === btn.dataset.id);

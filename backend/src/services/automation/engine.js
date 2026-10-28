@@ -188,6 +188,7 @@ async function handleEvent(queue, event) {
   // Then the sequences this event ends (a reply, a won or lost lead), so a workflow that
   // enrolls on this same message starts the customer afresh.
   await sequences.handleEvent(event);
+  if (event.skipWorkflows) return; // a bulk change without "Run automations too" (D100)
   const workflows = await Workflow.find({ organizationId: event.organizationId, status: 'Active', 'trigger.type': event.type });
   if (!workflows.length) return;
   const chain = (event.chain || []).map(String);
