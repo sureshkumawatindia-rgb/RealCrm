@@ -13,7 +13,7 @@ const btr = (key, fallback, vars) => (crmI18n.has(key) ? t(key, vars) : fallback
 const battr = (value) => escapeHtml(String(value ?? ""));
 
 const LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation", "Won", "Lost"];
-const LEAD_SOURCES = ["WhatsApp", "IndiaMART", "JustDial", "TradeIndia", "Facebook", "Google Ads", "Website", "Manual", "Import", "API"];
+const LEAD_SOURCES = ["WhatsApp", "WhatsApp Ad", "IndiaMART", "JustDial", "TradeIndia", "Facebook", "Google Ads", "Website", "Website widget", "Manual", "Import", "API"];
 const TASK_STATUSES = ["To Do", "In Progress", "Done"];
 const TASK_PRIORITIES = ["Low", "Medium", "High"];
 

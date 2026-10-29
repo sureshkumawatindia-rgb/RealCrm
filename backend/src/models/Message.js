@@ -37,6 +37,18 @@ const messageSchema = new mongoose.Schema(
       providerMessageId: { type: String },
       emoji: { type: String },
     },
+    // D102: the Click-to-WhatsApp ad the customer wrote from (the webhook's referral, without
+    // the click id, which is kept on the Touchpoint).
+    referral: {
+      sourceType: { type: String },
+      sourceId: { type: String },
+      sourceUrl: { type: String },
+      headline: { type: String },
+      body: { type: String },
+      mediaType: { type: String },
+      mediaUrl: { type: String },
+      welcomeText: { type: String },
+    },
     // The reactions on this message (CP3): the customer's (from a reaction webhook) and ours.
     reactions: {
       customer: { type: String },

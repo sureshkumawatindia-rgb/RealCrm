@@ -25,6 +25,61 @@ Protection: at most `RATE_LIMIT_FORM_PER_MINUTE` enquiries per minute from one a
 
 The CRM must be reachable from the internet for a real website to send enquiries (on a server with HTTPS, or through a tunnel while testing; see WHATSAPP_SETUP.md section 3). `PUBLIC_URL` in backend/.env must be that public address, because the embed code points to it.
 
+## WhatsApp button for your website (D102)
+
+A round WhatsApp button in a corner of your website. A click opens a small card (your name or an
+agent's name and photo, "usually replies within …", your greeting) and **Chat on WhatsApp** opens
+WhatsApp with your ready message.
+
+1. Settings → Lead sources → **WhatsApp button for your website**.
+2. Open **Look and text**: pick the WhatsApp number, the colour, the corner (bottom right or left),
+   the button's own words (English or Hindi), the greeting, the ready message, a name and photo
+   (optional, an `https://` address) and "usually replies within". The preview beside it is the
+   real button; press **Save**.
+3. Copy the code and paste it just before `</body>` on every page that should show the button:
+
+   ```html
+   <script src="https://<your CRM address>/api/v1/public/widget/<your button key>/widget.js" async></script>
+   ```
+
+How the lead knows where it came from: the ready message ends with a short code, for example
+`Ref: 7K2Q9X`. The button tells the CRM about the click (the code, the page and its campaign tags,
+the site the visitor came from). When the customer sends the message, the new lead gets the source
+**Website widget**, the page and the campaign (Reports → Channels and campaigns), and the Inbox shows
+"Came from your website's WhatsApp button". A "Ref: …" that no click reported is ignored.
+
+- Outside your working hours (Settings → Lead rules) the card says "Away now · back at 10:00
+  tomorrow"; untick it to always show "usually replies within …".
+- Privacy: no cookie, nothing kept in the visitor's browser, nothing about them beyond the page.
+  The button draws itself in its own sealed box (a shadow root), so it cannot change your site's
+  look, and your site's styles cannot break it.
+- *Only on these websites*: clicks from other sites are not counted. *Pause* hides the button.
+- Changes reach websites within 5 minutes. The CRM must be reachable on the internet, and
+  `PUBLIC_URL` must be its public address (as for the website form).
+
+## Click-to-WhatsApp ads (D102)
+
+Nothing to set up. When someone writes to you from a Facebook or Instagram ad that opens WhatsApp,
+Meta's message carries the ad (its id, headline, text, picture and a click id). The CRM:
+
+- makes the new customer's lead with the source **WhatsApp Ad** (channel: paid social), and puts the
+  ad on it; a known customer with an open lead gets the ad as the lead's latest touch;
+- shows "Came from the ad: <headline>" in the Inbox (with a link to the ad) and "From the ad" on the
+  message;
+- reports leads, wins, won value and conversion by ad: Reports → Channels and campaigns → **Ad**
+  (Lead Ads ads show there too), and by source;
+- with Settings → API & webhooks → Meta Conversions API → *Click-to-WhatsApp ads* ticked, tells Meta
+  when such a lead is new (LeadSubmitted), reaches Quote Sent (QualifiedLead) or is Won (Purchase,
+  with its value), with the ad's click id, so Meta finds more buyers like them. These events go to
+  your WhatsApp Business Account's dataset (**Find it in Meta**, or copy its ID from Events
+  Manager); the token needs the `whatsapp_business_manage_events` permission.
+
+Ads shown in WhatsApp Status have no click id (Meta leaves it out): the lead still shows the ad, but
+nothing goes to the Conversions API for it. The fields were read in Meta's documentation on
+2026-10-29 (the messages webhook's `referral`, and the Conversions API for Business Messaging).
+
+To try it without an ad: `POST /api/v1/dev/simulate/whatsapp-inbound` with `ad: { headline }` (development only).
+
 ## IndiaMART
 
 1. In IndiaMART Seller Panel → Lead Manager → **Import/Export Leads** → CRM Integration, generate the **CRM API key** (IndiaMART emails it). A paid seller account is needed.
@@ -72,4 +127,4 @@ To try it: *Try it: receive a test lead* (Settings → Lead sources, development
 
 ## Still to check with real accounts
 
-IndiaMART (your CRM API key), Facebook Lead Ads (a Page and the Meta app) and Google Ads lead forms work against test stand-ins; each needs one check with the real account. TradeIndia's pull waits for the parameters from your account page.
+IndiaMART (your CRM API key), Facebook Lead Ads (a Page and the Meta app), Google Ads lead forms and Click-to-WhatsApp ads (a real ad, and the Conversions API dataset of your WhatsApp Business Account) work against test stand-ins; each needs one check with the real account. TradeIndia's pull waits for the parameters from your account page.

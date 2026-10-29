@@ -17,11 +17,16 @@ const touchpointSchema = new mongoose.Schema(
     source: { type: String, enum: LEAD_SOURCES, required: true },
     channel: { type: String, enum: CHANNELS, required: true },
     utm: { source: short, medium: short, campaign: short, term: short, content: short },
-    clickIds: { gclid: short, fbclid: short },
+    // D102: ctwaClid, the click id of a Click-to-WhatsApp ad (for Meta's Conversions API).
+    clickIds: { gclid: short, fbclid: short, ctwaClid: { type: String, trim: true, maxlength: 500 } },
     referrer: url,
     landingPage: url,
-    // From an ad platform: Facebook's ad and form, Google Ads' campaign.
-    ad: { id: short, name: short, formName: short, campaignId: short },
+    // From an ad platform: Facebook's ad and form, Google Ads' campaign; a Click-to-WhatsApp ad
+    // (D102): its id, headline (name), primary text, ad or post, media and link.
+    ad: {
+      id: short, name: short, formName: short, campaignId: short,
+      body: { type: String, trim: true, maxlength: 1000 }, sourceType: short, mediaType: short, mediaUrl: url, url,
+    },
     at: { type: Date, default: Date.now },
   },
   { timestamps: true },

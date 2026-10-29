@@ -11,8 +11,10 @@ const STAGE_PROBABILITY = Object.freeze({ New: 10, Contacted: 25, 'Quote Sent': 
 const CHANNELS = Object.freeze([
   'paid_search', 'paid_social', 'organic_search', 'social', 'referral', 'email', 'direct', 'marketplace', 'whatsapp', 'other',
 ]);
+// D102: "WhatsApp Ad" (a Click-to-WhatsApp ad's first message) and "Website widget" (the
+// website's WhatsApp button).
 const LEAD_SOURCES = Object.freeze([
-  'WhatsApp', 'IndiaMART', 'JustDial', 'TradeIndia', 'Facebook', 'Google Ads', 'Website', 'Manual', 'Import', 'API',
+  'WhatsApp', 'WhatsApp Ad', 'IndiaMART', 'JustDial', 'TradeIndia', 'Facebook', 'Google Ads', 'Website', 'Website widget', 'Manual', 'Import', 'API',
 ]);
 
 const CONTACT_LIFECYCLES = Object.freeze(['lead', 'customer']);

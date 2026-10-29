@@ -61,6 +61,10 @@ function serializeConversation(conversation, viewerId = null) {
     lastInboundAt: conversation.lastInboundAt || null,
     window: serviceWindow(conversation),
     tags: conversation.tags,
+    // D102: the latest enquiry came from a Click-to-WhatsApp ad or the website button.
+    cameFrom: conversation.cameFrom?.kind
+      ? { kind: conversation.cameFrom.kind, headline: conversation.cameFrom.headline || '', sourceUrl: conversation.cameFrom.sourceUrl || '', mediaUrl: conversation.cameFrom.mediaUrl || '', page: conversation.cameFrom.page || '', at: conversation.cameFrom.at || null }
+      : null,
     ...(viewerId && { pinned: (conversation.pinnedBy || []).some((memberId) => String(memberId) === String(viewerId)) }),
     archived: Boolean(conversation.archivedAt),
     // The FAQ bot (Phase 6C): handedOffAt = it waits for a person in this chat.
@@ -95,6 +99,10 @@ function serializeMessage(message) {
       : null,
     order: message.order?.items?.length
       ? { catalogId: message.order.catalogId || '', text: message.order.text || '', items: message.order.items, orderId: message.order.orderId || null }
+      : null,
+    // D102: the Click-to-WhatsApp ad the customer wrote from.
+    referral: message.referral?.sourceId || message.referral?.headline
+      ? { headline: message.referral.headline || '', body: message.referral.body || '', sourceUrl: message.referral.sourceUrl || '', mediaType: message.referral.mediaType || '', mediaUrl: message.referral.mediaUrl || '' }
       : null,
     // Meta's message id (wamid): lets the page show which message a reply quotes.
     providerMessageId: message.providerMessageId || null,

@@ -21,6 +21,22 @@ const websiteSettings = Joi.object({
   consentText: text(200),
 });
 
+// The website's WhatsApp button (D102): which number, how it looks, what it says.
+const widgetSettings = Joi.object({
+  accountId: objectId.allow(''),
+  color: Joi.string().trim().pattern(/^#[0-9a-fA-F]{6}$/).messages({ 'string.pattern.base': 'Pick a colour like #25D366' }),
+  position: Joi.string().valid('right', 'left'),
+  language: Joi.string().valid('en', 'hi'),
+  greeting: text(300),
+  message: text(300),
+  agentName: text(60),
+  agentPhotoUrl: Joi.string().trim().uri({ scheme: ['https'] }).max(500).allow('')
+    .messages({ 'string.uriCustomScheme': 'The photo needs an https:// address', 'string.uri': 'The photo needs an https:// address' }),
+  replyTime: Joi.string().valid('minutes', 'hour', 'hours', 'day'),
+  showHours: Joi.boolean(),
+  allowedOrigins: Joi.array().items(origin).max(20),
+});
+
 // IndiaMART: which kinds of leads to take (W, B, P, WA, BIZ).
 const indiamartSettings = Joi.object({
   queryTypes: Joi.array().items(Joi.string().valid(...Object.keys(QUERY_TYPES))).min(1).unique(),
@@ -34,14 +50,14 @@ const only = (type, schema) => Joi.when('type', { is: type, then: schema, otherw
 module.exports = {
   // Website forms (4A), IndiaMART (4B), Facebook Lead Ads, Google Ads, JustDial and TradeIndia (4C).
   connectionCreate: Joi.object({
-    type: Joi.string().valid('website', 'indiamart', 'facebook', 'googleads', 'justdial', 'tradeindia').required(),
+    type: Joi.string().valid('website', 'indiamart', 'facebook', 'googleads', 'justdial', 'tradeindia', 'whatsapp_button').required(),
     name: text(100),
     apiKey: only('indiamart', apiKey),
     pageId: only('facebook', Joi.string().trim().pattern(/^\d{5,30}$/).required().messages({ 'string.pattern.base': 'Use the Page ID (digits only)' })),
     pageAccessToken: only('facebook', pageToken.required()),
     appSecret: only('facebook', appSecret.required()),
     settings: Joi.when('type', {
-      switch: [{ is: 'website', then: websiteSettings }, { is: 'indiamart', then: indiamartSettings }],
+      switch: [{ is: 'website', then: websiteSettings }, { is: 'indiamart', then: indiamartSettings }, { is: 'whatsapp_button', then: widgetSettings }],
       otherwise: Joi.forbidden(),
     }),
   }),
@@ -51,7 +67,9 @@ module.exports = {
     apiKey,
     pageAccessToken: pageToken,
     appSecret,
-    settings: Joi.alternatives().try(websiteSettings, indiamartSettings),
+    // Unknown keys are refused here (not dropped), so each kind of settings matches only its own
+    // schema (D102: a button's colour must not be read as an empty website form).
+    settings: Joi.alternatives().try(websiteSettings, indiamartSettings, widgetSettings).prefs({ stripUnknown: false }),
   }).min(1),
   intakeList: Joi.object({
     limit: Joi.number().integer().min(1).max(100).default(20),
@@ -73,6 +91,13 @@ module.exports = {
     gclid: text(500), fbclid: text(500), referrer: text(2000), landingPage: text(2000),
     consent: Joi.alternatives(Joi.boolean(), Joi.string().valid('on', 'true', 'false', '')), // the optional WhatsApp offers box
   }).unknown(true),
+  // D102: what the WhatsApp button reports when it is clicked (a form post from a beacon).
+  widgetClick: Joi.object({
+    code: Joi.string().trim().uppercase().pattern(/^[2-9A-HJ-NP-Z]{6}$/).required(),
+    page: text(2000), referrer: text(2000),
+    utm_source: text(500), utm_medium: text(500), utm_campaign: text(500), utm_term: text(500), utm_content: text(500),
+    gclid: text(500), fbclid: text(500),
+  }),
   simulateLead: Joi.object({
     source: Joi.string().valid(...LEAD_SOURCES).default('IndiaMART'),
     sourceRef: text(200),

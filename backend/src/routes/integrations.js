@@ -71,6 +71,10 @@ metaConversionsRoutes.delete('/', async (req, res) => {
   await metaConversions.remove(req);
   res.json({ success: true, message: 'Conversions API removed' });
 });
+// D102: the dataset of the company's WhatsApp Business Account (for Click-to-WhatsApp ad leads).
+metaConversionsRoutes.post('/ctwa-dataset', async (req, res) => {
+  res.json({ success: true, data: await metaConversions.findCtwaDataset(req) });
+});
 metaConversionsRoutes.post('/test', async (req, res) => {
   res.json({ success: true, data: await metaConversions.test(req) });
 });

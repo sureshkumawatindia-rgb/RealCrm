@@ -35,7 +35,7 @@ function simulatedMedia(type, caption) {
 
 // Pretends a customer sent a WhatsApp message: the same processing as a real webhook, without Meta.
 router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbound }), async (req, res) => {
-  const { accountId, from, name, type, text, replyId, items, catalogId } = req.body;
+  const { accountId, from, name, type, text, replyId, items, catalogId, ad } = req.body;
   const account = accountId
     ? await accountService.findInOrg(req, accountId)
     : await accountService.defaultAccount(req.tenant.organizationId);
@@ -70,7 +70,17 @@ router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbou
           messaging_product: 'whatsapp',
           metadata: { display_phone_number: account.displayPhone, phone_number_id: account.phoneNumberId },
           contacts: [{ profile: { name: name || '' }, wa_id: waId }],
-          messages: [{ from: waId, id: messageId, timestamp: String(Math.floor(Date.now() / 1000)), type, ...content }],
+          messages: [{
+            from: waId, id: messageId, timestamp: String(Math.floor(Date.now() / 1000)), type, ...content,
+            // D102: a Click-to-WhatsApp ad's referral, in Meta's field names.
+            ...(ad && {
+              referral: {
+                source_type: 'ad', source_id: ad.sourceId || '120200000000000001', source_url: ad.sourceUrl || 'https://fb.me/simulated-ad',
+                headline: ad.headline || 'Chat with us', body: ad.body || '', media_type: 'image', image_url: 'https://scontent.example/ad.jpg',
+                ...(ad.ctwaClid !== '' && { ctwa_clid: ad.ctwaClid || `Simulated-${crypto.randomBytes(8).toString('hex')}` }),
+              },
+            }),
+          }],
         },
       }],
     }],

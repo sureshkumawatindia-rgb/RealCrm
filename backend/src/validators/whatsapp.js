@@ -54,6 +54,14 @@ module.exports = {
       otherwise: Joi.forbidden(),
     }),
     catalogId: Joi.when('type', { is: 'order', then: Joi.string().trim().max(100).allow(''), otherwise: Joi.forbidden() }),
+    // D102: sent from a Click-to-WhatsApp ad (becomes the webhook's referral).
+    ad: Joi.object({
+      headline: Joi.string().trim().max(200).allow(''),
+      body: Joi.string().trim().max(1000).allow(''),
+      sourceId: Joi.string().trim().pattern(/^\d{5,30}$/),
+      sourceUrl: Joi.string().trim().uri({ scheme: ['https'] }).max(500).allow(''),
+      ctwaClid: Joi.string().trim().max(500).allow(''),
+    }),
   }),
   // The Meta catalog of a number (Phase 8C), and whether WhatsApp shows the shop and a cart.
   catalogConnect: Joi.object({

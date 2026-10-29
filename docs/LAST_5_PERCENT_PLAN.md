@@ -66,7 +66,7 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
 - No e-invoice (IRN) or e-way bill. The docs say when e-invoicing becomes compulsory (the
   turnover limit checked on the GST portal at the time) and how it would be added later.
 
-**D. Where leads come from: ads and the website button**
+**D. Where leads come from: ads and the website button** — done 2026-10-29 (D102)
 - Click-to-WhatsApp ads: the inbound message's `referral` (fields checked in Meta's docs) sets
   the lead's source "WhatsApp Ad" and its ad details (the D79 touchpoints); reports by source and
   by ad; `ctwa_clid` in the Conversions API events (D53) if Meta's docs allow; "Came from ad:

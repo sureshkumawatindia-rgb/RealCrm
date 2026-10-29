@@ -34,7 +34,7 @@ const contactSchema = new mongoose.Schema(
     },
     becameCustomerAt: { type: Date },
     // How they first found the company (D79): set by their first tracked enquiry, never changed.
-    firstTouch: { channel: String, source: String, medium: String, campaign: String, at: Date },
+    firstTouch: { channel: String, source: String, medium: String, campaign: String, adId: String, ad: String, at: Date },
     // Asked not to get SMS (D88): when and how (by hand, the API, a STOP reply).
     smsOptOut: { at: { type: Date }, method: { type: String } },
     // The last call with the customer (D85), for lists and follow-ups.

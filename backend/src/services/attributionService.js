@@ -49,17 +49,25 @@ function cleanTouch(input = {}) {
   const utm = Object.fromEntries(UTM_KEYS.map((key) => [key, text(input.utm?.[key] ?? input[`utm_${key}`]) || fromPage(`utm_${key}`)]));
   return {
     utm,
-    clickIds: { gclid: text(input.gclid ?? input.clickIds?.gclid) || fromPage('gclid'), fbclid: text(input.fbclid ?? input.clickIds?.fbclid) || fromPage('fbclid') },
+    clickIds: {
+      gclid: text(input.gclid ?? input.clickIds?.gclid) || fromPage('gclid'),
+      fbclid: text(input.fbclid ?? input.clickIds?.fbclid) || fromPage('fbclid'),
+      ctwaClid: text(input.clickIds?.ctwaClid, 500),
+    },
     referrer: cleanUrl(input.referrer),
     landingPage,
-    ad: { id: text(input.ad?.id), name: text(input.ad?.name), formName: text(input.ad?.formName), campaignId: text(input.ad?.campaignId) },
+    ad: {
+      id: text(input.ad?.id), name: text(input.ad?.name), formName: text(input.ad?.formName), campaignId: text(input.ad?.campaignId),
+      body: text(input.ad?.body, 1000), sourceType: text(input.ad?.sourceType), mediaType: text(input.ad?.mediaType),
+      mediaUrl: cleanUrl(input.ad?.mediaUrl), url: cleanUrl(input.ad?.url),
+    },
   };
 }
 
 // The channel of a touch: the ad platforms and marketplaces by their source; then click ids,
 // campaign tags and the referrer; Direct when a website visit carries nothing.
 function channelOf({ source, utm = {}, clickIds = {}, referrer = '' } = {}) {
-  if (source === 'Facebook') return 'paid_social'; // Lead Ads
+  if (source === 'Facebook' || source === 'WhatsApp Ad') return 'paid_social'; // Lead Ads, Click-to-WhatsApp ads (D102)
   if (source === 'Google Ads') return 'paid_search'; // lead form extensions
   if (MARKETPLACES.includes(source)) return 'marketplace';
   if (source === 'WhatsApp') return 'whatsapp';
@@ -77,7 +85,7 @@ function channelOf({ source, utm = {}, clickIds = {}, referrer = '' } = {}) {
     if (SOCIAL_HOSTS.test(host)) return 'social';
     return 'referral';
   }
-  if (source === 'Website') return 'direct';
+  if (source === 'Website' || source === 'Website widget') return 'direct';
   return 'other';
 }
 
@@ -88,6 +96,8 @@ function summaryOf(touchpoint) {
     source: touchpoint.source,
     medium: touchpoint.utm?.medium || '',
     campaign: touchpoint.utm?.campaign || touchpoint.ad?.formName || touchpoint.ad?.campaignId || '',
+    adId: touchpoint.ad?.id || '', // D102: reports by ad
+    ad: touchpoint.ad?.name || '',
     at: touchpoint.at,
   };
 }

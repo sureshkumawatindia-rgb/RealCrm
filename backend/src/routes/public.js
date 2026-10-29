@@ -1,5 +1,6 @@
 const express = require('express');
 const forms = require('../services/publicFormService');
+const buttons = require('../services/whatsappButtonService');
 const { formLimiter } = require('../middleware/rateLimit');
 const schemas = require('../validators/leadSources');
 
@@ -29,6 +30,22 @@ router.get('/forms/:publicKey/embed.js', async (req, res) => {
   if (!form) return res.status(404).send('/* This enquiry form does not exist any more. */\n');
   res.set('Cache-Control', 'public, max-age=300');
   return res.send(forms.embedScript(form));
+});
+
+// D102: the website's WhatsApp button — its script, and the click it reports (a beacon; always 204).
+router.get('/widget/:publicKey/widget.js', async (req, res) => {
+  const button = await buttons.findButton(req.params.publicKey);
+  res.type('application/javascript; charset=utf-8');
+  if (!button) return res.status(404).send('/* This WhatsApp button does not exist any more. */\n');
+  const preview = req.query.preview === '1'; // the Settings page's preview
+  res.set('Cache-Control', preview ? 'no-store' : 'public, max-age=300');
+  return res.send(await buttons.script(button, { preview }));
+});
+router.post('/widget/:publicKey/click', formLimiter, async (req, res) => {
+  const button = await buttons.findButton(req.params.publicKey);
+  const { error, value } = schemas.widgetClick.validate(req.body || {}, { stripUnknown: true });
+  if (button && !error) await buttons.recordClick(button, value, { origin: req.get('origin') });
+  res.sendStatus(204);
 });
 
 // JSON (from embed.js) is answered with JSON; a plain HTML form gets a page or a redirect.

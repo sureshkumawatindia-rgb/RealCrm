@@ -6,6 +6,8 @@ const Lead = require('../models/Lead');
 const LeadActivity = require('../models/LeadActivity');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const WidgetClick = require('../models/WidgetClick');
+const LeadSourceConnection = require('../models/LeadSourceConnection');
 const logger = require('../config/logger');
 const bus = require('../realtime/bus');
 const automationEvents = require('./automation/events');
@@ -14,7 +16,9 @@ const { appSecretOf, serializeSync, agentOf } = require('./whatsappAccountServic
 const privateNumbers = require('./privateNumberService');
 const media = require('./whatsappMediaService');
 const templateService = require('./templateService');
-const { STAGE_PROBABILITY } = require('../constants/crm');
+const attribution = require('./attributionService');
+const { refCodeIn } = require('../views/whatsappButton');
+const { STAGE_PROBABILITY, OPEN_STAGES } = require('../constants/crm');
 const { MESSAGE_TYPES, MEDIA_TYPES, STATUS_RANK } = require('../constants/whatsapp');
 
 // Incoming WhatsApp webhooks (Cloud API "messages" field):
@@ -217,6 +221,20 @@ function messageFields(message) {
   return fields;
 }
 
+// The Click-to-WhatsApp ad a message was sent from (D102): the webhook's "referral", only on
+// messages from an ad (Meta's messages reference, read 2026-10-29). ctwa_clid is left out for ads
+// shown in WhatsApp Status.
+function adOf(referral) {
+  if (!referral || typeof referral !== 'object') return null;
+  const link = (value) => (/^https?:\/\//i.test(String(value || '')) ? str(value, 500) : '');
+  return {
+    sourceType: str(referral.source_type, 20), sourceId: str(referral.source_id, 100), sourceUrl: link(referral.source_url),
+    headline: str(referral.headline, 200), body: str(referral.body, 1000), mediaType: str(referral.media_type, 20),
+    mediaUrl: link(referral.image_url || referral.thumbnail_url || referral.video_url), welcomeText: str(referral.welcome_message?.text, 1000),
+    ctwaClid: str(referral.ctwa_clid, 500),
+  };
+}
+
 // The one-line summary shown in the conversation list.
 function previewOf(fields) {
   const labels = {
@@ -237,12 +255,12 @@ function phoneFromWaId(waId) {
 
 // quiet: imported from a WhatsApp Business app number (history, contacts, its own messages), or a
 // private number — no automation hears about it (D60, D61). private: the number is private (D61).
-async function findOrCreateContact(organizationId, phoneE164, name, { quiet = false, private: hidden = false } = {}) {
+async function findOrCreateContact(organizationId, phoneE164, name, { quiet = false, private: hidden = false, source = 'WhatsApp' } = {}) {
   const existing = await Contact.findOne({ organizationId, phoneE164 });
   if (existing) return { contact: existing, created: false };
   try {
-    const contact = await Contact.create({ organizationId, name, phone: phoneE164, phoneE164, source: 'WhatsApp', lifecycle: 'lead', ...(hidden && { private: true }) });
-    if (!quiet) automationEvents.emit('contact.created', { organizationId, contactId: contact._id, source: 'WhatsApp', key: `contact.created:${contact._id}` });
+    const contact = await Contact.create({ organizationId, name, phone: phoneE164, phoneE164, source, lifecycle: 'lead', ...(hidden && { private: true }) });
+    if (!quiet) automationEvents.emit('contact.created', { organizationId, contactId: contact._id, source, key: `contact.created:${contact._id}` });
     return { contact, created: true };
   } catch (error) {
     if (error.code !== 11000) throw error; // the same number arrived twice at once
@@ -250,16 +268,17 @@ async function findOrCreateContact(organizationId, phoneE164, name, { quiet = fa
   }
 }
 
-// A new number becomes a lead (source WhatsApp); sourceRef keeps it to one lead per number.
-async function createLead(contact, phoneE164, ownerId = null) {
+// A new number becomes a lead (source WhatsApp, or WhatsApp Ad / Website widget, D102); sourceRef
+// keeps it to one lead per number.
+async function createLead(contact, phoneE164, ownerId = null, { source = 'WhatsApp', note = 'First message on WhatsApp' } = {}) {
   try {
     const lead = await Lead.create({
       organizationId: contact.organizationId, contactId: contact._id, stage: 'New', probability: STAGE_PROBABILITY.New, ownerId,
-      source: 'WhatsApp', sourceRef: `whatsapp:${phoneE164.slice(1)}`, stageChangedAt: new Date(), lastActivityAt: new Date(),
+      source, sourceRef: `whatsapp:${phoneE164.slice(1)}`, stageChangedAt: new Date(), lastActivityAt: new Date(),
     });
     await LeadActivity.create({
       organizationId: contact.organizationId, leadId: lead._id, contactId: contact._id,
-      type: 'Lead created', text: 'First message on WhatsApp', actorName: 'WhatsApp',
+      type: 'Lead created', text: note, actorName: 'WhatsApp',
     });
     return lead;
   } catch (error) {
@@ -274,16 +293,24 @@ async function handleMessage(account, { message, contact: profile }) {
   const organizationId = account.organizationId;
   const at = unixTime(message.timestamp);
   const name = str(profile?.profile?.name, 200).trim() || phoneE164;
+  const fields = messageFields(message);
+  // D102: from a Click-to-WhatsApp ad (the referral), or the website's WhatsApp button: a ref code
+  // in the text whose click the button reported (a "Ref: …" of the customer's own counts for nothing).
+  const ad = adOf(message.referral);
+  const widgetCode = ad ? '' : refCodeIn(fields.text);
+  const click = widgetCode ? await WidgetClick.findOne({ organizationId, code: widgetCode }) : null;
+  const source = ad ? 'WhatsApp Ad' : click ? 'Website widget' : 'WhatsApp';
 
   // A private number (D61): stored for the owners only, with no lead, automation or notification.
   const privateNumber = await privateNumbers.isPrivate(organizationId, phoneE164);
-  const { contact, created } = await findOrCreateContact(organizationId, phoneE164, name, { quiet: privateNumber, private: privateNumber });
+  const { contact, created } = await findOrCreateContact(organizationId, phoneE164, name, { quiet: privateNumber, private: privateNumber, source });
   const hidden = privateNumber || Boolean(contact.private);
   // An agent's own number (D67): the chat, a new lead and an unowned customer are theirs. The
   // assignment rules then leave the lead alone (it has an owner).
   const agent = hidden ? null : await agentOf(account);
   if (agent && created) await Contact.updateOne({ _id: contact._id, ownerId: null }, { $set: { ownerId: agent._id } });
-  const newLead = created && !hidden ? await createLead(contact, phoneE164, agent?._id || null) : null;
+  const note = ad ? `First message on WhatsApp, from the ad "${ad.headline || ad.sourceId}"` : click ? "First message on WhatsApp, from the website's WhatsApp button" : undefined;
+  const newLead = created && !hidden ? await createLead(contact, phoneE164, agent?._id || null, { source, ...(note && { note }) }) : null;
 
   let conversation = await Conversation.findOneAndUpdate(
     { organizationId, contactId: contact._id, whatsappAccountId: account._id },
@@ -297,12 +324,13 @@ async function handleMessage(account, { message, contact: profile }) {
   // A closed chat the customer writes in again starts a new round (resolution time, D61).
   if (conversation.status === 'closed') await Conversation.updateOne({ _id: conversation._id, status: 'closed' }, { $set: { openedAt: at } });
 
-  const fields = messageFields(message);
+  const { ctwaClid, ...shown } = ad || {};
   let stored;
   try {
     stored = await Message.create({
       organizationId, conversationId: conversation._id, contactId: contact._id, whatsappAccountId: account._id,
       direction: 'in', status: 'received', providerMessageId: str(message.id, 300), providerTimestamp: at, ...(hidden && { private: true }), ...fields,
+      ...(ad && { referral: shown }),
     });
   } catch (error) {
     if (error.code === 11000) return 'ignored'; // stored before (event log expired or replayed)
@@ -335,6 +363,7 @@ async function handleMessage(account, { message, contact: profile }) {
     );
   }
 
+  if (!hidden && (ad || click)) conversation = await cameFrom({ account, conversation, contact, newLead, ad, ctwaClid, click, at, source });
   bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created && !hidden });
   // A reaction (a 👍 on our message) is not a new question: no bot, auto-reply or workflow runs on it (CP3).
   if (!hidden && stored.type !== 'reaction') {
@@ -346,12 +375,37 @@ async function handleMessage(account, { message, contact: profile }) {
   // (after its chat exists, so the chat is assigned together with the lead).
   if (newLead) {
     bus.emit('lead:intake', {
-      organizationId, source: 'WhatsApp', sourceRef: newLead.sourceRef, leadId: newLead._id, contactId: contact._id, outcome: 'created', contactCreated: true, receivedAt: at,
+      organizationId, source: newLead.source, sourceRef: newLead.sourceRef, leadId: newLead._id, contactId: contact._id, outcome: 'created', contactCreated: true, receivedAt: at,
     });
   }
   // Photos, voice notes and documents: copy the file now (WhatsApp keeps it only 7 days).
   if (stored.media?.providerMediaId) await media.storeInboundQuietly(stored);
   return 'processed';
+}
+
+// D102: an enquiry from an ad or the website button — the chat shows where it came from, and the
+// lead (new, or the customer's open one) gets the touch: the ad (with its click id for Meta's
+// Conversions API) or the page the button was on. Never stops the message.
+async function cameFrom({ account, conversation, contact, newLead, ad, ctwaClid, click, at, source }) {
+  const { organizationId } = account;
+  try {
+    if (click) {
+      await WidgetClick.updateOne({ _id: click._id }, { $set: { usedAt: at, contactId: contact._id } });
+      if (newLead) await LeadSourceConnection.updateOne({ _id: click.connectionId }, { $inc: { 'stats.created': 1 }, $set: { lastLeadAt: at } });
+    }
+    const lead = newLead || await Lead.findOne({ organizationId, contactId: contact._id, stage: { $in: OPEN_STAGES } }).sort({ createdAt: -1 }).select('_id');
+    const touch = ad
+      ? { ad: { id: ad.sourceId, name: ad.headline, body: ad.body, sourceType: ad.sourceType, mediaType: ad.mediaType, mediaUrl: ad.mediaUrl, url: ad.sourceUrl }, clickIds: { ctwaClid } }
+      : { landingPage: click?.page, referrer: click?.referrer, utm: click?.utm || {}, gclid: click?.clickIds?.gclid, fbclid: click?.clickIds?.fbclid };
+    await attribution.record({ organizationId, contactId: contact._id, leadId: lead?._id, source, touch, at, isNewLead: Boolean(newLead) });
+    const shown = ad
+      ? { kind: 'ad', headline: ad.headline, sourceId: ad.sourceId, sourceUrl: ad.sourceUrl, mediaUrl: ad.mediaUrl, at }
+      : { kind: 'widget', page: click?.page || '', at };
+    return await Conversation.findOneAndUpdate({ _id: conversation._id }, { $set: { cameFrom: shown } }, { returnDocument: 'after' }) || conversation;
+  } catch (error) {
+    logger.error(`Where the WhatsApp message in chat ${conversation._id} came from could not be saved: ${error.message}`);
+    return conversation;
+  }
 }
 
 // --- a WhatsApp Business app number (coexistence, D60) ---------------------------------------------

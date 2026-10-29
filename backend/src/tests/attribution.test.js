@@ -135,7 +135,7 @@ describe('Where leads come from (D79)', () => {
 
       const campaigns = await report('by=campaign');
       expect(campaigns.items.find((r) => r.key === 'diwali_sale')).toMatchObject({ channel: 'paid_search', leads: 1, won: 1 });
-      expect((await as(owner).get('/reports/attribution?by=ad')).status).toBe(400);
+      expect((await as(owner).get('/reports/attribution?by=keyword')).status).toBe(400); // by=ad is D102's
     });
 
     it('members who see only their own leads get their own; other companies see nothing', async () => {

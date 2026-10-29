@@ -69,6 +69,35 @@ function eventOf({ stage, at, leadgenId, email, phoneE164 }, now = Date.now()) {
   };
 }
 
+// Click-to-WhatsApp ads (D102): Conversions API for Business Messaging, read 2026-10-29
+// (https://developers.facebook.com/docs/marketing-api/conversions-api/business-messaging): to the
+// WhatsApp Business Account's dataset, action_source "business_messaging", messaging_channel
+// "whatsapp", user_data { whatsapp_business_account_id, ctwa_clid } (the click id from the
+// message webhook's referral; not limited to 7 days). Meta's own event names; which CRM moment
+// sends which:
+const MESSAGING_EVENTS = Object.freeze({ created: 'LeadSubmitted', 'Quote Sent': 'QualifiedLead', Won: 'Purchase' });
+
+// → the event, or null without the account or the click id. event_id lets Meta drop a repeat.
+function messagingEventOf({ name, at, wabaId, ctwaClid, valuePaise = 0, eventId }) {
+  if (!name || !wabaId || !ctwaClid) return null;
+  return {
+    event_name: name,
+    event_time: Math.floor(new Date(at || Date.now()).getTime() / 1000),
+    action_source: 'business_messaging',
+    messaging_channel: 'whatsapp',
+    ...(eventId && { event_id: String(eventId) }),
+    user_data: { whatsapp_business_account_id: String(wabaId), ctwa_clid: String(ctwaClid) },
+    ...(name === 'Purchase' && valuePaise > 0 && { custom_data: { currency: 'INR', value: Math.round(valuePaise) / 100 } }),
+  };
+}
+
+// The dataset of a WhatsApp Business Account (GET /<WABA id>/dataset), or '' when it has none.
+async function wabaDataset({ wabaId, accessToken }) {
+  const data = await graph(`${encodeURIComponent(wabaId)}/dataset`, { accessToken });
+  const id = data.id || data.dataset_id || (Array.isArray(data.data) ? data.data[0]?.id : '');
+  return id ? String(id) : '';
+}
+
 // → { eventsReceived, traceId }
 async function sendEvents({ datasetId, accessToken, testEventCode }, events) {
   const data = await graph(`${encodeURIComponent(datasetId)}/events`, {
@@ -77,4 +106,6 @@ async function sendEvents({ datasetId, accessToken, testEventCode }, events) {
   return { eventsReceived: Number(data.events_received) || 0, traceId: String(data.fbtrace_id || '') };
 }
 
-module.exports = { checkDataset, eventOf, sendEvents, hashEmail, hashPhone, LEAD_EVENT_SOURCE, MAX_AGE_MS };
+module.exports = {
+  checkDataset, eventOf, sendEvents, hashEmail, hashPhone, LEAD_EVENT_SOURCE, MAX_AGE_MS, MESSAGING_EVENTS, messagingEventOf, wabaDataset,
+};

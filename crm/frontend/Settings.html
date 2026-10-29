@@ -487,6 +487,26 @@
         font-size: 12.5px;
         padding: 4px 0;
       }
+      /* D102: the website's WhatsApp button — its options beside a live preview */
+      .ls-widget {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+        gap: 16px;
+        margin-top: 10px;
+      }
+      .ls-widget-preview {
+        position: relative;
+        min-height: 460px;
+        border: 1px dashed var(--border);
+        border-radius: var(--radius-sm, 10px);
+        background: repeating-linear-gradient(135deg, var(--surface), var(--surface) 12px, var(--bg, #f7f7f8) 12px, var(--bg, #f7f7f8) 24px);
+        overflow: hidden;
+      }
+      @media (max-width: 860px) {
+        .ls-widget {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
       .ls-preview {
         margin-top: 10px;
         padding: 16px;
@@ -1607,6 +1627,7 @@
                   <button class="btn btn-outline" type="button" data-ls-create="googleads"><i class="fa-brands fa-google"></i> Google Ads lead form</button>
                   <button class="btn btn-outline" type="button" data-ls-create="justdial"><i class="fa-solid fa-phone"></i> JustDial</button>
                   <button class="btn btn-outline" type="button" data-ls-create="tradeindia"><i class="fa-solid fa-industry"></i> TradeIndia</button>
+                  <button class="btn btn-outline" type="button" data-ls-create="whatsapp_button"><i class="fa-brands fa-whatsapp"></i> WhatsApp button for your website</button>
                 </div>
                 <form class="settings-section wa-block" id="lsFacebookForm" autocomplete="off" hidden>
                   <div class="settings-section-label">Connect Facebook Lead Ads</div>
@@ -2092,6 +2113,15 @@
                     </div>
                   </div>
                   <div class="field"><label>Stages to send</label><div id="intCapiStages"></div></div>
+                  <div class="field">
+                    <label>Click-to-WhatsApp ads</label>
+                    <label class="ls-check"><input type="checkbox" id="intCapiCtwa" /> Also tell Meta when a lead from a Click-to-WhatsApp ad moves on (new lead, Quote Sent, Won), with the ad's click id</label>
+                    <div class="cf-help">These go to your WhatsApp Business Account's dataset with Meta's own event names (LeadSubmitted, QualifiedLead, Purchase). The token above needs the whatsapp_business_manage_events permission.</div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field"><label for="intCapiCtwaDataset">WhatsApp dataset ID (empty: the dataset above)</label><input type="text" id="intCapiCtwaDataset" inputmode="numeric" maxlength="20" spellcheck="false" /></div>
+                    <div class="field"><label>&nbsp;</label><button class="btn btn-outline" id="intCapiCtwaFind" type="button" hidden>Find it in Meta</button></div>
+                  </div>
                   <div class="data-actions" style="justify-content: flex-end">
                     <button class="btn btn-danger-outline" id="intCapiRemove" type="button" hidden>Remove</button>
                     <button class="btn btn-outline" id="intCapiTestBtn" type="button" hidden>Send a test event</button>

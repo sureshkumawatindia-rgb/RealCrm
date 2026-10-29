@@ -17,6 +17,12 @@ const conversionsApiConnectionSchema = new mongoose.Schema(
     // (they are matched by hashed phone and email).
     allSources: { type: Boolean, default: false },
     stages: [{ type: String, enum: LEAD_STAGES }],
+    // D102: leads from Click-to-WhatsApp ads (with the ad's click id) as Meta's business messaging
+    // events, to the dataset of the WhatsApp Business Account (empty: the dataset above).
+    ctwa: {
+      enabled: { type: Boolean, default: false },
+      datasetId: { type: String, trim: true, default: '' },
+    },
     status: { type: String, enum: ['connected', 'error'], default: 'connected' },
     statusMessage: { type: String, default: '' },
     checkedAt: Date,

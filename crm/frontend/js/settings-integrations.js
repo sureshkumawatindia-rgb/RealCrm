@@ -164,6 +164,10 @@
     $("intCapiTest").value = c.testEventCode || "";
     $("intCapiEnabled").checked = c.connected ? c.enabled : true;
     $("intCapiAll").checked = Boolean(c.allSources);
+    // D102: Click-to-WhatsApp ad leads.
+    $("intCapiCtwa").checked = Boolean(c.ctwa?.enabled);
+    $("intCapiCtwaDataset").value = c.ctwa?.datasetId || "";
+    $("intCapiCtwaFind").hidden = !c.connected;
     $("intCapiRemove").hidden = !c.connected;
     $("intCapiTestBtn").hidden = !c.connected;
     const s = c.stats;
@@ -352,6 +356,8 @@
       testEventCode: $("intCapiTest").value.trim(),
       enabled: $("intCapiEnabled").checked,
       allSources: $("intCapiAll").checked,
+      ctwaEnabled: $("intCapiCtwa").checked,
+      ctwaDatasetId: $("intCapiCtwaDataset").value.trim(),
       stages: [...$("intCapiStages").querySelectorAll("input:checked")].map((input) => input.value),
     };
     const token = $("intCapiToken").value.trim();
@@ -362,6 +368,19 @@
       showToast("Conversions API saved.", "success");
     } catch (error) {
       showToast(apiErrorMessage(error, "Could not save."), "error");
+    }
+  });
+  // D102: the dataset of the WhatsApp Business Account, read from Meta.
+  $("intCapiCtwaFind").addEventListener("click", async () => {
+    $("intCapiCtwaFind").disabled = true;
+    try {
+      const found = await crmApi("/meta-conversions/ctwa-dataset", { method: "POST" });
+      $("intCapiCtwaDataset").value = found.datasetId;
+      showToast(`Found dataset ${found.datasetId}. Press "Check and save" to keep it.`, "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, "Meta did not give the dataset. Copy its ID from Events Manager."), "error");
+    } finally {
+      $("intCapiCtwaFind").disabled = false;
     }
   });
   $("intCapiTestBtn").addEventListener("click", async () => {

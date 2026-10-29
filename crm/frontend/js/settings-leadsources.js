@@ -1,7 +1,9 @@
 /**
  * settings-leadsources.js — Settings → Lead sources (owners and admins)
  * Website enquiry forms (/lead-sources): embed code, options, a live preview, what arrived and
- * what became of it; in development a test lead. IndiaMART, Facebook and others follow.
+ * what became of it; in development a test lead. IndiaMART, Facebook and others follow. D102: the
+ * website's WhatsApp button (number, colour, corner, texts, a live preview drawn by the real
+ * script, the code to copy).
  * Runs after settings.js; everything stays inside this function so no names clash.
  */
 (function settingsLeadSources() {
@@ -9,7 +11,7 @@
   document.getElementById("leadSourcesTab").style.display = "";
 
   const $ = (id) => document.getElementById(id);
-  const TYPE_ICON = { website: "fa-globe", indiamart: "fa-store", facebook: "fa-brands fa-facebook", googleads: "fa-brands fa-google", justdial: "fa-phone", tradeindia: "fa-industry" };
+  const TYPE_ICON = { website: "fa-globe", indiamart: "fa-store", facebook: "fa-brands fa-facebook", googleads: "fa-brands fa-google", justdial: "fa-phone", tradeindia: "fa-industry", whatsapp_button: "fa-brands fa-whatsapp" };
   const OUTCOME = {
     created: ["badge-success", "new lead"],
     attached: ["badge-info", "added to open lead"],
@@ -19,6 +21,7 @@
     processing: ["badge-warning", "in progress"],
   };
   let sources = [];
+  let accounts = []; // the company's WhatsApp numbers, for the button (D102)
   const openLogs = new Set();
 
   const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
@@ -26,7 +29,8 @@
   const htmlCode = (s) =>
     `<form action="${s.form.submitUrl}" method="post">\n  <input name="name" placeholder="Your name" required>\n  <input name="phone" type="tel" placeholder="Mobile number" required>\n  <textarea name="message" placeholder="Your requirement"></textarea>\n  <input name="website_url" style="display:none" tabindex="-1" autocomplete="off">\n  <button type="submit">Send</button>\n</form>`;
 
-  function statsLine(stats = {}) {
+  function statsLine(stats = {}, type = "") {
+    if (type === "whatsapp_button") return `${stats.received || 0} clicks · ${stats.created || 0} new leads`;
     return `${stats.received || 0} received · ${stats.created || 0} new leads · ${stats.attached || 0} added to open leads · ${stats.duplicate || 0} repeats · ${stats.rejected || 0} refused`;
   }
 
@@ -60,6 +64,99 @@
       <details style="margin-top:10px" data-ls-preview="${escapeHtml(s.id)}"><summary class="sub" style="cursor:pointer"><strong>Preview</strong> (sending it creates a real enquiry)</summary>
         <div class="ls-preview"></div>
       </details>`;
+  }
+
+  // --- the website's WhatsApp button (D102) ---
+  const buttonCode = (s) => `<script src="${s.widget.scriptUrl}" async></script>`;
+  const option = (value, label, current) => `<option value="${escapeHtml(value)}" ${String(value) === String(current) ? "selected" : ""}>${escapeHtml(label)}</option>`;
+  function widgetHtml(s) {
+    const set = s.settings;
+    const numbers = accounts.map((a) => option(a.id, `${a.name || a.verifiedName || "WhatsApp"} · ${a.displayPhone || "number not checked yet"}`, set.accountId)).join("");
+    return `
+      <div class="sub" style="margin-top:10px"><strong>Put this on your website</strong>, just before &lt;/body&gt;, on every page that should show the button:</div>
+      <div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">
+        <textarea class="ls-code" readonly rows="1">${escapeHtml(buttonCode(s))}</textarea>
+        <button class="btn btn-outline" type="button" data-ls-copy-value="${escapeHtml(buttonCode(s))}" title="Copy the code"><i class="fa-solid fa-copy"></i></button>
+      </div>
+      <div class="sub" style="margin-top:6px">No cookie and nothing kept on the visitor's phone, and it cannot change your site's look. The ready message ends with a short code (Ref: …): when the customer sends it, the new lead shows the source "Website widget" and the page they were on. Changes reach websites within 5 minutes.</div>
+      ${accounts.length ? "" : '<div class="sub" style="margin-top:6px;color:var(--danger)">Add a WhatsApp number in Settings → WhatsApp first: the button opens a chat with it.</div>'}
+      <details style="margin-top:10px" data-ls-widget="${escapeHtml(s.id)}"><summary class="sub" style="cursor:pointer"><strong>Look and text</strong> (with a live preview)</summary>
+        <div class="ls-widget">
+          <div>
+            <div class="field-row">
+              <div class="field"><label>WhatsApp number</label><select data-wopt="accountId">${option("", "The default number", set.accountId)}${numbers}</select></div>
+              <div class="field"><label>Colour</label><input type="color" data-wopt="color" value="${escapeHtml(set.color)}" /></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label>Corner</label><select data-wopt="position">${option("right", "Bottom right", set.position)}${option("left", "Bottom left", set.position)}</select></div>
+              <div class="field"><label>The button's own words</label><select data-wopt="language">${option("en", "English", set.language)}${option("hi", "Hindi", set.language)}</select></div>
+            </div>
+            <div class="field"><label>Greeting in the card</label><textarea data-wopt="greeting" rows="2" maxlength="300">${escapeHtml(set.greeting)}</textarea></div>
+            <div class="field"><label>Ready message (the customer can change it before sending)</label><textarea data-wopt="message" rows="2" maxlength="300">${escapeHtml(set.message)}</textarea></div>
+            <div class="field-row">
+              <div class="field"><label>Name on the card (optional)</label><input type="text" data-wopt="agentName" maxlength="60" placeholder="Your company's name" value="${escapeHtml(set.agentName)}" /></div>
+              <div class="field"><label>Photo (optional, an https address)</label><input type="url" data-wopt="agentPhotoUrl" maxlength="500" placeholder="https://…" value="${escapeHtml(set.agentPhotoUrl)}" /></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label>Usually replies within</label><select data-wopt="replyTime">${option("minutes", "Minutes", set.replyTime)}${option("hour", "An hour", set.replyTime)}${option("hours", "A few hours", set.replyTime)}${option("day", "A day", set.replyTime)}</select></div>
+              <div class="field"><label>Outside working hours</label><label class="ls-check"><input type="checkbox" data-wopt="showHours" ${set.showHours ? "checked" : ""} /> Say "Away now · back at …" (Settings → Lead rules → working hours)</label></div>
+            </div>
+            <div class="field"><label>Only on these websites (optional, one per line)</label><textarea data-wopt="allowedOrigins" rows="2" placeholder="https://www.yourshop.in">${escapeHtml((set.allowedOrigins || []).join("\n"))}</textarea></div>
+            <div class="data-actions" style="justify-content:flex-end"><button class="btn btn-primary" type="button" data-ls-widget-save="${escapeHtml(s.id)}">Save</button></div>
+          </div>
+          <div class="ls-widget-preview" data-ls-widget-preview aria-label="Preview"></div>
+        </div>
+      </details>`;
+  }
+  // The preview is drawn by the button's real script (loaded once, for its drawing function).
+  let drawing = null;
+  function drawingFor(source) {
+    if (!drawing) {
+      drawing = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = `${source.widget.scriptUrl}?preview=1`;
+        script.setAttribute("data-preview", "");
+        script.onload = () => (window.YellowCrmWhatsAppButton ? resolve(window.YellowCrmWhatsAppButton) : reject(new Error("no drawing")));
+        script.onerror = () => reject(new Error("not loaded"));
+        document.head.appendChild(script);
+      });
+      drawing.catch(() => { drawing = null; });
+    }
+    return drawing;
+  }
+  function readWidget(row) {
+    const field = (key) => row.querySelector(`[data-wopt="${key}"]`);
+    return {
+      accountId: field("accountId").value,
+      color: field("color").value,
+      position: field("position").value,
+      language: field("language").value,
+      greeting: field("greeting").value.trim(),
+      message: field("message").value.trim(),
+      agentName: field("agentName").value.trim(),
+      agentPhotoUrl: field("agentPhotoUrl").value.trim(),
+      replyTime: field("replyTime").value,
+      showHours: field("showHours").checked,
+      allowedOrigins: field("allowedOrigins").value.split(/[\s,]+/).map((o) => o.replace(/\/+$/, "")).filter(Boolean),
+    };
+  }
+  async function previewWidget(row) {
+    const source = sources.find((s) => s.id === row.dataset.lsId);
+    const box = row.querySelector("[data-ls-widget-preview]");
+    if (!source || !box) return;
+    try {
+      const button = await drawingFor(source);
+      const set = readWidget(row);
+      const account = accounts.find((a) => String(a.id) === set.accountId) || accounts.find((a) => a.isDefault) || accounts[0];
+      box.replaceChildren();
+      button.render({
+        ...button.config, ...set,
+        phone: String(account?.displayPhone || "").replace(/\D/g, ""),
+        agentPhotoUrl: /^https:\/\//.test(set.agentPhotoUrl) ? set.agentPhotoUrl : "",
+      }, { mount: box, preview: true, open: true });
+    } catch {
+      box.textContent = "The preview could not be loaded.";
+    }
   }
 
   // --- IndiaMART ---
@@ -134,12 +231,12 @@
             <span class="badge badge-neutral">${escapeHtml(s.source)}</span>
             ${s.status === "error" ? '<span class="badge badge-danger">Needs attention</span>' : paused ? '<span class="badge badge-warning">Paused</span>' : '<span class="badge badge-success">Active</span>'}
             ${s.credentials.hint ? `<span class="sub">${s.type === "facebook" ? "token" : "key"} …${escapeHtml(s.credentials.hint)}</span>` : ""}</div>
-          <div class="sub">${escapeHtml(statsLine(s.stats))}${s.lastLeadAt ? ` · last lead ${escapeHtml(when(s.lastLeadAt))}` : ""}</div>
+          <div class="sub">${escapeHtml(statsLine(s.stats, s.type))}${s.lastLeadAt ? ` · last lead ${escapeHtml(when(s.lastLeadAt))}` : ""}</div>
           ${s.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(s.statusMessage)}</div>` : s.lastError ? `<div class="sub" style="color:var(--danger)">${escapeHtml(s.lastError)}</div>` : ""}
           <div class="ls-actions">
             ${s.type === "indiamart" ? `<button class="btn btn-outline" type="button" data-ls-pull="${escapeHtml(s.id)}"><i class="fa-solid fa-rotate"></i> Pull now</button><button class="btn btn-outline" type="button" data-ls-key="${escapeHtml(s.id)}"><i class="fa-solid fa-key"></i> New key</button>` : ""}
             ${s.type === "facebook" ? `<button class="btn btn-outline" type="button" data-ls-fb-token="${escapeHtml(s.id)}"><i class="fa-solid fa-key"></i> New token</button>` : ""}
-            <button class="btn btn-outline" type="button" data-ls-log-toggle="${escapeHtml(s.id)}"><i class="fa-solid fa-list"></i> Recent</button>
+            ${s.type === "whatsapp_button" ? "" : `<button class="btn btn-outline" type="button" data-ls-log-toggle="${escapeHtml(s.id)}"><i class="fa-solid fa-list"></i> Recent</button>`}
             <button class="btn btn-outline" type="button" data-ls-status="${escapeHtml(s.id)}">${paused ? "Resume" : "Pause"}</button>
             <button class="icon-btn danger" type="button" data-ls-remove="${escapeHtml(s.id)}" title="Remove"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -149,6 +246,7 @@
           ${s.type === "facebook" ? facebookHtml(s) : ""}
           ${s.type === "googleads" ? googleAdsHtml(s) : ""}
           ${s.type === "justdial" || s.type === "tradeindia" ? genericHtml(s) : ""}
+          ${s.type === "whatsapp_button" ? widgetHtml(s) : ""}
         </div>
       </div>`;
   }
@@ -161,7 +259,7 @@
 
   async function load() {
     try {
-      sources = await crmApi("/lead-sources");
+      [sources, accounts] = await Promise.all([crmApi("/lead-sources"), crmApi("/whatsapp/accounts").catch(() => [])]);
       render();
     } catch (error) {
       $("lsList").innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, "Couldn't load the lead sources."))}</p>`;
@@ -229,6 +327,17 @@
     const saveTypes = target("data-im-save");
     const copyValue = target("data-ls-copy-value");
     const fbToken = target("data-ls-fb-token");
+    const widgetSave = target("data-ls-widget-save");
+    if (widgetSave) {
+      try {
+        await crmApi(`/lead-sources/${widgetSave.dataset.lsWidgetSave}`, jsonRequest("PATCH", { settings: readWidget(widgetSave.closest("[data-ls-id]")) }));
+        showToast("Saved. Websites show the new button within 5 minutes.", "success");
+        await load();
+      } catch (error) {
+        showToast(apiErrorMessage(error, "Couldn't save the button."), "error");
+      }
+      return;
+    }
     if (copyValue) {
       try {
         await navigator.clipboard.writeText(copyValue.dataset.lsCopyValue);
@@ -356,7 +465,13 @@
   $("lsList").addEventListener("toggle", (e) => {
     const details = e.target.closest?.("[data-ls-preview]");
     if (details && details.open) showPreview(details, sources.find((s) => s.id === details.dataset.lsPreview));
+    const button = e.target.closest?.("[data-ls-widget]");
+    if (button && button.open) previewWidget(button.closest("[data-ls-id]"));
   }, true);
+  // The button's preview follows every change (D102).
+  ["input", "change"].forEach((type) => $("lsList").addEventListener(type, (e) => {
+    if (e.target.closest("[data-wopt]")) previewWidget(e.target.closest("[data-ls-id]"));
+  }));
 
   $("lsAddWebsite").addEventListener("click", async () => {
     try {
@@ -421,7 +536,7 @@
     button.addEventListener("click", async () => {
       try {
         await crmApi("/lead-sources", jsonRequest("POST", { type: button.dataset.lsCreate }));
-        showToast("Added. Copy its address from the card.", "success");
+        showToast(button.dataset.lsCreate === "whatsapp_button" ? "WhatsApp button ready. Set its look, then copy its code into your website." : "Added. Copy its address from the card.", "success");
       } catch (error) {
         showToast(apiErrorMessage(error, "Couldn't add it."), "error");
       }

@@ -265,12 +265,13 @@
   function renderAttribution() {
     const d = attr.data;
     if (!d) return;
-    const byCampaign = d.by === "campaign";
-    const name = (r) => (byCampaign
-      ? `<strong>${escapeHtml(r.key || t("rep.at.noCampaign"))}</strong><span class="sub">${escapeHtml(channelName(r.channel))}</span>`
+    // By campaign or by ad (D102: a Click-to-WhatsApp ad's headline, a Lead Ads ad's name): with its channel.
+    const grouped = { campaign: ["rep.at.byCampaign", "rep.at.noCampaign"], ad: ["rep.at.byAd", "rep.at.noAd"] }[d.by];
+    const name = (r) => (grouped
+      ? `<strong>${escapeHtml(r.key || t(grouped[1]))}</strong><span class="sub">${escapeHtml(channelName(r.channel))}</span>`
       : `<strong>${escapeHtml(channelName(r.key))}</strong>`);
     $("attrTable").innerHTML = d.items.length
-      ? table([[escapeHtml(t(byCampaign ? "rep.at.byCampaign" : "rep.at.byChannel"))], [escapeHtml(t("rep.at.leads")), 1], [escapeHtml(t("rep.at.won")), 1], [escapeHtml(t("rep.at.wonValue")), 1], [escapeHtml(t("rep.at.conversion")), 1]],
+      ? table([[escapeHtml(t(grouped ? grouped[0] : "rep.at.byChannel"))], [escapeHtml(t("rep.at.leads")), 1], [escapeHtml(t("rep.at.won")), 1], [escapeHtml(t("rep.at.wonValue")), 1], [escapeHtml(t("rep.at.conversion")), 1]],
         [...d.items.map((r) => `<tr><td>${name(r)}</td>${cell(r.leads)}${cell(r.won)}${cell(rupees(r.wonValuePaise))}${cell(pctText(r.conversionPct))}</tr>`),
           `<tr><td><strong>${escapeHtml(t("rep.at.total"))}</strong></td>${cell(d.totals.leads)}${cell(d.totals.won)}${cell(rupees(d.totals.wonValuePaise))}${cell(pctText(d.totals.conversionPct))}</tr>`])
       : `<div class="empty-state"><i class="fa-solid fa-route"></i><p>${escapeHtml(t("rep.at.empty"))}</p></div>`;

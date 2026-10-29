@@ -52,6 +52,9 @@ module.exports = {
     enabled: Joi.boolean(),
     allSources: Joi.boolean(),
     stages: Joi.array().items(Joi.string().valid(...LEAD_STAGES)).min(1).unique(),
+    // D102: Click-to-WhatsApp ad leads, and the WhatsApp Business Account's dataset ('' = the one above).
+    ctwaEnabled: Joi.boolean(),
+    ctwaDatasetId: Joi.string().trim().pattern(/^\d{5,20}$/).allow('').messages({ 'string.pattern.base': 'The dataset id is a number from Events Manager.' }),
   }).min(1),
   // "New secret" (D78): the old one keeps working for 24 hours, or stops at once (0).
   webhookRotate: Joi.object({ overlapHours: Joi.number().valid(0, 24).default(24) }),

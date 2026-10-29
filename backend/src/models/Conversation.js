@@ -23,6 +23,17 @@ const conversationSchema = new mongoose.Schema(
     // When the chat was last opened (new, or reopened by the customer): resolution time (D61).
     openedAt: { type: Date },
     tags: { type: [String], default: [] },
+    // D102: where the customer's latest enquiry came from — a Click-to-WhatsApp ad (its headline,
+    // link and picture) or the website's WhatsApp button (the page). The Inbox shows it.
+    cameFrom: {
+      kind: { type: String, enum: ['ad', 'widget'] },
+      headline: { type: String },
+      sourceId: { type: String },
+      sourceUrl: { type: String },
+      mediaUrl: { type: String },
+      page: { type: String },
+      at: { type: Date },
+    },
     // CP3: pinned by each member for themselves; archived for the whole company (a new message
     // from the customer brings the chat back).
     pinnedBy: { type: [mongoose.Schema.Types.ObjectId], default: undefined },

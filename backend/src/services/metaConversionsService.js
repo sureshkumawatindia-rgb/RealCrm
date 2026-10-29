@@ -1,6 +1,9 @@
 const ConversionsApiConnection = require('../models/ConversionsApiConnection');
 const Organization = require('../models/Organization');
 const Lead = require('../models/Lead');
+const Conversation = require('../models/Conversation');
+const Touchpoint = require('../models/Touchpoint');
+const WhatsAppAccount = require('../models/WhatsAppAccount');
 const bus = require('../realtime/bus');
 const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
@@ -15,6 +18,8 @@ const planService = require('./planService');
 // so Meta learns which Lead Ads leads become customers. Lead Ads leads carry Meta's lead id;
 // with "all sources" other leads go too, matched by hashed phone and email. Sent by a job (one
 // per event, never twice); events older than 7 days are not sent (Meta refuses them).
+// D102: a lead from a Click-to-WhatsApp ad, when switched on, also goes as a business messaging
+// event with the ad's click id (LeadSubmitted, QualifiedLead at Quote Sent, Purchase at Won).
 const JOB = 'capi.send';
 
 function serialize(connection, organization) {
@@ -29,6 +34,7 @@ function serialize(connection, organization) {
       enabled: connection.enabled,
       allSources: connection.allSources,
       stages: connection.stages.length ? connection.stages : LEAD_STAGES,
+      ctwa: { enabled: Boolean(connection.ctwa?.enabled), datasetId: connection.ctwa?.datasetId || '' },
       status: connection.status,
       statusMessage: connection.statusMessage,
       checkedAt: connection.checkedAt || null,
@@ -64,6 +70,8 @@ async function save(req, body) {
     });
   }
   for (const key of ['testEventCode', 'enabled', 'allSources', 'stages']) if (body[key] !== undefined) connection[key] = body[key];
+  if (body.ctwaEnabled !== undefined) connection.set('ctwa.enabled', body.ctwaEnabled);
+  if (body.ctwaDatasetId !== undefined) connection.set('ctwa.datasetId', body.ctwaDatasetId);
   await connection.save();
   await audit(req, { action: 'capi.saved', entityType: 'ConversionsApiConnection', entityId: connection._id, changes: { datasetId, enabled: connection.enabled, allSources: connection.allSources, stages: connection.stages } });
   return get(req);
@@ -75,6 +83,50 @@ async function remove(req) {
 }
 
 const credentialsOf = (connection) => ({ datasetId: connection.datasetId, accessToken: decrypt(connection.accessTokenEnc), testEventCode: connection.testEventCode || undefined });
+
+// The WhatsApp Business Account of a lead's chat (else the company's default number's).
+async function wabaOf(organizationId, contactId) {
+  const chat = await Conversation.findOne({ organizationId, contactId }).sort({ lastMessageAt: -1 }).select('whatsappAccountId');
+  const account = chat ? await WhatsAppAccount.findOne({ _id: chat.whatsappAccountId, organizationId }).select('wabaId') : null;
+  return account?.wabaId || (await WhatsAppAccount.findOne({ organizationId }).sort({ isDefault: -1, createdAt: 1 }).select('wabaId'))?.wabaId || '';
+}
+
+// POST /meta-conversions/ctwa-dataset — the dataset of the company's WhatsApp Business Account,
+// read from Meta with the saved token (it needs the whatsapp_business_manage_events permission).
+async function findCtwaDataset(req) {
+  const connection = await ConversionsApiConnection.findOne({ organizationId: req.tenant.organizationId });
+  if (!connection) throw httpError(409, 'NOT_CONNECTED', 'Connect the Conversions API first.');
+  const account = await WhatsAppAccount.findOne({ organizationId: req.tenant.organizationId, wabaId: { $gt: '' } }).sort({ isDefault: -1, createdAt: 1 }).select('wabaId');
+  if (!account) throw httpError(409, 'NO_WHATSAPP_ACCOUNT', 'Connect a WhatsApp number (Settings → WhatsApp) first.');
+  const datasetId = await meta.wabaDataset({ wabaId: account.wabaId, accessToken: decrypt(connection.accessTokenEnc) });
+  if (!datasetId) throw httpError(404, 'NO_DATASET', 'Your WhatsApp Business Account has no dataset yet. Make one in Meta Events Manager (connect a data source → WhatsApp), then try again.');
+  return { datasetId, wabaId: account.wabaId };
+}
+
+// D102: a Click-to-WhatsApp ad's lead with its click id → Meta's business messaging event.
+// null when it is not one, or nothing goes for this moment.
+async function sendAdEvent(connection, lead, event, stage) {
+  // LeadSubmitted only for a lead the ad made; later stages for any lead an ad touched.
+  const name = event.type === 'lead.created' ? lead.source === 'WhatsApp Ad' && meta.MESSAGING_EVENTS.created : meta.MESSAGING_EVENTS[stage];
+  if (!name) return null;
+  const touch = await Touchpoint.findOne({ organizationId: lead.organizationId, leadId: lead._id, 'clickIds.ctwaClid': { $gt: '' } }).sort({ at: -1 }).select('clickIds');
+  if (!touch) return null;
+  const metaEvent = meta.messagingEventOf({
+    name, at: event.at, wabaId: await wabaOf(lead.organizationId, lead.contactId?._id || lead.contactId), ctwaClid: touch.clickIds.ctwaClid,
+    valuePaise: name === 'Purchase' ? lead.expectedValuePaise : 0, eventId: `${lead._id}:${name}`,
+  });
+  if (!metaEvent) return null;
+  try {
+    await meta.sendEvents({ ...credentialsOf(connection), datasetId: connection.ctwa?.datasetId || connection.datasetId }, [metaEvent]);
+    await bump(connection._id, 'sent');
+    return 'sent';
+  } catch (error) {
+    await bump(connection._id, 'failed', error.message);
+    if (error.statusCode >= 500) throw error; // Meta was not reached: the job tries again
+    logger.warn(`Conversions API ad event for lead ${lead._id} refused: ${error.message}`);
+    return 'failed';
+  }
+}
 
 // POST /meta-conversions/test — a sample event to Meta's Test events (needs the test code).
 async function test(req) {
@@ -104,9 +156,11 @@ async function send({ event }) {
   const lead = await Lead.findOne({ _id: event.leadId, organizationId: event.organizationId }).populate({ path: 'contactId', select: 'email phoneE164' });
   if (!lead) return 'gone';
   const stage = event.type === 'lead.stage_changed' ? event.to : lead.stage;
+  const viaAd = connection.ctwa?.enabled ? await sendAdEvent(connection, lead, event, stage) : null;
   const stages = connection.stages.length ? connection.stages : LEAD_STAGES;
   const fromLeadAds = lead.source === 'Facebook';
   if (!stages.includes(stage) || (!fromLeadAds && !connection.allSources)) {
+    if (viaAd) return viaAd;
     await bump(connection._id, 'skipped');
     return 'skipped';
   }
@@ -142,4 +196,4 @@ function register(queue) {
   bus.on('automation:event', listener);
 }
 
-module.exports = { JOB, get, save, remove, test, send, register };
+module.exports = { JOB, get, save, remove, test, send, register, findCtwaDataset };

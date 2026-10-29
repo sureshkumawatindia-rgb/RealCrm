@@ -63,6 +63,8 @@ The file bytes are not in MongoDB: `src/storage` keeps them on local disk (`DOCU
 |---|---|---|
 | `campaigns` | `name`, `type`, `status`, `startDate`/`endDate` (`YYYY-MM-DD`), `budgetPaise`, `leadsGenerated` (entered by the team until lead sources count it), `audience`, `description`, `ownerId`, `createdById`, `createdByMemberId`, `legacyIds[]`, `deletedAt` | `(organizationId, deletedAt, status, startDate)`; `(organizationId, ownerId, status)`; `(organizationId, legacyIds)` |
 | `workflows` | Phase 2 shape (`trigger` text, `actions[]`, `runsCount`); replaced in Phase 6 by migration 003, see section 1i | |
+| `touchpoints` | D79: one way a customer reached the company (an enquiry through lead intake, the website form or the API; D102: a Click-to-WhatsApp ad or the website button): `contactId`, `leadId`, `intakeId`, `source`, `channel`, `utm`, `clickIds` { gclid, fbclid, ctwaClid }, `referrer`, `landingPage`, `ad` { id, name (a headline), formName, campaignId, body, sourceType, mediaType, mediaUrl, url }, `at` | `{ organizationId, contactId, at: -1 }`, `{ organizationId, at: -1 }` |
+| `widgetclicks` | D102: a click on the website's WhatsApp button: `connectionId`, `code` (the ref code in the ready message), `page`, `referrer`, `utm` { source, medium, campaign, term, content }, `clickIds` { gclid, fbclid }, `usedAt` and `contactId` (once the customer's message arrived), `at` | unique `{ organizationId, code }`; TTL 30 days on `at` |
 | `bulkjobs` | A bulk action on more than 200 leads or customers (D100): `memberId`, `object` (lead/contact), `action`, `params`, `runAutomations`, `ids[]` (up to 5,000), `status` (queued/running/done/failed), `position` (how far it got; a retried job carries on), `done`, `failedCount`, `reasons` { CODE: n }, `failed[]` (first 500), `error`, `startedAt`, `finishedAt`. Kept 30 days (TTL on `createdAt`). |
 | `sequences` | Phase 2 shape (`targetType`, `steps[]` { day, Email/Call/Task/Wait, note }, `enrolledCount`); replaced in Phase 6B by migration 004, see section 1i | |
 
@@ -279,3 +281,5 @@ No migration (additive; a missing field means "none", a missing setting reads as
 ## 3. Planned (Phase 2 onwards)
 
 SaaS collections (Phase 10). Every index is prefixed with `organizationId`; money is stored as integer paise.
+
+D102 elsewhere: lead sources gain "WhatsApp Ad" and "Website widget" (leads, contacts, touchpoints, rules); `leads.attribution.first|last` and `contacts.firstTouch` add `adId` and `ad` (reports by ad); `conversations.cameFrom` { kind ad/widget, headline, sourceId, sourceUrl, mediaUrl, page, at }; `messages.referral` { sourceType, sourceId, sourceUrl, headline, body, mediaType, mediaUrl, welcomeText } (no click id); `leadsourceconnections.type` `whatsapp_button` (with `publicKey` and the button's settings); `conversionsapiconnections.ctwa` { enabled, datasetId }.

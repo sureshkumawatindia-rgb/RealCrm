@@ -392,8 +392,9 @@ async function attribution(req, query) {
   for (const lead of leads) {
     const t = lead.attribution?.[touch];
     const channel = t?.channel || channelOf({ source: lead.source });
-    const key = query.by === 'campaign' ? (t?.campaign || '') : channel;
-    const id = query.by === 'campaign' ? `${channel}|${key}` : key;
+    // D102: by ad — a Click-to-WhatsApp ad's headline, a Lead Ads ad's name, else its id.
+    const key = query.by === 'campaign' ? (t?.campaign || '') : query.by === 'ad' ? (t?.ad || t?.adId || '') : channel;
+    const id = query.by === 'channel' || !query.by ? key : `${channel}|${key}`;
     if (!rows.has(id)) rows.set(id, { key, channel, source: t?.source || lead.source || 'Manual', leads: 0, won: 0, wonValuePaise: 0 });
     const row = rows.get(id);
     row.leads += 1;

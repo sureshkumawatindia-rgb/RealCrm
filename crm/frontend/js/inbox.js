@@ -314,6 +314,7 @@ crmI18n.ready.then(function inbox() {
       <div class="msg ${m.direction} ${m.status === "failed" ? "failed" : ""}" data-id="${escapeHtml(m.id)}">
         <div class="bubble">
           ${quoted ? `<div class="quote">${escapeHtml(quoted.text || quoted.type)}</div>` : ""}
+          ${m.referral ? `<div class="msg-ad"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> ${escapeHtml(t("inbox.came.fromAd"))}: <strong>${escapeHtml(m.referral.headline || t("inbox.came.adNoName"))}</strong></div>` : ""}
           <div class="bubble-body">${messageBody(m)}</div>
           <div class="bubble-meta">${m.type === "template" ? `<span class="tpl-tag">${escapeHtml(t("inbox.template"))}</span>` : ""}${who}${escapeHtml(time)} ${m.direction === "out" ? TICKS[m.status] || "" : ""}</div>
           ${m.status === "failed" && m.error ? `<div class="msg-error">${escapeHtml(m.error.message || m.error.title || t("inbox.notAccepted"))}</div>` : ""}
@@ -1215,6 +1216,15 @@ crmI18n.ready.then(function inbox() {
     $("detailsName").textContent = c.contact.name || c.contact.phone;
     $("detailsPhone").textContent = c.contact.phone;
     $("detailsCompany").textContent = c.contact.company || "";
+    // Where the latest enquiry came from (D102): a Click-to-WhatsApp ad, or the website's button.
+    const came = c.cameFrom;
+    $("detailsCame").hidden = !came;
+    if (came) {
+      const ad = came.kind === "ad";
+      const link = ad ? came.sourceUrl : came.page;
+      const label = ad ? t("inbox.came.ad", { headline: came.headline || t("inbox.came.adNoName") }) : t("inbox.came.site");
+      $("detailsCame").innerHTML = `<i class="fa-solid ${ad ? "fa-bullhorn" : "fa-globe"}" aria-hidden="true"></i><span>${escapeHtml(label)}${/^https?:\/\//i.test(link || "") ? ` · <a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t(ad ? "inbox.came.openAd" : "inbox.came.openPage"))}</a>` : ""}</span>`;
+    }
     $("details360").href = `customer-360.html?id=${encodeURIComponent(c.contact.id)}`;
     const select = $("detailsAssignee");
     select.innerHTML =
@@ -1306,7 +1316,7 @@ crmI18n.ready.then(function inbox() {
       ? leads.length
         ? leads
             .map((l) => {
-              const title = l.title || t(l.source === "WhatsApp" ? "inbox.ctx.waEnquiry" : "inbox.ctx.enquiry");
+              const title = l.title || t(["WhatsApp", "WhatsApp Ad", "Website widget"].includes(l.source) ? "inbox.ctx.waEnquiry" : "inbox.ctx.enquiry");
               const stage = canMove
                 ? `<select data-lead-stage="${escapeHtml(l.id)}" aria-label="${escapeHtml(t("inbox.ctx.stageOf", { title }))}">${LEAD_STAGES.map((s) => `<option value="${s}"${s === l.stage ? " selected" : ""}>${escapeHtml(crmLabel("stage", s))}</option>`).join("")}</select>`
                 : `<span class="badge badge-info">${escapeHtml(crmLabel("stage", l.stage))}</span>`;

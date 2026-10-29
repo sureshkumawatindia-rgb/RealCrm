@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const LeadSourceConnection = require('../models/LeadSourceConnection');
 const LeadIntake = require('../models/LeadIntake');
+const WhatsAppAccount = require('../models/WhatsAppAccount');
 const env = require('../config/env');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
@@ -27,6 +28,39 @@ function websiteSettings(settings = {}) {
   return { ...WEBSITE_DEFAULTS, ...settings, askFor: { ...WEBSITE_DEFAULTS.askFor, ...(settings.askFor || {}) } };
 }
 
+// The website's WhatsApp button (D102). accountId '' = the company's default number.
+const WIDGET_DEFAULTS = Object.freeze({
+  accountId: '',
+  color: '#25D366',
+  position: 'right',
+  language: 'en',
+  greeting: 'Hi! How can we help you?',
+  message: 'Hello, I have a question.',
+  agentName: '',
+  agentPhotoUrl: '',
+  replyTime: 'minutes',
+  showHours: true,
+  allowedOrigins: [],
+});
+
+function widgetSettings(settings = {}) {
+  return { ...WIDGET_DEFAULTS, ...settings };
+}
+
+// The settings of a connection, with its type's defaults.
+function settingsOf(type, settings) {
+  if (type === 'website') return websiteSettings(settings);
+  if (type === 'whatsapp_button') return widgetSettings(settings);
+  return settings || {};
+}
+
+// A button's number must be one of the company's own.
+async function checkAccount(organizationId, settings) {
+  if (settings?.accountId && !(await WhatsAppAccount.exists({ _id: settings.accountId, organizationId }))) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Pick one of your WhatsApp numbers.', [{ field: 'settings.accountId', code: 'UNKNOWN_NUMBER', message: 'Pick one of your WhatsApp numbers.' }]);
+  }
+}
+
 function serializeConnection(connection) {
   const base = {
     id: connection._id,
@@ -35,7 +69,7 @@ function serializeConnection(connection) {
     name: connection.name,
     status: connection.status,
     statusMessage: connection.statusMessage,
-    settings: connection.type === 'website' ? websiteSettings(connection.settings) : connection.settings || {},
+    settings: settingsOf(connection.type, connection.settings),
     stats: connection.stats,
     lastPolledAt: connection.lastPolledAt || null,
     lastLeadAt: connection.lastLeadAt || null,
@@ -58,6 +92,9 @@ function serializeConnection(connection) {
   if (connection.type === 'website') {
     const formPath = `/api/v1/public/forms/${connection.publicKey}`;
     base.form = { publicKey: connection.publicKey, submitUrl: `${env.publicUrl}${formPath}`, embedUrl: `${env.publicUrl}${formPath}/embed.js` };
+  }
+  if (connection.type === 'whatsapp_button') {
+    base.widget = { publicKey: connection.publicKey, scriptUrl: `${env.publicUrl}/api/v1/public/widget/${connection.publicKey}/widget.js` };
   }
   return base;
 }
@@ -90,12 +127,13 @@ async function connectFacebookPage(pageId, pageAccessToken) {
 }
 
 async function create(req, body) {
+  if (body.type === 'whatsapp_button') await checkAccount(req.tenant.organizationId, body.settings);
   const pushed = ['indiamart', 'facebook', 'googleads', 'justdial', 'tradeindia'].includes(body.type);
   const connection = new LeadSourceConnection({
     organizationId: req.tenant.organizationId,
     type: body.type,
-    name: body.name || `${CONNECTION_TYPES[body.type]} ${body.type === 'website' ? 'form' : ''}`.trim(),
-    ...(body.type === 'website' && { publicKey: crypto.randomBytes(12).toString('hex'), settings: websiteSettings(body.settings) }),
+    name: body.name || (body.type === 'whatsapp_button' ? 'Website WhatsApp button' : `${CONNECTION_TYPES[body.type]} ${body.type === 'website' ? 'form' : ''}`.trim()),
+    ...(['website', 'whatsapp_button'].includes(body.type) && { publicKey: crypto.randomBytes(12).toString('hex'), settings: settingsOf(body.type, body.settings) }),
     ...(pushed && { webhookKey: crypto.randomBytes(16).toString('hex') }),
     ...(body.type === 'indiamart' && { settings: { queryTypes: body.settings?.queryTypes || [...DEFAULT_QUERY_TYPES] } }),
     createdById: req.user._id,
@@ -122,7 +160,8 @@ async function update(req, id, body) {
     if (body.status === 'active') connection.statusMessage = '';
   }
   if (body.settings) {
-    connection.settings = connection.type === 'website' ? websiteSettings({ ...connection.settings, ...body.settings }) : { ...connection.settings, ...body.settings };
+    if (connection.type === 'whatsapp_button') await checkAccount(connection.organizationId, body.settings);
+    connection.settings = settingsOf(connection.type, { ...connection.settings, ...body.settings });
     connection.markModified('settings');
   }
   if (body.pageAccessToken && connection.type === 'facebook') {
@@ -177,4 +216,4 @@ async function pull(req, id) {
   return { ...result, connection: serializeConnection(await LeadSourceConnection.findById(connection._id)) };
 }
 
-module.exports = { list, create, update, remove, intakes, pull, findInOrg, serializeConnection, websiteSettings };
+module.exports = { list, create, update, remove, intakes, pull, findInOrg, serializeConnection, websiteSettings, widgetSettings };

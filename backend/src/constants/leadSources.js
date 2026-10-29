@@ -7,6 +7,7 @@ const CONNECTION_TYPES = Object.freeze({
   googleads: 'Google Ads',
   justdial: 'JustDial',
   tradeindia: 'TradeIndia',
+  whatsapp_button: 'Website widget', // D102: the website's WhatsApp button
 });
 const CONNECTION_STATUSES = Object.freeze(['active', 'paused', 'error']);
 
