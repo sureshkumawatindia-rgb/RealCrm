@@ -76,6 +76,9 @@ const orderSchema = new mongoose.Schema(
     // or recorded by hand (cash, bank transfer …). amountPaidPaise is their sum.
     payments: { type: [paymentSchema], default: [] },
     amountPaidPaise: { type: Number, default: 0 },
+    // D101: what its tax invoices bill, less their credit notes. Once the order is invoiced this
+    // is what the customer owes in all (null: not invoiced yet, the order's total counts).
+    billedPaise: { type: Number, default: null },
     cancelledAt: { type: Date },
     cancelReason: { type: String, default: '' },
     notes: { type: String, default: '' },

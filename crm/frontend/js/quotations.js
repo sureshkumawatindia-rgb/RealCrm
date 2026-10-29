@@ -375,7 +375,7 @@ crmI18n.ready.then(function quotationsPage() {
       }
       if (["Sent", "Viewed", "Rejected", "Expired"].includes(q.status)) buttons.push(button("revise", "quotes.act.revise", "btn-primary", "fa-pen"));
       if (q.status === "Accepted" && !q.orderId) {
-        buttons.unshift(button("order", "quotes.act.order", "btn-primary", "fa-truck-fast"));
+        buttons.unshift(button("order", "quotes.act.order", "btn-primary", "fa-truck-fast"), button("invoice", "quotes.act.invoice", "btn-outline", "fa-file-invoice"));
         buttons.push(button("unaccept", "quotes.act.unaccept", "btn-outline", "fa-rotate-left"));
       }
     }
@@ -784,6 +784,14 @@ crmI18n.ready.then(function quotationsPage() {
         const created = await crmApi("/orders", request);
         showToast(t("quotes.orderCreated", { number: created.number }), "success");
         window.location.href = `Orders.html?id=${encodeURIComponent(created.id)}`;
+        return;
+      } else if (action === "invoice") {
+        // D101: the order and its tax invoice in one go (the order page shows the invoice).
+        const request = jsonRequest("POST", {});
+        request.headers["Idempotency-Key"] = newIdempotencyKey();
+        const made = await crmApi(`/quotations/${ed.q.id}/invoice`, request);
+        showToast(t("inv.made", { number: made.invoice.number }), "success");
+        window.location.href = `Orders.html?id=${encodeURIComponent(made.orderId)}`;
         return;
       } else if (action === "whatsapp") {
         if (ed.dirty && ed.q.status === "Draft") {

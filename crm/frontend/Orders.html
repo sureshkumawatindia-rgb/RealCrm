@@ -220,6 +220,7 @@
                   <div id="oCustomer"></div>
                 </div>
                 <div class="panel q-card q-summary"><div id="oTotals"></div></div>
+                <div class="panel q-card inv-card" id="oInvoice"></div>
                 <div class="panel q-card pl-card" id="oPayment"></div>
                 <div class="q-actions" id="oActions"></div>
               </aside>
@@ -259,13 +260,65 @@
     <div class="modal-overlay" id="sendOverlay">
       <div class="modal q-send">
         <div class="modal-head">
-          <h3><i class="fa-brands fa-whatsapp"></i> <span data-i18n="orders.update-the-customer">Update the customer</span></h3>
+          <h3><i class="fa-brands fa-whatsapp"></i> <span id="sendTitle" data-i18n="orders.update-the-customer">Update the customer</span></h3>
           <button class="icon-btn" id="sendClose" type="button" title="Close" data-i18n-title="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="sendBody"></div>
         <div class="modal-foot">
           <button class="btn btn-outline" id="sendCancel" type="button" data-i18n="orders.not-now">Not now</button>
           <button class="btn btn-primary" id="sendGo" type="button"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="inbox.send">Send</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAX INVOICE (D101): the customer's details checked once; an invoice is never edited -->
+    <div class="modal-overlay" id="invOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 data-i18n="inv.make">Make tax invoice</h3>
+          <button class="icon-btn" id="invClose" type="button" title="Close" data-i18n-title="common.close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <p class="q-muted" style="margin-top: 0" data-i18n="inv.checkFirst">Check the customer's details. A tax invoice cannot be changed after it is made: a mistake is put right with a credit note.</p>
+          <div class="field-row">
+            <div class="field"><label for="invName" data-i18n="inv.f.name">Customer name</label><input type="text" id="invName" maxlength="200" /></div>
+            <div class="field"><label for="invCompany" data-i18n="inv.f.company">Company</label><input type="text" id="invCompany" maxlength="200" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="invGstin" data-i18n="inv.f.gstin">GSTIN</label><input type="text" id="invGstin" maxlength="15" autocapitalize="characters" placeholder="Optional" data-i18n-placeholder="inv.f.optional" /></div>
+            <div class="field"><label for="invState" data-i18n="inv.f.state">State</label><select id="invState"></select></div>
+          </div>
+          <div class="field"><label for="invAddress" data-i18n="inv.f.address">Address</label><textarea id="invAddress" rows="2" maxlength="500"></textarea></div>
+          <div class="field-row">
+            <div class="field"><label for="invCity" data-i18n="inv.f.city">City</label><input type="text" id="invCity" maxlength="100" /></div>
+            <div class="field"><label for="invPin" data-i18n="inv.f.pin">PIN code</label><input type="text" id="invPin" maxlength="12" inputmode="numeric" /></div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="invCancel" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" id="invGo" type="button"><i class="fa-solid fa-file-invoice"></i> <span data-i18n="inv.make">Make tax invoice</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CREDIT NOTE (D101): the whole invoice, or a quantity or an amount of some lines -->
+    <div class="modal-overlay" id="cnOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="cnTitle" data-i18n="inv.cn.title">Credit note</h3>
+          <button class="icon-btn" id="cnClose" type="button" title="Close" data-i18n-title="common.close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="q-send-mode">
+            <label><input type="radio" name="cnMode" value="full" checked /><span><span data-i18n="inv.cn.full">The whole invoice</span><small data-i18n="inv.cn.fullHint">Takes back everything still on it (cancels the invoice)</small></span></label>
+            <label><input type="radio" name="cnMode" value="lines" /><span><span data-i18n="inv.cn.lines">Some lines</span><small data-i18n="inv.cn.linesHint">Goods returned, or a lower price</small></span></label>
+          </div>
+          <div id="cnLines" hidden></div>
+          <div class="field"><label for="cnReason" data-i18n="inv.cn.reason">Why?</label><input type="text" id="cnReason" maxlength="500" placeholder="e.g. 2 pieces came back damaged" data-i18n-placeholder="inv.cn.reasonHint" /></div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="cnCancel" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" id="cnGo" type="button" data-i18n="inv.cn.make">Make credit note</button>
         </div>
       </div>
     </div>

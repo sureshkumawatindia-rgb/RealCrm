@@ -1771,11 +1771,19 @@
                   <div class="field-row lr-hours">
                     <div class="field"><label for="billPreO">Order prefix</label><input type="text" id="billPreO" maxlength="10" data-prefix="order" /></div>
                   </div>
+                  <p class="settings-hint">Tax invoices, credit notes and receipts use 1 to 4 letters or digits and a short year, because GST allows 16 characters in an invoice number: <strong id="billInvExample"></strong></p>
+                  <div class="field-row lr-hours">
+                    <div class="field"><label for="billPreI">Tax invoice prefix</label><input type="text" id="billPreI" maxlength="4" data-prefix="invoice" /></div>
+                    <div class="field"><label for="billPreC">Credit note prefix</label><input type="text" id="billPreC" maxlength="4" data-prefix="creditNote" /></div>
+                    <div class="field"><label for="billPreR">Receipt prefix</label><input type="text" id="billPreR" maxlength="4" data-prefix="receipt" /></div>
+                  </div>
                 </div>
 
                 <div class="settings-section wa-block">
                   <div class="settings-section-label">Orders</div>
                   <label class="ls-check"><input type="checkbox" id="billStock" /> Reduce product stock when an order is dispatched</label>
+                  <label class="ls-check"><input type="checkbox" id="billInvoice" /> Make the tax invoice by itself when an order is dispatched</label>
+                  <p class="settings-hint">Off: make it with the "Make tax invoice" button on the order. It needs your GSTIN and address in Company. An invoice is never edited: a mistake is put right with a credit note.</p>
                 </div>
 
                 <div class="data-actions" style="justify-content: flex-end">

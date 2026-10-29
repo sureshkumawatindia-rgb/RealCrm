@@ -119,7 +119,7 @@ async function removeLogo(req) {
 }
 
 // --- billing (Phase 5): quotations and orders ---------------------------------------------
-const DEFAULT_PREFIXES = Object.freeze({ quotation: 'QT', estimate: 'EST', proforma: 'PI', order: 'SO' });
+const DEFAULT_PREFIXES = Object.freeze({ quotation: 'QT', estimate: 'EST', proforma: 'PI', order: 'SO', invoice: 'INV', creditNote: 'CN', receipt: 'RCPT' });
 const plainOf = (value) => (value?.toObject ? value.toObject() : value || {});
 
 // The organization's own GST state: from its GSTIN, else the state in its company profile.
@@ -138,6 +138,7 @@ function billingOf(organization) {
     prefixes: { ...DEFAULT_PREFIXES, ...plainOf(billing.prefixes) },
     roundOff: billing.roundOff !== false,
     reduceStockOnDispatch: Boolean(billing.reduceStockOnDispatch),
+    invoiceOnDispatch: Boolean(billing.invoiceOnDispatch), // D101
     // Read-only here: the GSTIN and address are edited in the company profile.
     gstin: organization?.gstin || '',
     stateCode: code,
@@ -161,6 +162,7 @@ async function setBilling(req, body) {
     prefixes: { ...current.prefixes, ...(body.prefixes || {}) },
     roundOff: body.roundOff ?? current.roundOff,
     reduceStockOnDispatch: body.reduceStockOnDispatch ?? current.reduceStockOnDispatch,
+    invoiceOnDispatch: body.invoiceOnDispatch ?? current.invoiceOnDispatch,
   };
   const prefixes = Object.values(next.prefixes);
   if (new Set(prefixes).size !== prefixes.length) {

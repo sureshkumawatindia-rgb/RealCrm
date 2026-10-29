@@ -39,9 +39,15 @@ module.exports = {
       .messages({ 'string.pattern.base': 'A UPI ID looks like yourshop@okaxis' }),
     terms: text(5000),
     validityDays: Joi.number().integer().min(1).max(365),
-    prefixes: Joi.object(Object.fromEntries(['quotation', 'estimate', 'proforma', 'order'].map((key) => [key,
-      Joi.string().trim().uppercase().pattern(/^[A-Z0-9][A-Z0-9-]{0,9}$/).messages({ 'string.pattern.base': 'Prefixes: up to 10 letters, digits or dashes' })]))),
+    prefixes: Joi.object({
+      ...Object.fromEntries(['quotation', 'estimate', 'proforma', 'order'].map((key) => [key,
+        Joi.string().trim().uppercase().pattern(/^[A-Z0-9][A-Z0-9-]{0,9}$/).messages({ 'string.pattern.base': 'Prefixes: up to 10 letters, digits or dashes' })])),
+      // D101: GST allows 16 characters in an invoice number (INV/26-27/00001 is 15).
+      ...Object.fromEntries(['invoice', 'creditNote', 'receipt'].map((key) => [key,
+        Joi.string().trim().uppercase().pattern(/^[A-Z0-9]{1,4}$/).messages({ 'string.pattern.base': 'Invoice, credit note and receipt prefixes: 1 to 4 letters or digits' })])),
+    }),
     roundOff: Joi.boolean(),
     reduceStockOnDispatch: Joi.boolean(),
+    invoiceOnDispatch: Joi.boolean(), // D101
   }).min(1),
 };

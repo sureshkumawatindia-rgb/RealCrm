@@ -196,7 +196,7 @@ Items: `{ productId? , name?, description?, hsnSac?, unit?, quantity, unitPriceP
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET/PUT` | `/organization/billing` | `{ bank { accountName, accountNumber, ifsc, bankName, branch }, upiId, terms, validityDays (default 15), prefixes { quotation, estimate, proforma, order }, roundOff (default true), reduceStockOnDispatch }`. GET also returns the GST state used for quotations (`stateCode`, `state`, `stateFrom`: gstin \| address), which comes from the company profile. Prefixes must differ. |
+| `GET/PUT` | `/organization/billing` | `{ bank { accountName, accountNumber, ifsc, bankName, branch }, upiId, terms, validityDays (default 15), prefixes { quotation, estimate, proforma, order, invoice, creditNote, receipt }, roundOff (default true), reduceStockOnDispatch, invoiceOnDispatch (D101, default false) }`. Invoice, credit note and receipt prefixes: 1–4 letters or digits (defaults INV, CN, RCPT). GET also returns the GST state used for quotations (`stateCode`, `state`, `stateFrom`: gstin \| address), which comes from the company profile. Prefixes must differ. |
 
 ### "Quote Sent, no reply"
 
@@ -219,7 +219,26 @@ Same permissions as leads and quotations; agents see the orders of their own lea
 | `GET` | `/orders/:id/notify-options` | Needs `inbox` too. `{ blocked, windowOpen, text (a ready message for the stage), templates [with suggested values: name, order number, stage, transporter + LR] }`. |
 | `POST` | `/orders/:id/payments` | Phase 8: money received outside the payment links. `{ amountPaise, method: cash / bank_transfer / upi / cheque / card / other, reference?, paidAt? }`. Same effects as a link payment: the first payment wins the lead (D40); paid in full, a Delivered order moves to Payment Collected. 409 `ORDER_CANCELLED`. |
 | `DELETE` | `/orders/:id/payments/:paymentId` | Removes a payment entered by hand (409 `GATEWAY_PAYMENT` for a payment-link payment). A payment by hand that pays the order in full also cancels the order's unpaid links (a part-paid link cannot be cancelled at the gateway). |
+| `GET` | `/orders/:id/invoices` | D101: the order's tax invoices (each with its `creditNotes`) and receipts: `{ invoices [{ id, kind, number, financialYear, invoiceDate, seller, billTo, supply, items, totals, status (issued/credited), creditedPaise, remaining [{ quantity, taxablePaise, cgstPaise, sgstPaise, igstPaise }], auto, sentAt, creditNotes [...] }], receipts [{ id, number, receiptDate, paymentId, invoiceNumber, receivedFrom, amountPaise, source, method, reference, status (issued/cancelled), sentAt }], canInvoice, invoiceOnDispatch, sellerReady }`. |
+| `POST` | `/orders/:id/invoice` | D101: the order's tax invoice, `{ billTo? { name, company, gstin, address, city, state (a name or GST code), postalCode } }` to put the customer's details right first (a new GSTIN or state moves the place of supply). Accepts `Idempotency-Key`. 201 `{ invoice, warnings [{ code: HSN_MISSING, message }] }`. 409 `INVOICE_EXISTS` (one live invoice per order), `ORDER_CANCELLED`, `NUMBERS_FULL` (the number would pass 16 characters); 422 `SELLER_GSTIN_REQUIRED`, `SELLER_ADDRESS_REQUIRED`, `BUYER_NAME_REQUIRED`, `BUYER_ADDRESS_REQUIRED` (no GSTIN and ₹50,000 or more of taxable value: address and state, CGST Rule 46(e)). |
+| `POST` | `/orders/:id/payments/:paymentId/receipt` | D101: the receipt of a payment recorded before receipts existed (made once; later calls return it). |
 | `POST` | `/orders/:id/notify` | Needs `inbox` too. `{ mode: "text", text }` (24-hour window open, else 422 `WINDOW_CLOSED`) or `{ mode: "template", templateId, variables }`; marks the latest history entry `notified`. |
+
+### Tax invoices, credit notes and receipts (D101)
+
+Made from orders (above), with the order's permissions (leads and deals; agents only for orders they see). Sending in the WhatsApp chat needs `inbox` too. Rules and limits: `docs/GST_INVOICES.md`. Numbers: `<prefix>/<26-27>/<0001>` per kind and financial year, gap-free (`INV`, `CN`, `RCPT` by default; Settings → Billing). An invoice is never edited.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/invoices/:id/pdf` | The PDF of a tax invoice ("TAX INVOICE", "ORIGINAL FOR RECIPIENT", amount paid and balance due, a UPI QR for what is due) or a credit note ("CREDIT NOTE", against invoice X dated Y, the reason). |
+| `POST` | `/invoices/:id/credit-notes` | Owners and admins. `{ full: true, reason }` takes back everything left on the invoice, to the paisa (its round-off too); or `{ lines [{ index, quantity \| taxablePaise }], reason }` (3–500 characters) takes back a quantity (at what is left of the line per unit) or an amount off a line's taxable value, the GST at the line's rate and split. Accepts `Idempotency-Key`. 201 `{ creditNote, invoice, warnings [{ code: GST_TIME_LIMIT }] }` (past 30 November after the invoice's financial year). 400 when a line has less left (`TOO_MUCH`) or partial notes would pass the invoice's total; 409 `ALREADY_CREDITED`. Taken back in full, the invoice is `credited` and the order can be invoiced again. |
+| `GET` | `/invoices/:id/send-options` | Like a quotation's: `{ blocked, phone, account, conversation { id, windowOpen }, caption, templates [with suggested name, number, total] }`. |
+| `POST` | `/invoices/:id/send` | `{ mode: "document", caption? }` (24-hour window open, else 422 `WINDOW_CLOSED`) or `{ mode: "template", templateId, variables }` (a Document header carries the PDF). Accepts `Idempotency-Key`. Sets `sentAt`. |
+| `GET` | `/receipts/:id/pdf` | A payment receipt: who paid, the amount in words, the order and invoice, how, the reference and what the order still owed after it; "CANCELLED" across it when its payment was removed. |
+| `GET/POST` | `/receipts/:id/send-options`, `/receipts/:id/send` | As for invoices. |
+| `POST` | `/quotations/:id/invoice` | From an accepted quotation: its order (made now if it has none; checked for your GSTIN and address first) and the invoice. `{ billTo? }` as above. 201 `{ orderId, invoice, warnings }`. |
+
+Orders gain `billedPaise`: what their invoices bill less their credit notes (null before the first invoice). Once an order is invoiced, `duePaise`, `paymentStatus`, the dues list, payment links, the export and the dues report count from it, so a credit note lowers what the customer owes. A payment (`recordPayment`: a link paid or one entered by hand) issues its receipt in the same transaction; removing a payment entered by hand leaves its receipt `cancelled`. `POST /orders/:id/stage` to Dispatched or later, for an order that never had an invoice, makes it when Settings → Billing → `invoiceOnDispatch` is on: the response adds `invoiceMade { id, number }`, or `invoiceError` (the move stands). `GET /reports/payments` adds `invoiced { amountPaise (invoices less credit notes, by their dates), invoices, invoicedPaise, creditNotes, creditedPaise, taxPaise }` and `trend[].invoicedPaise`; its CSV adds "Invoiced (Rs)".
 
 ## Tasks and calendar (Phase 2)
 

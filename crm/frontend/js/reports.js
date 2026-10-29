@@ -135,6 +135,23 @@
       })
       .join("");
   }
+  // Two amounts per period side by side: invoiced (D101) and collected.
+  function pairChart(el, rows, labelOf, formatter) {
+    const max = Math.max(...rows.flatMap((r) => [r.invoicedPaise, r.amountPaise]), 1);
+    const dense = rows.length > 14;
+    const every = dense ? Math.ceil(rows.length / 8) : 1;
+    const height = (value) => (value > 0 ? Math.max(4, Math.round((value / max) * 100)) : 2);
+    el.classList.toggle("dense", dense);
+    el.innerHTML = rows
+      .map((row, i) => {
+        const label = labelOf(row);
+        return `<div class="trend-bar-col ${i % every === 0 || i === rows.length - 1 ? "labelled" : ""}" title="${escapeHtml(`${label}: invoiced ${formatter(row.invoicedPaise)}, collected ${formatter(row.amountPaise)}`)}">
+          <div class="trend-pair"><div class="trend-bar" style="height:${height(row.invoicedPaise)}%"></div><div class="trend-bar alt" style="height:${height(row.amountPaise)}%"></div></div>
+          <div class="trend-month">${escapeHtml(label)}</div>
+        </div>`;
+      })
+      .join("");
+  }
   function donut(el, segments, centre, centreLabel) {
     const total = segments.reduce((s, x) => s + x.count, 0);
     if (!total) return false;
@@ -355,6 +372,7 @@
   function renderPayments() {
     const p = got("payments");
     if (!p) return;
+    const row = (icon, cls, name, sub, value) => `<div class="mini-row"><span class="mini-icon ${cls}"><i class="fa-solid ${icon}"></i></span><div class="info"><div class="name">${escapeHtml(name)}</div><div class="sub">${escapeHtml(sub)}</div></div><div class="mini-right">${escapeHtml(String(value))}</div></div>`;
     $("payTrendNote").textContent = `${rupees(p.collected.amountPaise)} in ${p.collected.count} payment${p.collected.count === 1 ? "" : "s"}`;
     if (!p.collected.count) {
       $("payTrend").classList.remove("dense");
@@ -362,8 +380,22 @@
     } else {
       barChart($("payTrend"), p.trend, (r) => r.amountPaise, (r) => bucketLabel(r.bucket, p.range.unit), rupees);
     }
+    const inv = p.invoiced;
+    if (!inv.invoices && !inv.creditNotes && !p.collected.count) {
+      $("payInvoicedChart").classList.remove("dense");
+      $("payInvoicedChart").innerHTML = empty("fa-file-invoice", "No tax invoice was made and no payment came in during this period.");
+    } else {
+      pairChart($("payInvoicedChart"), p.trend, (r) => bucketLabel(r.bucket, p.range.unit), rupees);
+    }
+    const gap = inv.amountPaise - p.collected.amountPaise;
+    const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+    $("payInvoiced").innerHTML = [
+      row("fa-file-invoice", "info", "Invoiced", `${plural(inv.invoices, "tax invoice")}${inv.creditNotes ? `, less ${plural(inv.creditNotes, "credit note")} (${rupees(inv.creditedPaise)})` : ""}`, rupees(inv.amountPaise)),
+      row("fa-indian-rupee-sign", "success", "Collected", plural(p.collected.count, "payment"), rupees(p.collected.amountPaise)),
+      row("fa-scale-balanced", gap > 0 ? "warning" : "", "Difference", gap > 0 ? "invoiced, not collected in this period" : gap < 0 ? "collected more than was invoiced (advances, older invoices)" : "invoiced and collected match", rupees(Math.abs(gap))),
+      row("fa-building-columns", "", "GST on the invoices", "CGST + SGST + IGST, less credit notes", rupees(inv.taxPaise)),
+    ].join("");
     bars($("payByWay"), p.byWay.map((r) => ({ label: r.name, value: r.amountPaise, meta: rupees(r.amountPaise), metaWidth: 96 })), "No payments in this period.", "fa-wallet");
-    const row = (icon, cls, name, sub, value) => `<div class="mini-row"><span class="mini-icon ${cls}"><i class="fa-solid ${icon}"></i></span><div class="info"><div class="name">${escapeHtml(name)}</div><div class="sub">${escapeHtml(sub)}</div></div><div class="mini-right">${escapeHtml(String(value))}</div></div>`;
     $("payStats").innerHTML = [
       row("fa-link", "info", "Payment links made", "in this period", p.links.made),
       row("fa-circle-check", "success", "Payment links paid", p.links.averageHoursToPay != null ? `paid on average ${p.links.averageHoursToPay} h after they were made` : "in this period", p.links.paid),

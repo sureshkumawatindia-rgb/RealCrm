@@ -75,9 +75,16 @@ const organizationSchema = new mongoose.Schema(
         estimate: { type: String, default: 'EST' },
         proforma: { type: String, default: 'PI' },
         order: { type: String, default: 'SO' },
+        // D101: tax invoices, credit notes and payment receipts (INV/26-27/0001: at most 4 letters,
+        // so a number stays within GST's 16 characters).
+        invoice: { type: String, default: 'INV' },
+        creditNote: { type: String, default: 'CN' },
+        receipt: { type: String, default: 'RCPT' },
       },
       roundOff: { type: Boolean, default: true }, // D28
       reduceStockOnDispatch: { type: Boolean, default: false },
+      // D101: make the tax invoice by itself when an order is moved to Dispatched (off: by hand).
+      invoiceOnDispatch: { type: Boolean, default: false },
     },
     // An owner asked to delete the company (Phase 10F): it keeps working until scheduledFor, then
     // a job removes all its data. Cancelled by an owner before then.

@@ -8,6 +8,7 @@ const Organization = require('../models/Organization');
 const PaymentLink = require('../models/PaymentLink');
 const Product = require('../models/Product');
 const Quotation = require('../models/Quotation');
+const TaxInvoice = require('../models/TaxInvoice');
 const WhatsAppAccount = require('../models/WhatsAppAccount');
 const httpError = require('../utils/httpError');
 const logger = require('../config/logger');
@@ -30,8 +31,11 @@ const automationEvents = require('./automation/events');
 // dispatch" the stock goes down once when the order reaches Dispatched or later and comes back
 // if it is cancelled or moved back. A stage change can also send the customer a WhatsApp update.
 // Payments (Phase 8) come from payment links or are entered by hand; see recordPayment.
+// Tax invoices, credit notes and receipts (D101) live in invoiceService: each payment gets a
+// receipt here, and "invoice on dispatch" (Settings → Billing) makes the invoice when the order ships.
 const MODULES = leadService.MODULES;
 const SHIPPED = ORDER_FLOW.slice(ORDER_FLOW.indexOf('Dispatched')); // Dispatched and after
+const invoices = () => require('./invoiceService'); // eslint-disable-line global-require -- it uses this service
 
 const scope = (req) => ({ organizationId: req.tenant.organizationId, ...visibilityFilter(req, MODULES) });
 const plain = (value) => (value?.toObject ? value.toObject() : value);
@@ -42,16 +46,19 @@ function nextStages(stage) {
 }
 
 // --- what is paid (Phase 8) -------------------------------------------------------------
+// What the customer owes in all: once invoiced, what the invoices bill less credit notes (D101);
+// before that the order's total.
+const owedPaise = (order) => order.billedPaise ?? (order.totals?.grandTotalPaise || 0);
 // Paid in full by payments, or moved to Payment Collected by hand (collected outside the CRM).
 function paymentStatusOf(order) {
-  const total = order.totals?.grandTotalPaise || 0;
+  const total = owedPaise(order);
   const paid = order.amountPaidPaise || 0;
   if (order.stage === 'Payment Collected' || (total > 0 && paid >= total)) return 'paid';
   return paid > 0 ? 'partly_paid' : 'unpaid';
 }
 function duePaise(order) {
   if (order.stage === 'Cancelled' || paymentStatusOf(order) === 'paid') return 0;
-  return Math.max((order.totals?.grandTotalPaise || 0) - (order.amountPaidPaise || 0), 0);
+  return Math.max(owedPaise(order) - (order.amountPaidPaise || 0), 0);
 }
 const serializePayment = (payment) => ({
   id: payment._id, source: payment.source, amountPaise: payment.amountPaise, method: payment.method || '', reference: payment.reference || '',
@@ -85,6 +92,7 @@ function serializeOrder(order) {
     paidAt: order.paidAt || null,
     paymentStatus: paymentStatusOf(order),
     amountPaidPaise: order.amountPaidPaise || 0,
+    billedPaise: order.billedPaise ?? null,
     duePaise: duePaise(order),
     payments: (order.payments || []).map(serializePayment),
     cancelledAt: order.cancelledAt || null,
@@ -220,6 +228,7 @@ async function changeStage(req, id, { stage, note = '', cancelReason = '', dispa
   let order;
   let paid = false;
   let from;
+  let invoiceOnDispatch = false;
   await mongoose.connection.transaction(async (session) => {
     order = await findVisible(req, id, session);
     from = order.stage;
@@ -234,7 +243,7 @@ async function changeStage(req, id, { stage, note = '', cancelReason = '', dispa
     if (stage === 'Payment Collected') {
       order.paidAt = order.paidAt || now;
       paid = true;
-    } else if (from === 'Payment Collected' && (order.amountPaidPaise || 0) < (order.totals?.grandTotalPaise || 0)) {
+    } else if (from === 'Payment Collected' && (order.amountPaidPaise || 0) < owedPaise(order)) {
       order.paidAt = undefined; // "collected" undone, and the payments do not cover it
     }
     if (stage === 'Cancelled') {
@@ -242,6 +251,7 @@ async function changeStage(req, id, { stage, note = '', cancelReason = '', dispa
       order.cancelReason = String(cancelReason).trim();
     }
     const organization = await Organization.findById(order.organizationId).session(session);
+    invoiceOnDispatch = billingOf(organization).invoiceOnDispatch;
     if (billingOf(organization).reduceStockOnDispatch && SHIPPED.includes(stage) && !order.stockReduced) await takeStock(order, session);
     if (order.stockReduced && (stage === 'Cancelled' || !SHIPPED.includes(stage))) await returnStock(order, session);
     order.stage = stage;
@@ -267,7 +277,22 @@ async function changeStage(req, id, { stage, note = '', cancelReason = '', dispa
   const facts = { organizationId: order.organizationId, orderId: order._id, leadId: order.leadId, contactId: order.contactId, quotationId: order.quotationId, orderNumber: order.number };
   automationEvents.emit('order.stage_changed', { ...facts, from, to: stage }, req);
   if (stage === 'Payment Collected') automationEvents.emit('payment.received', { ...facts, amountPaise: order.totals?.grandTotalPaise, key: `payment.received:${order._id}` }, req);
-  return serializeOrder(order);
+  const invoiced = invoiceOnDispatch && SHIPPED.includes(stage) && !SHIPPED.includes(from) ? await invoiceOnShipping(req, order) : {};
+  if (invoiced.invoiceMade) order = await Order.findById(order._id); // with what the invoice bills
+  return { ...serializeOrder(order), ...invoiced };
+}
+
+// D101: the order ships and has never had an invoice: its tax invoice, made by itself. The move
+// stands if that fails (no GSTIN in the company profile yet …); the reason comes back to show.
+async function invoiceOnShipping(req, order) {
+  if (await TaxInvoice.exists({ organizationId: order.organizationId, orderId: order._id, kind: 'invoice' })) return {};
+  try {
+    const { invoice } = await invoices().createForOrder(req, order._id, { auto: true });
+    return { invoiceMade: { id: invoice.id, number: invoice.number } };
+  } catch (error) {
+    if (!error.statusCode || error.statusCode >= 500) logger.warn(`Order ${order._id}: the invoice on dispatch failed: ${error.message}`);
+    return { invoiceError: error.statusCode && error.statusCode < 500 ? error.message : 'The tax invoice could not be made. Make it from the order.' };
+  }
 }
 
 // --- payments ------------------------------------------------------------------------------
@@ -308,6 +333,7 @@ async function recordPayment(req, orderId, entry) {
       }
     }
     await order.save({ session });
+    await invoices().issueReceipt(order, added, { session }); // D101: a numbered receipt for it
     const lead = await leadOf(order, session);
     if (lead) {
       const how = entry.source === 'link' ? `by payment link${entry.method ? ` (${METHOD_LABELS[entry.method] || entry.method})` : ''}` : `by ${METHOD_LABELS[entry.method] || 'hand'}${entry.reference ? `, ref ${entry.reference}` : ''}`;
@@ -361,6 +387,7 @@ async function removeManualPayment(req, id, paymentId) {
     order.amountPaidPaise = order.payments.reduce((sum, p) => sum + (p.amountPaise || 0), 0);
     if (paymentStatusOf(order) !== 'paid') order.paidAt = undefined;
     await order.save({ session });
+    await invoices().cancelReceipt(order, payment._id, { session }); // D101: its receipt stays, cancelled
     const lead = await leadOf(order, session);
     if (lead) await leadService.addActivity(req, lead, 'Payment', `${formatRupees(payment.amountPaise)} entered for order ${order.number} was removed`, { session });
   });
@@ -377,7 +404,7 @@ async function dues(req, { q, minDays = 0 } = {}) {
   const filter = {
     ...scope(req),
     stage: { $nin: ['Cancelled', 'Payment Collected'] },
-    $expr: { $lt: [{ $ifNull: ['$amountPaidPaise', 0] }, { $ifNull: ['$totals.grandTotalPaise', 0] }] },
+    $expr: { $lt: [{ $ifNull: ['$amountPaidPaise', 0] }, { $ifNull: ['$billedPaise', { $ifNull: ['$totals.grandTotalPaise', 0] }] }] },
     ...(minDays > 0 && { orderDate: { $lte: new Date(now - minDays * DAY_MS) } }),
   };
   if (q) {
@@ -506,5 +533,5 @@ async function notify(req, id, { mode, text, templateId, variables }) {
 
 module.exports = {
   create, list, summary, update, changeStage, notifyOptions, notify, serializeOrder, findVisible, nextStages, get: async (req, id) => serializeOrder(await findVisible(req, id)),
-  recordPayment, addManualPayment, removeManualPayment, paymentStatusOf, duePaise, chatFor, dues,
+  recordPayment, addManualPayment, removeManualPayment, paymentStatusOf, duePaise, owedPaise, chatFor, dues,
 };

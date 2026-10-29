@@ -10,7 +10,9 @@ const { billingOf, fileNameFromUrl } = require('./organizationService');
 // (it has the ₹ sign), the organization's logo (PNG/JPEG), the customer and supply details,
 // the items (the table header repeats on every page), the totals with the GST split, the
 // rate-wise summary, bank details and a UPI QR code, terms, a signature line, page numbers
-// and the online link. Drafts carry a "DRAFT" watermark.
+// and the online link. Drafts carry a "DRAFT" watermark. D101: the same layout makes tax
+// invoices and credit notes (services/invoicePdf.js, renderDocumentPdf), and receipts share
+// its header and footer.
 const FONTS = path.resolve(__dirname, '..', '..', 'assets', 'fonts');
 const MARGIN = 40;
 const PAGE_WIDTH = 595.28;
@@ -70,21 +72,10 @@ function fileNameOf(quotation) {
   return `${String(quotation.number).replace(/[^A-Za-z0-9-]+/g, '-')}${quotation.revision ? `-R${quotation.revision}` : ''}.pdf`;
 }
 
-async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
-  const seller = q.seller || {};
-  const billTo = q.billTo || {};
-  const supply = q.supply || {};
-  const totals = q.totals || {};
-  const items = q.items || [];
-  const billing = billingOf(organization);
-  const logo = await logoOf(organization);
-  const payment = paymentFor(q, organization);
-  const qr = payment ? await QRCode.toBuffer(payment.link, { type: 'png', margin: 1, width: 300, errorCorrectionLevel: 'M' }) : null;
-
-  const doc = new PDFDocument({
-    size: 'A4', margin: MARGIN, bufferPages: true,
-    info: { Title: `${q.type} ${q.number}`, Author: seller.name || organization?.name || '', Subject: billTo.name || '' },
-  });
+// --- the parts every document uses ---------------------------------------------------------
+// An A4 page with the fonts, the bytes collected, and the small drawing helpers.
+function startPdf({ title, author, subject }) {
+  const doc = new PDFDocument({ size: 'A4', margin: MARGIN, bufferPages: true, info: { Title: title, Author: author, Subject: subject } });
   doc.registerFont('body', path.join(FONTS, 'NotoSans-Regular.ttf'));
   doc.registerFont('bold', path.join(FONTS, 'NotoSans-Bold.ttf'));
   const chunks = [];
@@ -93,7 +84,6 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
   });
-
   const text = (value, x, y, options = {}) => {
     const { font = 'body', size = 9, color = COLOR.text, ...rest } = options;
     doc.font(font).fontSize(size).fillColor(color).text(String(value ?? ''), x, y, { lineGap: 1, features: FEATURES, ...rest });
@@ -106,8 +96,13 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
     doc.addPage();
     return MARGIN;
   };
+  return { doc, finished, text, hr, heightOf, ensure };
+}
 
-  // --- header: logo and seller (left), title and numbers (right) ---
+// The header: logo and seller (left), title and numbers (right). tag: a small line under the
+// title ("ORIGINAL FOR RECIPIENT"). Returns where the page goes on.
+function drawHeader(pdf, { logo, seller, organization, title, tag, meta }) {
+  const { doc, text, hr } = pdf;
   let y = MARGIN;
   let sellerX = LEFT;
   let logoBottom = y;
@@ -130,27 +125,83 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
   ].filter(Boolean);
   if (sellerLines.length) leftY = text(sellerLines.join('\n'), sellerX, leftY + 2, { size: 8.5, color: COLOR.muted, width: sellerWidth });
 
-  let rightY = text(TITLE[q.type] || 'QUOTATION', 340, y, { font: 'bold', size: 16, color: COLOR.accent, width: RIGHT - 340, align: 'right' });
-  const meta = [
-    `No. ${q.number}${q.revision ? `  (revision ${q.revision})` : ''}`,
-    `Date: ${day(q.quotationDate)}`,
-    q.validUntil ? `Valid until: ${day(q.validUntil, 'UTC')}` : '',
-  ].filter(Boolean);
-  rightY = text(meta.join('\n'), 340, rightY + 2, { size: 9, width: RIGHT - 340, align: 'right' });
+  let rightY = text(title, 340, y, { font: 'bold', size: 16, color: COLOR.accent, width: RIGHT - 340, align: 'right' });
+  if (tag) rightY = text(tag, 340, rightY, { font: 'bold', size: 7, color: COLOR.muted, width: RIGHT - 340, align: 'right' });
+  rightY = text(meta.filter(Boolean).join('\n'), 340, rightY + 2, { size: 9, width: RIGHT - 340, align: 'right' });
   y = Math.max(leftY, rightY, logoBottom) + 10;
   hr(y);
-  y += 10;
+  return y + 10;
+}
+
+// On every page: the footer (the online link, or "computer-generated") with page numbers, and
+// a watermark across it ("DRAFT"); then the finished file.
+function finishPdf(pdf, { link, watermark } = {}) {
+  const { doc, text } = pdf;
+  const range = doc.bufferedPageRange();
+  for (let i = range.start; i < range.start + range.count; i += 1) {
+    doc.switchToPage(i);
+    const bottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0; // writing in the margin must not open a new page
+    const footerY = PAGE_HEIGHT - MARGIN + 6;
+    doc.moveTo(LEFT, footerY - 6).lineTo(RIGHT, footerY - 6).lineWidth(0.4).strokeColor(COLOR.line).stroke();
+    if (link) {
+      doc.font('body').fontSize(7).fillColor(COLOR.muted).text('View online: ', LEFT, footerY, { continued: true, lineBreak: false })
+        .fillColor(COLOR.accent).text(link, { link, underline: false, lineBreak: false });
+    } else {
+      text('This is a computer-generated document.', LEFT, footerY, { size: 7, color: COLOR.muted, lineBreak: false });
+    }
+    text(`Page ${i - range.start + 1} of ${range.count}`, RIGHT - 100, footerY, { size: 7, color: COLOR.muted, width: 100, align: 'right', lineBreak: false });
+    if (watermark) {
+      doc.save();
+      doc.rotate(-35, { origin: [PAGE_WIDTH / 2, PAGE_HEIGHT / 2] });
+      doc.font('bold').fontSize(96).fillColor('#c8c8cc').fillOpacity(0.25)
+        .text(watermark, 0, PAGE_HEIGHT / 2 - 60, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
+      doc.restore();
+      doc.fillOpacity(1);
+    }
+    doc.page.margins.bottom = bottomMargin;
+  }
+  doc.end();
+  return pdf.finished;
+}
+
+// The signature line: "For <seller>" and room to sign.
+function drawSignature(pdf, y, name) {
+  const { text, ensure } = pdf;
+  const top = ensure(y + 6, 54);
+  text(`For ${name}`, RIGHT - 220, top, { font: 'bold', size: 9, width: 220, align: 'right' });
+  text('Authorised signatory', RIGHT - 220, top + 38, { size: 8, color: COLOR.muted, width: 220, align: 'right' });
+  return top + 54;
+}
+
+// --- a priced document -----------------------------------------------------------------------
+// A quotation, estimate or proforma invoice, a tax invoice or a credit note. stateCodes: the
+// customer's state with its GST code; contactLines: their phone and email; afterTotal: rows
+// under the total (paid, balance due); bank: the payment details box.
+async function renderDocumentPdf({
+  organization, info, title, tag, meta, seller = {}, billTo = {}, supply = {}, items = [], totals = {},
+  stateCodes = false, contactLines = true, subtotal = true, totalLabel = 'Total', afterTotal = [],
+  bank: withBank = true, payment = null, terms = '', notes = '', notesTitle = 'Note', link = '', watermark = '',
+}) {
+  const billing = billingOf(organization);
+  const logo = await logoOf(organization);
+  const qr = payment ? await QRCode.toBuffer(payment.link, { type: 'png', margin: 1, width: 300, errorCorrectionLevel: 'M' }) : null;
+  const pdf = startPdf({ title: info.title, author: seller.name || organization?.name || '', subject: billTo.name || '' });
+  const { doc, text, heightOf, ensure } = pdf;
+
+  let y = drawHeader(pdf, { logo, seller, organization, title, tag, meta });
 
   // --- the customer (left) and the supply (right) ---
   const blockTop = y;
-  leftY = text('BILL TO', LEFT, y, { font: 'bold', size: 7.5, color: COLOR.muted });
+  let leftY = text('BILL TO', LEFT, y, { font: 'bold', size: 7.5, color: COLOR.muted });
   leftY = text(billTo.name || '—', LEFT, leftY + 1, { font: 'bold', size: 10.5, width: 300 });
+  const state = billTo.state || stateName(billTo.stateCode);
   const billLines = [
     billTo.company && billTo.company !== billTo.name ? billTo.company : '',
     billTo.address,
-    [billTo.city, billTo.state || stateName(billTo.stateCode), billTo.postalCode].filter(Boolean).join(', '),
+    [billTo.city, stateCodes && state && billTo.stateCode ? `${state} (${billTo.stateCode})` : state, billTo.postalCode].filter(Boolean).join(', '),
     billTo.gstin ? `GSTIN: ${billTo.gstin}` : '',
-    [billTo.phone, billTo.email].filter(Boolean).join('  ·  '),
+    contactLines ? [billTo.phone, billTo.email].filter(Boolean).join('  ·  ') : '',
   ].filter(Boolean);
   if (billLines.length) leftY = text(billLines.join('\n'), LEFT, leftY + 1, { size: 8.5, width: 300 });
 
@@ -158,7 +209,7 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
   const supplyKind = supply.zeroRated
     ? 'Export / SEZ under LUT (no GST)'
     : supply.interState ? 'Between states (IGST)' : `Within the state (CGST + ${supply.taxLabel || 'SGST'})`;
-  rightY = text('PLACE OF SUPPLY', 360, blockTop, { font: 'bold', size: 7.5, color: COLOR.muted, width: RIGHT - 360, align: 'right' });
+  let rightY = text('PLACE OF SUPPLY', 360, blockTop, { font: 'bold', size: 7.5, color: COLOR.muted, width: RIGHT - 360, align: 'right' });
   rightY = text(place, 360, rightY + 1, { font: 'bold', size: 10, width: RIGHT - 360, align: 'right' });
   rightY = text(supplyKind, 360, rightY + 1, { size: 8.5, color: COLOR.muted, width: RIGHT - 360, align: 'right' });
   if (supply.stateAssumed) rightY = text('Customer\'s state not known: seller\'s state assumed', 360, rightY + 1, { size: 7.5, color: COLOR.muted, width: RIGHT - 360, align: 'right' });
@@ -196,8 +247,10 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
       y = drawHead(MARGIN);
     }
     const discount = item.discountPaise ? (item.discountType === 'percent' ? `${qty(item.discountValue)}%` : num(item.discountPaise)) : '—';
+    // A credit note line that only corrects the price has no quantity.
+    const counted = Number(item.quantity) > 0;
     const cells = [
-      String(index + 1), null, item.hsnSac || '', `${qty(item.quantity)}${item.unit ? ` ${item.unit}` : ''}`, num(item.unitPricePaise),
+      String(index + 1), null, item.hsnSac || '', counted ? `${qty(item.quantity)}${item.unit ? ` ${item.unit}` : ''}` : '—', counted ? num(item.unitPricePaise) : '—',
       discount, num(item.taxablePaise), `${qty(item.gstRatePct)}%`, num(item.totalPaise),
     ];
     let x = LEFT;
@@ -216,14 +269,14 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
 
   // --- totals (right) and the amount in words with the GST summary (left) ---
   const totalRows = [
-    ['Subtotal', num(totals.subtotalPaise)],
+    ...(subtotal ? [['Subtotal', num(totals.subtotalPaise)]] : []),
     ...(totals.discountPaise ? [['Discount', `− ${num(totals.discountPaise)}`]] : []),
     ['Taxable value', num(totals.taxablePaise)],
     ...(supply.zeroRated ? [['GST', 'Nil (LUT)']] : supply.interState ? [['IGST', num(totals.igstPaise)]] : [['CGST', num(totals.cgstPaise)], [supply.taxLabel || 'SGST', num(totals.sgstPaise)]]),
     ...(totals.roundOffPaise ? [['Round off', `${totals.roundOffPaise > 0 ? '+' : '−'} ${num(Math.abs(totals.roundOffPaise))}`]] : []),
   ];
   const rates = (totals.byRate || []).filter((r) => r.taxablePaise);
-  const blockHeight = Math.max(totalRows.length * 14 + 30, 40 + rates.length * 12 + 30);
+  const blockHeight = Math.max(totalRows.length * 14 + 30 + afterTotal.length * 14, 40 + rates.length * 12 + 30);
   y = ensure(y + 10, blockHeight);
   const totalsX = RIGHT - 220;
   let ty = y;
@@ -233,8 +286,12 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
     ty += 14;
   }
   doc.moveTo(totalsX, ty + 1).lineTo(RIGHT, ty + 1).lineWidth(0.8).strokeColor(COLOR.text).stroke();
-  text('Total', totalsX, ty + 5, { font: 'bold', size: 11, width: 90 });
+  text(totalLabel, totalsX, ty + 5, { font: 'bold', size: 11, width: 90 });
   ty = text(formatRupees(totals.grandTotalPaise), totalsX + 90, ty + 5, { font: 'bold', size: 11, width: 130, align: 'right' });
+  for (const [label, value, strong] of afterTotal) {
+    text(label, totalsX, ty + 3, { font: strong ? 'bold' : 'body', size: 9, color: strong ? COLOR.text : COLOR.muted, width: 110 });
+    ty = text(value, totalsX + 110, ty + 3, { font: strong ? 'bold' : 'body', size: 9, width: 110, align: 'right' });
+  }
 
   let ly = text('Amount in words', LEFT, y, { font: 'bold', size: 7.5, color: COLOR.muted });
   ly = text(amountInWords(totals.grandTotalPaise), LEFT, ly + 1, { size: 8.5, width: 260 });
@@ -244,8 +301,8 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
       ? [['GST rate', 60], ['Taxable', 100], ['IGST', 100]]
       : [['GST rate', 50], ['Taxable', 75], ['CGST', 65], [supply.taxLabel || 'SGST', 65]];
     let rx = LEFT;
-    for (const [title, width] of rateColumns) {
-      text(title, rx, ly, { font: 'bold', size: 7, color: COLOR.muted, width: width - 4, align: rx === LEFT ? 'left' : 'right' });
+    for (const [heading, width] of rateColumns) {
+      text(heading, rx, ly, { font: 'bold', size: 7, color: COLOR.muted, width: width - 4, align: rx === LEFT ? 'left' : 'right' });
       rx += width;
     }
     ly += 11;
@@ -268,18 +325,18 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
 
   // --- bank details and the UPI QR code ---
   const bank = billing.bank || {};
-  const bankLines = [
+  const bankLines = withBank ? [
     bank.accountName ? `Account name: ${bank.accountName}` : '',
     bank.accountNumber ? `Account number: ${bank.accountNumber}` : '',
     bank.ifsc ? `IFSC: ${bank.ifsc}` : '',
     [bank.bankName, bank.branch].filter(Boolean).join(', '),
     payment ? `UPI: ${payment.upiId}` : '',
-  ].filter(Boolean);
+  ].filter(Boolean) : [];
   if (bankLines.length || qr) {
     const boxHeight = Math.max(bankLines.length * 12 + 26, qr ? 100 : 0);
     y = ensure(y + 6, boxHeight + 4);
     doc.roundedRect(LEFT, y, WIDTH, boxHeight, 6).fill(COLOR.light);
-    let by = text('PAYMENT DETAILS', LEFT + 12, y + 9, { font: 'bold', size: 7.5, color: COLOR.muted });
+    const by = text('PAYMENT DETAILS', LEFT + 12, y + 9, { font: 'bold', size: 7.5, color: COLOR.muted });
     if (bankLines.length) text(bankLines.join('\n'), LEFT + 12, by + 2, { size: 8.5, width: 300 });
     if (qr) {
       doc.image(qr, RIGHT - 92, y + 8, { width: 80, height: 80 });
@@ -289,48 +346,44 @@ async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
   }
 
   // --- terms, notes and the signature ---
-  if (q.terms) {
+  if (terms) {
     y = ensure(y, 40);
     y = text('Terms and conditions', LEFT, y, { font: 'bold', size: 9 });
-    y = text(q.terms, LEFT, y + 2, { size: 8.5, color: COLOR.text, width: WIDTH }) + 8;
+    y = text(terms, LEFT, y + 2, { size: 8.5, color: COLOR.text, width: WIDTH }) + 8;
   }
-  if (q.notes) {
+  if (notes) {
     y = ensure(y, 30);
-    y = text('Note', LEFT, y, { font: 'bold', size: 9 });
-    y = text(q.notes, LEFT, y + 2, { size: 8.5, width: WIDTH }) + 8;
+    y = text(notesTitle, LEFT, y, { font: 'bold', size: 9 });
+    y = text(notes, LEFT, y + 2, { size: 8.5, width: WIDTH }) + 8;
   }
-  y = ensure(y + 6, 54);
-  text(`For ${seller.name || organization?.name || ''}`, RIGHT - 220, y, { font: 'bold', size: 9, width: 220, align: 'right' });
-  text('Authorised signatory', RIGHT - 220, y + 38, { size: 8, color: COLOR.muted, width: 220, align: 'right' });
-
-  // --- on every page: the footer, and "DRAFT" across a draft ---
-  const range = doc.bufferedPageRange();
-  for (let i = range.start; i < range.start + range.count; i += 1) {
-    doc.switchToPage(i);
-    const bottomMargin = doc.page.margins.bottom;
-    doc.page.margins.bottom = 0; // writing in the margin must not open a new page
-    const footerY = PAGE_HEIGHT - MARGIN + 6;
-    doc.moveTo(LEFT, footerY - 6).lineTo(RIGHT, footerY - 6).lineWidth(0.4).strokeColor(COLOR.line).stroke();
-    if (shareUrl) {
-      doc.font('body').fontSize(7).fillColor(COLOR.muted).text('View online: ', LEFT, footerY, { continued: true, lineBreak: false })
-        .fillColor(COLOR.accent).text(shareUrl, { link: shareUrl, underline: false, lineBreak: false });
-    } else {
-      text('This is a computer-generated document.', LEFT, footerY, { size: 7, color: COLOR.muted, lineBreak: false });
-    }
-    text(`Page ${i - range.start + 1} of ${range.count}`, RIGHT - 100, footerY, { size: 7, color: COLOR.muted, width: 100, align: 'right', lineBreak: false });
-    if (q.status === 'Draft') {
-      doc.save();
-      doc.rotate(-35, { origin: [PAGE_WIDTH / 2, PAGE_HEIGHT / 2] });
-      doc.font('bold').fontSize(96).fillColor('#c8c8cc').fillOpacity(0.25)
-        .text('DRAFT', 0, PAGE_HEIGHT / 2 - 60, { width: PAGE_WIDTH, align: 'center', lineBreak: false });
-      doc.restore();
-      doc.fillOpacity(1);
-    }
-    doc.page.margins.bottom = bottomMargin;
-  }
-
-  doc.end();
-  return finished;
+  drawSignature(pdf, y, seller.name || organization?.name || '');
+  return finishPdf(pdf, { link, watermark });
 }
 
-module.exports = { renderQuotationPdf, upiLink, paymentFor, fileNameOf, logoOf };
+async function renderQuotationPdf({ quotation: q, organization, shareUrl }) {
+  return renderDocumentPdf({
+    organization,
+    info: { title: `${q.type} ${q.number}` },
+    title: TITLE[q.type] || 'QUOTATION',
+    meta: [
+      `No. ${q.number}${q.revision ? `  (revision ${q.revision})` : ''}`,
+      `Date: ${day(q.quotationDate)}`,
+      q.validUntil ? `Valid until: ${day(q.validUntil, 'UTC')}` : '',
+    ],
+    seller: q.seller || {},
+    billTo: q.billTo || {},
+    supply: q.supply || {},
+    items: q.items || [],
+    totals: q.totals || {},
+    payment: paymentFor(q, organization),
+    terms: q.terms,
+    notes: q.notes,
+    link: shareUrl,
+    watermark: q.status === 'Draft' ? 'DRAFT' : '',
+  });
+}
+
+module.exports = {
+  renderQuotationPdf, renderDocumentPdf, startPdf, drawHeader, drawSignature, finishPdf,
+  upiLink, paymentFor, fileNameOf, logoOf, num, day, COLOR, LEFT, RIGHT, WIDTH,
+};

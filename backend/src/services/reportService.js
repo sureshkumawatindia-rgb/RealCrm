@@ -10,6 +10,7 @@ const Order = require('../models/Order');
 const OrganizationMember = require('../models/OrganizationMember');
 const PaymentLink = require('../models/PaymentLink');
 const Quotation = require('../models/Quotation');
+const TaxInvoice = require('../models/TaxInvoice');
 const Task = require('../models/Task');
 const Ticket = require('../models/Ticket');
 const { isManager, canViewAll } = require('../constants/permissions');
@@ -79,12 +80,12 @@ async function paymentsIn(req, range, own) {
 async function duesNow(req, own) {
   const orders = await Order.find({
     organizationId: req.tenant.organizationId, stage: { $nin: ['Cancelled', 'Payment Collected'] }, ...(own && { ownerId: own }),
-    $expr: { $lt: [{ $ifNull: ['$amountPaidPaise', 0] }, { $ifNull: ['$totals.grandTotalPaise', 0] }] },
-  }).select('orderDate createdAt amountPaidPaise totals.grandTotalPaise');
+    $expr: { $lt: [{ $ifNull: ['$amountPaidPaise', 0] }, { $ifNull: ['$billedPaise', { $ifNull: ['$totals.grandTotalPaise', 0] }] }] },
+  }).select('orderDate createdAt amountPaidPaise billedPaise totals.grandTotalPaise');
   const buckets = { '0-7': { count: 0, duePaise: 0 }, '8-30': { count: 0, duePaise: 0 }, '31-60': { count: 0, duePaise: 0 }, '60+': { count: 0, duePaise: 0 } };
   let total = 0;
   for (const o of orders) {
-    const due = (o.totals?.grandTotalPaise || 0) - (o.amountPaidPaise || 0);
+    const due = (o.billedPaise ?? (o.totals?.grandTotalPaise || 0)) - (o.amountPaidPaise || 0); // D101: less credit notes
     const days = Math.floor((Date.now() - new Date(o.orderDate || o.createdAt).getTime()) / DAY_MS);
     const key = days <= 7 ? '0-7' : days <= 30 ? '8-30' : days <= 60 ? '31-60' : '60+';
     buckets[key].count += 1;
@@ -475,17 +476,19 @@ async function broadcasts(req, query) {
 }
 
 // --- payment collection -------------------------------------------------------------------
+// D101: with what was invoiced in the period (tax invoices less credit notes, by their dates).
 async function payments(req, query) {
   const range = rangeOf(query);
   const organizationId = req.tenant.organizationId;
   const own = ownOnly(req, 'leads');
   const owner = { ...PUBLIC, ...(own ? { ownerId: own } : {}) };
-  const [received, linksMade, linksPaid, paidOrders, dues] = await Promise.all([
+  const [received, linksMade, linksPaid, paidOrders, dues, documents] = await Promise.all([
     paymentsIn(req, range, own),
     PaymentLink.countDocuments({ organizationId, createdAt: between(range), ...owner }),
     PaymentLink.find({ organizationId, status: 'paid', paidAt: between(range), ...owner }).select('createdAt paidAt').lean(),
     Order.find({ organizationId, paidAt: between(range), ...owner }).select('orderDate createdAt paidAt').lean(),
     duesNow(req, own),
+    TaxInvoice.find({ organizationId, invoiceDate: between(range), ...(own && { ownerId: own }) }).select('kind invoiceDate totals.grandTotalPaise totals.taxPaise').lean(),
   ]);
   const by = (key) => {
     const groups = new Map();
@@ -501,7 +504,7 @@ async function payments(req, query) {
   const METHOD = { cash: 'Cash', bank_transfer: 'Bank transfer', upi: 'UPI', cheque: 'Cheque', card: 'Card', netbanking: 'Net banking', wallet: 'Wallet', emi: 'EMI', other: 'Other' };
   const PROVIDER = { razorpay: 'Razorpay', cashfree: 'Cashfree', mock: 'Test gateway' };
   const keys = bucketsOf(range);
-  const series = new Map(keys.map((k) => [k, { bucket: k, amountPaise: 0, count: 0 }]));
+  const series = new Map(keys.map((k) => [k, { bucket: k, amountPaise: 0, count: 0, invoicedPaise: 0 }]));
   for (const p of received) {
     const row = series.get(bucketOf(p.paidAt, range.unit));
     if (row) {
@@ -509,12 +512,27 @@ async function payments(req, query) {
       row.count += 1;
     }
   }
+  const money = (d) => ({ total: d.totals?.grandTotalPaise || 0, tax: d.totals?.taxPaise || 0, sign: d.kind === 'credit_note' ? -1 : 1 });
+  for (const d of documents) {
+    const row = series.get(bucketOf(d.invoiceDate, range.unit));
+    if (row) row.invoicedPaise += money(d).sign * money(d).total;
+  }
+  const made = documents.filter((d) => d.kind === 'invoice').map(money);
+  const credits = documents.filter((d) => d.kind === 'credit_note').map(money);
   const hoursToPay = linksPaid.map((l) => (new Date(l.paidAt) - new Date(l.createdAt)) / HOUR);
   const daysToCollect = paidOrders.map((o) => (new Date(o.paidAt) - new Date(o.orderDate || o.createdAt)) / DAY_MS);
   return {
     range: { from: range.from, to: range.to, days: range.days, unit: range.unit },
     scope: own ? 'own' : 'company',
     collected: { amountPaise: sum(received, 'amountPaise'), count: received.length },
+    invoiced: {
+      amountPaise: sum(made, 'total') - sum(credits, 'total'),
+      invoices: made.length,
+      invoicedPaise: sum(made, 'total'),
+      creditNotes: credits.length,
+      creditedPaise: sum(credits, 'total'),
+      taxPaise: sum(made, 'tax') - sum(credits, 'tax'),
+    },
     byWay: by((p) => (p.source === 'link' ? `Payment link · ${PROVIDER[p.provider] || p.provider}` : `By hand · ${METHOD[p.method] || 'Other'}`)),
     byMethod: by((p) => METHOD[p.method] || (p.source === 'link' ? 'Online' : 'Other')),
     trend: [...series.values()],
@@ -653,8 +671,8 @@ async function exportCsv(req, query) {
     lines = data.items.map((b) => [b.name, b.startedAt ? istDay(b.startedAt) : '', b.templateName, b.segmentName, b.total, b.sent, b.delivered, b.read, b.replied, b.failed, b.skipped, b.deliveredPct, b.readPct, b.repliedPct]);
   } else if (type === 'payments') {
     const data = await payments(req, query);
-    header = ['Period', 'Payments', 'Collected (Rs)'];
-    lines = [...data.trend.map((r) => [r.bucket, r.count, rupees(r.amountPaise)]), ['Total', data.collected.count, rupees(data.collected.amountPaise)], [], ['How paid', 'Payments', 'Collected (Rs)'], ...data.byWay.map((r) => [r.name, r.count, rupees(r.amountPaise)])];
+    header = ['Period', 'Payments', 'Collected (Rs)', 'Invoiced (Rs)'];
+    lines = [...data.trend.map((r) => [r.bucket, r.count, rupees(r.amountPaise), rupees(r.invoicedPaise)]), ['Total', data.collected.count, rupees(data.collected.amountPaise), rupees(data.invoiced.amountPaise)], [], ['How paid', 'Payments', 'Collected (Rs)'], ...data.byWay.map((r) => [r.name, r.count, rupees(r.amountPaise)])];
   } else if (type === 'trend') {
     const data = await trend(req, query);
     header = ['Period', 'Leads created', 'Leads won', 'Orders', 'Order value (Rs)', 'Collected (Rs)'];

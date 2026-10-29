@@ -227,6 +227,42 @@
   min-height: 4px;
   transition: height 0.35s var(--ease-spring);
 }
+/* D101: invoiced and collected side by side */
+.trend-pair {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+}
+.trend-pair .trend-bar {
+  flex: 1;
+  max-width: 20px;
+}
+.trend-bar-col .trend-bar.alt,
+.pair-legend .swatch.alt {
+  background: linear-gradient(180deg, var(--success), color-mix(in srgb, var(--success) 75%, #000));
+}
+.pair-legend {
+  display: flex;
+  gap: 16px;
+  padding: 0 24px 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pair-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pair-legend .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--brand), var(--brand-darker));
+}
 .trend-bar-col .trend-month {
   font-size: 11px;
   font-weight: 700;

@@ -27,6 +27,8 @@ const { projectRoutes, templateRoutes: projectTemplateRoutes } = require('./proj
 const { callRoutes, telephonyRoutes } = require('./calls');
 const quotationRoutes = require('./quotations');
 const orderRoutes = require('./orders');
+const invoiceRoutes = require('./invoices');
+const receiptRoutes = require('./receipts');
 const importRoutes = require('./imports');
 const exportRoutes = require('./exports');
 const whatsappRoutes = require('./whatsapp');
@@ -86,6 +88,8 @@ router.use('/telephony', telephonyRoutes); // D85
 router.use('/quotations', quotationRoutes);
 router.use('/pricing', quotationRoutes.pricingRouter);
 router.use('/orders', orderRoutes);
+router.use('/invoices', invoiceRoutes); // D101
+router.use('/receipts', receiptRoutes); // D101
 router.use('/imports', importRoutes);
 router.use('/exports', exportRoutes);
 router.use('/whatsapp', whatsappRoutes);

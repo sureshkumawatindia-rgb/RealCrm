@@ -54,7 +54,7 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
   documents, segments and sequence enrollments move to it; two chats on one WhatsApp number are
   joined into one. In a transaction, audited, with a clear "cannot be undone" warning.
 
-**C. GST tax invoice**
+**C. GST tax invoice** — done 2026-10-28 (D101)
 - A "Tax Invoice" made from an order (or an accepted quotation) by the button, or on Dispatched
   when the setting is on. Gap-free numbers per financial year (`Counter`), money from
   `utils/gst.js` (CGST/SGST/IGST, round-off, place of supply), lines from `documentParts`.

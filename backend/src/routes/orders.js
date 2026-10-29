@@ -1,5 +1,6 @@
 const express = require('express');
 const orderService = require('../services/orderService');
+const invoiceService = require('../services/invoiceService');
 const { authenticate } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/permissions');
 const idempotency = require('../middleware/idempotency');
@@ -7,6 +8,7 @@ const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/orders');
 const paymentSchemas = require('../validators/payments');
+const invoiceSchemas = require('../validators/invoices');
 
 // Orders (Phase 5): the same permissions as leads and quotations; WhatsApp updates need the inbox.
 const router = express.Router();
@@ -45,6 +47,18 @@ router.post('/:id/payments', can('edit'), idempotency, validate({ params: idPara
 });
 router.delete('/:id/payments/:paymentId', can('edit'), validate({ params: paymentSchemas.paymentParams }), async (req, res) => {
   res.json({ success: true, data: await orderService.removeManualPayment(req, req.valid.params.id, req.valid.params.paymentId), message: 'Payment removed' });
+});
+// Tax invoices, credit notes and receipts (D101; routes/invoices.js, routes/receipts.js).
+router.get('/:id/invoices', can('view'), validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await invoiceService.forOrder(req, req.valid.params.id) });
+});
+router.post('/:id/invoice', can('edit'), idempotency, validate({ params: idParams, body: invoiceSchemas.invoiceCreate }), async (req, res) => {
+  const result = await invoiceService.createForOrder(req, req.valid.params.id, req.body);
+  res.status(201).json({ success: true, data: result, message: `Tax invoice ${result.invoice.number} made` });
+});
+// The receipt of a payment recorded before receipts existed.
+router.post('/:id/payments/:paymentId/receipt', can('edit'), validate({ params: paymentSchemas.paymentParams }), async (req, res) => {
+  res.json({ success: true, data: await invoiceService.ensureReceipt(req, req.valid.params.id, req.valid.params.paymentId) });
 });
 router.get('/:id/notify-options', can('view'), canChat, validate({ params: idParams }), async (req, res) => {
   res.json({ success: true, data: await orderService.notifyOptions(req, req.valid.params.id) });

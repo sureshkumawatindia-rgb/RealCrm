@@ -1,5 +1,6 @@
 const express = require('express');
 const quotationService = require('../services/quotationService');
+const invoiceService = require('../services/invoiceService');
 const { authenticate } = require('../middleware/auth');
 const { requirePermission, requireRole } = require('../middleware/permissions');
 const idempotency = require('../middleware/idempotency');
@@ -7,6 +8,7 @@ const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/quotations');
 const orderSchemas = require('../validators/orders');
+const invoiceSchemas = require('../validators/invoices');
 const { GST_STATES } = require('../constants/gst');
 
 // Quotations, estimates and proforma invoices (Phase 5): the same permissions as leads.
@@ -55,6 +57,11 @@ router.post('/:id/approval', can('edit'), validate({ params: idParams }), async 
 router.post('/:id/approval/decision', requireRole('owner', 'admin'), validate({ params: idParams, body: schemas.approvalDecision }), async (req, res) => {
   const quotation = await quotationService.decideApproval(req, req.valid.params.id, req.body);
   res.json({ success: true, data: quotation, message: quotation.approval.state === 'approved' ? 'Approved' : 'Not approved' });
+});
+// D101: the tax invoice of an accepted quotation (its order is made first when needed).
+router.post('/:id/invoice', can('create'), idempotency, validate({ params: idParams, body: invoiceSchemas.invoiceCreate }), async (req, res) => {
+  const result = await invoiceService.createForQuotation(req, req.valid.params.id, req.body);
+  res.status(201).json({ success: true, data: result, message: `Tax invoice ${result.invoice.number} made` });
 });
 router.post('/:id/revise', can('edit'), validate({ params: idParams }), async (req, res) => {
   const quotation = await quotationService.revise(req, req.valid.params.id);

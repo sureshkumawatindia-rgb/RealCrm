@@ -1,7 +1,8 @@
 /**
  * settings-billing.js — Settings → Billing (owners and admins)
  * Bank details, UPI ID, standard terms, validity, round-off, number prefixes and the stock
- * option (/organization/billing). The GST state comes from the company profile.
+ * option (/organization/billing). The GST state comes from the company profile. D101: tax
+ * invoice, credit note and receipt prefixes (at most 4 characters) and "invoice on dispatch".
  * Runs after settings.js; everything stays inside this function so no names clash.
  */
 (function settingsBilling() {
@@ -9,7 +10,10 @@
   document.getElementById("billingTab").style.display = "";
 
   const $ = (id) => document.getElementById(id);
-  const PREFIX_FIELDS = { quotation: "billPreQ", estimate: "billPreE", proforma: "billPreP", order: "billPreO" };
+  const PREFIX_FIELDS = {
+    quotation: "billPreQ", estimate: "billPreE", proforma: "billPreP", order: "billPreO",
+    invoice: "billPreI", creditNote: "billPreC", receipt: "billPreR",
+  };
 
   // "2026-27": the financial year runs April–March (India time).
   function financialYear() {
@@ -20,6 +24,9 @@
   function showExample() {
     const prefix = $("billPreQ").value.trim().toUpperCase() || "QT";
     $("billExample").textContent = `${prefix}/${financialYear()}/0001`;
+    // Invoices: the short year (26-27), so the number stays within GST's 16 characters.
+    const invoice = $("billPreI").value.trim().toUpperCase() || "INV";
+    $("billInvExample").textContent = `${invoice}/${financialYear().slice(2)}/0001`;
   }
 
   function render(billing) {
@@ -37,6 +44,7 @@
     $("billValidity").value = billing.validityDays || 15;
     $("billRound").checked = billing.roundOff !== false;
     $("billStock").checked = Boolean(billing.reduceStockOnDispatch);
+    $("billInvoice").checked = Boolean(billing.invoiceOnDispatch);
     Object.entries(PREFIX_FIELDS).forEach(([key, id]) => {
       $(id).value = billing.prefixes[key] || "";
     });
@@ -52,6 +60,7 @@
   }
 
   $("billPreQ").addEventListener("input", showExample);
+  $("billPreI").addEventListener("input", showExample);
   $("billForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const value = (id) => $(id).value.trim();
@@ -62,11 +71,12 @@
       validityDays: Number(value("billValidity")) || 15,
       roundOff: $("billRound").checked,
       reduceStockOnDispatch: $("billStock").checked,
+      invoiceOnDispatch: $("billInvoice").checked,
       prefixes: Object.fromEntries(Object.entries(PREFIX_FIELDS).map(([key, id]) => [key, value(id).toUpperCase()])),
     };
     try {
       render(await crmApi("/organization/billing", jsonRequest("PUT", body)));
-      showToast("Billing settings saved. New quotations use them.", "success");
+      showToast("Billing settings saved. New quotations and invoices use them.", "success");
     } catch (error) {
       showToast(apiErrorMessage(error, "Couldn't save the billing settings."), "error");
     }
