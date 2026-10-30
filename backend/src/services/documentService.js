@@ -190,6 +190,7 @@ async function openFile(req, id) {
 
 module.exports = {
   MODULES,
+  findVisible, // D103: a quick reply's file
   list,
   get: async (req, id) => serializeDocument(await findVisible(req, id)),
   create,

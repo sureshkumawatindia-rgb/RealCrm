@@ -296,6 +296,7 @@ async function sendOne(broadcast, template, account, recipient) {
   const contact = await Contact.findOne({ _id: recipient.contactId, organizationId: broadcast.organizationId, deletedAt: null });
   if (!contact?.phoneE164) return skip(contact ? 'No mobile number any more.' : 'The customer was removed.');
   if (contact.consent?.marketing === 'opted_out') return skip('Opted out of WhatsApp offers.');
+  if (contact.blocked?.at) return skip('Blocked.'); // D103
   const lead = await leadOfContact(broadcast.organizationId, contact._id);
   const ctx = await loadContext({ organizationId: broadcast.organizationId, subject: { contactId: contact._id, ...(lead && { leadId: lead._id }) } });
   const variables = resolveVariables(broadcast.variables, ctx);

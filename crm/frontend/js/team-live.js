@@ -42,18 +42,19 @@
       kpi("Waiting for a reply", t.waiting, data.queue.waitingChats ? `${data.queue.waitingChats} not taken by anyone` : "customers who wrote last", t.waiting ? "warning" : ""),
       kpi("Replies today", t.replies, `first reply ${duration(t.firstResponseMedianSeconds)} (median)`),
       kpi("Resolved today", t.resolved, "chats closed", "success"),
+      kpi("Feedback today", t.csat?.answers ? `${Number(t.csat.scorePct).toLocaleString("en-IN", { maximumFractionDigits: 1 })}% good` : "—", t.csat?.answers ? `${t.csat.answers} answer${t.csat.answers === 1 ? "" : "s"} · ${t.csat.bad} bad` : "no answers yet"),
     ].join("");
     const queueRow = `<tr class="queue-row">
       <td><div class="leaderboard-agent"><span class="avatar"><i class="fa-solid fa-inbox"></i></span><div>Not taken yet<span class="sub">the Inbox queue</span></div></div></td>
-      <td></td>${cell(data.queue.openChats)}${waitingCell(data.queue.waitingChats, data.queue.oldestWaitingSince)}<td class="num">—</td><td class="num">—</td><td class="num">—</td>
+      <td></td>${cell(data.queue.openChats)}${waitingCell(data.queue.waitingChats, data.queue.oldestWaitingSince)}<td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
     </tr>`;
     const rows = data.items.map((m) => `<tr>
       <td><div class="leaderboard-agent"><span class="avatar">${escapeHtml(initials(m.name))}</span><div>${escapeHtml(m.name)}<span class="sub">${escapeHtml(m.role)}</span></div></div></td>
       <td><span class="presence ${m.online ? "on" : ""}"><span class="dot"></span>${m.online ? "Online" : m.lastSeenAt ? `Seen ${escapeHtml(since(m.lastSeenAt))} ago` : "Not seen yet"}</span></td>
-      ${cell(m.openChats)}${waitingCell(m.waitingChats, m.oldestWaitingSince)}${cell(m.repliesToday)}${cell(m.resolvedToday)}${cell(duration(m.firstResponseMedianSeconds))}
+      ${cell(m.openChats)}${waitingCell(m.waitingChats, m.oldestWaitingSince)}${cell(m.repliesToday)}${cell(m.resolvedToday)}${cell(duration(m.firstResponseMedianSeconds))}${cell(m.csatAnswersToday ? `${Number(m.csatScorePctToday).toLocaleString("en-IN", { maximumFractionDigits: 1 })}%` : "—", m.csatAnswersToday ? `${m.csatAnswersToday} answer${m.csatAnswersToday === 1 ? "" : "s"}` : "")}
     </tr>`);
     $("teamTable").innerHTML = `<table>
-      <thead><tr><th>Member</th><th>Status</th><th class="num">Open chats</th><th class="num">Waiting</th><th class="num">Replies today</th><th class="num">Resolved today</th><th class="num">First reply today</th></tr></thead>
+      <thead><tr><th>Member</th><th>Status</th><th class="num">Open chats</th><th class="num">Waiting</th><th class="num">Replies today</th><th class="num">Resolved today</th><th class="num">First reply today</th><th class="num">Feedback today</th></tr></thead>
       <tbody>${queueRow}${rows.join("")}</tbody>
     </table>`;
     $("updatedAt").textContent = `Updated ${new Date(data.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit" })}`;

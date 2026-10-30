@@ -17,6 +17,7 @@ const privateNumbers = require('./privateNumberService');
 const media = require('./whatsappMediaService');
 const templateService = require('./templateService');
 const attribution = require('./attributionService');
+const csat = require('./csatService');
 const { refCodeIn } = require('../views/whatsappButton');
 const { STAGE_PROBABILITY, OPEN_STAGES } = require('../constants/crm');
 const { MESSAGE_TYPES, MEDIA_TYPES, STATUS_RANK } = require('../constants/whatsapp');
@@ -305,6 +306,12 @@ async function handleMessage(account, { message, contact: profile }) {
   const privateNumber = await privateNumbers.isPrivate(organizationId, phoneE164);
   const { contact, created } = await findOrCreateContact(organizationId, phoneE164, name, { quiet: privateNumber, private: privateNumber, source });
   const hidden = privateNumber || Boolean(contact.private);
+  // D103: a blocked customer's message is kept, quietly: no automation, bot, auto-reply or lead,
+  // the chat is not reopened, and it stays in the Blocked list.
+  const blocked = Boolean(contact.blocked?.at);
+  // D103: an answer to the CSAT question is recorded; it does not reopen the resolved chat.
+  const rating = csat.answerOf(fields);
+  const quiet = blocked || Boolean(rating);
   // An agent's own number (D67): the chat, a new lead and an unowned customer are theirs. The
   // assignment rules then leave the lead alone (it has an owner).
   const agent = hidden ? null : await agentOf(account);
@@ -314,7 +321,7 @@ async function handleMessage(account, { message, contact: profile }) {
 
   let conversation = await Conversation.findOneAndUpdate(
     { organizationId, contactId: contact._id, whatsappAccountId: account._id },
-    { $setOnInsert: { status: 'open', openedAt: at, ...(agent && { assigneeId: agent._id }), ...(hidden && { private: true }) } },
+    { $setOnInsert: { status: 'open', openedAt: at, ...(agent && { assigneeId: agent._id }), ...(hidden && { private: true }), ...(blocked && { blockedAt: contact.blocked.at }) } },
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
   // A chat nobody had taken (say, imported from the phone) on an agent's number becomes theirs.
@@ -322,7 +329,7 @@ async function handleMessage(account, { message, contact: profile }) {
     conversation = await Conversation.findOneAndUpdate({ _id: conversation._id, assigneeId: null }, { $set: { assigneeId: agent._id } }, { returnDocument: 'after' }) || conversation;
   }
   // A closed chat the customer writes in again starts a new round (resolution time, D61).
-  if (conversation.status === 'closed') await Conversation.updateOne({ _id: conversation._id, status: 'closed' }, { $set: { openedAt: at } });
+  if (conversation.status === 'closed' && !quiet) await Conversation.updateOne({ _id: conversation._id, status: 'closed' }, { $set: { openedAt: at } });
 
   const { ctwaClid, ...shown } = ad || {};
   let stored;
@@ -342,9 +349,12 @@ async function handleMessage(account, { message, contact: profile }) {
   // A new message brings an archived chat back (CP3).
   conversation = await Conversation.findOneAndUpdate(
     { _id: conversation._id },
-    { $set: { status: 'open' }, $unset: { archivedAt: 1, archivedById: 1 }, $inc: { unreadCount: 1 }, $max: { lastInboundAt: at, lastMessageAt: at } },
+    quiet
+      ? { $max: { lastInboundAt: at, lastMessageAt: at } }
+      : { $set: { status: 'open' }, $unset: { archivedAt: 1, archivedById: 1 }, $inc: { unreadCount: 1 }, $max: { lastInboundAt: at, lastMessageAt: at } },
     { returnDocument: 'after' },
   );
+  if (rating) await csat.recordAnswer({ organizationId, contactId: contact._id, ...rating, at });
   // A reaction shows on the message it is for; a removed reaction comes without an emoji.
   if (fields.type === 'reaction' && fields.reaction?.providerMessageId) {
     const emoji = fields.reaction.emoji;
@@ -363,10 +373,10 @@ async function handleMessage(account, { message, contact: profile }) {
     );
   }
 
-  if (!hidden && (ad || click)) conversation = await cameFrom({ account, conversation, contact, newLead, ad, ctwaClid, click, at, source });
+  if (!hidden && !blocked && (ad || click)) conversation = await cameFrom({ account, conversation, contact, newLead, ad, ctwaClid, click, at, source });
   bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created && !hidden });
   // A reaction (a 👍 on our message) is not a new question: no bot, auto-reply or workflow runs on it (CP3).
-  if (!hidden && stored.type !== 'reaction') {
+  if (!hidden && !quiet && stored.type !== 'reaction') {
     automationEvents.emit('message.received', {
       organizationId, contactId: contact._id, conversationId: conversation._id, messageId: stored._id, text: stored.text || '', messageType: stored.type, replyId: stored.reply?.id || '', key: `message.received:${stored._id}`,
     });

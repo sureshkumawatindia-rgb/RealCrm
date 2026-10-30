@@ -182,6 +182,11 @@ module.exports = {
   },
   async setCommerceSettings() {},
 
+  // D103: a test number blocks and unblocks anyone.
+  async blockUsers(credentials, users) {
+    return { done: users.map((user) => ({ input: user, wa_id: user })), failed: [] };
+  },
+
   async uploadMedia() {
     return { mediaId: `mock-media-upload-${crypto.randomBytes(8).toString('hex')}` };
   },

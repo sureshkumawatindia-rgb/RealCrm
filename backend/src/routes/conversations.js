@@ -1,6 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const conversationService = require('../services/conversationService');
+const scheduledMessages = require('../services/scheduledMessageService');
+const blockService = require('../services/blockService');
 const catalogService = require('../services/catalogService');
 const aiService = require('../services/aiService');
 const httpError = require('../utils/httpError');
@@ -99,6 +101,27 @@ router.get('/:id/catalog', can('view'), byId, async (req, res) => {
 });
 router.post('/:id/products', can('create'), idempotency, validate({ params: idParams, body: schemas.productsSend }), async (req, res) => {
   res.status(201).json({ success: true, data: await catalogService.sendProducts(req, req.valid.params.id, req.body) });
+});
+// D103: a quick reply's file (from Documents) with its text.
+router.post('/:id/messages/quick-reply-file', can('create'), idempotency, validate({ params: idParams, body: schemas.quickReplyFile }), async (req, res) => {
+  res.status(201).json({ success: true, data: await conversationService.sendQuickReplyFile(req, req.valid.params.id, req.body) });
+});
+// D103: send later — what waits in this chat, and a new one.
+router.get('/:id/scheduled', can('view'), byId, async (req, res) => {
+  res.json({ success: true, data: await scheduledMessages.list(req, req.valid.params.id) });
+});
+router.post('/:id/scheduled', can('create'), idempotency, validate({ params: idParams, body: schemas.scheduleCreate }), async (req, res) => {
+  res.status(201).json({ success: true, data: await scheduledMessages.schedule(req, req.valid.params.id, req.body), message: 'Message scheduled' });
+});
+// D103: block or unblock the chat's customer (audited).
+router.get('/:id/block', can('view'), byId, async (req, res) => {
+  res.json({ success: true, data: await blockService.status(req, req.valid.params.id) });
+});
+router.post('/:id/block', can('edit'), validate({ params: idParams, body: schemas.block }), async (req, res) => {
+  res.json({ success: true, data: await blockService.block(req, req.valid.params.id, req.body), message: 'Customer blocked' });
+});
+router.delete('/:id/block', can('edit'), byId, async (req, res) => {
+  res.json({ success: true, data: await blockService.unblock(req, req.valid.params.id), message: 'Customer unblocked' });
 });
 router.post('/:id/messages/media', can('create'), acceptFile, idempotency, validate({ params: idParams, body: schemas.mediaSend }), async (req, res) => {
   res.status(201).json({ success: true, data: await conversationService.sendMedia(req, req.valid.params.id, req.body, req.file) });

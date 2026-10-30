@@ -1,3 +1,4 @@
+const path = require('path');
 const QuickReply = require('../models/QuickReply');
 const Contact = require('../models/Contact');
 const Lead = require('../models/Lead');
@@ -7,12 +8,41 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { can } = require('../constants/permissions');
 const { OPEN_STAGES } = require('../constants/crm');
+const { OUTBOUND_MEDIA } = require('../constants/whatsapp');
 const { visibilityFilter, privacyFilter } = require('./access');
 const customFieldService = require('./customFieldService');
 
 // Saved answers shared by the organization's inbox ("/price" → "Cumin 1kg is ₹250 + GST ...").
+// D103: one may carry a photo, video or document from Documents, sent with its text.
+const FILE_FIELDS = 'name fileName mimeType sizeBytes storageKey deletedAt';
+
+// What WhatsApp takes as a quick reply's file: a photo, a video or a document within its size
+// (not audio: it cannot carry the text). '' when it cannot go.
+function sendableKind(doc) {
+  const info = OUTBOUND_MEDIA[path.extname(doc?.fileName || '').slice(1).toLowerCase()];
+  if (!doc?.storageKey || !info || info.type === 'audio' || (doc.sizeBytes || 0) > info.maxBytes) return '';
+  return info.type;
+}
+
 function serializeQuickReply(reply) {
-  return { id: reply._id, shortcut: reply.shortcut, title: reply.title, body: reply.body, updatedAt: reply.updatedAt };
+  const doc = reply.documentId && typeof reply.documentId === 'object' && 'fileName' in reply.documentId ? reply.documentId : null;
+  return {
+    id: reply._id, shortcut: reply.shortcut, title: reply.title, body: reply.body, updatedAt: reply.updatedAt,
+    attachment: doc && !doc.deletedAt && sendableKind(doc)
+      ? { documentId: doc._id, name: doc.name, fileName: doc.fileName, sizeBytes: doc.sizeBytes || 0, type: sendableKind(doc) }
+      : null,
+  };
+}
+
+// The file a quick reply may carry: a document this member can open, that WhatsApp takes.
+async function attachable(req, documentId) {
+  const documentService = require('./documentService'); // eslint-disable-line global-require
+  const doc = await documentService.findVisible(req, documentId).catch(() => null);
+  if (!doc) throw httpError(400, 'VALIDATION_ERROR', 'Pick a file from Documents that you can open.', [{ field: 'documentId', code: 'NOT_FOUND', message: 'Pick a file from Documents.' }]);
+  if (!sendableKind(doc)) {
+    throw httpError(400, 'VALIDATION_ERROR', 'WhatsApp takes photos (JPG, PNG up to 5 MB), videos (MP4, 3GP up to 16 MB) and documents (PDF, Word, Excel, PowerPoint, TXT up to 100 MB).', [{ field: 'documentId', code: 'NOT_SENDABLE', message: 'This file cannot go on WhatsApp.' }]);
+  }
+  return doc._id;
 }
 
 const duplicate = () => httpError(409, 'DUPLICATE_SHORTCUT', 'Another quick reply already uses this shortcut.');
@@ -24,15 +54,18 @@ async function findInOrg(req, id) {
 }
 
 async function list(req) {
-  const replies = await QuickReply.find({ organizationId: req.tenant.organizationId }).sort({ shortcut: 1 }).limit(500);
+  const replies = await QuickReply.find({ organizationId: req.tenant.organizationId }).sort({ shortcut: 1 }).limit(500).populate('documentId', FILE_FIELDS);
   return replies.map(serializeQuickReply);
 }
 
 async function create(req, body) {
+  const { documentId, ...fields } = body;
   try {
-    const reply = await QuickReply.create({ ...body, organizationId: req.tenant.organizationId, createdByMemberId: req.member._id });
+    const reply = await QuickReply.create({
+      ...fields, ...(documentId && { documentId: await attachable(req, documentId) }), organizationId: req.tenant.organizationId, createdByMemberId: req.member._id,
+    });
     await audit(req, { action: 'quickreply.created', entityType: 'QuickReply', entityId: reply._id });
-    return serializeQuickReply(reply);
+    return serializeQuickReply(await reply.populate('documentId', FILE_FIELDS));
   } catch (error) {
     if (error.code === 11000) throw duplicate();
     throw error;
@@ -41,7 +74,9 @@ async function create(req, body) {
 
 async function update(req, id, body) {
   const reply = await findInOrg(req, id);
-  Object.assign(reply, body);
+  const { documentId, ...fields } = body;
+  Object.assign(reply, fields);
+  if (documentId !== undefined) reply.documentId = documentId ? await attachable(req, documentId) : undefined;
   try {
     await reply.save();
   } catch (error) {
@@ -49,7 +84,7 @@ async function update(req, id, body) {
     throw error;
   }
   await audit(req, { action: 'quickreply.updated', entityType: 'QuickReply', entityId: reply._id, changes: Object.keys(body) });
-  return serializeQuickReply(reply);
+  return serializeQuickReply(await reply.populate('documentId', FILE_FIELDS));
 }
 
 async function remove(req, id) {

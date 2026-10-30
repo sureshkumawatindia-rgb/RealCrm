@@ -9,7 +9,7 @@ const variableValues = Joi.object().pattern(/^[A-Za-z0-9_]{1,60}$/, Joi.string()
 module.exports = {
   conversationList: Joi.object({
     ...paginationQuery,
-    view: Joi.string().valid('mine', 'unassigned', 'all', 'archived').default('all'),
+    view: Joi.string().valid('mine', 'unassigned', 'all', 'archived', 'blocked').default('all'), // D103: blocked
     status: Joi.string().valid(...CONVERSATION_STATUSES, 'any'),
     accountId: objectId,
     contactId: objectId,
@@ -62,15 +62,34 @@ module.exports = {
       .messages({ 'string.pattern.base': 'Use 1–30 letters, digits, "-" or "_" (no spaces)' }),
     title: Joi.string().trim().max(100).allow(''),
     body: Joi.string().trim().min(1).max(4096).required(),
+    documentId: objectId.allow(null, ''), // D103: a file from Documents
   }),
   quickReplyPatch: Joi.object({
     shortcut: Joi.string().trim().lowercase().pattern(/^[a-z0-9_-]{1,30}$/)
       .messages({ 'string.pattern.base': 'Use 1–30 letters, digits, "-" or "_" (no spaces)' }),
     title: Joi.string().trim().max(100).allow(''),
     body: Joi.string().trim().min(1).max(4096),
+    documentId: objectId.allow(null, ''), // D103: a file from Documents (null: none)
   }).min(1),
   // A quick reply filled for one chat's customer (D99).
   quickReplyFill: Joi.object({ conversationId: objectId.required() }),
+  // D103: a quick reply's file with its text (the caption, or a message first when longer).
+  quickReplyFile: Joi.object({
+    quickReplyId: objectId.required(),
+    caption: Joi.string().trim().max(4096).allow(''),
+    replyToMessageId: objectId,
+  }),
+  // D103: send later — a text and when (checked: 1 minute to 30 days ahead).
+  scheduleCreate: Joi.object({
+    text: Joi.string().trim().min(1).max(4096).required(),
+    sendAt: Joi.date().iso().required(),
+  }),
+  schedulePatch: Joi.object({
+    text: Joi.string().trim().min(1).max(4096),
+    sendAt: Joi.date().iso(),
+  }).min(1),
+  // D103: blocking the chat's customer.
+  block: Joi.object({ reason: Joi.string().trim().max(200).allow('') }),
   // Products from the WhatsApp catalog (Phase 8C): one, or a list of up to 30 with a heading.
   productsSend: Joi.object({
     productIds: Joi.array().items(objectId).min(1).max(30).unique().required(),

@@ -44,6 +44,16 @@ const contactSchema = new mongoose.Schema(
     legacyIds: { type: [String], default: undefined },
     // Merged into another customer (D100): this one is deleted, everything it had moved there.
     mergedIntoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
+    // D103: blocked (spam, abuse): no automation, bot, auto-reply, new lead or broadcast, and no
+    // message can be sent. onWhatsApp: also blocked on Meta (Cloud API block_users), or why not.
+    blocked: {
+      at: { type: Date },
+      byMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
+      byName: { type: String },
+      reason: { type: String },
+      onWhatsApp: { type: Boolean },
+      whatsappNote: { type: String },
+    },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },

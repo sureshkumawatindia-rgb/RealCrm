@@ -157,6 +157,18 @@ module.exports = {
     return { mediaId: String(data.id) };
   },
 
+  // D103: block or unblock customers on this number (Cloud API block_users, read 2026-10-29):
+  // only people who wrote in the last 24 hours; up to 1,000 a call. → { done, failed } per user.
+  async blockUsers({ phoneNumberId, accessToken }, users, { unblock = false } = {}) {
+    const data = await graph(`${enc(phoneNumberId)}/block_users`, {
+      accessToken,
+      method: unblock ? 'DELETE' : 'POST',
+      body: { messaging_product: 'whatsapp', block_users: users.map((user) => ({ user })) },
+    });
+    const result = data.block_users || {};
+    return { done: (unblock ? result.removed_users : result.added_users) || [], failed: result.failed_users || [] };
+  },
+
   // A received file's details and a download URL (valid 5 minutes).
   async getMedia({ phoneNumberId, accessToken }, mediaId) {
     const data = await graph(`${enc(mediaId)}?phone_number_id=${enc(phoneNumberId)}`, { accessToken });

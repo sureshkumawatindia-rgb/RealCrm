@@ -15,6 +15,7 @@ const hiddenModulesOf = (organization) => HIDEABLE_MODULES.filter((module) => (o
 const serializeSettings = (organization) => ({
   hidePhonesFromAgents: organization?.settings?.hidePhonesFromAgents !== false, // D65: on unless turned off
   sendReadReceipts: organization?.settings?.sendReadReceipts !== false, // CP3: on unless turned off
+  csat: { enabled: Boolean(organization?.settings?.csat?.enabled), question: organization?.settings?.csat?.question || '' }, // D103
   hiddenModules: hiddenModulesOf(organization), // D76: pages the company does not use
 });
 
@@ -33,6 +34,10 @@ async function updateSettings(req, patch) {
   }
   if (typeof patch.sendReadReceipts === 'boolean' && patch.sendReadReceipts !== before.sendReadReceipts) {
     changes.sendReadReceipts = patch.sendReadReceipts;
+  }
+  if (patch.csat) {
+    const csat = { ...before.csat, ...patch.csat };
+    if (csat.enabled !== before.csat.enabled || csat.question !== before.csat.question) changes.csat = csat;
   }
   if (Array.isArray(patch.hiddenModules)) {
     const hidden = hiddenModulesOf({ settings: { hiddenModules: patch.hiddenModules } });

@@ -125,6 +125,12 @@ async function intake({ organizationId, source, sourceRef, connectionId, person 
     }
 
     const { contact, created: contactCreated } = await findOrCreateContact(organizationId, source, ref, { ...person, phoneE164: phone || null, email: validEmail });
+    // D103: a blocked customer's enquiry makes no lead (and no rules or auto-reply run).
+    if (contact.blocked?.at) {
+      await LeadIntake.updateOne({ _id: record._id }, { $set: { outcome: 'rejected', reason: 'The customer is blocked', contactId: contact._id, processedAt: new Date() } });
+      await countOutcome(connectionId, 'rejected');
+      return { outcome: 'rejected', contactId: contact._id };
+    }
     const now = new Date();
     // A retried enquiry may have created its lead before failing.
     const ownLead = await Lead.findOne({ organizationId, source, sourceRef: ref });

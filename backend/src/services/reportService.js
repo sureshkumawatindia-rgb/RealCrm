@@ -20,6 +20,7 @@ const { indiaDate } = require('../utils/dates');
 const { statsOf } = require('./broadcastService');
 const { channelOf } = require('./attributionService');
 const winChance = require('./winChanceService');
+const csat = require('./csatService');
 const xlsx = require('../utils/xlsx');
 
 // Reports (Phase 9): counted from the records when asked (D47), for a range of calendar days in
@@ -265,6 +266,7 @@ async function agents(req, query, { onlyMember } = {}) {
         leadsByStage: Object.fromEntries(LEAD_STAGES.map((s) => [s, 0])), leadsCreated: 0, won: 0, lost: 0, winRatePct: 0,
         quotationsSent: 0, quotationsAccepted: 0, orders: 0, orderValuePaise: 0, collectedPaise: 0, tasksDone: 0, ticketsResolved: 0,
         chatsResolved: 0, resolutionRatePct: 0, resolutionMedianSeconds: null,
+        csatAnswers: 0, csatGood: 0, csatOkay: 0, csatBad: 0, csatScorePct: null, // D103
       });
     }
     return rows.get(key);
@@ -290,6 +292,13 @@ async function agents(req, query, { onlyMember } = {}) {
     row(r._id).resolutionMedianSeconds = median((r.seconds || []).filter((value) => Number.isFinite(value)));
   }
   for (const [member, count] of response.sent) row(member).messagesSent = count;
+  // D103: customers' answers to "How was our service?" in the range, for the chat's teammate.
+  const answers = await csat.answersBy(orgId(req), range, own ? { memberId: new ObjectId(String(own)) } : {});
+  for (const [member, counts] of answers.byMember) {
+    if (!member) continue;
+    const score = csat.scoreOf(counts);
+    Object.assign(row(member), { csatAnswers: score.answers, csatGood: score.good, csatOkay: score.okay, csatBad: score.bad, csatScorePct: score.scorePct });
+  }
   const byMember = new Map();
   for (const t of response.turns) {
     if (!byMember.has(t.memberId)) byMember.set(t.memberId, []);
@@ -323,6 +332,7 @@ async function agents(req, query, { onlyMember } = {}) {
       collectedPaise: sum(items, 'collectedPaise'),
       chatsResolved: sum(items, 'chatsResolved'),
       resolutionMedianSeconds: median(resolutions.flatMap((r) => (r.seconds || []).filter((value) => Number.isFinite(value)))),
+      csat: csat.scoreOf(answers.team), // D103
     },
     truncated: response.truncated,
   };
@@ -656,8 +666,8 @@ async function exportCsv(req, query) {
   let lines;
   if (type === 'agents') {
     const data = await agents(req, query);
-    header = ['Member', 'Chats handled', 'Messages sent', 'Replies', 'First response (median, min)', 'Response (median, min)', 'Response (average, min)', 'Leads created', ...LEAD_STAGES.map((s) => `Leads now at ${s}`), 'Won', 'Lost', 'Win rate %', 'Quotations sent', 'Quotations accepted', 'Orders', 'Order value (Rs)', 'Collected (Rs)', 'Tasks done', 'Tickets resolved', 'Chats resolved', 'Resolution rate %', 'Resolution time (median, min)'];
-    lines = data.items.map((r) => [r.name, r.chatsHandled, r.messagesSent, r.replies, minutes(r.firstResponseMedianSeconds), minutes(r.responseMedianSeconds), minutes(r.responseAverageSeconds), r.leadsCreated, ...LEAD_STAGES.map((s) => r.leadsByStage[s]), r.won, r.lost, r.winRatePct, r.quotationsSent, r.quotationsAccepted, r.orders, rupees(r.orderValuePaise), rupees(r.collectedPaise), r.tasksDone, r.ticketsResolved, r.chatsResolved, r.resolutionRatePct, minutes(r.resolutionMedianSeconds)]);
+    header = ['Member', 'Chats handled', 'Messages sent', 'Replies', 'First response (median, min)', 'Response (median, min)', 'Response (average, min)', 'Leads created', ...LEAD_STAGES.map((s) => `Leads now at ${s}`), 'Won', 'Lost', 'Win rate %', 'Quotations sent', 'Quotations accepted', 'Orders', 'Order value (Rs)', 'Collected (Rs)', 'Tasks done', 'Tickets resolved', 'Chats resolved', 'Resolution rate %', 'Resolution time (median, min)', 'CSAT answers', 'CSAT good %'];
+    lines = data.items.map((r) => [r.name, r.chatsHandled, r.messagesSent, r.replies, minutes(r.firstResponseMedianSeconds), minutes(r.responseMedianSeconds), minutes(r.responseAverageSeconds), r.leadsCreated, ...LEAD_STAGES.map((s) => r.leadsByStage[s]), r.won, r.lost, r.winRatePct, r.quotationsSent, r.quotationsAccepted, r.orders, rupees(r.orderValuePaise), rupees(r.collectedPaise), r.tasksDone, r.ticketsResolved, r.chatsResolved, r.resolutionRatePct, minutes(r.resolutionMedianSeconds), r.csatAnswers, r.csatScorePct ?? '']);
   } else if (type === 'sources') {
     const data = await sources(req, query);
     header = ['Source', 'Enquiries', 'Repeat enquiries', 'Rejected', 'Leads', 'Contacted or further', 'Quoted or further', 'Won', 'Lost', 'Conversion %'];
@@ -726,6 +736,7 @@ async function teamLive(req) {
     memberId: String(m._id), name: names.get(String(m._id))?.name || 'Member', role: m.role,
     online: Boolean(m.lastSeenAt && now - new Date(m.lastSeenAt).getTime() < ONLINE_MS), lastSeenAt: m.lastSeenAt || null,
     openChats: 0, waitingChats: 0, oldestWaitingSince: null, repliesToday: 0, resolvedToday: 0, firstResponseMedianSeconds: null,
+    csatAnswersToday: 0, csatScorePctToday: null, // D103
   }]));
   const queue = { openChats: 0, waitingChats: 0, oldestWaitingSince: null };
   const older = (a, b) => (!a || (b && b < a) ? b : a);
@@ -739,6 +750,12 @@ async function teamLive(req) {
     }
   }
   for (const r of resolved) if (r._id && rows.has(String(r._id))) rows.get(String(r._id)).resolvedToday = r.count;
+  const answersToday = await csat.answersBy(orgId(req), today);
+  for (const [member, counts] of answersToday.byMember) {
+    if (!rows.has(member)) continue;
+    const score = csat.scoreOf(counts);
+    Object.assign(rows.get(member), { csatAnswersToday: score.answers, csatScorePctToday: score.scorePct });
+  }
   const turnsBy = new Map();
   for (const t of response.turns) {
     if (!turnsBy.has(t.memberId)) turnsBy.set(t.memberId, []);
@@ -761,6 +778,7 @@ async function teamLive(req) {
       waiting: sum(items, 'waitingChats') + queue.waitingChats,
       online: items.filter((r) => r.online).length,
       firstResponseMedianSeconds: median(response.turns.filter((t) => t.first).map((t) => t.seconds)),
+      csat: csat.scoreOf(answersToday.team), // D103
     },
   };
 }

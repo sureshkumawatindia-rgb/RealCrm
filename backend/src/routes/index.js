@@ -34,6 +34,7 @@ const exportRoutes = require('./exports');
 const whatsappRoutes = require('./whatsapp');
 const devRoutes = require('./dev');
 const conversationRoutes = require('./conversations');
+const scheduledMessageRoutes = require('./scheduledMessages');
 const quickReplyRoutes = require('./quickReplies');
 const templateRoutes = require('./templates');
 const leadSourceRoutes = require('./leadSources');
@@ -95,6 +96,7 @@ router.use('/exports', exportRoutes);
 router.use('/whatsapp', whatsappRoutes);
 router.use('/dev', devRoutes);
 router.use('/conversations', conversationRoutes);
+router.use('/scheduled-messages', scheduledMessageRoutes); // D103
 router.use('/quick-replies', quickReplyRoutes);
 router.use('/templates', templateRoutes);
 router.use('/lead-sources', leadSourceRoutes);

@@ -77,7 +77,7 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
   position, text, a live preview and the snippet. A public key per company, no tracking cookie,
   no effect on the site's own CSS.
 
-**E. Inbox: the last features**
+**E. Inbox: the last features** — done 2026-10-30 (D103)
 - Quick replies with a photo, PDF or video (from documents storage), sent with the text.
 - Send later: schedule a message, edit or cancel it; at send time the 24-hour window is checked
   again, and if it is closed the message is not sent and the agent gets a bell alert with a
@@ -87,7 +87,9 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
   customer, never to private numbers; scores in Team live, My performance and Reports.
 - Block a contact: no automation, bot, auto-reply, lead or broadcast for them; a "Blocked" filter;
   unblock; audited. Blocked on Meta too if the Cloud API's block endpoint allows it (checked in
-  Meta's docs, including on coexistence numbers).
+  Meta's docs, including on coexistence numbers). Read 2026-10-29: `block_users` takes only
+  someone who wrote in the last 24 hours, and the docs say nothing about coexistence numbers, so
+  the CRM tries and keeps Meta's answer ("Blocked here only" with WhatsApp's reason).
 
 **F. Running the SaaS**
 - Platform admin panel (access as answered above): all companies with plan, trial end, users,

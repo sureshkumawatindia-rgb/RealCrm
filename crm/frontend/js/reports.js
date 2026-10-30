@@ -339,6 +339,14 @@
   }
 
   // --- WhatsApp & Team ------------------------------------------------------------------------
+  // D103: customers' answers to "How was our service?" (the share that said Good).
+  function csatText(good, answers) {
+    return answers ? `${pctText(Math.round((good / answers) * 1000) / 10)} good` : "—";
+  }
+  function csatKpi(score) {
+    const { good = 0, answers = 0, bad = 0 } = score || {};
+    return `<div class="stat-card"><div class="label">Customer feedback</div><div class="value">${escapeHtml(csatText(good, answers))}</div><div class="report-note">${escapeHtml(answers ? `${answers} answer${answers === 1 ? "" : "s"} · ${bad} bad` : "no answers yet (Settings → WhatsApp)")}</div></div>`;
+  }
   function renderTeam() {
     const a = got("agents");
     if (!a) return;
@@ -350,9 +358,10 @@
       kpi("Chats answered", t.chatsHandled, `${t.replies} replies`),
       kpi("Chats resolved", t.chatsResolved || 0, t.resolutionMedianSeconds != null ? `median ${duration(t.resolutionMedianSeconds)} to resolve` : "closed by the team"),
       kpi("Collected", rupees(t.collectedPaise), `${t.won} won`),
+      csatKpi(t.csat),
     ].join("");
     $("agentTable").innerHTML = a.items.length
-      ? table([["#"], ["Agent"], ["Chats", 1], ["First reply", 1], ["Reply time", 1], ["Resolved", 1], ["Open leads", 1], ["New leads", 1], ["Won", 1], ["Quotes", 1], ["Orders", 1], ["Collected", 1], ["Tasks", 1], ["Tickets", 1]],
+      ? table([["#"], ["Agent"], ["Chats", 1], ["First reply", 1], ["Reply time", 1], ["Resolved", 1], ["Feedback", 1], ["Open leads", 1], ["New leads", 1], ["Won", 1], ["Quotes", 1], ["Orders", 1], ["Collected", 1], ["Tasks", 1], ["Tickets", 1]],
         a.items.map((r, i) => {
           const open = ["New", "Contacted", "Quote Sent", "Negotiation"].reduce((s, stage) => s + (r.leadsByStage[stage] || 0), 0);
           return `<tr>
@@ -360,6 +369,7 @@
             <td><div class="leaderboard-agent"><span class="avatar">${escapeHtml(initials(r.name))}</span><div>${escapeHtml(r.name)}<span class="sub">${escapeHtml(r.role || "")}${r.active ? "" : " · no longer in the team"}</span></div></div></td>
             ${cell(r.chatsHandled, `${r.messagesSent} messages`)}${cell(duration(r.firstResponseMedianSeconds))}${cell(duration(r.responseMedianSeconds), r.replies ? `avg ${duration(r.responseAverageSeconds)}` : "")}
             ${cell(r.chatsResolved || 0, r.chatsResolved ? `${pctText(r.resolutionRatePct)} · ${duration(r.resolutionMedianSeconds)}` : "")}
+            ${cell(csatText(r.csatGood || 0, r.csatAnswers || 0), r.csatAnswers ? `${r.csatAnswers} answer${r.csatAnswers === 1 ? "" : "s"}` : "")}
             ${cell(open, Object.entries(r.leadsByStage).filter(([stage, n]) => n && stage !== "Won" && stage !== "Lost").map(([stage, n]) => `${n} ${stage}`).join(", "))}
             ${cell(r.leadsCreated)}${cell(r.won, r.won || r.lost ? `win rate ${pctText(r.winRatePct)}` : "")}${cell(`${r.quotationsAccepted}/${r.quotationsSent}`, "won / sent")}
             ${cell(rupees(r.orderValuePaise), `${r.orders} order${r.orders === 1 ? "" : "s"}`)}${cell(rupees(r.collectedPaise))}${cell(r.tasksDone)}${cell(r.ticketsResolved)}

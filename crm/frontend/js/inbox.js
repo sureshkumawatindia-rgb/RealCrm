@@ -59,7 +59,9 @@ crmI18n.ready.then(function inbox() {
     replyTo: null,
     quickIndex: 0,
     unread: 0,
-    file: null, // a file waiting to be sent
+    file: null, // a file waiting to be sent (D103: or a quick reply's file, { quickReplyId, name, size })
+    scheduled: [], // D103: this chat's texts waiting to go
+    later: null, // D103: the scheduled text being edited
     templates: null, // approved templates (loaded when the picker opens)
     template: null, // the one picked
     botEnabled: false, // the organization's WhatsApp FAQ bot is on (GET /bot/status)
@@ -134,10 +136,11 @@ crmI18n.ready.then(function inbox() {
   // --- conversation list ------------------------------------------------
   function matchesFilters(c) {
     if (!visibleToMe(c)) return false;
-    if ((state.view === "archived") !== Boolean(c.archived)) return false; // archived chats only under Archived
+    if ((state.view === "blocked") !== Boolean(c.blocked)) return false; // D103: blocked customers only under Blocked
+    if (state.view !== "blocked" && (state.view === "archived") !== Boolean(c.archived)) return false; // archived chats only under Archived
     if (state.view === "mine" && String(c.assigneeId) !== String(me.id)) return false;
     if (state.view === "unassigned" && c.assigneeId) return false;
-    if (state.status !== "any" && (state.status ? c.status !== state.status : c.status === "closed")) return false;
+    if (state.view !== "blocked" && state.status !== "any" && (state.status ? c.status !== state.status : c.status === "closed")) return false;
     if (state.q) {
       const q = state.q.toLowerCase();
       const hay = `${c.contact.name} ${c.contact.company} ${c.contact.phone} ${(c.tags || []).join(" ")}`.toLowerCase();
@@ -194,6 +197,7 @@ crmI18n.ready.then(function inbox() {
     if (!append) state.page = 1;
     const params = new URLSearchParams({ view: state.view, page: state.page, limit: PAGE_SIZE });
     if (state.status) params.set("status", state.status);
+    else if (state.view === "blocked") params.set("status", "any"); // D103: every blocked chat
     if (state.q) params.set("q", state.q);
     try {
       const body = await crmRequest(`/conversations?${params}`);
@@ -451,17 +455,22 @@ crmI18n.ready.then(function inbox() {
     privateChip.className = `private-chip ${c.private ? "on" : ""}`;
     privateChip.innerHTML = c.private ? `<i class="fa-solid fa-lock"></i> ${escapeHtml(t("inbox.private.on"))}` : `<i class="fa-solid fa-lock-open"></i> ${escapeHtml(t("inbox.private.make"))}`;
     privateChip.title = c.private ? t("inbox.private.onTitle") : t("inbox.private.makeTitle");
-    $("composerClosed").hidden = open;
-    $("composerText").disabled = !open;
-    $("composerSend").disabled = !open;
-    $("quickRepliesBtn").disabled = !open;
-    $("attachBtn").disabled = !open;
-    $("productsBtn").disabled = !open; // product messages need the 24-hour window
-    $("emojiBtn").disabled = !open;
+    // D103: a blocked customer cannot be written to at all.
+    const writable = canWrite(c);
+    $("composerBlocked").hidden = !c.blocked;
+    $("composerClosed").hidden = open || Boolean(c.blocked);
+    $("composerText").disabled = !writable;
+    $("composerSend").disabled = !writable;
+    $("quickRepliesBtn").disabled = !writable;
+    $("attachBtn").disabled = !writable;
+    $("productsBtn").disabled = !writable; // product messages need the 24-hour window
+    $("emojiBtn").disabled = !writable;
+    $("laterBtn").disabled = !writable;
+    $("templateBtn").disabled = Boolean(c.blocked);
     syncSendButton();
     $("aiSuggestBtn").style.display = state.aiAvailable ? "" : "none";
-    $("aiSuggestBtn").disabled = !open;
-    if (!open) clearFile();
+    $("aiSuggestBtn").disabled = !writable;
+    if (!writable) clearFile();
   }
 
   // --- the AI assistant's reply drafts (Phase 10D): the agent picks one, edits and sends it ---
@@ -538,6 +547,8 @@ crmI18n.ready.then(function inbox() {
       forgetMedia();
       clearFile();
       hideAiSuggest();
+      state.scheduled = [];
+      renderScheduled();
       state.context = null;
       renderContext();
     }
@@ -567,6 +578,8 @@ crmI18n.ready.then(function inbox() {
       renderMessages();
       renderNotes();
       loadContext();
+      loadScheduled(); // D103
+      loadBlockInfo(); // D103
       if (c.unreadCount) markRead();
       if (!$("composerText").disabled) $("composerText").focus();
     } catch (error) {
@@ -674,6 +687,14 @@ crmI18n.ready.then(function inbox() {
 
   function sendRequest(conversation, text) {
     const headers = { "Idempotency-Key": newIdempotencyKey() };
+    // D103: a quick reply's file (from Documents), its text as the caption.
+    if (state.file?.quickReplyId) {
+      return crmApi(`/conversations/${conversation.id}/messages/quick-reply-file`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ quickReplyId: state.file.quickReplyId, caption: text, ...(state.replyTo && { replyToMessageId: state.replyTo.id }) }),
+      });
+    }
     if (state.file) {
       const form = new FormData();
       form.append("file", state.file, state.file.name);
@@ -714,7 +735,7 @@ crmI18n.ready.then(function inbox() {
       }
       showToast(apiErrorMessage(error, t("inbox.err.send")), "error");
     } finally {
-      sendButton.disabled = !isWindowOpen(state.current);
+      sendButton.disabled = !canWrite(state.current);
       syncSendButton();
     }
   }
@@ -726,7 +747,7 @@ crmI18n.ready.then(function inbox() {
     const empty = !composer.value.trim() && !state.file;
     $("micBtn").hidden = !(empty && canRecord());
     $("composerSend").hidden = empty && canRecord();
-    $("micBtn").disabled = !isWindowOpen(state.current);
+    $("micBtn").disabled = !canWrite(state.current);
   }
   let recording = null;
   const clock = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -829,6 +850,7 @@ crmI18n.ready.then(function inbox() {
           <button class="quick-item ${i === state.quickIndex ? "active" : ""}" type="button" data-quick="${escapeHtml(r.id)}">
             <div class="shortcut">/${escapeHtml(r.shortcut)} ${r.title ? `<span class="text-muted">· ${escapeHtml(r.title)}</span>` : ""}</div>
             <div class="body">${escapeHtml(r.body)}</div>
+            ${r.attachment ? `<div class="quick-file"><i class="fa-solid fa-paperclip" aria-hidden="true"></i> ${escapeHtml(r.attachment.fileName)}</div>` : ""}
           </button>`,
           )
           .join("") + `<button class="quick-item" type="button" data-quick-manage="1"><div class="shortcut">${escapeHtml(t("inbox.quick.manage"))}</div></button>`
@@ -863,6 +885,15 @@ crmI18n.ready.then(function inbox() {
       }
     }
     composer.value = text;
+    // D103: its file waits beside the text, which becomes the caption.
+    if (reply.attachment) {
+      state.file = { quickReplyId: reply.id, name: reply.attachment.fileName, size: reply.attachment.sizeBytes };
+      state.voice = false;
+      $("fileName").textContent = reply.attachment.fileName;
+      $("fileSize").textContent = fileSize(reply.attachment.sizeBytes || 0);
+      $("fileBar").hidden = false;
+      composer.placeholder = t("inbox.composer.caption");
+    }
     autoSize();
     syncSendButton();
     composer.focus();
@@ -1239,7 +1270,60 @@ crmI18n.ready.then(function inbox() {
     $("detailsPin").querySelector("span").textContent = t(c.pinned ? "inbox.details.unpin" : "inbox.details.pin");
     $("detailsPin").setAttribute("aria-pressed", String(Boolean(c.pinned)));
     $("detailsArchive").querySelector("span").textContent = t(c.archived ? "inbox.details.unarchive" : "inbox.details.archive");
+    // D103: block or unblock the customer (who did it, and whether WhatsApp took it, below).
+    const blockButton = $("detailsBlock");
+    blockButton.hidden = !memberCan("inbox", "edit");
+    blockButton.className = `btn ${c.blocked ? "btn-outline" : "btn-danger-outline"}`;
+    blockButton.querySelector("span").textContent = t(c.blocked ? "inbox.block.unblock" : "inbox.block.button");
+    if (!c.blocked) $("detailsBlockInfo").hidden = true;
   }
+  // D103: the 24-hour window is open and the customer is not blocked.
+  function canWrite(c) {
+    return isWindowOpen(c) && !c?.blocked;
+  }
+  async function loadBlockInfo() {
+    const c = state.current;
+    if (!c?.blocked) return;
+    try {
+      const { blocked } = await crmApi(`/conversations/${c.id}/block`);
+      if (!blocked || String(state.current?.id) !== String(c.id)) return;
+      const lines = [
+        t("inbox.block.by", { name: blocked.byName || t("inbox.block.someone"), date: new Date(blocked.at).toLocaleDateString(crmI18n.locale(), { day: "numeric", month: "short", year: "numeric" }) }),
+        blocked.reason,
+        blocked.onWhatsApp ? t("inbox.block.onWhatsApp") : t("inbox.block.notOnWhatsApp", { reason: blocked.whatsappNote || "—" }),
+      ].filter(Boolean);
+      $("detailsBlockInfo").textContent = lines.join(" · ");
+      $("detailsBlockInfo").hidden = false;
+    } catch {
+      /* the button still works */
+    }
+  }
+  $("detailsBlock").addEventListener("click", async () => {
+    const c = state.current;
+    if (!c) return;
+    try {
+      let result;
+      if (c.blocked) {
+        if (!window.confirm(t("inbox.block.confirmUnblock", { name: c.contact.name || c.contact.phone }))) return;
+        result = await crmApi(`/conversations/${c.id}/block`, { method: "DELETE" });
+        showToast(t("inbox.block.undone"), "success");
+      } else {
+        const reason = window.prompt(t("inbox.block.confirm", { name: c.contact.name || c.contact.phone }), "");
+        if (reason === null) return;
+        result = await crmApi(`/conversations/${c.id}/block`, jsonRequest("POST", { reason: reason.trim() }));
+        showToast(result.blocked?.onWhatsApp ? t("inbox.block.done") : t("inbox.block.doneHere", { reason: result.blocked?.whatsappNote || "—" }), "success");
+      }
+      state.current = { ...result.conversation, pinned: c.pinned };
+      upsertConversation(state.current);
+      renderThreadHead();
+      renderDetails();
+      loadBlockInfo();
+      scheduleSummary();
+      loadScheduled();
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("inbox.block.failed")), "error");
+    }
+  });
   $("detailsPin").addEventListener("click", () => {
     if (state.current) patchConversation({ pinned: !state.current.pinned }, t(state.current.pinned ? "inbox.details.unpinned" : "inbox.details.pinned"));
   });
@@ -1597,6 +1681,121 @@ crmI18n.ready.then(function inbox() {
     loadConversations({ append: true });
   });
 
+  // --- send later (D103): the text goes at the chosen time, if the 24-hour window is open then ---
+  const whenText = (iso) => new Date(iso).toLocaleString(crmI18n.locale(), { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const localInput = (date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  function laterPicks() {
+    const now = new Date();
+    const inHour = new Date(now.getTime() + 60 * 60000);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0);
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + (((8 - now.getDay()) % 7) || 7));
+    monday.setHours(10, 0, 0, 0);
+    return [["inbox.later.in1h", inHour], ["inbox.later.tomorrow", tomorrow], ["inbox.later.monday", monday]];
+  }
+  async function loadScheduled() {
+    const c = state.current;
+    if (!c) return;
+    try {
+      const items = await crmApi(`/conversations/${c.id}/scheduled`);
+      if (String(state.current?.id) !== String(c.id)) return;
+      state.scheduled = items;
+    } catch {
+      state.scheduled = [];
+    }
+    renderScheduled();
+  }
+  function renderScheduled() {
+    const bar = $("scheduledBar");
+    bar.hidden = !state.scheduled.length;
+    bar.innerHTML = state.scheduled.map((s) => `
+      <div class="scheduled-item">
+        <i class="fa-regular fa-clock" aria-hidden="true"></i>
+        <span class="when">${escapeHtml(whenText(s.sendAt))}</span>
+        <span class="text">${escapeHtml(s.text)}</span>
+        <button class="icon-btn" type="button" data-later-edit="${escapeHtml(s.id)}" title="${escapeHtml(t("common.edit"))}" aria-label="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+        <button class="icon-btn danger" type="button" data-later-cancel="${escapeHtml(s.id)}" title="${escapeHtml(t("inbox.later.cancelOne"))}" aria-label="${escapeHtml(t("inbox.later.cancelOne"))}"><i class="fa-solid fa-xmark"></i></button>
+      </div>`).join("");
+  }
+  function laterWarn() {
+    const at = new Date($("laterWhen").value);
+    const expires = state.current?.window?.expiresAt ? new Date(state.current.window.expiresAt) : null;
+    const closing = !Number.isNaN(at.getTime()) && (!expires || at > expires);
+    $("laterWarn").hidden = !closing;
+    if (closing) $("laterWarn").textContent = t("inbox.later.windowWarn", { time: expires ? whenText(expires) : "—" });
+  }
+  function openLater(item = null) {
+    const text = item ? item.text : composer.value.trim();
+    if (!text) return showToast(t("inbox.later.writeFirst"), "error");
+    if (!item && state.file) return showToast(t("inbox.later.noFiles"), "error");
+    state.later = item ? item.id : null;
+    $("laterTitle").textContent = t(item ? "inbox.later.editTitle" : "inbox.later.title");
+    $("laterText").value = text;
+    $("laterWhen").min = localInput(new Date(Date.now() + 60000));
+    $("laterWhen").value = localInput(item ? new Date(item.sendAt) : laterPicks()[1][1]);
+    $("laterPicks").innerHTML = laterPicks().map(([key], i) => `<button class="btn btn-outline" type="button" data-later-pick="${i}">${escapeHtml(t(key))}</button>`).join("");
+    $("laterSave").textContent = t(item ? "common.save" : "inbox.later.schedule");
+    laterWarn();
+    $("laterModal").classList.add("open");
+    $("laterWhen").focus();
+    return undefined;
+  }
+  const closeLater = () => $("laterModal").classList.remove("open");
+  $("laterBtn").addEventListener("click", () => openLater());
+  $("laterClose").addEventListener("click", closeLater);
+  $("laterCancel").addEventListener("click", closeLater);
+  $("laterWhen").addEventListener("input", laterWarn);
+  $("laterPicks").addEventListener("click", (e) => {
+    const pick = e.target.closest("[data-later-pick]");
+    if (!pick) return;
+    $("laterWhen").value = localInput(laterPicks()[Number(pick.dataset.laterPick)][1]);
+    laterWarn();
+  });
+  $("laterSave").addEventListener("click", async () => {
+    const c = state.current;
+    const text = $("laterText").value.trim();
+    const at = new Date($("laterWhen").value);
+    if (!c || !text) return showToast(t("inbox.later.writeFirst"), "error");
+    if (Number.isNaN(at.getTime())) return showToast(t("inbox.later.pickTime"), "error");
+    $("laterSave").disabled = true;
+    try {
+      const body = { text, sendAt: at.toISOString() };
+      const request = jsonRequest(state.later ? "PATCH" : "POST", body);
+      if (!state.later) request.headers["Idempotency-Key"] = newIdempotencyKey();
+      const saved = await crmApi(state.later ? `/scheduled-messages/${state.later}` : `/conversations/${c.id}/scheduled`, request);
+      if (!state.later) {
+        composer.value = "";
+        autoSize();
+        syncSendButton();
+      }
+      closeLater();
+      showToast(t(state.later ? "inbox.later.changed" : "inbox.later.scheduled", { when: whenText(saved.sendAt) }), "success");
+      loadScheduled();
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("inbox.later.failed")), "error");
+    } finally {
+      $("laterSave").disabled = false;
+    }
+    return undefined;
+  });
+  $("scheduledBar").addEventListener("click", async (e) => {
+    const editing = e.target.closest("[data-later-edit]");
+    const cancelling = e.target.closest("[data-later-cancel]");
+    if (editing) openLater(state.scheduled.find((s) => String(s.id) === editing.dataset.laterEdit));
+    if (cancelling) {
+      if (!window.confirm(t("inbox.later.confirmCancel"))) return;
+      try {
+        await crmApi(`/scheduled-messages/${cancelling.dataset.laterCancel}`, { method: "DELETE" });
+        showToast(t("inbox.later.cancelled"), "success");
+        loadScheduled();
+      } catch (error) {
+        showToast(apiErrorMessage(error, t("inbox.later.failed")), "error");
+      }
+    }
+  });
+
   // --- quick replies manager ---------------------------------------------
   async function loadQuickReplies() {
     try {
@@ -1611,7 +1810,7 @@ crmI18n.ready.then(function inbox() {
           .map(
             (r) => `
           <div class="quick-row">
-            <div class="info"><strong>/${escapeHtml(r.shortcut)}</strong> ${r.title ? `<span class="text-muted">· ${escapeHtml(r.title)}</span>` : ""}<div class="body">${escapeHtml(r.body)}</div></div>
+            <div class="info"><strong>/${escapeHtml(r.shortcut)}</strong> ${r.title ? `<span class="text-muted">· ${escapeHtml(r.title)}</span>` : ""}<div class="body">${escapeHtml(r.body)}</div>${r.attachment ? `<div class="quick-file"><i class="fa-solid fa-paperclip" aria-hidden="true"></i> ${escapeHtml(r.attachment.fileName)}</div>` : ""}</div>
             <button class="icon-btn" type="button" data-quick-edit="${escapeHtml(r.id)}" title="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
             <button class="icon-btn danger" type="button" data-quick-delete="${escapeHtml(r.id)}" title="${escapeHtml(t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
           </div>`,
@@ -1622,13 +1821,34 @@ crmI18n.ready.then(function inbox() {
   function resetQuickForm() {
     $("quickForm").reset();
     $("quickEditId").value = "";
+    $("quickFile").value = "";
     $("quickSave").textContent = t("common.save");
   }
   function openQuickManager() {
     resetQuickForm();
     renderQuickManager();
     fillQuickInsert();
+    fillQuickFiles();
     $("quickModal").classList.add("open");
+  }
+  // D103: the files WhatsApp takes (photos, videos, documents) among the Documents this member may
+  // open; a teammate without the Documents page sees why there is no list.
+  const QUICK_FILE_TYPES = ["jpg", "jpeg", "png", "mp4", "3gp", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt"];
+  async function fillQuickFiles(selected = $("quickFile").value) {
+    const select = $("quickFile");
+    let docs = [];
+    let note = t("inbox.quick.fileHint");
+    try {
+      docs = (await crmApi("/documents?limit=100")).filter((d) => d.hasFile && QUICK_FILE_TYPES.includes(String(d.fileName || "").split(".").pop().toLowerCase()));
+      if (!docs.length) note = t("inbox.quick.noFiles");
+    } catch {
+      note = t("inbox.quick.noDocs");
+    }
+    const keep = state.quickReplies.find((r) => r.attachment && String(r.attachment.documentId) === String(selected))?.attachment;
+    if (keep && !docs.some((d) => String(d.id) === String(keep.documentId))) docs.unshift({ id: keep.documentId, name: keep.name, fileName: keep.fileName });
+    select.innerHTML = `<option value="">${escapeHtml(t("inbox.quick.noFile"))}</option>${docs.map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name && d.name !== d.fileName ? `${d.name} (${d.fileName})` : d.fileName)}</option>`).join("")}`;
+    select.value = selected || "";
+    $("quickFileHint").textContent = note;
   }
   // "Insert a detail…" under the message: the customer's and the lead's details, their own fields
   // too (D99, those this member may see), put in at the cursor as {{…}}.
@@ -1669,6 +1889,7 @@ crmI18n.ready.then(function inbox() {
       $("quickShortcut").value = reply.shortcut;
       $("quickTitle").value = reply.title;
       $("quickBody").value = reply.body;
+      fillQuickFiles(reply.attachment ? String(reply.attachment.documentId) : "");
       $("quickSave").textContent = t("common.update");
     }
     if (remove) {
@@ -1686,6 +1907,8 @@ crmI18n.ready.then(function inbox() {
     e.preventDefault();
     const id = $("quickEditId").value;
     const body = { shortcut: $("quickShortcut").value.trim().replace(/^\//, ""), title: $("quickTitle").value.trim(), body: $("quickBody").value.trim() };
+    const file = $("quickFile").value;
+    if (file || id) body.documentId = file || null; // D103
     try {
       await crmApi(id ? `/quick-replies/${id}` : "/quick-replies", jsonRequest(id ? "PATCH" : "POST", body));
       await loadQuickReplies();
@@ -1797,9 +2020,11 @@ crmI18n.ready.then(function inbox() {
       if (!visibleToMe(conversation)) {
         closeThread(t("inbox.reassigned", { name: memberNameOf(conversation.assigneeId) }));
       } else {
+        const blockedNow = Boolean(conversation.blocked) !== Boolean(state.current.blocked);
         state.current = conversation;
         renderThreadHead();
         renderDetails();
+        if (blockedNow) loadBlockInfo(); // D103: blocked or unblocked by a teammate
         if (state.contextAssignee !== String(conversation.assigneeId || "")) loadContext();
       }
     }
@@ -1933,7 +2158,11 @@ crmI18n.ready.then(function inbox() {
     }
     await Promise.all([loadConversations(), loadSummary(), loadQuickReplies()]);
     const deepLink = new URLSearchParams(window.location.search).get("c");
-    if (deepLink) openConversation(deepLink, { fromList: false });
+    if (deepLink) {
+      const opening = openConversation(deepLink, { fromList: false });
+      // D103: from the bell note of a scheduled text that could not go — the templates at once.
+      if (new URLSearchParams(window.location.search).get("template") === "1") opening.then(() => { if (state.current && !state.current.blocked) openTemplatePicker(); });
+    }
     connectLive();
   });
 });

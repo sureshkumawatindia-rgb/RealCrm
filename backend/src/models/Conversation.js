@@ -39,6 +39,9 @@ const conversationSchema = new mongoose.Schema(
     pinnedBy: { type: [mongoose.Schema.Types.ObjectId], default: undefined },
     archivedAt: { type: Date },
     archivedById: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
+    // D103: the customer is blocked (a copy of Contact.blocked.at): the chat leaves the lists for
+    // the "Blocked" one.
+    blockedAt: { type: Date },
     // The customer's message the last read receipt was sent for (blue ticks once per message).
     readReceiptFor: { type: String },
     // The FAQ bot in this chat (Phase 6C): handedOffAt = the customer asked for a person (or a

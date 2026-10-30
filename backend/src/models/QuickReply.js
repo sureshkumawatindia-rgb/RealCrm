@@ -8,6 +8,8 @@ const quickReplySchema = new mongoose.Schema(
     shortcut: { type: String, required: true, trim: true, lowercase: true },
     title: { type: String, trim: true, default: '' },
     body: { type: String, required: true },
+    // D103: a photo, video or document from Documents, sent with the text (as its caption).
+    documentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Document' },
     createdByMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
   },
   { timestamps: true },

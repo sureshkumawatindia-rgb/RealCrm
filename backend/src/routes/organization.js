@@ -57,6 +57,8 @@ router.get('/settings', async (req, res) => {
 const settingsPatch = Joi.object({
   hidePhonesFromAgents: Joi.boolean(),
   sendReadReceipts: Joi.boolean(),
+  // D103: "How was our service?" after a resolved chat.
+  csat: Joi.object({ enabled: Joi.boolean(), question: Joi.string().trim().max(500).allow('') }).min(1),
   hiddenModules: Joi.array().items(Joi.string().valid(...HIDEABLE_MODULES).messages({ 'any.only': 'Dashboard, Customers and Settings are always on.' })).unique().max(HIDEABLE_MODULES.length),
 }).min(1);
 router.patch('/settings', requireRole('owner', 'admin'), validate({ body: settingsPatch }), async (req, res) => {

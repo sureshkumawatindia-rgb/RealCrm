@@ -167,6 +167,7 @@
                 <button class="inbox-tab" data-view="unassigned" role="tab"><span data-i18n="inbox.tab.queue">Queue</span> <span class="count" id="countUnassigned">0</span></button>
                 <button class="inbox-tab active" data-view="all" role="tab"><span data-i18n="inbox.tab.all">All</span> <span class="count" id="countAll">0</span></button>
                 <button class="inbox-tab" data-view="archived" role="tab" title="Archived chats" data-i18n-title="inbox.tab.archivedTitle"><i class="fa-solid fa-box-archive"></i> <span data-i18n="inbox.tab.archived">Archived</span></button>
+                <button class="inbox-tab icon-only" data-view="blocked" role="tab" title="Blocked customers" data-i18n-title="inbox.tab.blockedTitle"><i class="fa-solid fa-ban"></i> <span data-i18n="inbox.tab.blocked">Blocked</span></button>
               </div>
               <select id="inboxStatus" aria-label="Status" data-i18n-aria-label="col.status">
                 <option value="" data-i18n="inbox.status.openPending">Open &amp; pending</option>
@@ -214,6 +215,11 @@
                   <span data-i18n="inbox.closedText">The customer has not written in the last 24 hours, so WhatsApp only allows an approved template now. You can still add internal notes.</span>
                   <button class="btn btn-outline" id="closedTemplateBtn" type="button"><i class="fa-solid fa-file-lines"></i> <span data-i18n="inbox.tpl.title">Send a template</span></button>
                 </div>
+                <div class="composer-closed" id="composerBlocked" hidden>
+                  <i class="fa-solid fa-ban"></i>
+                  <span data-i18n="inbox.block.composer">This customer is blocked, so nothing can be sent to them. Unblock them in the chat details to write again.</span>
+                </div>
+                <div class="composer-scheduled" id="scheduledBar" hidden></div>
                 <div class="composer-file" id="fileBar" hidden>
                   <i class="fa-solid fa-paperclip"></i>
                   <span class="name" id="fileName"></span>
@@ -240,6 +246,7 @@
                     <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document" aria-label="Attach a file" data-i18n-title="inbox.attachTitle" data-i18n-aria-label="inbox.attach"><i class="fa-solid fa-paperclip"></i></button>
                     <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)" aria-label="Send a template" data-i18n-title="inbox.tpl.buttonTitle" data-i18n-aria-label="inbox.tpl.title"><i class="fa-solid fa-file-lines"></i></button>
                     <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog" aria-label="Send products" data-i18n-title="inbox.prod.buttonTitle" data-i18n-aria-label="inbox.prod.title"><i class="fa-solid fa-store"></i></button>
+                    <button class="icon-btn" id="laterBtn" type="button" title="Send later" aria-label="Send later" data-i18n-title="inbox.later.button" data-i18n-aria-label="inbox.later.button"><i class="fa-regular fa-clock"></i></button>
                   </span>
                   <button class="icon-btn" id="aiSuggestBtn" type="button" title="Suggest a reply (AI assistant)" data-i18n-title="inbox.ai.button" style="display: none"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                   <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.mp4,.3gp,.aac,.amr,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
@@ -288,7 +295,9 @@
                 <div class="details-actions">
                   <button class="btn btn-outline" id="detailsPin" type="button"><i class="fa-solid fa-thumbtack"></i> <span data-i18n="inbox.details.pin">Pin for me</span></button>
                   <button class="btn btn-outline" id="detailsArchive" type="button"><i class="fa-solid fa-box-archive"></i> <span data-i18n="inbox.details.archive">Archive</span></button>
+                  <button class="btn btn-danger-outline" id="detailsBlock" type="button"><i class="fa-solid fa-ban"></i> <span data-i18n="inbox.block.button">Block customer</span></button>
                 </div>
+                <p class="details-hint" id="detailsBlockInfo" hidden></p>
                 <p class="details-hint" data-i18n="inbox.details.hint">A pinned chat stays at the top of your list only. An archived chat leaves everyone's list until the customer writes again.</p>
               </div>
               <div class="details-section">
@@ -325,6 +334,26 @@
     </div>
 
     <!-- Quick replies manager -->
+    <!-- D103: send later -->
+    <div class="modal-overlay" id="laterModal">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="laterTitle" data-i18n="inbox.later.title">Send later</h3>
+          <button class="icon-btn" id="laterClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label for="laterText" data-i18n="inbox.later.message">Message</label><textarea id="laterText" rows="3" maxlength="4096"></textarea></div>
+          <div class="later-picks" id="laterPicks"></div>
+          <div class="field"><label for="laterWhen" data-i18n="inbox.later.when">When</label><input type="datetime-local" id="laterWhen" /></div>
+          <p class="details-hint" id="laterWarn" hidden></p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="laterCancel" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" id="laterSave" type="button" data-i18n="inbox.later.schedule">Schedule</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="quickModal">
       <div class="modal">
         <div class="modal-head">
@@ -351,6 +380,11 @@
               <textarea id="quickBody" rows="3" maxlength="4096" required></textarea>
               <select id="quickInsert" class="quick-insert" aria-label="Insert a detail…" data-i18n-aria-label="wfb.insert"></select>
               <p class="details-hint" data-i18n="inbox.quick.detailsHint">A detail such as {{contact.name}} is filled in with the chat's customer when you pick the reply.</p>
+            </div>
+            <div class="field">
+              <label for="quickFile" data-i18n="inbox.quick.file">File (optional)</label>
+              <select id="quickFile"></select>
+              <p class="details-hint" id="quickFileHint" data-i18n="inbox.quick.fileHint">A photo, video or document from Documents. It goes with the message.</p>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 8px">
               <button class="btn btn-outline" id="quickReset" type="button" data-i18n="common.clear">Clear</button>

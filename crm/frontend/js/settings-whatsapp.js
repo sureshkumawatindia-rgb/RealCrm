@@ -241,13 +241,31 @@ crmI18n.ready.then(function settingsWhatsApp() {
   // Read receipts (CP3): blue ticks and "typing…" for customers; on unless turned off.
   async function loadReceipts() {
     try {
-      const { sendReadReceipts } = await crmApi("/organization/settings");
+      const { sendReadReceipts, csat } = await crmApi("/organization/settings");
       document.getElementById("readReceiptsToggle").checked = sendReadReceipts;
       document.getElementById("waReceiptsSection").hidden = false;
+      // D103: customer feedback after a resolved chat.
+      document.getElementById("csatToggle").checked = Boolean(csat?.enabled);
+      document.getElementById("csatQuestion").value = csat?.question || "";
+      document.getElementById("waCsatSection").hidden = false;
     } catch {
       document.getElementById("waReceiptsSection").hidden = true;
+      document.getElementById("waCsatSection").hidden = true;
     }
   }
+  async function saveCsat(change, done) {
+    try {
+      const { csat } = await crmApi("/organization/settings", jsonRequest("PATCH", { csat: change }));
+      document.getElementById("csatToggle").checked = Boolean(csat?.enabled);
+      document.getElementById("csatQuestion").value = csat?.question || "";
+      showToast(t(done(csat)), "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("wa.csat.failed")), "error");
+      loadReceipts();
+    }
+  }
+  document.getElementById("csatToggle").addEventListener("change", (event) => saveCsat({ enabled: event.target.checked }, (csat) => (csat?.enabled ? "wa.csat.on" : "wa.csat.off")));
+  document.getElementById("csatSave").addEventListener("click", () => saveCsat({ question: document.getElementById("csatQuestion").value.trim() }, () => "wa.csat.saved"));
   document.getElementById("readReceiptsToggle").addEventListener("change", async (event) => {
     const toggle = event.target;
     toggle.disabled = true;

@@ -103,6 +103,20 @@
   color: var(--text-muted);
   cursor: pointer;
 }
+/* D103: the Blocked list's tab is only its icon; the name stays for screen readers and the tooltip. */
+.inbox-tab.icon-only {
+  flex: 0 0 auto;
+  position: relative;
+  padding: 6px 10px;
+}
+.inbox-tab.icon-only span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 .inbox-tab .count {
   display: inline-block;
   min-width: 18px;
@@ -883,6 +897,58 @@
   font-size: 12.5px;
   padding: 6px 12px;
 }
+/* D103: texts scheduled to go later, a quick reply's file, the "send later" choices */
+.composer-scheduled {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--brand-light);
+  font-size: 12.5px;
+}
+.composer-scheduled[hidden] {
+  display: none;
+}
+.scheduled-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.scheduled-item .when {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.scheduled-item .text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+.quick-file {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+.later-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+/* The 24-hour window will have closed by the chosen time. */
+#laterWarn {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
 /* D102: where the chat came from (an ad, the website button) */
 .details-came {
   display: flex;

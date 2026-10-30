@@ -42,6 +42,7 @@
         ${kpi("First reply", duration(me.firstResponseMedianSeconds), "median, new chats")}
         ${kpi("Reply time", duration(me.responseMedianSeconds), me.replies ? `median of ${me.replies} ${me.replies === 1 ? "reply" : "replies"}` : "no replies yet")}
         ${kpi("Chats resolved", me.chatsResolved, me.chatsResolved ? `${pct(me.resolutionRatePct)} · ${duration(me.resolutionMedianSeconds)} to resolve` : "chats you closed", "success")}
+        ${kpi("Customer feedback", me.csatAnswers ? `${pct(me.csatScorePct)} good` : "—", me.csatAnswers ? `${me.csatAnswers} answer${me.csatAnswers === 1 ? "" : "s"} · ${me.csatBad} bad` : "no answers yet")}
       </div>
       <div class="perf-section"><i class="fa-solid fa-bullseye"></i> Leads and sales</div>
       <div class="stat-grid">

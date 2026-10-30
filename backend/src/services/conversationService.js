@@ -6,6 +6,7 @@ const Lead = require('../models/Lead');
 const WhatsAppAccount = require('../models/WhatsAppAccount');
 const OrganizationMember = require('../models/OrganizationMember');
 const Organization = require('../models/Organization');
+const QuickReply = require('../models/QuickReply');
 const httpError = require('../utils/httpError');
 const logger = require('../config/logger');
 const bus = require('../realtime/bus');
@@ -13,6 +14,7 @@ const { audit } = require('../utils/audit');
 const { toPage, paginationMeta } = require('../utils/pagination');
 const { isManager, canViewAll } = require('../constants/permissions');
 const { SERVICE_WINDOW_MS } = require('../constants/whatsapp');
+const csat = () => require('./csatService'); // eslint-disable-line global-require -- it uses this service
 const { OPEN_STAGES } = require('../constants/crm');
 const { providerFor } = require('../integrations/whatsapp');
 const { credentials, numberFor } = require('./whatsappAccountService');
@@ -67,6 +69,7 @@ function serializeConversation(conversation, viewerId = null) {
       : null,
     ...(viewerId && { pinned: (conversation.pinnedBy || []).some((memberId) => String(memberId) === String(viewerId)) }),
     archived: Boolean(conversation.archivedAt),
+    blocked: Boolean(conversation.blockedAt), // D103
     // The FAQ bot (Phase 6C): handedOffAt = it waits for a person in this chat.
     bot: { handedOffAt: conversation.bot?.handedOffAt || null, handoffReason: conversation.bot?.handoffReason || '' },
     private: Boolean(conversation.private), // only owners ever receive a private chat (D61)
@@ -162,7 +165,12 @@ async function list(req, query) {
   if (query.view === 'mine') filter.assigneeId = req.member._id;
   if (query.view === 'unassigned') filter.assigneeId = null;
   const archivedView = query.view === 'archived';
-  if (!query.contactId) filter.archivedAt = archivedView ? { $ne: null } : null;
+  // D103: blocked customers' chats only in their own list.
+  const blockedView = query.view === 'blocked';
+  if (!query.contactId) {
+    filter.blockedAt = blockedView ? { $ne: null } : null;
+    if (!blockedView) filter.archivedAt = archivedView ? { $ne: null } : null;
+  }
   if (query.status && query.status !== 'any') filter.status = query.status;
   if (!query.status) filter.status = { $in: ['open', 'pending'] };
   if (query.accountId) filter.whatsappAccountId = query.accountId;
@@ -181,7 +189,7 @@ async function list(req, query) {
   const page = toPage(query);
   const newest = { lastMessageAt: -1, _id: -1 };
   const me = req.member._id;
-  const pinFirst = !archivedView && !query.contactId;
+  const pinFirst = !archivedView && !blockedView && !query.contactId;
   const [pinned, items, total] = await Promise.all([
     pinFirst && page.page === 1 ? Conversation.find({ $and: [where, { pinnedBy: me }] }).sort(newest).limit(20).populate(POPULATE) : [],
     Conversation.find(pinFirst ? { $and: [where, { pinnedBy: { $ne: me } }] } : where).sort(newest).skip(page.skip).limit(page.limit).populate(POPULATE),
@@ -192,7 +200,7 @@ async function list(req, query) {
 
 // Counts for the inbox tabs (open and pending chats) and the unread badge.
 async function summary(req) {
-  const base = { organizationId: req.tenant.organizationId, status: { $in: ['open', 'pending'] }, archivedAt: null, ...privacyFilter(req) };
+  const base = { organizationId: req.tenant.organizationId, status: { $in: ['open', 'pending'] }, archivedAt: null, blockedAt: null, ...privacyFilter(req) };
   const scope = scopeFilter(req);
   const visible = Object.keys(scope).length ? { $and: [base, scope] } : base;
   const [mine, unassigned, all, unread] = await Promise.all([
@@ -253,6 +261,10 @@ async function update(req, id, body) {
     });
   }
   if (conversation.assigneeId && String(conversation.assigneeId) !== String(previousAssigneeId)) await claimCustomer(conversation, conversation.assigneeId);
+  // D103: "How was our service?" when the company asks it (never stops the close).
+  if (body.status === 'closed' && !wasClosed) {
+    await csat().askAfterClose(conversation, conversation.assigneeId || req.member._id).catch((error) => logger.warn(`CSAT question for chat ${conversation._id} not sent: ${error.message}`));
+  }
   await audit(req, { action: 'conversation.updated', entityType: 'Conversation', entityId: conversation._id, changes: Object.keys(body) });
   announce('conversation:updated', conversation, { previousAssigneeId });
   return loadSerialized(conversation._id, req.member._id);
@@ -336,7 +348,13 @@ async function sendContext(req, id, { needsWindow }) {
   ]);
   if (!account) throw httpError(409, 'NUMBER_REMOVED', 'This chat\'s WhatsApp number was removed from Settings.');
   if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  assertNotBlocked(contact);
   return { conversation, account, contact };
+}
+
+// D103: nothing goes to a blocked customer — from a teammate or from the CRM itself.
+function assertNotBlocked(contact) {
+  if (contact?.blocked?.at) throw httpError(409, 'CONTACT_BLOCKED', 'This customer is blocked. Unblock them first to write.');
 }
 
 async function replyTarget(conversation, replyToMessageId) {
@@ -350,6 +368,8 @@ const quoting = (providerMessageId) => (providerMessageId ? { context: { message
 // (auto-replies: no sender, never takes the chat).
 const asMember = (req) => ({ memberId: req.member._id, takesChat: true });
 const AS_SYSTEM = Object.freeze({ memberId: null, takesChat: false });
+// D103: the CSAT question leaves a resolved chat resolved.
+const AS_SYSTEM_QUIETLY = Object.freeze({ memberId: null, takesChat: false, keepStatus: true });
 
 // The message is saved first (queued), then handed to WhatsApp: accepted → sent, refused →
 // failed with WhatsApp's reason (the message stays in the chat either way). buildBody(message)
@@ -375,7 +395,7 @@ async function deliver(sender, { conversation, account, contact }, fields, build
   await message.save();
 
   // The first reply takes an unassigned chat; a reply reopens a closed one.
-  const set = { lastMessageAt: message.createdAt, lastMessagePreview: previewOf(fields), lastMessageDirection: 'out', lastMessageOrigin: '', status: 'open' };
+  const set = { lastMessageAt: message.createdAt, lastMessagePreview: previewOf(fields), lastMessageDirection: 'out', lastMessageOrigin: '', ...(!sender.keepStatus && { status: 'open' }) };
   const takes = sender.takesChat && !conversation.assigneeId;
   if (takes) set.assigneeId = sender.memberId;
   const updated = await Conversation.findOneAndUpdate({ _id: conversation._id }, { $set: set }, { returnDocument: 'after' });
@@ -465,6 +485,41 @@ async function sendMedia(req, id, { caption = '', replyToMessageId, voice = fals
   });
 }
 
+// D103: a quick reply's file (from Documents) with the reply's text as its caption; a text longer
+// than WhatsApp's caption goes first as a message of its own. Only the quick reply is named, so a
+// teammate sends its file without needing the Documents page.
+const CAPTION_MAX = 1024;
+async function sendQuickReplyFile(req, id, { quickReplyId, caption = '', replyToMessageId }) {
+  const reply = await QuickReply.findOne({ _id: quickReplyId, organizationId: req.tenant.organizationId }).populate('documentId');
+  const doc = reply?.documentId;
+  if (!doc?.storageKey || doc.deletedAt) throw httpError(404, 'NOT_FOUND', 'This quick reply has no file any more.');
+  const stream = await documentStorage.open(doc.storageKey);
+  if (!stream) throw httpError(404, 'FILE_MISSING', 'The file is missing from storage.');
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const file = { buffer: Buffer.concat(chunks), originalname: doc.fileName || doc.name, mimetype: doc.mimeType };
+  if (caption.length > CAPTION_MAX) {
+    await sendText(req, id, { text: caption, replyToMessageId });
+    return sendMedia(req, id, {}, file);
+  }
+  return sendMedia(req, id, { caption, replyToMessageId }, file);
+}
+
+// D103: a scheduled text, sent by the job as the teammate who wrote it (it takes an unassigned
+// chat for them, like their own reply). The caller has checked the 24-hour window.
+async function sendScheduledText({ conversation, memberId, text }) {
+  const [account, contact] = await Promise.all([
+    WhatsAppAccount.findOne({ _id: conversation.whatsappAccountId, organizationId: conversation.organizationId }),
+    Contact.findOne({ _id: conversation.contactId, organizationId: conversation.organizationId }),
+  ]);
+  if (!account) throw httpError(409, 'NUMBER_REMOVED', 'The WhatsApp number was removed from Settings.');
+  if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  assertNotBlocked(contact);
+  return deliver({ memberId, takesChat: true }, { conversation, account, contact }, { type: 'text', text }, async () => ({
+    type: 'text', text: { body: text, preview_url: /https?:\/\//i.test(text) },
+  }));
+}
+
 // A PDF the CRM made (a quotation): as a document with a caption inside the 24-hour window, or
 // in an approved template outside it — a DOCUMENT header carries the PDF (Meta allows only
 // PDFs there); a text-only template goes without it. A copy stays in the CRM's storage.
@@ -528,6 +583,7 @@ async function sendTemplateAutomatically({ conversation, template, variables, au
   ]);
   if (!account) throw httpError(409, 'NUMBER_REMOVED', 'The WhatsApp number was removed from Settings.');
   if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  assertNotBlocked(contact);
   const { payload, text, values } = templateService.buildSend(template, variables);
   return deliver(AS_SYSTEM, { conversation, account, contact }, {
     type: 'template', text, template: { name: template.name, language: template.language, variables: values }, automation,
@@ -545,6 +601,7 @@ async function sendTextAutomatically({ conversation, text, automation }) {
   ]);
   if (!account) throw httpError(409, 'NUMBER_REMOVED', 'The WhatsApp number was removed from Settings.');
   if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  assertNotBlocked(contact);
   return deliver(AS_SYSTEM, { conversation, account, contact }, { type: 'text', text, automation }, async () => ({
     type: 'text', text: { body: text, preview_url: /https?:\/\//i.test(text) },
   }));
@@ -552,7 +609,8 @@ async function sendTextAutomatically({ conversation, text, automation }) {
 
 // Buttons (1–3) or a list (4–10 options) the CRM sends itself (the FAQ bot), only inside the
 // 24-hour window. interactive: { kind: button | list, body, footer?, listButton?, options [{ id, title, description? }] }.
-async function sendInteractiveAutomatically({ conversation, interactive, automation }) {
+// keepStatus (D103, CSAT): a resolved chat stays resolved.
+async function sendInteractiveAutomatically({ conversation, interactive, automation, keepStatus = false }) {
   if (!serviceWindow(conversation).open) {
     throw httpError(422, 'WINDOW_CLOSED', 'The customer has not written in the last 24 hours; only an approved template can go now.');
   }
@@ -562,9 +620,10 @@ async function sendInteractiveAutomatically({ conversation, interactive, automat
   ]);
   if (!account) throw httpError(409, 'NUMBER_REMOVED', 'The WhatsApp number was removed from Settings.');
   if (!contact?.phoneE164) throw httpError(409, 'NO_PHONE', 'This contact has no WhatsApp number.');
+  assertNotBlocked(contact);
   const { kind, body, footer = '', listButton = 'Choose', options } = interactive;
   const fields = { type: 'interactive', text: body, interactive: { kind, listButton: kind === 'list' ? listButton : undefined, footer: footer || undefined, options }, automation };
-  return deliver(AS_SYSTEM, { conversation, account, contact }, fields, async () => ({
+  return deliver(keepStatus ? AS_SYSTEM_QUIETLY : AS_SYSTEM, { conversation, account, contact }, fields, async () => ({
     type: 'interactive',
     interactive: kind === 'button'
       ? {
@@ -674,6 +733,7 @@ async function addNote(req, id, body) {
 
 module.exports = {
   list, summary, get, update, markRead, typing, react, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
+  sendQuickReplyFile, sendScheduledText, assertNotBlocked, // D103
   ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, sendProducts, announce, findVisible, setBot,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };

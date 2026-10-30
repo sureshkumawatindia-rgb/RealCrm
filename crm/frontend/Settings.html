@@ -1393,6 +1393,20 @@
                   </label>
                 </div>
 
+                <!-- D103: customer feedback (CSAT) after a resolved chat -->
+                <div class="settings-section wa-block" id="waCsatSection" hidden>
+                  <div class="settings-section-label" data-i18n="wa.csat.label">Customer feedback</div>
+                  <label class="two-step-row">
+                    <input type="checkbox" id="csatToggle" />
+                    <span><strong data-i18n="wa.csat.title">Ask "How was our service?" when a chat is resolved</strong><br /><span class="settings-hint" data-i18n="wa.csat.hint">Three buttons (Good, Okay, Bad), only within 24 hours of the customer's last message, at most once a day per customer, never to private or blocked numbers. The scores show in Team live, My performance and Reports.</span></span>
+                  </label>
+                  <div class="field" style="margin-top: 10px">
+                    <label for="csatQuestion" data-i18n="wa.csat.question">The question (optional)</label>
+                    <input type="text" id="csatQuestion" maxlength="500" placeholder="How was our service today?" data-i18n-placeholder="wa.csat.placeholder" />
+                  </div>
+                  <div class="data-actions" style="justify-content: flex-end"><button class="btn btn-outline" id="csatSave" type="button" data-i18n="wa.csat.save">Save the question</button></div>
+                </div>
+
                 <div class="settings-section wa-block" id="waPrivateSection" hidden>
                   <div class="settings-section-label"><i class="fa-solid fa-lock"></i> <span data-i18n="wa.priv.label">Private numbers (only owners see this)</span></div>
                   <p class="settings-hint" data-i18n="wa.priv.hint">
