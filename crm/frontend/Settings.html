@@ -1095,6 +1095,11 @@
                   <div class="settings-section-label">Where you're logged in</div>
                   <p class="settings-hint">Every browser and phone where your account is open, like WhatsApp's linked devices. Log out one you don't know or no longer use.</p>
                   <ul class="device-list" id="deviceList"><li class="device-empty">Loading…</li></ul>
+                  <!-- D104: shown only when the platform sends emails -->
+                  <label class="two-step-row" id="loginEmailRow" hidden style="margin-top: 12px">
+                    <input type="checkbox" id="loginEmailToggle" />
+                    <span><strong>Email me about new logins</strong><br /><span class="settings-hint">Besides the note under the bell, an email when your account is opened on a browser it was never opened on.</span></span>
+                  </label>
                   <div class="data-actions">
                     <button class="btn btn-outline" id="devicesLogoutOthersBtn" type="button" hidden><i class="fa-solid fa-right-from-bracket"></i> Log out of all other devices</button>
                   </div>

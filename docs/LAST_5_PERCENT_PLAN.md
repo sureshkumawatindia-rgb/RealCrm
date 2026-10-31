@@ -91,7 +91,7 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
   someone who wrote in the last 24 hours, and the docs say nothing about coexistence numbers, so
   the CRM tries and keeps Meta's answer ("Blocked here only" with WhatsApp's reason).
 
-**F. Running the SaaS**
+**F. Running the SaaS** — done 2026-10-30 (D104)
 - Platform admin panel (access as answered above): all companies with plan, trial end, users,
   WhatsApp numbers, contacts, broadcasts this month, last active and WhatsApp health; MRR, new
   sign-ups, trial-to-paid and churn from `BillingInvoice` and subscriptions; the `scripts/plan.js`

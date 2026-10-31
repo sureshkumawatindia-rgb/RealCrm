@@ -619,7 +619,7 @@ document.getElementById("pendingInviteList").addEventListener("click", async (e)
     if (resend) {
       const result = await crmApi(`/invites/${resend.dataset.resendInvite}/resend`, { method: "POST" });
       showInviteLink(resend.dataset.inviteEmail, result.link);
-      showToast("New invite link created. The old link no longer works.", "success");
+      showToast(result.emailed ? "New invite link emailed to them. The old link no longer works." : "New invite link created. The old link no longer works.", "success");
     } else if (revoke) {
       if (!confirm("Cancel this invite? The link will stop working.")) return;
       await crmApi(`/invites/${revoke.dataset.revokeInvite}`, { method: "DELETE" });
@@ -647,7 +647,8 @@ document.getElementById("inviteForm").addEventListener("submit", async (e) => {
     });
     showInviteLink(email, result.link);
     document.getElementById("inviteForm").reset();
-    showToast("Invite created. Share the link with them.", "success");
+    // D104: emailed too when the platform sends emails.
+    showToast(result.emailed ? `Invite emailed to ${email}. You can also share the link.` : "Invite created. Share the link with them.", "success");
     loadInvites();
   } catch (error) {
     showToast(apiErrorMessage(error, "Couldn't create the invite."), "error");

@@ -42,7 +42,7 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 | `POST` | `/auth/qr/:id/approve` | bearer | The phone: `{ secret, allow (default true) }` → `{ allowed, computer }`; the computer gets the phone user's session in the phone's organization. Audit `auth.computer_linked`. |
 | `POST` | `/auth/refresh` | refresh cookie | Rotates the refresh token and returns `{ token, organizationId }`. A token that was already rotated revokes its whole family (`REFRESH_TOKEN_REUSED`). |
 | `POST` | `/auth/logout` | refresh cookie | Revokes the session family and clears the cookie. |
-| `GET` | `/auth/me` | bearer | `{ user, organization, member, memberships }`. `user` (here and in every sign-in answer) is `{ id, email, name, picture, preferences { language (en/hi, default en), theme (system/light/dark, default system) } }` (D72). |
+| `GET` | `/auth/me` | bearer | `{ user, organization, member, memberships, twoFactor, platformAdmin }` (D104: `platformAdmin` is true for the emails in PLATFORM_ADMIN_EMAILS: the menu then shows the platform admin page). `user` (here and in every sign-in answer) is `{ id, email, name, picture, preferences { language (en/hi, default en), theme (system/light/dark, default system) } }` (D72). |
 | `POST` | `/auth/switch-organization` | bearer | Body `{ organizationId }`. Returns a new access token for another organization the user belongs to. |
 
 `POST /auth/logout` also forgets the remembered browser (`crm_device`).
@@ -92,8 +92,8 @@ Roles: `owner`, `admin`, `agent`, `viewer`. Agents and viewers only see the modu
 | `PATCH` | `/members/:id` | owner, admin | `{ role?, modules?, permissions?, status?, displayName?, mobile?, title?, assignable? }` (`title` = what they do, e.g. Sales, up to 60 characters). Nobody changes their own role/status; only owners change owners and admins; the last active owner is protected. |
 | `DELETE` | `/members/:id` | owner, admin | Removes the member (soft delete) and ends their sessions in this organization. |
 | `GET` | `/invites?status=pending\|accepted\|revoked\|all` | owner, admin | Invites (default pending; `status: "expired"` in the response when past `expiresAt`). |
-| `POST` | `/invites` | owner, admin | `{ email, role: admin\|agent\|viewer, modules?, permissions?, displayName?, mobile?, title? }` (name, mobile and title are copied to the membership when it is accepted). Inviting a pending email again replaces its access and link. Returns `{ invite, link }`; the link (valid 7 days) is only shown here. Only owners invite admins. Accepts `Idempotency-Key`. |
-| `POST` | `/invites/:id/resend` | owner, admin | New link; the old one stops working. |
+| `POST` | `/invites` | owner, admin | `{ email, role: admin\|agent\|viewer, modules?, permissions?, displayName?, mobile?, title? }` (name, mobile and title are copied to the membership when it is accepted). Inviting a pending email again replaces its access and link. Returns `{ invite, link, emailed }`; the link (valid 7 days) is only shown here. D104: `emailed` is true when the platform sends emails (Resend): the invite also went to that address, in the inviter's language. Only owners invite admins. Accepts `Idempotency-Key`. |
+| `POST` | `/invites/:id/resend` | owner, admin | New link; the old one stops working. `{ invite, link, emailed }` (D104: emailed again). |
 | `DELETE` | `/invites/:id` | owner, admin | Cancels the invite. |
 | `POST` | `/invites/lookup` | none | `{ token }` → `{ organizationName, logoUrl, workspace (the company's code, D66), email, role, expiresAt }` for the login page (which shows the company's logo and name). POST keeps the token out of URL logs. |
 
@@ -698,7 +698,8 @@ The pages are an installable app (`crm/frontend/manifest.webmanifest`, service w
 | `POST` | `/auth/phone/request` | `{ phone }` → a code to verify (or change) one's own number; 409 `PHONE_IN_USE`. |
 | `POST` | `/auth/phone/verify` | `{ phone, code }` → the number is verified for logging in. |
 | `DELETE` | `/auth/phone` | Removes it, and switches 2-step verification off. |
-| `PATCH` | `/auth/preferences` | `{ language?, theme? }` (at least one): one's own language and theme, the same on every device and in every company (D72) → `{ language, theme }`. |
+| `PATCH` | `/auth/preferences` | `{ language?, theme? }` (at least one): one's own language and theme, the same on every device and in every company (D72) → `{ language, theme }`. The language is also the language of the platform's emails to that person (D104). |
+| `GET/PATCH` | `/auth/login-alerts` | D104: `{ email }` (boolean) — whether the new-login alert is also emailed (default true; the bell and web push stay) → `{ email, emailsOn }` (`emailsOn`: the platform sends emails at all). |
 | `PUT` | `/auth/two-step` | `{ enabled }` — 2-step verification for oneself (D60): on a new browser, a WhatsApp code after Google. Needs a verified number (400 `PHONE_REQUIRED`); 409 `TWO_STEP_FIXED` when `LOGIN_WHATSAPP_CODE` is required or off. Audit `auth.two_step_on` / `auth.two_step_off`. |
 
 The 2026-10-08 login (D58) replaced the Phase 10E `/auth/otp/available`, `/auth/otp/request` and `/auth/otp/verify` (a code alone no longer signs in): see `/auth/login/*` and `/auth/qr*` under Auth.
@@ -716,7 +717,24 @@ Every bell note (`notificationService.notify`) is also sent as web push to the m
 | `DELETE` | `/organization` | Owners: `{ confirmName }` (the company name, any case) → `{ requestedAt, scheduledFor }` (ORG_DELETION_GRACE_DAYS, 7). 400 wrong name, 409 `DELETION_SCHEDULED`. Owners and admins get a bell note. |
 | `POST` | `/organization/deletion/cancel` | Owners: keep the company. 409 `NOT_SCHEDULED`. |
 
-After the date a job (`organization.purge`, every 6 hours) removes every record with the organization's id, its files and logo, and stops its paid plan; the platform's GST invoices and users stay.
+After the date a job (`organization.purge`, every 6 hours) removes every record with the organization's id, its files and logo, and stops its paid plan; the platform's GST invoices and users stay. D104: owners and admins are also emailed when the deletion is asked for, and once more during its last day.
+
+## Platform admin and emails (D104)
+
+The platform's own admins: the Google emails in `PLATFORM_ADMIN_EMAILS`, with 2-step login by the authenticator app on. Every route below except `status`, `unlock` and `lock` answers **404** to anyone else, **403 `PLATFORM_NEEDS_AUTHENTICATOR`** without the app and **403 `PLATFORM_CODE_REQUIRED`** until a code was entered on that login (its session family) in the last 30 minutes. Companies are shown as counts only — never their customers, chats or files, and there is no signing in as a company.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/platform/status` | Anyone signed in: `{ admin: false }`, or `{ admin: true, authenticator, unlockedUntil }`. |
+| `POST` | `/platform/unlock` | `{ code }` (the app's 6 digits or a backup code; wrong codes count towards the app's lock: 401 `TOTP_WRONG_CODE`, 429 `TOTP_LOCKED`) → `{ unlockedUntil }` (30 minutes, this login only). Audit `platform.unlocked` in the admin's own company. Rate limit as sign-in. |
+| `POST` | `/platform/lock` | Closes it on this login → `{ unlockedUntil: null }`. |
+| `GET` | `/platform/overview` | `{ at, companies { total, trialing, paying, pastDue, comped, locked, cancelling, deletionScheduled, new30Days, newThisMonth }, mrrPaise, collectedThisMonth { totalPaise, taxablePaise, invoices }, trialToPaid { finished, paid, pct }, churn { stopped, base, pct }, emails { enabled, queued, sent, failed, skipped } }`. MRR: the plan prices before GST of active and payment-due companies. Trial to paid: companies that started in the last 90 days whose trial is over (complimentary ones left out) and how many paid at least once. Churn: companies that had paid and stopped (cancelled at the end of their month, or halted) in the last 30 days, against those paying now plus them. |
+| `GET` | `/platform/companies?q=&status=&page=&limit=` | Newest first; `q` a name (part) or a company id; `status` trialing, paying, past_due, locked, comped or cancelled. `{ items [{ id, name, createdAt, plan, planName, status, locked, trialEndsAt, daysLeft, currentPeriodEnd, cancelAtPeriodEnd, deletionScheduledFor, owner { name, email }, users, lastActiveAt, whatsapp { numbers, connected, health (ok/warning/error/none: error = a number in error or disconnected, or rated RED; warning = YELLOW, or nothing from Meta for 7 days), quality, lastWebhookAt }, contacts, broadcastsThisMonth, paid { invoices, totalPaise, lastPaidAt } }], total, page, limit }`. |
+| `POST` | `/platform/companies/:id/actions` | `{ action: "comp" }` (complimentary, no end; a Razorpay subscription is not touched), `{ action: "trial", days (1–365) }` (a trial ending that many days from now; the reminders start again) or `{ action: "plan", plan }` (another plan by hand) → the company's row. Audit `platform.comp` / `platform.trial` / `platform.plan` in **that company's** log, with `before` and the admin's email. The same actions as `scripts/plan.js`. |
+| `GET` | `/platform/emails?status=&limit=` | The platform's emails: `{ enabled, totals { queued, sent, failed, skipped } (30 days), kinds { <kind>: { <status>: n } }, recent [{ id, kind, to, language, status, attempts, error, subject, sentAt, createdAt, organizationId }] }`. |
+| `GET` | `/platform/checklist` | The go-live tasks (docs/GO_LIVE_CHECKLIST.md): `{ items [{ key, title, done (true / false / null = not visible from here), guide, without }], done, total, warnings }` — whether this server has each key, never a value; `warnings` are the server's own start-up warnings (key names only). |
+
+**Emails** (docs/EMAIL_SETUP.md): with `RESEND_API_KEY` and `EMAIL_FROM` set, the CRM emails team invites (to the invited address), trial reminders (7, 3, 1 days and the end), failed payments (Razorpay retrying, and the plan stopped), each plan invoice with its PDF, the deletion warnings, and new logins (unless switched off), each in the person's language (en/hi) with HTML and plain text. Each email is an `email.send` job: `POST https://api.resend.com/emails` with `Idempotency-Key: crm-email-<id>`, tried again up to 6 times on 429, 409, 5xx and timeouts, not on other refusals. Without the keys nothing is sent (`skipped`), and nothing else changes.
 
 ## Idempotency
 

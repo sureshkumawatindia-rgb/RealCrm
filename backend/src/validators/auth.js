@@ -37,6 +37,7 @@ module.exports = {
   qrApprove: Joi.object({ secret, allow: Joi.boolean().default(true) }),
   twoStep: Joi.object({ enabled: Joi.boolean().required() }),
   // One's own language and theme (CP5).
+  loginAlerts: Joi.object({ email: Joi.boolean().required() }), // D104
   preferences: Joi.object({
     language: Joi.string().valid(...LANGUAGES),
     theme: Joi.string().valid(...THEMES),

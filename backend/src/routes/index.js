@@ -97,6 +97,7 @@ router.use('/whatsapp', whatsappRoutes);
 router.use('/dev', devRoutes);
 router.use('/conversations', conversationRoutes);
 router.use('/scheduled-messages', scheduledMessageRoutes); // D103
+router.use('/platform', require('./platform')); // D104: the platform admin page
 router.use('/quick-replies', quickReplyRoutes);
 router.use('/templates', templateRoutes);
 router.use('/lead-sources', leadSourceRoutes);

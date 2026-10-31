@@ -374,7 +374,34 @@ async function revokeGrant(organizationId, grantId, { by = 'platform' } = {}) {
   return removed.toObject();
 }
 
+// --- the platform's own actions (scripts/plan.js and the platform admin page, D104) ----------
+// Complimentary: the company keeps its plan with no end date and no payments (a gateway
+// subscription, if any, is not touched — cancel it in Razorpay too).
+async function compPlan(organizationId) {
+  await Organization.updateOne({ _id: organizationId }, { $set: { 'subscription.status': 'comped', 'subscription.since': new Date() } });
+}
+// A trial that ends `days` from now (1–365); the trial reminders start again.
+async function startTrial(organizationId, days) {
+  if (!Number.isInteger(days) || days < 1 || days > 365) {
+    throw httpError(400, 'VALIDATION_ERROR', 'Give the trial length in days (1-365).', [{ field: 'days', message: 'From 1 to 365 days.' }]);
+  }
+  await Organization.updateOne(
+    { _id: organizationId },
+    { $set: { 'subscription.status': 'trialing', 'subscription.trialEndsAt': new Date(Date.now() + days * DAY_MS), 'subscription.since': new Date() }, $unset: { 'subscription.remindedFor': 1 } },
+  );
+}
+// Another plan by hand (e.g. a company that paid by bank transfer).
+async function setPlan(organizationId, planKey) {
+  if (!PLAN_KEYS.includes(planKey)) {
+    throw httpError(400, 'VALIDATION_ERROR', `The plan is one of: ${PLAN_KEYS.join(', ')}.`, [{ field: 'plan', message: 'Not a plan.' }]);
+  }
+  await Organization.updateOne({ _id: organizationId }, { $set: { plan: planKey } });
+}
+
 module.exports = {
+  compPlan,
+  startTrial,
+  setPlan,
   effectivePlanOf,
   extrasOf,
   grantsInForce,

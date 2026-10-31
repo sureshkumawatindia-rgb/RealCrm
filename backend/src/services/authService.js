@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Organization = require('../models/Organization');
 const OrganizationMember = require('../models/OrganizationMember');
 const Session = require('../models/Session');
+const env = require('../config/env');
 const logger = require('../config/logger');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
@@ -231,7 +232,19 @@ async function me(req) {
     memberships: await describeMemberships(req.user._id),
     // 2-step login with the app (F7): on or off, and for owners and admins by when it is needed.
     twoFactor: require('./totpService').summaryOf(req.user, req.member), // eslint-disable-line global-require
+    // D104: one of the platform's admins (PLATFORM_ADMIN_EMAILS): the menu shows the admin page.
+    platformAdmin: env.platformAdminEmails.includes(String(req.user.email || '').toLowerCase()),
   };
+}
+
+// GET/PATCH /auth/login-alerts — whether the new-login alert is also emailed (D104).
+function loginAlerts(req) {
+  return { email: req.user.loginAlertEmails !== false, emailsOn: require('./emailService').enabled() }; // eslint-disable-line global-require
+}
+async function updateLoginAlerts(req, { email }) {
+  req.user.loginAlertEmails = email;
+  await req.user.save();
+  return loginAlerts(req);
 }
 
 // PATCH /auth/preferences — the person's own language and theme (CP5), for every company they
@@ -244,4 +257,4 @@ async function updatePreferences(req, changes) {
   return preferencesOf(req.user);
 }
 
-module.exports = { loginWithGoogle, startSession, refresh, logout, switchOrganization, me, updatePreferences };
+module.exports = { loginWithGoogle, startSession, refresh, logout, switchOrganization, me, updatePreferences, loginAlerts, updateLoginAlerts };

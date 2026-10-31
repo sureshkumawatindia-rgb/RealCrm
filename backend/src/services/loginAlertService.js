@@ -5,6 +5,7 @@ const logger = require('../config/logger');
 const { randomToken, hashToken } = require('../utils/tokens');
 const { audit } = require('../utils/audit');
 const notificationService = require('./notificationService');
+const emailService = require('./emailService');
 
 // "New login" alerts (D63): someone logs in from a browser this person never used, and they get
 // a note in the bell (and as web push on their devices): "New login: Chrome on Windows, 10:42 AM.
@@ -70,6 +71,7 @@ async function alertNewLogin(req, { user, member, device, at = new Date() }) {
       source: 'login-alert',
     });
     await audit(req, { organizationId: member.organizationId, action: 'auth.new_browser', entityType: 'User', entityId: user._id, changes: { device } });
+    await emailService.loginEmail(user, { organizationId: member.organizationId, device, at }); // D104, unless switched off
   } catch (error) {
     logger.error(`New login alert failed: ${error.message}`);
   }

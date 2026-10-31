@@ -9,6 +9,7 @@ const { audit } = require('../utils/audit');
 const { randomToken, hashToken } = require('../utils/tokens');
 const { DEFAULT_MODULES } = require('../constants/permissions');
 const planService = require('./planService');
+const emailService = require('./emailService');
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // Soft-delete filter that also matches removed members (see models/plugins/softDelete.js).
@@ -48,6 +49,12 @@ async function issue(filter, update) {
   return { invite, link: inviteLink(token) };
 }
 
+// D104: the link also goes to the invited address when the platform sends emails; the link is
+// shown either way. → whether it was emailed.
+async function emailed(invite, link, inviter) {
+  return (await emailService.inviteEmail({ invite, link, inviter }))?.status === 'queued';
+}
+
 // Seats are counted and the invite saved under the company's team hold (D81).
 async function create(req, body) {
   return planService.underHold(req.tenant.organizationId, ['users', 'agents'], () => createHeld(req, body));
@@ -80,7 +87,7 @@ async function createHeld(req, { email, role, modules, permissions, displayName 
     },
   );
   await audit(req, { action: 'invite.created', entityType: 'Invite', entityId: invite._id, changes: { email, role } });
-  return { invite: serializeInvite(invite), link };
+  return { invite: serializeInvite(invite), link, emailed: await emailed(invite, link, req.user) };
 }
 
 async function list(req, pageQuery, { status = 'pending' } = {}) {
@@ -108,7 +115,7 @@ async function resendHeld(req, id) {
   if (existing.role === 'agent') await planService.assertRoom(req.tenant.organizationId, 'agents', { adding: holdsSeat(existing) ? 0 : 1, action: 'invite agents' });
   const { invite, link } = await issue({ _id: existing._id }, {});
   await audit(req, { action: 'invite.resent', entityType: 'Invite', entityId: invite._id });
-  return { invite: serializeInvite(invite), link };
+  return { invite: serializeInvite(invite), link, emailed: await emailed(invite, link, req.user) };
 }
 
 async function revoke(req, id) {

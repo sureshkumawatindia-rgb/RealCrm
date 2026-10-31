@@ -1,5 +1,6 @@
 const express = require('express');
 const controller = require('../controllers/authController');
+const authService = require('../services/authService');
 const { authenticate } = require('../middleware/auth');
 const { authLimiter, qrPollLimiter, workspaceLimiter } = require('../middleware/rateLimit');
 const validate = require('../middleware/validate');
@@ -44,5 +45,12 @@ router.post('/totp/backup-codes', authLimiter, authenticate, validate({ body: sc
 router.post('/totp/disable', authLimiter, authenticate, validate({ body: schemas.totpCode }), controller.totpDisable);
 // One's own language and theme, the same on every device (CP5).
 router.patch('/preferences', authenticate, validate({ body: schemas.preferences }), controller.preferences);
+// D104: also email the new-login alert (on by default).
+router.get('/login-alerts', authenticate, (req, res) => {
+  res.json({ success: true, data: authService.loginAlerts(req) });
+});
+router.patch('/login-alerts', authenticate, validate({ body: schemas.loginAlerts }), async (req, res) => {
+  res.json({ success: true, data: await authService.updateLoginAlerts(req, req.body) });
+});
 
 module.exports = router;

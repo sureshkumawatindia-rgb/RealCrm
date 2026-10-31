@@ -18,6 +18,7 @@ const razorpay = require('../integrations/billing/razorpay');
 const mock = require('../integrations/billing/mock');
 const notificationService = require('./notificationService');
 const planService = require('./planService');
+const emailService = require('./emailService');
 
 // Paying for the CRM plan (Phase 10B, D50): Razorpay Subscriptions on the platform's own
 // account (or the test gateway in development). Choosing a plan opens Razorpay's page; its
@@ -214,6 +215,8 @@ async function applySubscription(organizationId, gsub) {
       expired: ['Your plan has ended', 'Choose a plan to add contacts, quotations, broadcasts and teammates again.'],
     }[status];
     if (notes) await tellManagers(organizationId, notes[0], notes[1]);
+    // D104: a failed payment is also emailed to the owners and admins.
+    if (status === 'past_due' || status === 'halted') await emailService.paymentEmail(organizationId, { stage: status === 'halted' ? 'stopped' : 'retrying', planName: name });
   }
   return organization;
 }
@@ -280,6 +283,7 @@ async function recordCharge(organizationId, { subscriptionId, planId, payment, p
   }
   await numberInvoice(invoice);
   await tellManagers(organizationId, `Payment received: ${formatRupees(totalPaise)}`, `${invoice.planName} plan, invoice ${invoice.number}.`);
+  await emailService.invoiceEmail(invoice); // D104: with the PDF
   return invoice;
 }
 
@@ -399,6 +403,7 @@ async function remindTrials(now = new Date()) {
     if (!modifiedCount) continue;
     if (level === 'ended') await tellManagers(organization._id, 'Your free trial has ended', 'Your data is safe and chats keep working. Choose a plan to add contacts, quotations, broadcasts and teammates again.');
     else await tellManagers(organization._id, `Your free trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`, 'Choose a plan in Settings → Plan & usage to keep everything running.');
+    await emailService.trialEmail(organization._id, { level, daysLeft, trialEndsAt: sub.trialEndsAt }); // D104
   }
 }
 

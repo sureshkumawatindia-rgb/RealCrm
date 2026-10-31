@@ -114,6 +114,7 @@ const organizationSchema = new mongoose.Schema(
       requestedAt: Date,
       scheduledFor: Date,
       requestedById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      remindedAt: Date, // D104: the "deleted tomorrow" email went out
     },
     // The AI assistant (Phase 10D, Settings → AI assistant): off until an owner or admin turns it
     // on; autoReply lets it answer customers by itself (else it only drafts replies for agents).

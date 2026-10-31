@@ -108,8 +108,8 @@ async function crmRequest(path, options = {}, { retried = false, blob = false } 
   }
   if (blob && response.ok) return response.blob();
   const body = await response.json().catch(() => ({}));
-  // A wrong sign-in code (OTP_…) is a 401 too, but not an ended session.
-  if (response.status === 401 && !retried && !sessionEnded && !NO_REFRESH_PATHS.has(path) && !/^OTP_/.test(body.code || "")) {
+  // A wrong sign-in code (OTP_…, or the authenticator app's TOTP_…) is a 401 too, but not an ended session.
+  if (response.status === 401 && !retried && !sessionEnded && !NO_REFRESH_PATHS.has(path) && !/^T?OTP_/.test(body.code || "")) {
     if (await refreshAccessToken(session)) return crmRequest(path, options, { retried: true, blob });
     endSession();
   }
@@ -2394,6 +2394,17 @@ async function syncMembership() {
       }
     }
     mountTwoFactorBanner(me.twoFactor);
+    // One of the platform's admins (D104): the menu shows the platform admin page.
+    const signedIn = getCurrentUser();
+    if (signedIn && Boolean(signedIn.platformAdmin) !== Boolean(me.platformAdmin)) {
+      localStorage.setItem(KEYS.USER, JSON.stringify({ ...signedIn, platformAdmin: Boolean(me.platformAdmin) }));
+      if (me.platformAdmin) {
+        injectGlobalNavItems();
+        translateSidebar();
+      } else {
+        document.querySelector('.sidebar .nav-item[href="platform-admin.html"]')?.remove();
+      }
+    }
     const before = localStorage.getItem(KEYS.MEMBER);
     const after = JSON.stringify({ ...me.member, organizationId: me.organization?.id ?? getCurrentMember()?.organizationId });
     if (before === after) return;
@@ -2440,6 +2451,7 @@ const NAV_KEYS = {
   "al insights.html": "nav.aiInsights",
   "products.html": "nav.products",
   "settings.html": "nav.settings",
+  "platform-admin.html": "nav.platformAdmin",
 };
 function translateSidebar() {
   if (crmI18n.language() === "en") return;
@@ -2534,6 +2546,14 @@ function injectGlobalNavItems() {
       afterHref: "Reports & Analytics.html",
       managersOnly: true,
     },
+    // The platform admin page (D104), only for the platform's own admins, after Settings.
+    {
+      href: "platform-admin.html",
+      icon: "fa-user-shield",
+      label: "Platform admin",
+      afterHref: "Settings.html",
+      platformOnly: true,
+    },
   ];
   // Pages write the same link as "Deals.html" or "./Deals.html".
   const findLink = (href) => [...navGroup.querySelectorAll(".nav-item[href]")].find((link) => link.getAttribute("href").replace(/^\.\//, "") === href);
@@ -2542,6 +2562,7 @@ function injectGlobalNavItems() {
     // Never insert twice, in case a page already has it hard-coded.
     if (findLink(item.href)) return;
     if (item.managersOnly && !isOrgManager()) return;
+    if (item.platformOnly && !getCurrentUser()?.platformAdmin) return;
 
     const anchor = findLink(item.afterHref);
     if (!anchor) return;

@@ -20,10 +20,9 @@ const env = require('../src/config/env');
 const Organization = require('../src/models/Organization');
 const OrganizationMember = require('../src/models/OrganizationMember');
 require('../src/models/User');
-const { PLAN_KEYS, LIMITS } = require('../src/constants/plans');
+const { LIMITS } = require('../src/constants/plans');
 const planService = require('../src/services/planService');
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const day = (date) => (date ? new Date(date).toISOString().slice(0, 10) : '');
 
 async function list() {
@@ -92,15 +91,13 @@ async function main([command, id, value, ...rest]) {
       await planService.revokeGrant(organization._id, value, { by: flagsOf(rest).by || 'platform' });
       return printGrants(await Organization.findById(organization._id));
     }
+    // The same actions as the platform admin page (D104).
     if (command === 'comp') {
-      await Organization.updateOne({ _id: organization._id }, { $set: { 'subscription.status': 'comped', 'subscription.since': new Date() } });
+      await planService.compPlan(organization._id);
     } else if (command === 'trial') {
-      const days = Number(value);
-      if (!Number.isInteger(days) || days < 1 || days > 365) throw new Error('Give the trial length in days (1-365).');
-      await Organization.updateOne({ _id: organization._id }, { $set: { 'subscription.status': 'trialing', 'subscription.trialEndsAt': new Date(Date.now() + days * DAY_MS), 'subscription.since': new Date() }, $unset: { 'subscription.remindedFor': 1 } });
+      await planService.startTrial(organization._id, Number(value));
     } else if (command === 'set') {
-      if (!PLAN_KEYS.includes(value)) throw new Error(`The plan is one of: ${PLAN_KEYS.join(', ')}.`);
-      await Organization.updateOne({ _id: organization._id }, { $set: { plan: value } });
+      await planService.setPlan(organization._id, value);
     } else {
       throw new Error('Commands: list | comp <id> | trial <id> <days> | set <id> <plan> | grants <id> | grant <id> <key> [extra] [--days N] [--reason "…"] | revoke <id> <grantId>');
     }

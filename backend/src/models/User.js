@@ -37,6 +37,8 @@ const userSchema = new mongoose.Schema(
       language: { type: String, enum: LANGUAGES },
       theme: { type: String, enum: THEMES },
     },
+    // D104: also email the new-login alert (when the platform sends emails). Off = the bell only.
+    loginAlertEmails: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

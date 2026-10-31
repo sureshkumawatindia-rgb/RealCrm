@@ -10,6 +10,7 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { documentStorage } = require('../storage');
 const notificationService = require('./notificationService');
+const emailService = require('./emailService');
 
 // Deleting a company (Phase 10F, D57; India's DPDP Act: a company can have its data erased).
 // An owner asks, typing the company's name; the company keeps working for ORG_DELETION_GRACE_DAYS
@@ -58,6 +59,7 @@ async function request(req, { confirmName }) {
     body: `${req.user.name || 'An owner'} asked to delete the company and all its data. Download the data in Settings → Data & Privacy; an owner can cancel until then.`,
     link: 'Settings.html?tab=data', source: 'organization',
   }).catch((error) => logger.error(`Deletion note failed: ${error.message}`));
+  await emailService.deletionEmail(organization._id, { scheduledFor, requestedBy: req.user.name || '' }); // D104
   return { requestedAt: now, scheduledFor };
 }
 
@@ -110,7 +112,17 @@ async function purge(organizationId, now = new Date()) {
   return { collections, documents };
 }
 
+// D104: "deleted tomorrow" by email, once, during the last day.
+async function remindDue(now = new Date()) {
+  const soon = await Organization.find({ 'deletion.scheduledFor': { $gt: now, $lte: new Date(now.getTime() + DAY_MS) }, 'deletion.remindedAt': null }).select('deletion').limit(50);
+  for (const organization of soon) {
+    const { modifiedCount } = await Organization.updateOne({ _id: organization._id, 'deletion.remindedAt': null }, { $set: { 'deletion.remindedAt': now } });
+    if (modifiedCount) await emailService.deletionEmail(organization._id, { scheduledFor: organization.deletion.scheduledFor, tomorrow: true });
+  }
+}
+
 async function purgeDue() {
+  await remindDue().catch((error) => logger.error(`Deletion reminders failed: ${error.message}`));
   const due = await Organization.find({ 'deletion.scheduledFor': { $lte: new Date() } }).select('_id').limit(20);
   for (const { _id } of due) {
     try {
@@ -126,4 +138,4 @@ function register(queue) {
   queue.every(JOB, 6 * 60 * 60 * 1000).catch((error) => logger.error(`Scheduling ${JOB} failed: ${error.message}`));
 }
 
-module.exports = { JOB, request, cancel, statusOf, purge, purgeDue, register, KEEP };
+module.exports = { JOB, request, cancel, statusOf, purge, purgeDue, remindDue, register, KEEP };

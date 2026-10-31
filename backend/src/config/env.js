@@ -106,6 +106,16 @@ const schema = Joi.object({
   BILLING_SELLER_EMAIL: Joi.string().allow('').default(''),
   BILLING_SAC: Joi.string().pattern(/^\d{4,8}$/).default('998315'),
   BILLING_INVOICE_PREFIX: Joi.string().pattern(/^[A-Z0-9-]{1,8}$/).default('YC'),
+  // The platform's own emails (D104, docs/EMAIL_SETUP.md): invites, trial and payment notes, plan
+  // invoices, deletion warnings and new-login alerts, sent through Resend. Without both keys
+  // nothing is emailed (the bell and the links keep working); EMAIL_FROM is "Name <address>" or
+  // an address on a domain verified in Resend.
+  RESEND_API_KEY: Joi.string().allow('').default(''),
+  EMAIL_FROM: Joi.string().trim().pattern(/^(?:[^<>]+<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+)$/).allow('').default('')
+    .messages({ 'string.pattern.base': 'EMAIL_FROM must be an email address, or "Name <address>"' }),
+  // The platform's admins (D104): the Google sign-in emails, comma-separated, that may open the
+  // platform admin page — and only after 2-step login with the authenticator app.
+  PLATFORM_ADMIN_EMAILS: Joi.string().allow('').default(''),
   // The optional AI assistant (Phase 10D) on the platform's own Claude API key. Without a key the
   // assistant is not offered. Each company may spend up to AI_MONTHLY_BUDGET_USD a month.
   ANTHROPIC_API_KEY: Joi.string().allow('').default(''),
@@ -290,11 +300,17 @@ const env = {
     sac: value.BILLING_SAC,
     invoicePrefix: value.BILLING_INVOICE_PREFIX,
   },
+  email: {
+    resendApiKey: value.RESEND_API_KEY,
+    from: value.EMAIL_FROM,
+  },
+  platformAdminEmails: value.PLATFORM_ADMIN_EMAILS.split(',').map((email) => email.trim().toLowerCase()).filter(Boolean),
   warnings: [
     ...(value.BILLING_PROVIDER === 'razorpay' && !(value.RAZORPAY_BILLING_KEY_ID && value.RAZORPAY_BILLING_KEY_SECRET && value.RAZORPAY_BILLING_WEBHOOK_SECRET)
       ? ['BILLING_PROVIDER is razorpay but a RAZORPAY_BILLING_* key is missing; plans cannot be bought until they are set.'] : []),
     ...(value.JWT_EXPIRES_IN ? ['JWT_EXPIRES_IN is no longer used; access tokens use ACCESS_TOKEN_TTL (default 15m).'] : []),
     ...(!value.DATA_ENCRYPTION_KEY ? ['DATA_ENCRYPTION_KEY is not set; secrets are encrypted with GMAIL_TOKEN_ENCRYPTION_KEY until you add it.'] : []),
+    ...(Boolean(value.RESEND_API_KEY) !== Boolean(value.EMAIL_FROM) ? ['RESEND_API_KEY and EMAIL_FROM go together; no email is sent until both are set.'] : []),
   ],
 };
 

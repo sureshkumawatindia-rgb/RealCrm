@@ -58,7 +58,29 @@
     } catch (error) {
       $("deviceList").innerHTML = `<li class="device-empty">${escapeHtml(apiErrorMessage(error, "Could not load the list."))}</li>`;
     }
+    loadLoginEmails();
   }
+
+  // D104: the new-login alert by email too (only offered when the platform sends emails).
+  async function loadLoginEmails() {
+    try {
+      const { email, emailsOn } = await crmApi("/auth/login-alerts");
+      $("loginEmailToggle").checked = email;
+      $("loginEmailRow").hidden = !emailsOn;
+    } catch {
+      $("loginEmailRow").hidden = true;
+    }
+  }
+  $("loginEmailToggle").addEventListener("change", async (event) => {
+    try {
+      const { email } = await crmApi("/auth/login-alerts", jsonRequest("PATCH", { email: event.target.checked }));
+      event.target.checked = email;
+      showToast(email ? "You'll get an email about new logins." : "New logins only under the bell now.", "success");
+    } catch (error) {
+      event.target.checked = !event.target.checked;
+      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+    }
+  });
 
   $("deviceList").addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-device]");

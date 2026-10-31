@@ -97,11 +97,11 @@
   function showLinks(sent, failure = "") {
     const company = companyName || "our company";
     $("inviteLinks").innerHTML = sent
-      .map(({ email, role, link }, index) => {
+      .map(({ email, role, link, emailed }, index) => {
         const message = `Join ${company} on YELLOW CRM: ${link}`;
         return `
         <li>
-          <span class="who"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(role.charAt(0).toUpperCase() + role.slice(1))}</span></span>
+          <span class="who"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(role.charAt(0).toUpperCase() + role.slice(1))}${emailed ? " · invite emailed" : ""}</span></span>
           <span class="actions">
             <a class="btn btn-outline" href="https://wa.me/?text=${encodeURIComponent(message)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> Send on WhatsApp</a>
             <button type="button" class="btn btn-outline" data-copy="${index}"><i class="fa-regular fa-copy"></i> Copy link</button>
@@ -157,7 +157,7 @@
       for (const person of people) {
         const body = { email: person.email, role: person.role, ...(person.role !== "admin" && { modules: person.modules }) };
         const result = await crmApi("/invites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-        sent.push({ email: person.email, role: person.role, link: result.link });
+        sent.push({ email: person.email, role: person.role, link: result.link, emailed: result.emailed });
       }
     } catch (error) {
       const who = people[sent.length]?.email;
