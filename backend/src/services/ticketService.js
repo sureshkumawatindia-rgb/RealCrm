@@ -4,6 +4,7 @@ const httpError = require('../utils/httpError');
 const { nextSequence } = require('../utils/counter');
 const { createWorkItemService } = require('./workItemService');
 const automationEvents = require('./automation/events');
+const ticketSla = require('./ticketSlaService');
 const { TICKET_CLOSED_STATUSES, TICKET_NUMBER_START } = require('../constants/crm');
 
 // Tickets show on Support, Customer 360 and reports, so any of those modules may read them.
@@ -25,6 +26,7 @@ function serializeTicket(ticket) {
     assigneeName: ticket.assigneeName,
     dueDate: ticket.dueDate || '',
     resolvedAt: ticket.resolvedAt || null,
+    sla: ticketSla.slaOf(ticket), // D107: the first reply's and the resolution's due times
     createdByMemberId: ticket.createdByMemberId || null,
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
@@ -65,7 +67,11 @@ const base = createWorkItemService({
       ...(query.assigneeId && { assigneeId: query.assigneeId }),
       ...(query.contactId && { contactId: query.contactId }),
     }),
-    resolve: resolveCustomer,
+    // The customer, then the SLA (D107): due times for a new ticket, a new priority, the pauses.
+    async resolve(req, ticket, body) {
+      await resolveCustomer(req, ticket, body);
+      await ticketSla.apply(req.tenant.organizationId, ticket);
+    },
     // Numbers are handed out atomically, so two people saving at once never share one.
     async beforeCreate(req, ticket) {
       ticket.number = await nextSequence(req.tenant.organizationId, 'ticket', { start: TICKET_NUMBER_START });

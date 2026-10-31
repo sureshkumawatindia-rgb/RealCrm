@@ -101,6 +101,91 @@ function customerNames() {
 }
 
 // ---------------------------------------------------------------
+// SLA (G3, D107): when the first reply and the resolution are due.
+// The server works it out (ticket.sla); the chips count down here.
+// ---------------------------------------------------------------
+const SLA_SOON_MS = 2 * 60 * 60 * 1000;
+const SLA_PRIORITIES = ["Urgent", "High", "Medium", "Low"];
+let slaSettings = null; // GET /ticket-sla; null until it loads
+const slaOn = () => slaSettings?.enabled !== false;
+
+// The part that matters now: the first reply until there is one, then the resolution.
+function slaFocus(t) {
+  if (!t.sla || !slaOn()) return null;
+  return t.sla.reply.at ? { kind: "resolve", ...t.sla.resolve } : { kind: "reply", ...t.sla.reply };
+}
+// Milliseconds left on it (below 0: late); null when the ticket is closed or waits on the customer.
+function slaLeftMs(t) {
+  const focus = slaFocus(t);
+  if (!focus || !OPEN_STATUSES.includes(t.status) || focus.state === "paused") return null;
+  return new Date(focus.dueAt).getTime() - Date.now();
+}
+// "breached": late now; "soon": due within 2 hours.
+function slaMatches(t, which) {
+  const left = slaLeftMs(t);
+  if (left === null) return false;
+  return which === "breached" ? left <= 0 : left > 0 && left <= SLA_SOON_MS;
+}
+function slaTime(ms) {
+  const minutes = Math.max(Math.round(Math.abs(ms) / 60000), 1);
+  if (minutes < 60) return crmI18n.t("sla.time.min", { n: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return minutes % 60 ? crmI18n.t("sla.time.hm", { h: hours, m: minutes % 60 }) : crmI18n.t("sla.time.h", { h: hours });
+  const days = Math.floor(hours / 24);
+  return hours % 24 ? crmI18n.t("sla.time.dh", { d: days, h: hours % 24 }) : crmI18n.t("sla.time.d", { d: days });
+}
+function formatDateTime(iso) {
+  return new Date(iso).toLocaleString(crmI18n.locale(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+}
+
+// The chip on cards and rows: time left or late, paused, met or missed.
+function slaChip(t) {
+  const focus = slaFocus(t);
+  if (!focus) return "";
+  const left = slaLeftMs(t);
+  let cls;
+  let text;
+  if (left !== null) {
+    cls = left <= 0 ? "late" : left <= SLA_SOON_MS ? "soon" : "due";
+    text = crmI18n.t(`sla.chip.${focus.kind}${left <= 0 ? "Late" : "In"}`, { time: slaTime(left) });
+  } else if (OPEN_STATUSES.includes(t.status)) {
+    cls = "paused";
+    text = crmI18n.t("sla.chip.paused");
+  } else {
+    const missed = t.sla.reply.state === "late" || t.sla.resolve.state === "late";
+    cls = missed ? "missed" : "met";
+    text = crmI18n.t(missed ? "sla.chip.missed" : "sla.chip.met");
+  }
+  const title = crmI18n.t("sla.dueBy", { time: formatDateTime(focus.dueAt) });
+  return `<span class="sla-chip ${cls}" data-sla-ticket="${escapeHtml(t.id)}" title="${escapeHtml(title)}"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i> ${escapeHtml(text)}</span>`;
+}
+
+// The ticket's window: each part's due time and how it stands.
+function renderSlaBox(ticket) {
+  const box = document.getElementById("slaBox");
+  const sla = ticket && slaOn() ? ticket.sla : null;
+  box.hidden = !sla;
+  if (!sla) return;
+  const open = OPEN_STATUSES.includes(ticket.status);
+  const line = (label, part) => {
+    let state = part.state;
+    let ms = 0;
+    if (open && (state === "due" || state === "breached")) {
+      ms = new Date(part.dueAt).getTime() - Date.now();
+      state = ms > 0 ? "due" : "breached";
+    }
+    const text = crmI18n.t(`sla.line.${state}`, { time: slaTime(ms), at: formatDateTime(part.at || part.dueAt), due: formatDateTime(part.dueAt) });
+    return `<div class="sla-line ${state}"><span class="sla-line__label">${escapeHtml(label)}</span><span class="sla-line__value">${escapeHtml(text)}</span></div>`;
+  };
+  box.innerHTML = `
+    <div class="sla-box__head"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i> ${escapeHtml(crmI18n.t("sla.box.title"))}
+      <span class="sla-box__how">· ${escapeHtml(crmI18n.t(sla.workingHours ? "sla.box.workingHours" : "sla.box.allHours"))}</span></div>
+    ${line(crmI18n.t("sla.box.reply"), sla.reply)}
+    ${line(crmI18n.t("sla.box.resolve"), sla.resolve)}
+    ${sla.reply.at ? "" : `<div class="sla-box__hint">${escapeHtml(crmI18n.t("sla.box.firstReplyHint"))}</div>`}`;
+}
+
+// ---------------------------------------------------------------
 // Filters
 // ---------------------------------------------------------------
 function getFilteredTickets() {
@@ -111,6 +196,7 @@ function getFilteredTickets() {
   const priority = document.getElementById("filterPriority").value;
   const category = document.getElementById("filterCategory").value;
   const assignee = document.getElementById("filterAssignee").value;
+  const sla = document.getElementById("filterSla").value;
 
   return getTickets().filter((t) => {
     if (q) {
@@ -122,6 +208,7 @@ function getFilteredTickets() {
     if (priority !== "all" && t.priority !== priority) return false;
     if (category !== "all" && t.category !== category) return false;
     if (assignee !== "all" && t.assignee !== assignee) return false;
+    if (sla !== "all" && !slaMatches(t, sla)) return false;
     return true;
   });
 }
@@ -161,6 +248,10 @@ function renderKpis() {
       value: resolvedThisMonth.length,
       cls: "success",
     },
+    // Open tickets past their SLA's first reply or resolution time (D107).
+    ...(slaOn() && tickets.some((t) => t.sla)
+      ? [{ label: crmI18n.t("sla.filter.breached"), value: tickets.filter((t) => slaMatches(t, "breached")).length, cls: "danger" }]
+      : []),
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
@@ -235,6 +326,7 @@ function ticketCardHtml(t) {
       }
       <div class="ticket-card__tags">
         <span class="ticket-tag">${escapeHtml(crmLabel("ticketCategory", t.category || "General"))}</span>
+        ${slaChip(t)}
       </div>
       <div class="ticket-card__foot">
         <div class="ticket-card__assignee">
@@ -336,6 +428,7 @@ function renderTable() {
     return;
   }
 
+  const withSla = slaOn() && tickets.some((t) => t.sla);
   wrap.innerHTML = `
     <table>
       <thead>
@@ -345,6 +438,7 @@ function renderTable() {
           <th>${escapeHtml(crmI18n.t("orders.customer"))}</th>
           <th>${escapeHtml(crmI18n.t("tasks.priority"))}</th>
           <th>${escapeHtml(crmI18n.t("col.status"))}</th>
+          ${withSla ? `<th>${escapeHtml(crmI18n.t("sla.col"))}</th>` : ""}
           <th>${escapeHtml(crmI18n.t("sup.col.assignee"))}</th>
           <th>${escapeHtml(crmI18n.t("tasks.due-date"))}</th>
           <th></th>
@@ -360,6 +454,7 @@ function renderTable() {
             <td>${escapeHtml(t.customer || "—")}</td>
             <td><span class="badge ${PRIORITY_BADGE_CLASS[t.priority]}">${escapeHtml(crmLabel("priority", t.priority))}</span></td>
             <td><span class="badge ${STATUS_BADGE_CLASS[t.status]}">${escapeHtml(crmLabel("ticketStatus", t.status))}</span></td>
+            ${withSla ? `<td>${slaChip(t) || "—"}</td>` : ""}
             <td>${escapeHtml(t.assignee || "—")}</td>
             <td>${t.dueDate ? formatDate(t.dueDate) : "—"}</td>
             <td>
@@ -425,19 +520,16 @@ function renderAgentsTab() {
 }
 
 // ---------------------------------------------------------------
-// Right panel — Overdue queue
+// Right panel — Overdue queue: past their due date, or past the SLA's
+// first reply or resolution time (D107; those first, the latest on top)
 // ---------------------------------------------------------------
 function renderOverdueTab() {
   const today = todayStr();
   const overdue = getTickets()
-    .filter(
-      (t) =>
-        t.dueDate &&
-        t.dueDate < today &&
-        t.status !== "Resolved" &&
-        t.status !== "Closed",
-    )
-    .sort((a, b) => (a.dueDate > b.dueDate ? 1 : -1));
+    .filter((t) => OPEN_STATUSES.includes(t.status))
+    .map((t) => ({ t, slaMs: slaMatches(t, "breached") ? slaLeftMs(t) : null }))
+    .filter(({ t, slaMs }) => slaMs !== null || (t.dueDate && t.dueDate < today))
+    .sort((a, b) => (a.slaMs ?? Infinity) - (b.slaMs ?? Infinity) || (a.t.dueDate > b.t.dueDate ? 1 : -1));
 
   const el = document.getElementById("overdueTabContent");
   if (!overdue.length) {
@@ -446,16 +538,19 @@ function renderOverdueTab() {
   }
 
   el.innerHTML = overdue
-    .map(
-      (t) => `
+    .map(({ t, slaMs }) => {
+      const why = slaMs !== null
+        ? crmI18n.t(`sla.chip.${slaFocus(t).kind}Late`, { time: slaTime(slaMs) })
+        : crmI18n.t("sup.dueOn", { date: formatDate(t.dueDate) });
+      return `
         <div class="overdue-row" data-id="${t.id}">
           <span class="dot"></span>
           <div class="info">
             <div class="name">#${t.number} · ${escapeHtml(t.subject)}</div>
-            <div class="sub">${escapeHtml(crmI18n.t("sup.dueOn", { date: formatDate(t.dueDate) }))}${t.assignee ? " · " + escapeHtml(t.assignee) : ""}</div>
+            <div class="sub">${escapeHtml(why)}${t.assignee ? " · " + escapeHtml(t.assignee) : ""}</div>
           </div>
-        </div>`,
-    )
+        </div>`;
+    })
     .join("");
 
   el.querySelectorAll(".overdue-row").forEach((row) =>
@@ -585,6 +680,7 @@ function openModal(id) {
     timelineSection.style.display = "block";
     renderTimeline(null);
     loadTimeline(ticket.id);
+    renderSlaBox(ticket);
   } else {
     document.getElementById("modalTitle").textContent = crmI18n.t("sup.new-ticket");
     document.getElementById("editId").value = "";
@@ -594,6 +690,7 @@ function openModal(id) {
     setAssigneeValue("", "");
     deleteBtn.style.display = "none";
     timelineSection.style.display = "none";
+    renderSlaBox(null);
   }
 
   overlay.classList.add("open");
@@ -651,6 +748,19 @@ async function addNoteToTicket() {
   input.value = "";
   showToast(crmI18n.t("c360.noteAdded"), "success");
   await loadTimeline(id);
+  // The first note is the ticket's first reply (D107): its SLA changes.
+  const ticket = getTicket(id);
+  if (ticket?.sla && !ticket.sla.reply.at) await refreshTicket(id);
+}
+
+async function refreshTicket(id) {
+  try {
+    cacheUpsert("tickets", await crmApi(`/tickets/${id}`));
+  } catch {
+    return; // right again on the next load
+  }
+  if (document.getElementById("editId").value === String(id)) renderSlaBox(getTicket(id));
+  renderAll();
 }
 
 function confirmDelete(id) {
@@ -685,6 +795,7 @@ function renderAll() {
 initSidebarToggle();
 crmReady(["tickets", "contacts", "members"], () => {
   renderAll();
+  loadSlaSettings(); // D107: the SLA filter and, for owners and admins, its settings
   openFromAddress((id) => {
     if (!getTickets().some((t) => t.id === id)) return false;
     openModal(id);
@@ -699,6 +810,7 @@ initKanbanStageButtons();
   "filterPriority",
   "filterCategory",
   "filterAssignee",
+  "filterSla",
 ].forEach((id) => {
   const el = document.getElementById(id);
   el.addEventListener("input", () => {
@@ -723,6 +835,7 @@ document.getElementById("clearFiltersBtn").addEventListener("click", () => {
   document.getElementById("filterPriority").value = "all";
   document.getElementById("filterCategory").value = "all";
   document.getElementById("filterAssignee").value = "all";
+  document.getElementById("filterSla").value = "all";
   activeStageFilter = null;
   document
     .querySelectorAll(".nav-bar-kanban-card button")
@@ -824,3 +937,108 @@ document.getElementById("ticketForm").addEventListener("submit", async (e) => {
   closeModal();
   renderAll();
 });
+
+// ---------------------------------------------------------------
+// SLA settings (D107): everyone sees the SLA; owners and admins set
+// the hours by priority in a window
+// ---------------------------------------------------------------
+function showSlaFilter() {
+  const filter = document.getElementById("filterSla");
+  filter.hidden = !slaOn();
+  if (!slaOn()) filter.value = "all";
+}
+async function loadSlaSettings() {
+  try {
+    slaSettings = await crmApi("/ticket-sla");
+  } catch {
+    return; // the tickets still show their SLA; the filter and the button stay hidden
+  }
+  showSlaFilter();
+  document.getElementById("slaBtn").hidden = !isOrgManager();
+  renderAll();
+}
+
+const hoursOf = (minutes) => String(Math.round((minutes / 60) * 100) / 100);
+// "Mon–Sat", or the days one by one when they are not in a row.
+function daysText(days) {
+  const sorted = [...days].sort((a, b) => a - b);
+  const name = (d) => new Date(Date.UTC(2026, 10, 1 + d)).toLocaleDateString(crmI18n.locale(), { weekday: "short", timeZone: "UTC" }); // 1 Nov 2026: a Sunday
+  const inARow = sorted.length > 2 && sorted.every((d, i) => i === 0 || d === sorted[i - 1] + 1);
+  return inARow ? `${name(sorted[0])}–${name(sorted[sorted.length - 1])}` : sorted.map(name).join(", ");
+}
+
+function openSlaSettings() {
+  if (!slaSettings) return;
+  const { businessHours: hours, limits } = slaSettings;
+  document.getElementById("slaEnabled").checked = slaSettings.enabled;
+  document.getElementById("slaWorkingHours").checked = slaSettings.workingHoursOnly;
+  const hoursText = hours.days.length
+    ? crmI18n.t("sla.set.hours", { days: daysText(hours.days), start: hours.start, end: hours.end })
+    : crmI18n.t("sla.set.noHours");
+  document.getElementById("slaHoursNote").innerHTML = `${escapeHtml(hoursText)} <a href="Settings.html?tab=leadrules">${escapeHtml(crmI18n.t("sla.set.hoursLink"))}</a>`;
+  const input = (priority, part) =>
+    `<input type="number" min="0.1" max="2160" step="any" inputmode="decimal" data-priority="${priority}" data-part="${part}" value="${hoursOf(limits[priority][part])}" aria-label="${escapeHtml(`${crmLabel("priority", priority)}: ${crmI18n.t(part === "reply" ? "sla.set.reply" : "sla.set.resolve")}`)}" />`;
+  document.getElementById("slaLimits").innerHTML = SLA_PRIORITIES.map((p) => `
+    <tr>
+      <td><span class="badge ${PRIORITY_BADGE_CLASS[p]}">${escapeHtml(crmLabel("priority", p))}</span></td>
+      <td>${input(p, "reply")}</td>
+      <td>${input(p, "resolve")}</td>
+    </tr>`).join("");
+  document.getElementById("slaOverlay").classList.add("open");
+}
+function closeSlaSettings() {
+  document.getElementById("slaOverlay").classList.remove("open");
+}
+
+async function saveSlaSettings() {
+  const limits = {};
+  for (const input of document.querySelectorAll("#slaLimits input")) {
+    const hours = Number(input.value);
+    if (!input.value.trim() || !Number.isFinite(hours) || hours < 0.1 || hours > 2160) {
+      input.focus();
+      showToast(crmI18n.t("sla.set.err.range"), "error");
+      return;
+    }
+    limits[input.dataset.priority] = { ...limits[input.dataset.priority], [input.dataset.part]: Math.round(hours * 60) };
+  }
+  const wrong = SLA_PRIORITIES.find((p) => limits[p].reply > limits[p].resolve);
+  if (wrong) {
+    showToast(crmI18n.t("sla.set.err.order", { priority: crmLabel("priority", wrong) }), "error");
+    return;
+  }
+  const button = document.getElementById("slaSave");
+  button.disabled = true;
+  try {
+    slaSettings = await crmApi("/ticket-sla", jsonRequest("PATCH", {
+      enabled: document.getElementById("slaEnabled").checked,
+      workingHoursOnly: document.getElementById("slaWorkingHours").checked,
+      limits,
+    }));
+  } catch (error) {
+    showToast(apiErrorMessage(error, crmI18n.t("sla.set.err.save")), "error");
+    return;
+  } finally {
+    button.disabled = false;
+  }
+  closeSlaSettings();
+  showToast(crmI18n.t("sla.set.saved"), "success");
+  showSlaFilter();
+  renderAll();
+}
+
+document.getElementById("slaBtn").addEventListener("click", openSlaSettings);
+document.getElementById("slaClose").addEventListener("click", closeSlaSettings);
+document.getElementById("slaCancel").addEventListener("click", closeSlaSettings);
+document.getElementById("slaSave").addEventListener("click", saveSlaSettings);
+document.getElementById("slaOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "slaOverlay") closeSlaSettings();
+});
+
+// The chips count down without a reload.
+setInterval(() => {
+  if (document.hidden) return;
+  document.querySelectorAll("[data-sla-ticket]").forEach((chip) => {
+    const ticket = getTicket(chip.dataset.slaTicket);
+    if (ticket) chip.outerHTML = slaChip(ticket);
+  });
+}, 60 * 1000);

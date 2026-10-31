@@ -1,5 +1,6 @@
 const express = require('express');
 const reports = require('../services/reportService');
+const ticketSla = require('../services/ticketSlaService');
 const { authenticate } = require('../middleware/auth');
 const { requirePermission, requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -32,6 +33,11 @@ router.get('/export', can('reports'), validate({ query: schemas.export }), async
   res.type(type || 'text/csv; charset=utf-8');
   res.setHeader('Cache-Control', 'private, no-store');
   res.send(body || csv);
+});
+
+// Ticket SLA (D107): first replies and resolutions in time, by priority and by person.
+router.get('/sla', can('reports'), byRange, async (req, res) => {
+  res.json({ success: true, data: await ticketSla.report(req, req.valid.query) });
 });
 
 // The live team page (D61): owners and admins.

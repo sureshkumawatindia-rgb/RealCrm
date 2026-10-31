@@ -51,4 +51,38 @@ function nextOpening(hours, date = new Date()) {
   return date;
 }
 
-module.exports = { DEFAULT_BUSINESS_HOURS, businessHoursOf, isOpen, nextOpening, validTimeZone, minutesOf };
+// The moment the given number of working minutes after start (only time inside the working
+// hours counts; G3 ticket SLA). Without working days every minute counts.
+function addWorkingMinutes(hours, start, minutes) {
+  if (!hours.days?.length) return new Date(start.getTime() + minutes * 60 * 1000);
+  const timezone = hours.timezone || DEFAULT_BUSINESS_HOURS.timezone;
+  const end = minutesOf(hours.end);
+  let at = nextOpening(hours, start);
+  let left = minutes;
+  for (let day = 0; day < 1000 && left > 0; day += 1) {
+    const room = Math.max(end - localClock(at, timezone).minute, 0); // minutes left today
+    if (left <= room) return new Date(at.getTime() + left * 60 * 1000);
+    left -= room;
+    at = nextOpening(hours, new Date(at.getTime() + room * 60 * 1000 + 1000)); // closing time, then the next opening
+  }
+  return at;
+}
+
+// The working minutes between two moments (G3: how long a ticket waited on the customer). Without
+// working days every minute counts.
+function workingMinutesBetween(hours, from, to) {
+  if (!(to > from)) return 0;
+  if (!hours.days?.length) return Math.round((to - from) / 60000);
+  const timezone = hours.timezone || DEFAULT_BUSINESS_HOURS.timezone;
+  const end = minutesOf(hours.end);
+  let total = 0;
+  let at = nextOpening(hours, from);
+  for (let day = 0; day < 1000 && at < to; day += 1) {
+    const closing = new Date(at.getTime() + Math.max(end - localClock(at, timezone).minute, 0) * 60 * 1000);
+    total += (Math.min(to, closing) - at) / 60000;
+    at = nextOpening(hours, new Date(closing.getTime() + 1000));
+  }
+  return Math.round(total);
+}
+
+module.exports = { DEFAULT_BUSINESS_HOURS, businessHoursOf, isOpen, nextOpening, addWorkingMinutes, workingMinutesBetween, validTimeZone, minutesOf };

@@ -98,6 +98,13 @@ const organizationSchema = new mongoose.Schema(
       sendReadReceipts: { type: Boolean, default: true },
       // D103: after a chat is resolved, ask the customer "How was our service?" (off by default).
       csat: { enabled: { type: Boolean, default: false }, question: { type: String, default: '' } },
+      // G3 (D107): ticket SLA — on by default; limits by priority in minutes ({ Urgent: { reply,
+      // resolve } … }, missing = the defaults in constants/crm.js); counted in working hours.
+      ticketSla: {
+        enabled: { type: Boolean, default: true },
+        workingHoursOnly: { type: Boolean, default: true },
+        limits: { type: mongoose.Schema.Types.Mixed },
+      },
       // D76: pages the company does not use, left out of everyone's menu and search (not a
       // permission: a direct link still opens). Only HIDEABLE_MODULES; missing = every page used.
       hiddenModules: { type: [String], default: undefined },

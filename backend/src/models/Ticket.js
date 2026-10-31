@@ -23,6 +23,23 @@ const ticketSchema = new mongoose.Schema(
     assigneeName: { type: String, trim: true, default: '' },
     dueDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     resolvedAt: { type: Date },
+    // SLA (G3, D107, services/ticketSlaService.js): when the first reply and the resolution are due
+    // (set when the ticket is made, again when its priority changes), when the first reply came (a
+    // note, Waiting on Customer, or resolving it) and when each was missed (the alerts, once each).
+    // Waiting on the customer, Resolved or Closed stops the resolution's clock (pausedAt); when it
+    // runs again the due time moves on by the minutes waited (pausedMinutes, on the SLA's clock).
+    // workingHours: counted in the company's working hours. None on tickets made before the SLA or
+    // while it was switched off.
+    sla: {
+      replyDueAt: { type: Date },
+      resolveDueAt: { type: Date },
+      firstReplyAt: { type: Date },
+      replyBreachedAt: { type: Date },
+      resolveBreachedAt: { type: Date },
+      pausedAt: { type: Date },
+      pausedMinutes: { type: Number },
+      workingHours: { type: Boolean },
+    },
     legacyIds: { type: [String], default: undefined },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdByMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
@@ -36,5 +53,8 @@ ticketSchema.index({ organizationId: 1, deletedAt: 1, status: 1, priority: 1, du
 ticketSchema.index({ organizationId: 1, assigneeId: 1, status: 1 });
 ticketSchema.index({ organizationId: 1, contactId: 1, createdAt: -1 });
 ticketSchema.index({ organizationId: 1, legacyIds: 1 });
+// The SLA check every 5 minutes (D107): open tickets whose first reply or resolution is due.
+ticketSchema.index({ status: 1, 'sla.replyDueAt': 1 });
+ticketSchema.index({ status: 1, 'sla.resolveDueAt': 1 });
 
 module.exports = mongoose.model('Ticket', ticketSchema);

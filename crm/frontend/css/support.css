@@ -683,3 +683,155 @@
   border-color: var(--brand);
   color: var(--on-brand);
 }
+
+/* ---------------------------------------------------------------
+   Ticket SLA (G3, D107): the chip on cards and rows, the box in a
+   ticket's window, the settings window
+   --------------------------------------------------------------- */
+#slaBtn[hidden] {
+  display: none;
+}
+.stat-card.danger .value {
+  color: var(--danger);
+}
+.sla-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--info-bg);
+  color: var(--info);
+}
+.sla-chip.soon {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.sla-chip.late,
+.sla-chip.missed {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.sla-chip.met {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.sla-chip.paused {
+  background: var(--bg);
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--border-soft);
+}
+.sla-box {
+  margin: 4px 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+.sla-box__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.sla-box__how {
+  font-weight: 500;
+  color: var(--text-faint);
+}
+.sla-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.sla-line__label {
+  color: var(--text-muted);
+}
+.sla-line__value {
+  font-weight: 600;
+  color: var(--text);
+}
+.sla-line.breached .sla-line__value,
+.sla-line.late .sla-line__value {
+  color: var(--danger);
+}
+.sla-line.met .sla-line__value {
+  color: var(--success-text);
+}
+.sla-line.paused .sla-line__value {
+  color: var(--text-muted);
+}
+.sla-box__hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.sla-intro,
+.sla-note {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.sla-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+.sla-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 13.5px;
+  color: var(--text);
+  cursor: pointer;
+}
+.sla-hours {
+  margin: 0 0 8px 24px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.sla-hours a {
+  color: var(--brand-darker);
+  font-weight: 600;
+  text-decoration: underline;
+}
+.sla-limits {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sla-limits th {
+  padding: 6px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-muted);
+}
+.sla-limits td {
+  padding: 5px 4px;
+}
+.sla-limits input {
+  width: 100%;
+  min-width: 64px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: var(--surface);
+}
+.sla-limits input:focus {
+  outline: none;
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}

@@ -41,6 +41,15 @@ const TICKET_STATUSES = Object.freeze(['Open', 'In Progress', 'Waiting on Custom
 const TICKET_CLOSED_STATUSES = Object.freeze(['Resolved', 'Closed']);
 const TICKET_PRIORITIES = Object.freeze(['Low', 'Medium', 'High', 'Urgent']);
 const TICKET_CATEGORIES = Object.freeze(['Technical', 'Billing', 'General', 'Feature Request', 'Bug Report']);
+// Ticket SLA (G3, D107): how long a first reply and the resolution may take by priority, in
+// minutes of the company's working hours (Settings: Urgent 1 h / 8 h, High 4 h / 18 h, Medium 8 h /
+// 45 h, Low 18 h / 90 h — about a day, two, five and ten working days to resolve).
+const TICKET_SLA_DEFAULTS = Object.freeze({
+  Urgent: Object.freeze({ reply: 60, resolve: 480 }),
+  High: Object.freeze({ reply: 240, resolve: 1080 }),
+  Medium: Object.freeze({ reply: 480, resolve: 2700 }),
+  Low: Object.freeze({ reply: 1080, resolve: 5400 }),
+});
 const TICKET_NUMBER_START = 1001;
 // Notes belong to a ticket, a contact, a campaign or a WhatsApp conversation (internal, never
 // sent to the customer). Notes on a lead are lead activities.
@@ -75,7 +84,7 @@ const BLOCKED_FILE_EXTENSIONS = Object.freeze([
 module.exports = {
   CHANNELS, LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES, QUOTATION_TYPES, ORDER_FLOW, ORDER_STAGES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
-  TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START, NOTE_PARENT_TYPES,
+  TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START, NOTE_PARENT_TYPES, TICKET_SLA_DEFAULTS,
   DOCUMENT_CATEGORIES, BLOCKED_FILE_EXTENSIONS, LEAD_IMPORT_FIELDS,
   CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
   SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,

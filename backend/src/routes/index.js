@@ -106,6 +106,7 @@ router.use('/auto-reply-rules', autoReplyRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/events', eventRoutes);
 router.use('/tickets', ticketRoutes);
+router.use('/ticket-sla', require('./ticketSla')); // D107: the ticket SLA's limits
 router.use('/documents', documentRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/workflows', workflowRoutes);

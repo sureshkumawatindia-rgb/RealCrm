@@ -28,6 +28,7 @@ const bulk = require('../services/bulkService');
 const scheduledMessages = require('../services/scheduledMessageService');
 const emails = require('../services/emailService');
 const leadScores = require('../services/leadScoreService');
+const ticketSla = require('../services/ticketSlaService');
 
 // Background jobs of the CRM. Each kind of job is defined next to the code it belongs to and
 // registered here, so the server starts every handler before the worker begins taking jobs.
@@ -42,8 +43,9 @@ const leadScores = require('../services/leadScoreService');
 // popup asks Meta for its contacts and chats (D60); owners get the evening team summary (D61);
 // bulk actions on more than 200 leads or customers run row by row (D100); "send later" texts go at
 // their time (D103); the platform's emails go through Resend (D104); open leads are scored hot,
-// warm or cold after each reply, quotation view or order, and every day (D106).
-const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register, organizationDeletion.register, whatsappConnect.register, teamSummary.register, usage.register, outlook.register, teamsChannels.register, gmailSync.register, googleCalendar.register, projects.register, backups.register, bulk.register, scheduledMessages.register, emails.register, leadScores.register];
+// warm or cold after each reply, quotation view or order, and every day (D106); tickets past their
+// SLA's first reply or resolution time are flagged every 5 minutes (D107).
+const definitions = [indiamart.register, leadWebhooks.register, leadRouting.attach, quotations.register, automation.register, sequences.register, broadcasts.register, paymentLinks.register, catalog.register, billing.register, outboundWebhooks.register, metaConversions.register, ai.register, push.register, organizationDeletion.register, whatsappConnect.register, teamSummary.register, usage.register, outlook.register, teamsChannels.register, gmailSync.register, googleCalendar.register, projects.register, backups.register, bulk.register, scheduledMessages.register, emails.register, leadScores.register, ticketSla.register];
 
 function start(config) {
   definitions.forEach((register) => register(queue));

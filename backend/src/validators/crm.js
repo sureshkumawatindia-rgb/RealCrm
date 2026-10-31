@@ -8,6 +8,11 @@ const {
   TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, DOCUMENT_CATEGORIES,
   CAMPAIGN_TYPES, CAMPAIGN_STATUSES, LEAD_IMPORT_FIELDS,
 } = require('../constants/crm');
+// Ticket SLA (D107): minutes, from 5 minutes to 90 days; the first reply cannot be due after the
+// resolution.
+const slaMinutes = Joi.number().integer().min(5).max(90 * 1440);
+const slaLimit = Joi.object({ reply: slaMinutes.required(), resolve: slaMinutes.required() })
+  .custom((value, helpers) => (value.reply <= value.resolve ? value : helpers.message('The first reply cannot be due after the resolution')));
 // The company's own fields (D73, D74): values on records, and ?cf= filters on the lists.
 const { fieldFilters, customFieldValues } = require('./customFields');
 
@@ -260,6 +265,12 @@ module.exports = {
     assigneeId: objectId,
     contactId: objectId,
   }),
+
+  ticketSla: Joi.object({
+    enabled: Joi.boolean(),
+    workingHoursOnly: Joi.boolean(),
+    limits: Joi.object(Object.fromEntries(TICKET_PRIORITIES.map((priority) => [priority, slaLimit]))),
+  }).min(1),
 
   noteCreate: Joi.object({ text: Joi.string().trim().min(1).max(5000).required() }),
 

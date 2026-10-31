@@ -4,7 +4,8 @@
  * The KPI row and the tabs come from /reports/* (counted on the server from all records):
  * Overview (trend, won/lost, lead funnel, open pipeline), Sales (quotations), Leads & Marketing
  * (sources, broadcasts; products and campaigns from the loaded records), WhatsApp & Team (agent
- * performance with reply times), Payments, Support (tickets from the loaded records).
+ * performance with reply times), Payments, Support (tickets from the loaded records; the SLA from
+ * /reports/sla, D107).
  * "Export CSV" (and "Export Excel", D82) downloads the open tab's report from /reports/export. One IIFE: no globals.
  */
 (function reportsPage() {
@@ -75,7 +76,7 @@
   // --- loading --------------------------------------------------------------------------------
   const NEEDS = {
     overview: ["overview", "trend", "sources"], sales: ["overview", "quotations"], leads: ["overview", "sources", ...(isOrgManager() ? ["broadcasts"] : [])],
-    team: ["overview", "agents"], payments: ["overview", "payments"], support: ["overview"],
+    team: ["overview", "agents"], payments: ["overview", "payments"], support: ["overview", "sla"],
   };
   async function load() {
     const seq = ++state.seq;
@@ -434,14 +435,54 @@
     bars($("ticketPriorityBars"), TICKET_PRIORITIES.map((priority) => ({ label: priority, value: opened.filter((t) => t.priority === priority).length })).filter((r) => r.value), "No ticket was opened in this period.", "fa-headset");
     const today = indiaToday();
     const isClosed = (t) => t.status === "Resolved" || t.status === "Closed";
+    // Open and past the SLA's first reply, or resolution unless it waits on the customer (D107).
+    const slaMissed = (t) => {
+      if (!t.sla || isClosed(t)) return false;
+      const part = t.sla.reply.at ? t.sla.resolve : t.sla.reply;
+      return part.state !== "paused" && new Date(part.dueAt) <= Date.now();
+    };
     const o = got("overview");
     const rows = [
       ["fa-inbox", "info", "Open tickets", "across the team", tickets.filter((t) => !isClosed(t)).length],
       ["fa-triangle-exclamation", "warning", "Overdue", "past their due date, not resolved", tickets.filter((t) => t.dueDate && t.dueDate < today && !isClosed(t)).length],
       ["fa-bolt", "warning", "Urgent and open", "need attention now", tickets.filter((t) => t.priority === "Urgent" && !isClosed(t)).length],
       ["fa-circle-check", "success", "Resolved in the period", "", o ? o.tickets.resolved : "—"],
+      ...(got("sla")?.enabled ? [["fa-stopwatch", "warning", "SLA missed", "open, past the first reply or resolve time", tickets.filter(slaMissed).length]] : []),
     ];
     $("supportSnapshot").innerHTML = rows.map(([icon, cls, name, sub, value]) => `<div class="mini-row"><span class="mini-icon ${cls}"><i class="fa-solid ${icon}"></i></span><div class="info"><div class="name">${escapeHtml(name)}</div><div class="sub">${escapeHtml(sub)}</div></div><div class="mini-right">${escapeHtml(String(value))}</div></div>`).join("");
+    renderSla();
+  }
+
+  // Ticket SLA (D107): of the tickets opened in the period, the first replies and resolutions in
+  // time (met %: of those done or missed; tickets with time left are not counted yet).
+  function renderSla() {
+    const s = got("sla");
+    if (!s) return;
+    const inTime = (part) => (part.metPct == null ? "—" : pctText(part.metPct));
+    const decided = (part) => part.met + part.late + part.breached;
+    const missedOpen = (b) => b.reply.breached + b.resolve.breached;
+    const medianText = (minutes) => (minutes == null ? "—" : minutes < 1 ? "< 1 min" : duration(minutes * 60));
+    $("slaNote").textContent = !s.enabled
+      ? "switched off for new tickets (Support → SLA)"
+      : `tickets opened in the period · ${s.workingHoursOnly ? "working hours" : "every hour counts"}`;
+    $("slaPeoplePanel").hidden = !s.total.tickets;
+    if (!s.total.tickets) {
+      $("slaKpis").innerHTML = "";
+      $("slaPriorityTable").innerHTML = empty("fa-stopwatch", "No ticket with an SLA was opened in this period.");
+      return;
+    }
+    const kpi = (label, value, sub) => `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(String(value))}</div><div class="report-note">${escapeHtml(sub)}</div></div>`;
+    const t = s.total;
+    $("slaKpis").innerHTML = [
+      kpi("First reply in time", inTime(t.reply), `${t.reply.met} of ${decided(t.reply)}`),
+      kpi("Resolved in time", inTime(t.resolve), `${t.resolve.met} of ${decided(t.resolve)}`),
+      kpi("SLA missed, still open", missedOpen(t), "first replies and resolutions"),
+      kpi("First reply", medianText(t.firstReplyMedianMinutes), s.workingHoursOnly ? "median, in working time" : "median"),
+    ].join("");
+    const head = (first) => [[first], ["Tickets", 1], ["First reply in time", 1], ["Resolved in time", 1], ["Missed, open", 1], ["First reply", 1]];
+    const row = (name, b) => `<tr><td>${name}</td>${cell(b.tickets)}${cell(inTime(b.reply), `${b.reply.met} of ${decided(b.reply)}`)}${cell(inTime(b.resolve), `${b.resolve.met} of ${decided(b.resolve)}`)}${cell(missedOpen(b))}${cell(medianText(b.firstReplyMedianMinutes))}</tr>`;
+    $("slaPriorityTable").innerHTML = table(head("Priority"), s.byPriority.filter((p) => p.tickets).map((p) => row(escapeHtml(p.priority), p)));
+    $("slaPeopleTable").innerHTML = table(head("Agent"), s.byMember.map((m) => row(m.memberId ? escapeHtml(m.name) : "Not assigned", m)));
   }
 
   function render() {

@@ -574,3 +574,7 @@
 .attr-note {
   margin: 0 16px 8px;
 }
+/* Ticket SLA (D107): its figures sit in the Support grid */
+.report-grid > .report-mini-kpis {
+  margin-bottom: 0;
+}

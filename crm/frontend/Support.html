@@ -187,6 +187,11 @@
               <select class="filter" id="filterAssignee">
                 <option value="all" data-i18n="tasks.all-agents">All Agents</option>
               </select>
+              <select class="filter" id="filterSla" hidden>
+                <option value="all" data-i18n="sla.filter.all">All SLA</option>
+                <option value="breached" data-i18n="sla.filter.breached">SLA missed</option>
+                <option value="soon" data-i18n="sla.filter.soon">SLA due within 2 h</option>
+              </select>
               <button class="link-clear" id="clearFiltersBtn" data-i18n="deals.clear-filters">Clear filters</button>
             </div>
             <div style="display: flex; gap: 10px; margin-left: auto">
@@ -196,6 +201,8 @@
                 <button id="viewTableBtn">
                   <i class="fa-solid fa-list"></i> <span data-i18n="deals.table">Table</span></button>
               </div>
+              <button class="btn btn-outline" id="slaBtn" type="button" hidden>
+                <i class="fa-solid fa-stopwatch"></i> <span data-i18n="sla.button">SLA</span></button>
               <button class="btn btn-primary" id="addBtn">
                 <i class="fa-solid fa-plus"></i> <span data-i18n="sup.new-ticket">New Ticket</span></button>
             </div>
@@ -342,6 +349,8 @@
               ></textarea>
             </div>
 
+            <div id="slaBox" class="sla-box" hidden></div>
+
             <div id="timelineSection" style="display: none">
               <hr class="timeline-divider" />
               <label
@@ -383,6 +392,39 @@
             type="submit"
             form="ticketForm"
            data-i18n="sup.save-ticket">Save Ticket</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TICKET SLA SETTINGS (owners and admins, D107) -->
+    <div class="modal-overlay" id="slaOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 data-i18n="sla.set.title">Ticket SLA</h3>
+          <button class="icon-btn" id="slaClose" type="button" aria-label="Close" data-i18n-aria-label="common.close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="sla-intro" data-i18n="sla.set.intro">How soon each ticket should get its first reply and be resolved, by priority.</p>
+          <label class="sla-switch"><input type="checkbox" id="slaEnabled" /> <span data-i18n="sla.set.enabled">Use the SLA on new tickets</span></label>
+          <label class="sla-switch"><input type="checkbox" id="slaWorkingHours" /> <span data-i18n="sla.set.workingHours">Count only working hours</span></label>
+          <div class="sla-hours" id="slaHoursNote"></div>
+          <table class="sla-limits">
+            <thead>
+              <tr>
+                <th data-i18n="tasks.priority">Priority</th>
+                <th data-i18n="sla.set.reply">First reply within (hours)</th>
+                <th data-i18n="sla.set.resolve">Resolve within (hours)</th>
+              </tr>
+            </thead>
+            <tbody id="slaLimits"></tbody>
+          </table>
+          <p class="sla-note" data-i18n="sla.set.note">“Waiting on Customer” pauses the resolution time, and so does “Resolved” until the ticket is reopened.</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="slaCancel" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" id="slaSave" type="button" data-i18n="common.save">Save</button>
         </div>
       </div>
     </div>
