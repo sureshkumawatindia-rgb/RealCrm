@@ -61,6 +61,9 @@ const WORKFLOW_ACTIONS = Object.freeze(['Create Task', 'Send Email (simulated)',
 const SEQUENCE_TARGETS = Object.freeze(['Leads', 'Deals', 'Customers']);
 const SEQUENCE_STEP_TYPES = Object.freeze(['Email', 'Call', 'Task', 'Wait']);
 
+// The columns a leads file can fill (G1, D105): the customer, then the lead.
+const LEAD_IMPORT_FIELDS = Object.freeze(['name', 'phone', 'email', 'company', 'city', 'state', 'tags', 'title', 'stage', 'owner', 'value', 'source', 'closeDate', 'notes', 'lostReason']);
+
 // Documents (same categories the Documents page shows). Programs and scripts are refused:
 // a CRM is no place to pass them around, even though downloads never run in the browser.
 const DOCUMENT_CATEGORIES = Object.freeze(['Contract', 'Invoice', 'Proposal', 'Report', 'Template', 'Other']);
@@ -73,7 +76,7 @@ module.exports = {
   CHANNELS, LEAD_STAGES, OPEN_STAGES, STAGE_PROBABILITY, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES, QUOTATION_STATUSES, QUOTATION_TYPES, ORDER_FLOW, ORDER_STAGES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_CLOSED_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_NUMBER_START, NOTE_PARENT_TYPES,
-  DOCUMENT_CATEGORIES, BLOCKED_FILE_EXTENSIONS,
+  DOCUMENT_CATEGORIES, BLOCKED_FILE_EXTENSIONS, LEAD_IMPORT_FIELDS,
   CAMPAIGN_TYPES, CAMPAIGN_STATUSES, AUTOMATION_STATUSES, WORKFLOW_TRIGGERS, WORKFLOW_ACTIONS,
   SEQUENCE_TARGETS, SEQUENCE_STEP_TYPES,
 };

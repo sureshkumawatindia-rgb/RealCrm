@@ -269,6 +269,8 @@
               </select>
               <button class="btn btn-outline" id="awaitingBtn" type="button" title="Leads whose quotation got no reply" data-i18n-title="leads.leads-whose-quotation-got-no-reply">
                 <i class="fa-solid fa-hourglass-half"></i> <span data-i18n="leads.quote-sent-no-reply">Quote sent, no reply</span></button>
+              <button class="btn btn-outline" id="leadImportBtn" type="button">
+                <i class="fa-solid fa-file-import"></i> <span data-i18n="xl.import.button">Import</span></button>
               <button class="btn btn-outline" id="exportBtn" type="button" hidden>
                 <i class="fa-solid fa-file-excel"></i> <span data-i18n="xl.download">Download Excel</span></button>
               <button class="btn btn-primary" id="addBtn">
@@ -512,9 +514,68 @@
     </div>
     <div class="toast-stack" id="toast-stack"></div>
 
+    <!-- Import leads from an Excel or CSV file (G1, D105, js/leads-import.js) -->
+    <div class="modal-overlay" id="leadImportOverlay">
+      <div class="modal modal--wide" role="dialog" aria-modal="true" aria-labelledby="leadImportTitle">
+        <div class="modal-head">
+          <h3 id="leadImportTitle" data-i18n="leadImport.title">Import leads</h3>
+          <button class="icon-btn" id="leadImportClose" type="button" aria-label="Close" data-i18n-aria-label="common.close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label for="leadImportFile" data-i18n="leadImport.label">Excel (.xlsx) or CSV file (up to 5,000 leads)</label>
+            <input type="file" id="leadImportFile" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            <p class="import-hint" data-i18n="leadImport.hint">Each row is one lead. The first sheet of an Excel file is read; mobile numbers without +91 are taken as Indian. A stage can be New, Contacted, Quote Sent, Negotiation, Won or Lost (or your pipeline's own stage names), an owner a teammate's email or name, and a value 1,20,000 or 1.2 lakh.</p>
+          </div>
+          <div id="leadImportMapping" hidden>
+            <p class="import-hint" id="leadImportCount"></p>
+            <div class="import-table-wrap"><table id="leadImportPreview"></table></div>
+            <div class="field-row">
+              <div class="field" id="leadImportPipelineField" hidden>
+                <label for="leadImportPipeline" data-i18n="leadImport.pipeline">Pipeline</label>
+                <select id="leadImportPipeline"></select>
+              </div>
+              <div class="field">
+                <label for="leadImportOpen" data-i18n="leadImport.openLeads">When the customer already has an open lead</label>
+                <select id="leadImportOpen">
+                  <option value="skip" data-i18n="leadImport.open.skip">Skip the row</option>
+                  <option value="add" data-i18n="leadImport.open.add">Add another lead</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field" id="leadImportOwnerField">
+                <label for="leadImportOwner" data-i18n="leadImport.unknownOwner">When the owner is not in the team</label>
+                <select id="leadImportOwner">
+                  <option value="me" data-i18n="leadImport.owner.me">Give the lead to me</option>
+                  <option value="none" data-i18n="leadImport.owner.none">Leave it without an owner</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="leadImportTags" data-i18n="leadImport.tags">Tag the customers with</label>
+                <input type="text" id="leadImportTags" maxlength="300" placeholder="e.g. Expo 2026" data-i18n-placeholder="customers.e-g-expo-2026" />
+              </div>
+            </div>
+            <p class="import-hint" id="leadImportYours" hidden data-i18n="leadImport.ownersYours">The leads will be yours (only owners and admins give leads to others).</p>
+            <label class="import-check"><input type="checkbox" id="leadImportAutomations" /> <span data-i18n="leadImport.automations">Run automations too (workflows, welcome messages) for these leads</span></label>
+            <p class="import-hint" data-i18n="leadImport.automationsHint">Off: the leads are only added. On: every workflow that starts on a new lead runs for each one, and may send WhatsApp messages.</p>
+            <div id="leadImportReport" class="import-report" hidden></div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-outline" id="leadImportCancel" type="button" data-i18n="common.close">Close</button>
+          <button class="btn btn-outline" id="leadImportCheck" type="button" disabled data-i18n="customers.check-first">Check first</button>
+          <button class="btn btn-primary" id="leadImportRun" type="button" disabled data-i18n="customers.import">Import</button>
+        </div>
+      </div>
+    </div>
+
     <script src="./js/app.js"></script>
     <script src="./js/custom-fields.js"></script>
     <script src="./js/bulk-bar.js"></script>
     <script src="./js/leads.js"></script>
+    <script src="./js/leads-import.js"></script>
   </body>
 </html>

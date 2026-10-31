@@ -6,7 +6,7 @@ const {
   LEAD_STAGES, LEAD_SOURCES, CONTACT_LIFECYCLES, CONTACT_STATUSES,
   TASK_STATUSES, TASK_PRIORITIES, TASK_ORIGINS, EVENT_TYPES, RELATED_TYPES,
   TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES, DOCUMENT_CATEGORIES,
-  CAMPAIGN_TYPES, CAMPAIGN_STATUSES,
+  CAMPAIGN_TYPES, CAMPAIGN_STATUSES, LEAD_IMPORT_FIELDS,
 } = require('../constants/crm');
 // The company's own fields (D73, D74): values on records, and ?cf= filters on the lists.
 const { fieldFilters, customFieldValues } = require('./customFields');
@@ -168,6 +168,20 @@ module.exports = {
   }),
   productList: Joi.object({ ...listBase, category: Joi.string().trim().max(100), active: Joi.boolean() }),
 
+  // G1 (D105): the leads import form arrives as multipart fields (strings); mapping is a JSON
+  // list, one target per column: a lead field, "cf:<key>" for the company's own lead fields, or ''.
+  leadImport: Joi.object({
+    mapping: Joi.array().items(Joi.alternatives().try(
+      Joi.string().valid('', ...LEAD_IMPORT_FIELDS),
+      Joi.string().pattern(/^cf:[a-z][a-z0-9_]{1,39}$/),
+    )).min(1).max(200).required(),
+    pipelineId: objectId.allow(''),
+    ownerFallback: Joi.string().valid('me', 'none').default('me'),
+    openLeads: Joi.string().valid('skip', 'add').default('skip'),
+    tags: Joi.array().items(Joi.string().trim().min(1).max(50)).max(20).default([]),
+    runAutomations: Joi.boolean().default(false),
+    dryRun: Joi.boolean().default(false),
+  }),
   leadCreate: Joi.object({
     ...leadFields,
     pipelineId: objectId, // D84: else the default pipeline

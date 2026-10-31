@@ -1,6 +1,9 @@
 const express = require('express');
+const multer = require('multer');
 const crudController = require('../controllers/crudController');
 const leadService = require('../services/leadService');
+const leadImportService = require('../services/leadImportService');
+const httpError = require('../utils/httpError');
 const projectService = require('../services/projectService');
 const projectSchemas = require('../validators/projects');
 const quotationService = require('../services/quotationService');
@@ -19,6 +22,35 @@ const byId = validate({ params: idParams });
 
 router.use(authenticate);
 router.get('/', can('view'), validate({ query: schemas.leadList }), controller.list);
+// G1 (D105): leads from a CSV or Excel file — preview the columns, then import with the chosen
+// mapping (dryRun = check first). One file of up to 5 MB in the "file" field.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 20 } }).single('file');
+const importOptions = (body) => {
+  let mapping;
+  try {
+    mapping = JSON.parse(body.mapping || '[]');
+  } catch {
+    mapping = null;
+  }
+  const { error, value } = schemas.leadImport.validate({
+    mapping,
+    pipelineId: body.pipelineId || undefined,
+    ownerFallback: body.ownerFallback || undefined,
+    openLeads: body.openLeads || undefined,
+    tags: String(body.tags || '').split(',').map((t) => t.trim()).filter(Boolean),
+    runAutomations: body.runAutomations === 'true',
+    dryRun: body.dryRun === 'true',
+  }, { abortEarly: true });
+  if (error) throw httpError(400, 'VALIDATION_ERROR', error.message.replace(/"/g, ''));
+  return value;
+};
+router.post('/import/preview', can('create'), upload, async (req, res) => {
+  res.json({ success: true, data: await leadImportService.preview(req, req.file) });
+});
+router.post('/import', can('create'), upload, async (req, res) => {
+  const report = await leadImportService.run(req, req.file, importOptions(req.body));
+  res.json({ success: true, data: report, message: report.dryRun ? 'Checked: nothing was saved' : `${report.created} leads added` });
+});
 // Download Excel (D82): the list as on screen, for owners and admins (audited).
 router.get('/export', requireRole('owner', 'admin'), validate({ query: schemas.leadExport }), async (req, res) => {
   const { fileName, type, body } = await tableExport.exportList(req, 'leads', req.valid.query);
