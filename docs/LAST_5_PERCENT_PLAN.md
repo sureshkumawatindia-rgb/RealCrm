@@ -109,7 +109,7 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
 
 **G. Optional features** (after F, one at a time, smallest first)
 1. Leads import (CSV and Excel, with stage, owner and value). — done 2026-10-31 (D105)
-2. Lead scoring: Hot / Warm / Cold from source, reply speed, quotation viewed and orders.
+2. Lead scoring: Hot / Warm / Cold from source, reply speed, quotation viewed and orders. — done 2026-10-31 (D106)
 3. Ticket SLA: reply and resolve limits by priority, alerts on breach, a report.
 4. Google Sheets sync: new leads or orders added to a sheet (on the existing Google connection).
 5. Tally export: invoices and receipts as Tally import XML (needs C).

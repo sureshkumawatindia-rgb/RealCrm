@@ -267,6 +267,13 @@
                 <option value="Won" data-i18n="stage.Won">Won</option>
                 <option value="Lost" data-i18n="stage.Lost">Lost</option>
               </select>
+              <!-- How warm the lead is (G2, D106) -->
+              <select class="filter" id="filterScore" aria-label="Score" data-i18n-aria-label="score.col">
+                <option value="all" data-i18n="score.filter.all">All scores</option>
+                <option value="hot" data-i18n="score.band.hot">Hot</option>
+                <option value="warm" data-i18n="score.band.warm">Warm</option>
+                <option value="cold" data-i18n="score.band.cold">Cold</option>
+              </select>
               <button class="btn btn-outline" id="awaitingBtn" type="button" title="Leads whose quotation got no reply" data-i18n-title="leads.leads-whose-quotation-got-no-reply">
                 <i class="fa-solid fa-hourglass-half"></i> <span data-i18n="leads.quote-sent-no-reply">Quote sent, no reply</span></button>
               <button class="btn btn-outline" id="leadImportBtn" type="button">
@@ -333,6 +340,8 @@
           </button>
         </div>
         <div class="modal-body">
+          <!-- How warm this lead is and why (G2, D106) -->
+          <div class="lead-score-panel" id="leadScorePanel" hidden></div>
           <form id="leadForm">
             <input type="hidden" id="editId" />
             <div class="field">

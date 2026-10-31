@@ -293,3 +293,5 @@ D103 elsewhere: `contacts.blocked` { at, byMemberId, byName, reason, onWhatsApp 
 D104 elsewhere: `organizations.deletion.remindedAt` (the "deleted tomorrow" email went out); `users.loginAlertEmails` (default true: the new-login alert is also emailed). The platform admins are the emails in `PLATFORM_ADMIN_EMAILS` (nothing stored).
 
 D105 (leads import, nothing new stored): imported leads are ordinary `leads` with `source` from the file (else Import), their first move in `leadstageevents` (source create) and a `leadactivities` entry "Imported from <file>" with `meta.import: true`; new customers are `contacts` with lifecycle lead (customer when a lead was Won).
+
+D106: `leads.score` { points (0–100), band (hot/warm/cold), reasons [{ code, points, params }], at } — how warm an open lead is (services/leadScoreService.js); none on closed leads. Written straight to the collection, so a new score changes neither `updatedAt` nor `version`. Index `(stage, score.at)` for the sweep.

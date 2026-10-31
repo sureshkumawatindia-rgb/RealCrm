@@ -306,6 +306,10 @@ function openModal(lead = null) {
   document.getElementById("leadQuoteBtn").hidden = !lead;
   document.getElementById("leadQuoteHint").hidden = !lead;
   cfMount(document.getElementById("leadCustomFields"), "lead", lead?.customFields, lead?.customFieldLinks);
+  // How warm it is and why (G2, D106): open leads that have been scored.
+  const scorePanel = document.getElementById("leadScorePanel");
+  scorePanel.innerHTML = crmLeadScore.panel(lead?.score);
+  scorePanel.hidden = !lead?.score;
   modalOverlay.classList.add("open");
 }
 function closeModal() {
@@ -740,6 +744,7 @@ const leadsBulk = crmBulkBar({
 function renderTable() {
   const searchTerm = document.getElementById("searchInput").value.toLowerCase();
   const statusFilter = document.getElementById("filterStatus").value;
+  const scoreFilter = document.getElementById("filterScore").value; // G2 (D106)
   const container = document.getElementById("leadsTable");
   const fields = cfFields("lead");
   const columns = cfListColumns(fields);
@@ -753,7 +758,8 @@ function renderTable() {
       (l.title || "").toLowerCase().includes(searchTerm) ||
       cfSearchText(fields, l.customFields).includes(searchTerm);
     const matchesStatus = statusFilter === "all" || l.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesScore = scoreFilter === "all" || l.score?.band === scoreFilter;
+    return matchesSearch && matchesStatus && matchesScore;
   });
   const filtered = cfApplyFilters(searched, leadFieldFilters.filters(), fields);
 
@@ -765,7 +771,7 @@ function renderTable() {
 
   container.innerHTML = `
     <table>
-      <thead><tr>${leadsBulk.head()}<th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("leads.col.source"))}</th><th>${escapeHtml(t("leads.col.owner"))}</th><th>${escapeHtml(t("col.status"))}</th><th>${escapeHtml(t("col.value"))}</th><th>${escapeHtml(t("leads.col.followUp"))}</th>${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}<th></th></tr></thead>
+      <thead><tr>${leadsBulk.head()}<th>${escapeHtml(t("col.name"))}</th><th>${escapeHtml(t("col.company"))}</th><th>${escapeHtml(t("leads.email"))}</th><th>${escapeHtml(t("col.product"))}</th><th>${escapeHtml(t("leads.col.source"))}</th><th>${escapeHtml(t("leads.col.owner"))}</th><th>${escapeHtml(t("col.status"))}</th><th>${escapeHtml(t("score.col"))}</th><th>${escapeHtml(t("col.value"))}</th><th>${escapeHtml(t("leads.col.followUp"))}</th>${columns.map((field) => `<th>${escapeHtml(field.label)}</th>`).join("")}<th></th></tr></thead>
       <tbody>
         ${filtered
           .map((l) => {
@@ -782,6 +788,7 @@ function renderTable() {
             <td><span class="badge badge-neutral">${escapeHtml(crmLabel("source", l.source || "Manual"))}</span></td>
             <td>${l.owner ? escapeHtml(l.owner) : `<span class="text-muted">${escapeHtml(t("dash.unassigned"))}</span>`}</td>
             <td class="inline-edit-cell" data-field="status">${statusBadge(l.status)}</td>
+            <td>${crmLeadScore.badge(l.score) || '<span class="text-muted">—</span>'}</td>
             <td class="inline-edit-cell" data-field="value">${l.value ? "₹" + Number(l.value).toLocaleString(crmI18n.locale()) : "—"}</td>
             <td class="inline-edit-cell" data-field="followUp">${l.followUp || "—"}</td>
             ${columns.map((field) => `<td>${escapeHtml(cfDisplayValue(field, l.customFields?.[field.key], l.customFieldLinks?.[field.key])) || "—"}</td>`).join("")}
@@ -834,6 +841,7 @@ function renderTable() {
 
 document.getElementById("searchInput").addEventListener("input", renderTable);
 document.getElementById("filterStatus").addEventListener("change", renderTable);
+document.getElementById("filterScore").addEventListener("change", renderTable);
 
 crmReady(["leads", "products", "members"], () => {
   renderProductOptions();

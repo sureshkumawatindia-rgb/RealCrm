@@ -643,6 +643,32 @@ function crmLabel(group, value) {
   return crmI18n.has(key) ? t(key) : value;
 }
 
+// How warm an open lead is (G2, D106): its badge (hot, warm or cold, with the points) and the
+// reasons in the person's language (codes from services/leadScoreService.js).
+const crmLeadScore = (() => {
+  const ICONS = { hot: "fa-fire", warm: "fa-temperature-half", cold: "fa-snowflake" };
+  function reasonText(reason) {
+    const params = { ...(reason.params || {}) };
+    if (params.stage) params.stage = crmLabel("stage", params.stage);
+    if (params.source) params.source = crmLabel("source", params.source);
+    return t(`score.r.${reason.code}`, params);
+  }
+  const signed = (points) => `${points > 0 ? "+" : "−"}${Math.abs(points)}`;
+  const reasonsText = (score) => (score?.reasons || []).map((r) => `${signed(r.points)} ${reasonText(r)}`).join(" · ");
+  function badge(score, { points = true } = {}) {
+    if (!score?.band) return "";
+    const why = reasonsText(score);
+    return `<span class="score-badge ${escapeHtml(score.band)}"${why ? ` title="${escapeHtml(why)}"` : ""}><i class="fa-solid ${ICONS[score.band] || "fa-circle"}" aria-hidden="true"></i> ${escapeHtml(t(`score.band.${score.band}`))}${points ? ` ${escapeHtml(String(score.points))}` : ""}</span>`;
+  }
+  // The lead's window: the badge, then each reason with its points.
+  function panel(score) {
+    if (!score?.band) return "";
+    const rows = (score.reasons || []).map((r) => `<li class="${r.points > 0 ? "up" : "down"}"><span class="pts">${escapeHtml(signed(r.points))}</span> ${escapeHtml(reasonText(r))}</li>`).join("");
+    return `<div class="lead-score-head">${badge(score)} <span class="text-muted">${escapeHtml(t("score.how"))}</span></div>${rows ? `<ul class="lead-score-why">${rows}</ul>` : ""}`;
+  }
+  return { badge, panel, reasonText, reasonsText };
+})();
+
 // Asks why a lead was lost (required by the server). Returns null when cancelled.
 function askLostReason(name) {
   const reason = window.prompt(t("lost.prompt", { name }));

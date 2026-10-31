@@ -62,6 +62,8 @@ function serializeLead(lead, keys, links) {
     // Where it came from (D79): the first enquiry's touch and the latest one.
     attribution: lead.attribution?.first?.channel || lead.attribution?.last?.channel ? { first: touchOf(lead.attribution.first), last: touchOf(lead.attribution.last) } : null,
     lastActivityAt: lead.lastActivityAt || null,
+    // Hot / warm / cold and why (G2, D106); null for a closed lead or one not scored yet.
+    score: lead.score?.band ? { points: lead.score.points, band: lead.score.band, reasons: lead.score.reasons || [], at: lead.score.at || null } : null,
     version: lead.version,
     customFields: customFieldService.visibleValues(lead.customFields, keys),
     customFieldLinks: links?.get(String(lead._id)) || {},

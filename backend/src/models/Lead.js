@@ -50,6 +50,16 @@ const leadSchema = new mongoose.Schema(
       first: { channel: String, source: String, medium: String, campaign: String, adId: String, ad: String, at: Date },
       last: { channel: String, source: String, medium: String, campaign: String, adId: String, ad: String, at: Date },
     },
+    // How warm an open lead is (G2, D106, services/leadScoreService.js): 0–100 points, hot / warm /
+    // cold, and why (reason codes with their points and numbers, shown in the person's language).
+    // Worked out again a minute after a reply, a quotation view, an order or a stage change, and
+    // every day; a closed lead has none.
+    score: {
+      points: { type: Number, min: 0, max: 100 },
+      band: { type: String, enum: ['hot', 'warm', 'cold'] },
+      reasons: { type: [{ code: String, points: Number, params: mongoose.Schema.Types.Mixed, _id: false }], default: undefined },
+      at: { type: Date },
+    },
     version: { type: Number, default: 0 },
     // The company's own fields (D73): { key: value }, checked by services/customFieldService.js.
     customFields: { type: mongoose.Schema.Types.Mixed },
@@ -63,6 +73,7 @@ leadSchema.plugin(softDelete);
 leadSchema.index({ organizationId: 1, deletedAt: 1, stage: 1, createdAt: -1 });
 leadSchema.index({ organizationId: 1, ownerId: 1, stage: 1 });
 leadSchema.index({ organizationId: 1, followUpAt: 1 });
+leadSchema.index({ stage: 1, 'score.at': 1 }); // the scoring sweep (D106)
 leadSchema.index({ organizationId: 1, contactId: 1 });
 leadSchema.index({ organizationId: 1, legacyIds: 1 });
 leadSchema.index(

@@ -1591,6 +1591,62 @@ button {
   font-weight: 400;
 }
 
+/* How warm a lead is (G2, D106): hot, warm or cold. */
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.score-badge.hot {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.score-badge.warm {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.score-badge.cold {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.lead-score-panel {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.lead-score-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.lead-score-why {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.lead-score-why .pts {
+  display: inline-block;
+  min-width: 34px;
+  font-weight: 700;
+}
+.lead-score-why .up .pts {
+  color: var(--success);
+}
+.lead-score-why .down .pts {
+  color: var(--danger);
+}
+
 select.filter {
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);

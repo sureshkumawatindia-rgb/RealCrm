@@ -1408,7 +1408,7 @@ crmI18n.ready.then(function inbox() {
             <div class="ctx-item">
               <div class="ctx-main">
                 <div class="ctx-title">${escapeHtml(title)}${l.expectedValuePaise ? ` · ${rupees(l.expectedValuePaise)}` : ""}</div>
-                <div class="ctx-meta">${escapeHtml(l.ownerId ? t("inbox.ctx.owner", { name: memberNameOf(l.ownerId) }) : t("inbox.ctx.noOwner"))}</div>
+                <div class="ctx-meta">${escapeHtml(l.ownerId ? t("inbox.ctx.owner", { name: memberNameOf(l.ownerId) }) : t("inbox.ctx.noOwner"))}${l.score ? ` ${crmLeadScore.badge(l.score)}` : ""}</div>
                 <div class="ctx-fields" data-lead-fields="${escapeHtml(l.id)}" hidden></div>
               </div>
               ${stage}
