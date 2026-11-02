@@ -109,4 +109,40 @@ async function createFile(creds, { name, mimeType }) {
   return { id: data.id, name: data.name, mimeType: data.mimeType, webViewLink: data.webViewLink };
 }
 
-module.exports = { name: 'google', SCOPES, authorizeUrl, exchangeCode, refresh, profile, listMessages, getMessage, history, insertEvent, updateEvent, deleteEvent, createFile, failure };
+// Sheets (G4, D108): a spreadsheet the CRM makes (drive.file reaches only its own files) with a
+// bold, frozen header row, and new rows at the end of its first tab. Rows go by the tab's id, so
+// renaming the tab changes nothing; values go as plain strings and numbers, never as formulas.
+const sheets = (creds) => google.sheets({ version: 'v4', auth: oauth(creds) });
+const cellOf = (value) => (value === null || value === undefined || value === ''
+  ? {}
+  : { userEnteredValue: typeof value === 'number' ? { numberValue: value } : { stringValue: String(value) } });
+
+async function createSpreadsheet(creds, { title, sheetTitle, headers }) {
+  const { data } = await call(() => sheets(creds).spreadsheets.create({
+    requestBody: {
+      properties: { title },
+      sheets: [{
+        properties: { sheetId: 0, title: sheetTitle, gridProperties: { frozenRowCount: 1 } },
+        data: [{ startRow: 0, startColumn: 0, rowData: [{ values: headers.map((header) => ({ ...cellOf(header), userEnteredFormat: { textFormat: { bold: true } } })) }] }],
+      }],
+    },
+    fields: 'spreadsheetId,spreadsheetUrl,sheets.properties.sheetId',
+  }));
+  return { id: data.spreadsheetId, url: data.spreadsheetUrl, sheetId: data.sheets?.[0]?.properties?.sheetId ?? 0 };
+}
+
+// A deleted tab answers 400: like a deleted sheet, there is nowhere to write (GOOGLE_NOT_FOUND).
+async function appendRows(creds, { spreadsheetId, sheetId, rows }) {
+  try {
+    await sheets(creds).spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests: [{ appendCells: { sheetId, rows: rows.map((row) => ({ values: row.map(cellOf) })), fields: 'userEnteredValue' } }] },
+    });
+  } catch (error) {
+    if (error.response?.status === 400) throw Object.assign(new Error('The sheet or its first tab is not there any more.'), { statusCode: 404, code: 'GOOGLE_NOT_FOUND' });
+    throw failure(error);
+  }
+  return { added: rows.length };
+}
+
+module.exports = { name: 'google', SCOPES, authorizeUrl, exchangeCode, refresh, profile, listMessages, getMessage, history, insertEvent, updateEvent, deleteEvent, createFile, createSpreadsheet, appendRows, failure };

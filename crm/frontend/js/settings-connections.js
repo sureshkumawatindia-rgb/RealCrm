@@ -20,11 +20,12 @@
     ["conn.group.microsoft", ["microsoft", "teams"]],
     ["conn.group.calling", ["calling"]],
     ["conn.group.sms", ["sms"]],
+    ["conn.group.sheets", ["sheets"]], // D108
   ];
   const ICONS = {
     microsoft: "fa-brands fa-microsoft", teams: "fa-solid fa-people-group", calling: "fa-solid fa-phone-volume", sms: "fa-solid fa-comment-sms",
     whatsapp: "fa-brands fa-whatsapp", gmail: "fa-solid fa-envelope", payments: "fa-solid fa-indian-rupee-sign", leadsources: "fa-solid fa-inbox",
-    metaCapi: "fa-brands fa-meta", apiKeys: "fa-solid fa-key", webhooks: "fa-solid fa-satellite-dish",
+    metaCapi: "fa-brands fa-meta", apiKeys: "fa-solid fa-key", webhooks: "fa-solid fa-satellite-dish", sheets: "fa-solid fa-table",
   };
   const BADGES = { working: "badge-success", attention: "badge-warning", off: "badge-neutral", not_connected: "badge-neutral" };
   let loaded = false;

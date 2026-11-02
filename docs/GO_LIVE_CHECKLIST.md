@@ -48,9 +48,10 @@ service's **Environment** on Render — never into a chat, an email or a documen
 
 - **Do:** in Google Cloud, add the production address to the OAuth client, set
   `GOOGLE_CLIENT_SECRET`, and publish the consent screen (Google verifies apps that read Gmail or
-  Calendar).
+  Calendar). Enable the Google Sheets API too (D108: the company's sheets of new leads and orders).
 - **Guide:** `docs/DEPLOYMENT.md` §4, `docs/RENDER_SETUP.md` step 3.
-- **Without it:** nobody can sign in on the new address; Gmail, Calendar and Drive cannot connect.
+- **Without it:** nobody can sign in on the new address; Gmail, Calendar and Drive cannot connect,
+  and no Google Sheet of new leads or orders can be made.
 
 ## 7. Meta: business verification, Tech Provider and App Review
 

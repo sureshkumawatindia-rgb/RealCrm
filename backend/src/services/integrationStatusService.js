@@ -9,6 +9,7 @@ const MicrosoftConnection = require('../models/MicrosoftConnection');
 const TeamsChannel = require('../models/TeamsChannel');
 const TelephonyConnection = require('../models/TelephonyConnection');
 const SmsConnection = require('../models/SmsConnection');
+const SheetSync = require('../models/SheetSync');
 const Organization = require('../models/Organization');
 const planService = require('./planService');
 const { PLANS, PLAN_KEYS } = require('../constants/plans');
@@ -20,10 +21,10 @@ const { PAYMENT_PROVIDERS } = require('../constants/payments');
 //   state: working | attention (something to fix: problem says what) | off | not_connected
 // A kind with nothing set up is one "not_connected" row, so the screen also says what is possible.
 
-const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams', 'calling', 'sms']);
+const KINDS = Object.freeze(['whatsapp', 'gmail', 'payments', 'leadsources', 'metaCapi', 'apiKeys', 'webhooks', 'microsoft', 'teams', 'calling', 'sms', 'sheets']);
 // Which Settings tab each kind is managed on.
 const TABS = Object.freeze({
-  whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations', microsoft: 'profile', teams: 'integrations', calling: 'calling', sms: 'sms',
+  whatsapp: 'whatsapp', gmail: 'profile', payments: 'payments', leadsources: 'leadsources', metaCapi: 'integrations', apiKeys: 'integrations', webhooks: 'integrations', microsoft: 'profile', teams: 'integrations', calling: 'calling', sms: 'sms', sheets: 'integrations',
 });
 // The plan feature each kind needs (Phase 3A, D80): a row whose feature the plan lacks says which
 // plan has it (plan: { feature, needs: { key, name } | null, message }); the server still refuses.
@@ -155,10 +156,21 @@ function smsRows(connection) {
   })];
 }
 
+// Google Sheets (D108): one row per sheet that new leads or orders go to.
+function sheetRows(syncs) {
+  return syncs.map((s) => row('sheets', {
+    id: String(s._id),
+    name: s.kind === 'orders' ? 'New orders' : 'New leads',
+    state: s.status === 'paused' || s.lastError ? 'attention' : 'working',
+    lastActivityAt: s.lastRowAt || null,
+    problem: s.status === 'paused' ? s.lastError || 'Paused.' : s.lastError || '',
+  }));
+}
+
 // GET /integrations/status
 async function status(req) {
   const organizationId = req.tenant.organizationId;
-  const [organization, accounts, gmail, payments, sources, meta, keys, hooks, microsoftConnections, teamsChannels, telephony, smsConnection] = await Promise.all([
+  const [organization, accounts, gmail, payments, sources, meta, keys, hooks, microsoftConnections, teamsChannels, telephony, smsConnection, sheetSyncs] = await Promise.all([
     Organization.findById(organizationId).select('plan subscription entitlementGrants'),
     WhatsAppAccount.find({ organizationId }).select('name verifiedName displayPhone status statusMessage lastWebhookAt').lean(),
     GmailConnection.find({ organizationId }).select('updatedAt status lastSyncAt').lean(),
@@ -171,6 +183,7 @@ async function status(req) {
     TeamsChannel.find({ organizationId }).select('name active disabledReason lastStatus lastError lastSentAt').lean(),
     TelephonyConnection.findOne({ organizationId }).select('provider callerId status lastError lastCallAt').lean(),
     SmsConnection.findOne({ organizationId }).select('provider senderId status lastError lastSentAt').lean(),
+    SheetSync.find({ organizationId }).select('kind status lastError lastRowAt').lean(),
   ]);
   const rows = {
     whatsapp: whatsappRows(accounts),
@@ -184,6 +197,7 @@ async function status(req) {
     teams: teamsRows(teamsChannels),
     calling: callingRows(telephony),
     sms: smsRows(smsConnection),
+    sheets: sheetRows(sheetSyncs),
   };
   const planNotes = Object.fromEntries(Object.entries(PLAN_FEATURES).map(([kind, feature]) => {
     const message = planService.featureBlock(organization, feature);

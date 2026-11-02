@@ -8,7 +8,7 @@ const { SCOPES } = require('./workspace');
 // revoke (the grant is refused from then on) and forgetHistory (the next history call is stale).
 const boxes = new Map();
 const box = (email) => {
-  if (!boxes.has(email)) boxes.set(email, { historyId: 1000, oldestHistoryId: 1000, messages: [], events: new Map(), files: new Map(), revoked: false });
+  if (!boxes.has(email)) boxes.set(email, { historyId: 1000, oldestHistoryId: 1000, messages: [], events: new Map(), files: new Map(), sheets: new Map(), revoked: false });
   return boxes.get(email);
 };
 const emailOf = (creds) => String(creds?.accessToken || creds?.refreshToken || '').split(':')[1] || '';
@@ -98,6 +98,27 @@ async function createFile(creds, { name, mimeType }) {
   return file;
 }
 
+// Sheets (G4): a spreadsheet is its tabs' rows (the header first).
+let failNextSheets = 0;
+async function createSpreadsheet(creds, { title, sheetTitle, headers }) {
+  const b = guard(creds);
+  const id = `mock-sheet-${crypto.randomBytes(5).toString('hex')}`;
+  const url = `https://docs.google.com/spreadsheets/d/${id}/edit`;
+  b.sheets.set(id, { id, title, url, tabs: new Map([[0, { title: sheetTitle, rows: [[...headers]] }]]) });
+  return { id, url, sheetId: 0 };
+}
+async function appendRows(creds, { spreadsheetId, sheetId, rows }) {
+  const b = guard(creds);
+  const tab = b.sheets.get(spreadsheetId)?.tabs.get(sheetId);
+  if (!tab) throw Object.assign(new Error('The sheet or its first tab is not there any more.'), { statusCode: 404, code: 'GOOGLE_NOT_FOUND' });
+  if (failNextSheets > 0) {
+    failNextSheets -= 1;
+    throw Object.assign(new Error('Google did not answer.'), { statusCode: 502, code: 'GOOGLE_FAILED', retry: true });
+  }
+  tab.rows.push(...rows.map((row) => [...row]));
+  return { added: rows.length };
+}
+
 // --- for tests and development ---------------------------------------------------------------
 function addMessage(email, { from, to, cc = '', subject = '', snippet = '', at = Date.now(), threadId }) {
   const b = box(email);
@@ -111,11 +132,16 @@ const revoke = (email) => { box(email).revoked = true; };
 const forgetHistory = (email) => { const b = box(email); b.oldestHistoryId = b.historyId + 1; };
 const events = (email) => [...box(email).events.entries()].map(([id, event]) => ({ id, ...event }));
 const files = (email) => [...box(email).files.values()];
+// Sheets (G4): a sheet's rows; a sheet deleted at Google; the next append fails.
+const sheetRows = (email, id) => box(email).sheets.get(id)?.tabs.get(0)?.rows || [];
+const deleteSheet = (email, id) => { box(email).sheets.delete(id); };
+const failNextSheetAppend = () => { failNextSheets += 1; };
 // The next insert reaches Google but its answer is lost (a retry must not make a copy).
 const loseNextInsertAnswer = () => { failNextCalendar += 1; };
-const reset = () => { boxes.clear(); failNextCalendar = 0; };
+const reset = () => { boxes.clear(); failNextCalendar = 0; failNextSheets = 0; };
 
 module.exports = {
   name: 'mock', SCOPES, authorizeUrl, exchangeCode, refresh, profile, listMessages, getMessage, history, insertEvent, updateEvent, deleteEvent, createFile,
-  addMessage, revoke, forgetHistory, events, files, loseNextInsertAnswer, reset,
+  createSpreadsheet, appendRows,
+  addMessage, revoke, forgetHistory, events, files, sheetRows, deleteSheet, failNextSheetAppend, loseNextInsertAnswer, reset,
 };

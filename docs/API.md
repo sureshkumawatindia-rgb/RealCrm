@@ -111,6 +111,17 @@ The browser never receives or stores Gmail access or refresh tokens; they are en
 
 In Google Cloud Console, enable the Gmail API and add the exact `GOOGLE_REDIRECT_URI` (default `PUBLIC_URL/api/v1/gmail/oauth/callback`) to the OAuth client's authorized redirect URIs. Sign-in from a page address also needs that origin (for example `http://127.0.0.1:3000`) under "Authorized JavaScript origins". Scope: `https://www.googleapis.com/auth/gmail.readonly`.
 
+## Google Sheets (G4, D108)
+
+Owners and admins. The company's new leads or new orders go to the end of a Google Sheet by themselves. The sheet is made in the Google Drive of the person who switches it on, through their own Google connection with Drive (`drive.file`: the CRM reaches only the sheets it made); in Google Cloud the **Google Sheets API** must be enabled too. A job every 2 minutes per sheet (`sheets.sync`) sends, in order, what was added since the last row it sent (up to 2,500 rows a run; with nothing new it does not call Google; a failed call never sends a row twice). Values go as plain strings and numbers, never as formulas; private numbers' leads and orders stay out. It pauses, and the owners and admins get a bell note (`source: sheets`), when Google refuses the access (`GOOGLE_RECONNECT`), Drive is no longer connected (`GOOGLE_NO_DRIVE`), the sheet or its first tab is deleted (`SHEET_GONE`), or the person who switched it on is no longer an owner or admin (`MEMBER_GONE`). Settings → Connections shows each sheet (kind `sheets`).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/sheet-syncs` | `{ google { available, connected, drive, email, needsReconnect } (the asking person's own), sheets { leads, orders } (each null or { kind, url, title, status active\|paused, pausedReason, rowsAdded, lastRowAt, lastRunAt, lastError, startedBy { memberId, name, googleEmail }, mine, startedAt }), headers { leads, orders } }`. |
+| `POST` | `/sheet-syncs` | `{ kind: leads\|orders, backfillDays: 0\|30 }` → 201 with the sheet; 409 `GOOGLE_NO_DRIVE` without Google with Drive, 409 `SHEET_SYNC_EXISTS` when that kind is on. With 30 the last 30 days go first. Leads: added on, customer, phone, email, company, city, lead, source, campaign, stage, value (₹), owner, a CRM link. Orders: date, number, customer, phone, items, total (₹), paid (₹), stage, from, owner, a CRM link. Audited `sheet_sync.started`. |
+| `POST` | `/sheet-syncs/:kind/resume` | A paused sheet carries on in the same sheet; 409 `MEMBER_GONE`, `GOOGLE_NO_DRIVE` or `GOOGLE_RECONNECT` while that is still so. Audited `sheet_sync.resumed`. |
+| `DELETE` | `/sheet-syncs/:kind` | Stops it; the sheet stays in that Drive (404 when it is not on). Audited `sheet_sync.stopped`. |
+
 ## Sales core (Phase 2)
 
 Module permissions: contacts need `customers`; leads and quotations need `leads` or `deals`; products are readable by every member and writable with `products`. Agents and viewers only see records they own unless they have `<module>:view_all`. Only owners/admins can set `ownerId`; everyone else owns what they create. Money is integer paise.
