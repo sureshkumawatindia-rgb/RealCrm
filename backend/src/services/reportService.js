@@ -102,7 +102,7 @@ async function duesNow(req, own) {
 async function responseTurns(req, range, own) {
   const scanStart = new Date(range.start.getTime() - 7 * DAY_MS);
   const messages = await Message.find({
-    organizationId: req.tenant.organizationId, createdAt: { $gte: scanStart, $lt: range.end }, ...PUBLIC,
+    organizationId: req.tenant.organizationId, createdAt: { $gte: scanStart, $lt: range.end }, type: { $ne: 'call' }, ...PUBLIC, // a call's line is no message (G7)
   }).select('conversationId direction createdAt providerTimestamp sentByMemberId automation').sort({ conversationId: 1, createdAt: 1 }).limit(MAX_MESSAGES).lean();
   const turns = []; // { memberId, conversationId, seconds, first }
   const handled = new Map(); // member → Set(conversation)
@@ -169,7 +169,7 @@ async function overview(req, query) {
     Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).select('expectedValuePaise stage'),
     duesNow(req, own),
     Conversation.countDocuments({ organizationId, createdAt: between(range), ...PUBLIC, ...(own && { assigneeId: own }) }),
-    own ? Promise.resolve(null) : Message.countDocuments({ organizationId, direction: 'in', createdAt: between(range), ...PUBLIC }),
+    own ? Promise.resolve(null) : Message.countDocuments({ organizationId, direction: 'in', type: { $ne: 'call' }, createdAt: between(range), ...PUBLIC }), // a call's line is no message (G7)
     responseTurns(req, range, own),
     Ticket.countDocuments({ organizationId, createdAt: between(range), ...(own && { assigneeId: own }) }),
     Ticket.countDocuments({ organizationId, resolvedAt: between(range), ...(own && { assigneeId: own }) }),

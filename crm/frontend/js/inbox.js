@@ -273,6 +273,17 @@ crmI18n.ready.then(function inbox() {
       return `<div class="attachment"><i class="fa-solid fa-location-dot"></i><a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(name || address || t("inbox.location"))}</a></div>`;
     }
     if (m.type === "reaction") return escapeHtml(t("inbox.reacted", { emoji: m.reaction?.emoji || "" }));
+    // G7 (D111): a WhatsApp call's line, our request to call, and the customer's answer to it.
+    if (m.type === "call" && m.call) return callLineHtml(m);
+    if (m.type === "interactive" && m.interactive?.kind === "call_permission") {
+      return `${text}<div class="bot-options"><span class="bot-option"><i class="fa-solid fa-phone"></i> ${escapeHtml(t("inbox.call.askChip"))}</span></div>`;
+    }
+    if (m.type === "interactive" && m.callPermission) {
+      const p = m.callPermission;
+      const until = p.expiresAt ? new Date(p.expiresAt).toLocaleDateString(crmI18n.locale(), { day: "numeric", month: "short" }) : "";
+      const label = p.response !== "accept" ? t("inbox.call.refused") : p.permanent || !until ? t("inbox.call.allowedAlways") : t("inbox.call.allowedUntil", { when: until });
+      return `<div class="attachment"><i class="fa-solid ${p.response === "accept" ? "fa-phone" : "fa-phone-slash"}"></i><span>${escapeHtml(label)}</span></div>`;
+    }
     // Products from the WhatsApp catalog (sent), and a cart the customer sent back (Phase 8C).
     if (m.type === "interactive" && m.interactive?.products?.length) {
       const names = m.interactive.products.map((p) => `<span class="bot-option"><i class="fa-solid fa-store"></i> ${escapeHtml(p.name || p.retailerId)}</span>`).join("");
@@ -308,6 +319,19 @@ crmI18n.ready.then(function inbox() {
     return text;
   }
 
+  // G7 (D111): how a WhatsApp call went, with its length.
+  const CALL_LINE = {
+    in: { ringing: "inbox.call.lineRinging", in_progress: "inbox.call.lineLive", completed: "inbox.call.lineDone", no_answer: "inbox.call.lineMissed", busy: "inbox.call.lineDeclined", failed: "inbox.call.lineFailed", cancelled: "inbox.call.lineCancelled" },
+    out: { queued: "inbox.call.lineCalling", ringing: "inbox.call.lineCalling", in_progress: "inbox.call.lineLive", completed: "inbox.call.lineDone", no_answer: "inbox.call.lineNoAnswer", busy: "inbox.call.lineDeclined", failed: "inbox.call.lineFailed", cancelled: "inbox.call.lineCancelled" },
+  };
+  function callLineHtml(m) {
+    const { status, durationSec } = m.call;
+    const missed = m.direction === "in" && status === "no_answer";
+    const off = missed || ["busy", "failed", "cancelled"].includes(status) || (m.direction === "out" && status === "no_answer");
+    const key = CALL_LINE[m.direction === "in" ? "in" : "out"][status] || "inbox.call.lineDone";
+    return `<div class="call-line ${missed ? "missed" : ""}"><i class="fa-solid ${off ? "fa-phone-slash" : "fa-phone"}" aria-hidden="true"></i><span>${escapeHtml(t(key, { duration: crmWhatsAppCalls.clockText(durationSec) }))}</span></div>`;
+  }
+
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
@@ -334,7 +358,7 @@ crmI18n.ready.then(function inbox() {
           ${quoted ? `<div class="quote">${escapeHtml(quoted.text || quoted.type)}</div>` : ""}
           ${m.referral ? `<div class="msg-ad"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> ${escapeHtml(t("inbox.came.fromAd"))}: <strong>${escapeHtml(m.referral.headline || t("inbox.came.adNoName"))}</strong></div>` : ""}
           <div class="bubble-body">${messageBody(m)}</div>
-          <div class="bubble-meta">${m.type === "template" ? `<span class="tpl-tag">${escapeHtml(t("inbox.template"))}</span>` : ""}${who}${escapeHtml(time)} ${m.direction === "out" ? TICKS[m.status] || "" : ""}</div>
+          <div class="bubble-meta">${m.type === "template" ? `<span class="tpl-tag">${escapeHtml(t("inbox.template"))}</span>` : ""}${who}${escapeHtml(time)} ${m.direction === "out" && m.type !== "call" ? TICKS[m.status] || "" : ""}</div>
           ${m.status === "failed" && m.error ? `<div class="msg-error">${escapeHtml(m.error.message || m.error.title || t("inbox.notAccepted"))}</div>` : ""}
           ${reactions.length ? `<div class="msg-reactions" title="${escapeHtml(t("inbox.reactions"))}">${reactions.map(escapeHtml).join(" ")}</div>` : ""}
         </div>
@@ -469,6 +493,13 @@ crmI18n.ready.then(function inbox() {
     privateChip.className = `private-chip ${c.private ? "on" : ""}`;
     privateChip.innerHTML = c.private ? `<i class="fa-solid fa-lock"></i> ${escapeHtml(t("inbox.private.on"))}` : `<i class="fa-solid fa-lock-open"></i> ${escapeHtml(t("inbox.private.make"))}`;
     privateChip.title = c.private ? t("inbox.private.onTitle") : t("inbox.private.makeTitle");
+    // G7 (D111): a WhatsApp call — on a number with calls on; without the customer's permission
+    // the button asks them first.
+    const callButton = $("threadCall");
+    callButton.hidden = !c.account?.calling;
+    callButton.disabled = Boolean(c.blocked);
+    callButton.title = t(c.callPermission?.status === "granted" ? "inbox.call.button" : "inbox.call.buttonAsk");
+    callButton.setAttribute("aria-label", callButton.title);
     // D103: a blocked customer cannot be written to at all.
     const writable = canWrite(c);
     $("composerBlocked").hidden = !c.blocked;
@@ -2085,7 +2116,8 @@ crmI18n.ready.then(function inbox() {
       renderThreadHead();
       if (message.direction === "in") markRead();
     }
-    if (message.direction === "in" && (document.hidden || !isOpen)) notify(conversation, message);
+    // A customer's WhatsApp call has its own ring (whatsapp-calls.js).
+    if (message.direction === "in" && message.type !== "call" && (document.hidden || !isOpen)) notify(conversation, message);
     scheduleSummary();
   }
   function onConversationUpdated(conversation) {
@@ -2173,6 +2205,7 @@ crmI18n.ready.then(function inbox() {
         else endSession();
       }
     });
+    crmWhatsAppCalls.attach(socket); // G7 (D111): calls ring here
     socket.on("message:new", onMessageNew);
     socket.on("conversation:updated", onConversationUpdated);
     socket.on("notification:new", (notification) => crmBell.push(notification));
@@ -2210,6 +2243,9 @@ crmI18n.ready.then(function inbox() {
   });
 
   // --- start -----------------------------------------------------------------
+  // G7 (D111): WhatsApp calls — answering one opens its chat.
+  crmWhatsAppCalls.init({ onOpenChat: (id) => openConversation(id, { fromList: false }) });
+  $("threadCall").addEventListener("click", () => crmWhatsAppCalls.start(state.current));
   $("threadBot").addEventListener("click", toggleBot);
   $("aiSuggestBtn").addEventListener("click", suggestReplies);
   crmReady(["members"], async () => {

@@ -61,7 +61,9 @@ service's **Environment** on Render — never into a chat, an email or a documen
 - **Guide:** `docs/WHATSAPP_SETUP.md` part A.
 - **Without it:** companies cannot connect WhatsApp with Meta's popup (only by hand on their own
   Meta app); Meta's limits stay low. WhatsApp forms (D110) are published only for a verified
-  business: each company verifies its own business in Meta Business Manager.
+  business: each company verifies its own business in Meta Business Manager. WhatsApp calls
+  (D111) need the app's webhook subscribed to the `calls` field (`docs/WHATSAPP_SETUP.md`) and a
+  number allowed to message at least 2,000 customers a day; without it calls never ring.
 
 ## 8. Razorpay Subscriptions for the plans
 

@@ -20,7 +20,8 @@ const { maskPhonesIn } = require('../utils/phoneMask');
 //   org:<id>:inbox       — other inbox members: chats nobody has taken yet
 //   org:<id>:owners      — owners: the only ones who receive private numbers' chats (D61)
 // Server → browser events: conversation:updated, message:new, message:status, note:new,
-// notification:new, whatsapp:sync, inbox:refresh.
+// notification:new, whatsapp:sync, inbox:refresh, and WhatsApp calls (G7): call:incoming,
+// call:updated, call:answer.
 // Agents and viewers whose company hides customers' numbers (D65) get every event masked.
 // With more than one server (F6), every update goes through the relay (realtime/relay.js): each
 // server applies it to its own browsers.
@@ -33,7 +34,7 @@ const rooms = {
 
 const POPULATE = [
   { path: 'contactId', select: 'name phone phoneE164 company' },
-  { path: 'whatsappAccountId', select: 'name displayPhone verifiedName phoneNumberId' },
+  { path: 'whatsappAccountId', select: 'name displayPhone verifiedName phoneNumberId calling' },
 ];
 
 async function authenticateSocket(socket, next) {
@@ -147,6 +148,22 @@ function attachRealtime(httpServer, { relay: relayOn = env.realtimeRelay, listen
     // The bell (Phase 6): only to the member it is for.
     'notification:new': async ({ memberId, notification }) => {
       await send([rooms.member(memberId)], 'notification:new', notification);
+    },
+    // WhatsApp calls (G7, D111): a customer's call rings for everyone who sees the chat (any of them
+    // may answer), and they all hear how it goes (their ringing card closes; a teammate who just
+    // took the chat from the queue: the queue too). WhatsApp's answer to a teammate's call goes to
+    // that teammate only.
+    'call:incoming': async ({ conversation, call }) => {
+      const full = await load(conversation._id);
+      if (full) await send(targetsFor(full), 'call:incoming', { conversation: serializeConversation(full), call });
+    },
+    'call:updated': async ({ conversation, previousAssigneeId, call }) => {
+      const targets = new Set(targetsFor(conversation, previousAssigneeId));
+      if (call.memberId) targets.add(rooms.member(call.memberId));
+      await send([...targets], 'call:updated', call);
+    },
+    'call:answer': async ({ memberId, call }) => {
+      if (memberId) await send([rooms.member(memberId)], 'call:answer', call);
     },
     // Role, pages or status changed, or the member was removed: drop their sockets. The browser
     // reconnects and gets the rooms that match the new access (or is refused).

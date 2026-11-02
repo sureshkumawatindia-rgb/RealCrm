@@ -60,6 +60,17 @@ const conversationSchema = new mongoose.Schema(
       awayAt: { type: Date },
       lastAnsweredAt: { type: Date },
     },
+    // G7 (D111): may the business call this customer on WhatsApp? requested = we asked (and when);
+    // granted = they allowed it (for good, or until expiresAt), by answering our request or — with
+    // "customers who call can be called back" — by calling us; rejected = they said no.
+    callPermission: {
+      status: { type: String, enum: ['requested', 'granted', 'rejected'] },
+      permanent: { type: Boolean },
+      expiresAt: { type: Date },
+      requestedAt: { type: Date },
+      answeredAt: { type: Date },
+      source: { type: String, enum: ['reply', 'call'] },
+    },
   },
   { timestamps: true },
 );

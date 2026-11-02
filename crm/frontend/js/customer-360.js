@@ -491,7 +491,8 @@ function historyItemHtml(it) {
     ? [it.outcome ? t(`call.outcome.${it.outcome}`) : t(`call.status.${it.status}`), minutesText(it.durationSec)].filter(Boolean).join(" · ")
     : it.source === "sms" && it.direction === "out" ? t(`sms.status.${it.status}`) : "";
   // A translated label for the kind, then the record's own name (the server's `title` is English).
-  const label = it.source === "call" ? t(it.direction === "in" ? "call.in" : "call.out")
+  // A WhatsApp call (G7, D111) says so.
+  const label = it.source === "call" ? t(it.provider === "whatsapp" ? (it.direction === "in" ? "call.waIn" : "call.waOut") : it.direction === "in" ? "call.in" : "call.out")
     : it.source === "whatsapp" ? t(it.direction === "in" ? "c360.hist.waIn" : "c360.hist.waOut")
     : it.source === "sms" ? t(it.direction === "in" ? "c360.hist.smsIn" : "c360.hist.smsOut")
     : it.source === "email" ? t(it.direction === "in" ? "c360.hist.emailIn" : "c360.hist.emailOut")

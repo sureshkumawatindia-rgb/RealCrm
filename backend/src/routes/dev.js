@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const express = require('express');
+const mongoose = require('mongoose');
 const env = require('../config/env');
+const Call = require('../models/Call');
 const Message = require('../models/Message');
 const accountService = require('../services/whatsappAccountService');
 const inbound = require('../services/whatsappInboundService');
@@ -92,6 +94,67 @@ router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbou
   const message = await Message.findOne({ providerMessageId: messageId, organizationId: account.organizationId });
   if (!message) throw httpError(500, 'SIMULATION_FAILED', 'The simulated message was not stored.');
   res.status(201).json({ success: true, data: { conversationId: message.conversationId, messageId: message._id, contactId: message.contactId } });
+});
+
+// G7 (D111): pretends WhatsApp sent a call webhook (test numbers only), processed like a real one:
+// a customer calls (with a sample audio offer), our call rings, is picked up (with a sample audio
+// answer) or declined, a call ends, or the customer answers our request to call them.
+router.post('/simulate/whatsapp-call', validate({ body: schemas.simulateCall }), async (req, res) => {
+  const { accountId, event, from, name, callId, status, duration, response, permanent } = req.body;
+  const account = accountId
+    ? await accountService.findInOrg(req, accountId)
+    : await accountService.defaultAccount(req.tenant.organizationId);
+  if (!account) throw httpError(400, 'NO_WHATSAPP_NUMBER', 'Add a WhatsApp number in Settings → WhatsApp first.');
+  if (account.provider !== 'mock') throw httpError(400, 'VALIDATION_ERROR', 'Calls can only be simulated on a test number.');
+  const now = Math.floor(Date.now() / 1000);
+  const business = String(account.displayPhone || '').replace(/\D/g, '');
+  const value = { messaging_product: 'whatsapp', metadata: { display_phone_number: account.displayPhone, phone_number_id: account.phoneNumberId } };
+  let call = null; // the call the event is about
+  let newCallId = ''; // a customer's new call: Meta's id for it
+  if (event === 'incoming' || event === 'permission') {
+    const phone = normalizePhone(from);
+    if (!phone) throw httpError(400, 'VALIDATION_ERROR', 'That is not a valid phone number.', [{ field: 'from', code: 'INVALID_PHONE', message: 'Use a number like 98290 12345 or +91 98290 12345.' }]);
+    const waId = phone.slice(1);
+    value.contacts = [{ profile: { name: name || '' }, wa_id: waId }];
+    if (event === 'incoming') {
+      newCallId = `wacid.SIM${crypto.randomBytes(12).toString('hex')}`;
+      value.calls = [{ id: newCallId, from: waId, to: business, event: 'connect', timestamp: String(now), direction: 'USER_INITIATED', session: { sdp_type: 'offer', sdp: mock.sampleSdp('offer') } }];
+    } else {
+      value.messages = [{
+        from: waId, id: `wamid.SIM${crypto.randomBytes(12).toString('hex')}`, timestamp: String(now), type: 'interactive',
+        interactive: { type: 'call_permission_reply', call_permission_reply: { response, is_permanent: permanent, ...(response === 'accept' && !permanent && { expiration_timestamp: now + 7 * 24 * 3600 }), response_source: 'user_action' } },
+      }];
+    }
+  } else {
+    const filter = { organizationId: account.organizationId, provider: 'whatsapp', 'whatsapp.accountId': account._id };
+    call = callId
+      ? await Call.findOne({ ...filter, $or: [{ providerCallId: callId }, ...(mongoose.isValidObjectId(callId) ? [{ _id: callId }] : [])] })
+      : await Call.findOne(filter).sort({ _id: -1 }); // the newest made (a webhook's start time has whole seconds)
+    if (!call?.providerCallId) throw httpError(404, 'NOT_FOUND', 'There is no WhatsApp call of this number to simulate that for.');
+    const customer = String(call.direction === 'in' ? call.fromNumber : call.toNumber).replace(/\D/g, '');
+    const [caller, callee] = call.direction === 'in' ? [customer, business] : [business, customer];
+    const direction = call.direction === 'in' ? 'USER_INITIATED' : 'BUSINESS_INITIATED';
+    const statusOf = (state) => [{ id: call.providerCallId, timestamp: String(now), type: 'call', status: state, recipient_id: customer }];
+    if (event === 'ringing') value.statuses = statusOf('RINGING');
+    if (event === 'decline') value.statuses = statusOf('REJECTED');
+    if (event === 'answer') {
+      // The customer picks up our call: WhatsApp's audio answer, then "accepted".
+      value.calls = [{ id: call.providerCallId, from: caller, to: callee, event: 'connect', timestamp: String(now), direction, session: { sdp_type: 'answer', sdp: mock.sampleSdp('answer') } }];
+      value.statuses = statusOf('ACCEPTED');
+    }
+    if (event === 'end') {
+      const length = duration ?? 0;
+      value.calls = [{
+        id: call.providerCallId, from: caller, to: callee, event: 'terminate', timestamp: String(now), direction, status,
+        ...(length > 0 && { start_time: String(now - length), end_time: String(now), duration: length }),
+      }];
+    }
+  }
+  const field = event === 'permission' ? 'messages' : 'calls';
+  const payload = { object: 'whatsapp_business_account', entry: [{ id: account.wabaId || 'simulated', changes: [{ field, value }] }] };
+  await inbound.processNow(await inbound.ingest(account, payload));
+  const latest = call ? await Call.findById(call._id) : newCallId && await Call.findOne({ organizationId: account.organizationId, provider: 'whatsapp', providerCallId: newCallId });
+  res.status(201).json({ success: true, data: { callId: event === 'permission' ? null : latest?._id || null, status: event === 'permission' ? null : latest?.status || null } });
 });
 
 // Pretends a lead arrived from a source (IndiaMART by default): the same intake as a real one.

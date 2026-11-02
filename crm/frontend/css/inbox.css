@@ -1581,3 +1581,152 @@ a.ctx-link:hover {
   font-size: 12px;
   color: var(--text-muted);
 }
+
+/* --- WhatsApp calls (G7, D111) ------------------------------------------------------------------
+   The chat's phone button, a call's line in the chat, and the cards of a ringing call and of the
+   call going on (whatsapp-calls.js): top right on computers, across the top on phones. */
+.thread-call {
+  color: var(--success-text);
+  flex-shrink: 0;
+}
+.thread-call:disabled {
+  color: var(--text-faint);
+}
+.call-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.call-line i {
+  color: var(--success-text);
+}
+.call-line.missed,
+.call-line.missed i {
+  color: var(--danger-text);
+}
+.wa-call-stack {
+  position: fixed;
+  top: 76px;
+  right: 20px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+}
+.wa-call-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--wa-soft-border);
+  box-shadow: var(--shadow-pop);
+}
+.wa-call-card.live {
+  border-color: var(--wa);
+}
+.wa-call-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  color: #fff;
+  background: var(--wa-badge);
+}
+.wa-call-icon.ringing {
+  animation: wa-call-pulse 1.2s ease-in-out infinite;
+}
+@keyframes wa-call-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.45); }
+  50% { box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wa-call-icon.ringing {
+    animation: none;
+  }
+}
+.wa-call-info {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.wa-call-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success-text);
+}
+.wa-call-name {
+  font-weight: 700;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wa-call-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.wa-call-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.wa-call-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+}
+.wa-call-btn.answer {
+  background: var(--wa-badge);
+}
+.wa-call-btn.answer:hover {
+  background: #11733a;
+}
+/* white on these reds and greens reads well in both themes */
+.wa-call-btn.end {
+  background: #c42b21;
+}
+.wa-call-btn.end:hover {
+  background: #a3241b;
+}
+.wa-call-tool[aria-pressed="true"] {
+  color: var(--danger-text);
+}
+.wa-call-ask-warn {
+  color: var(--warning-text);
+  background: var(--warning-bg);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .wa-call-stack {
+    top: 10px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+  .wa-call-actions {
+    width: 100%;
+  }
+  .wa-call-actions .wa-call-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+  }
+}

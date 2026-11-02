@@ -57,7 +57,8 @@ const messageSchema = new mongoose.Schema(
     // Buttons or a list the CRM sent (Phase 6C bot); the customer's choice comes back as reply.
     // Products from the WhatsApp catalog (Phase 8C): kind product (one) or product_list.
     interactive: {
-      kind: { type: String, enum: ['button', 'list', 'product', 'product_list', 'flow'] },
+      // call_permission: asking the customer for permission to call them on WhatsApp (G7, D111).
+      kind: { type: String, enum: ['button', 'list', 'product', 'product_list', 'flow', 'call_permission'] },
       listButton: { type: String },
       footer: { type: String },
       options: {
@@ -91,6 +92,19 @@ const messageSchema = new mongoose.Schema(
       leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
       orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
       done: { type: Boolean },
+    },
+    // G7 (D111): a WhatsApp call's line in the chat (type "call"): the call, how it went and how long.
+    call: {
+      callId: { type: mongoose.Schema.Types.ObjectId, ref: 'Call' },
+      status: { type: String },
+      durationSec: { type: Number },
+    },
+    // G7: the customer's answer to our request to call them (Meta's call_permission_reply):
+    // allowed or not, for good or until expiresAt.
+    callPermission: {
+      response: { type: String, enum: ['accept', 'reject'] },
+      permanent: { type: Boolean },
+      expiresAt: { type: Date },
     },
     template: {
       name: { type: String },

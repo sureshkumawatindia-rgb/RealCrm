@@ -3,6 +3,7 @@ const accountService = require('../services/whatsappAccountService');
 const connectService = require('../services/whatsappConnectService');
 const clickToChat = require('../services/clickToChatService');
 const catalogService = require('../services/catalogService');
+const callService = require('../services/whatsappCallService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/permissions');
 const validate = require('../middleware/validate');
@@ -48,6 +49,12 @@ router.put('/accounts/:id/catalog', validate({ params: idParams, body: schemas.c
 router.delete('/accounts/:id/catalog', validate({ params: idParams }), async (req, res) => {
   await catalogService.disconnect(req, req.valid.params.id);
   res.json({ success: true, data: { disconnected: true }, message: 'Catalog disconnected' });
+});
+
+// WhatsApp calls on a number (G7, D111): on or off with Meta, and whether callers may be called back.
+router.put('/accounts/:id/calling', validate({ params: idParams, body: schemas.callingSettings }), async (req, res) => {
+  const data = await callService.setCalling(req, req.valid.params.id, req.valid.body);
+  res.json({ success: true, data, message: data.calling.enabled ? 'WhatsApp calls on' : 'WhatsApp calls off' });
 });
 
 // Click-to-chat link + QR code for a number (?accountId=&text=).

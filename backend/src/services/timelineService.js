@@ -62,7 +62,8 @@ async function memberNames(organizationId) {
 const SOURCES = {
   async whatsapp({ req, contact, until, take }) {
     if (!can(req.member, 'inbox', 'view')) return [];
-    const messages = await Message.find({ organizationId: contact.organizationId, contactId: contact._id, createdAt: { $lte: until }, ...privacyFilter(req) }).sort({ createdAt: -1, _id: -1 }).limit(take)
+    // A WhatsApp call's line in the chat is left out: the call itself is in the history (G7).
+    const messages = await Message.find({ organizationId: contact.organizationId, contactId: contact._id, type: { $ne: 'call' }, createdAt: { $lte: until }, ...privacyFilter(req) }).sort({ createdAt: -1, _id: -1 }).limit(take)
       .select('direction type text status createdAt sentByMemberId automation').lean();
     return messages.map((m) => ({
       id: String(m._id), source: 'whatsapp', at: m.createdAt, direction: m.direction, status: m.status,
@@ -74,7 +75,8 @@ const SOURCES = {
     const calls = await Call.find({ organizationId: contact.organizationId, contactId: contact._id, startedAt: { $lte: until } }).sort({ startedAt: -1, _id: -1 }).limit(take).lean();
     return calls.map((c) => ({
       id: String(c._id), source: 'call', at: c.startedAt, direction: c.direction, status: c.status, outcome: c.outcome || null, durationSec: c.durationSec,
-      title: c.direction === 'in' ? 'Call from the customer' : 'Call to the customer', detail: clip(c.notes), actorId: c.memberId || null,
+      // provider whatsapp: a WhatsApp call (G7, D111).
+      provider: c.provider, title: `${c.provider === 'whatsapp' ? 'WhatsApp call' : 'Call'} ${c.direction === 'in' ? 'from' : 'to'} the customer`, detail: clip(c.notes), actorId: c.memberId || null,
     }));
   },
   // Synced Gmail (D90): shared emails, and the viewer's own private ones.

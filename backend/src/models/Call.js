@@ -25,11 +25,25 @@ const callSchema = new mongoose.Schema(
     toNumber: { type: String, default: '' },
     error: { type: String, default: '' },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // A WhatsApp call (G7, D111; providerCallId is Meta's call id): the number and the chat, the
+    // call's line in that chat, when someone picked up, and the two sides' audio set-up (SDP) while
+    // the call is being connected — the customer's offer for the browser that answers, WhatsApp's
+    // answer for the browser that called. Both are removed when the call ends.
+    whatsapp: {
+      accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppAccount' },
+      conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' },
+      messageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+      answeredAt: { type: Date },
+      offer: { type: String },
+      answer: { type: String },
+    },
   },
   { timestamps: true },
 );
 
 callSchema.index({ organizationId: 1, contactId: 1, startedAt: -1 });
+// G7: WhatsApp calls left ringing or open (a lost webhook) are closed by the "whatsapp.calls.sweep" job.
+callSchema.index({ status: 1, startedAt: 1 }, { partialFilterExpression: { provider: 'whatsapp' } });
 callSchema.index({ organizationId: 1, memberId: 1, startedAt: -1 });
 callSchema.index({ organizationId: 1, leadId: 1, startedAt: -1 });
 callSchema.index({ organizationId: 1, provider: 1, providerCallId: 1 }, { unique: true, partialFilterExpression: { providerCallId: { $type: 'string' } } });

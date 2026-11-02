@@ -197,4 +197,4 @@ async function receiveWebhook(key, rawBody, headers = {}) {
   return 200;
 }
 
-module.exports = { list, log, update, dial, receiveWebhook, serialize };
+module.exports = { list, log, update, dial, receiveWebhook, serialize, touch }; // touch: WhatsApp calls too (G7)

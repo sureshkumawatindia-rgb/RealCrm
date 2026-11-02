@@ -43,6 +43,16 @@ function serviceWindow(conversation, now = Date.now()) {
   return { open: Boolean(expiresAt && expiresAt.getTime() > now), expiresAt };
 }
 
+// G7 (D111): may the business call this customer on WhatsApp? none | requested | granted |
+// rejected; a "yes" for a few days ends at expiresAt (then: none).
+function callPermissionOf(conversation, now = Date.now()) {
+  const p = conversation.callPermission || {};
+  const requestedAt = p.requestedAt || null;
+  if (!p.status) return { status: 'none', permanent: false, expiresAt: null, requestedAt };
+  if (p.status === 'granted' && !p.permanent && !(p.expiresAt && p.expiresAt.getTime() > now)) return { status: 'none', permanent: false, expiresAt: null, requestedAt };
+  return { status: p.status, permanent: Boolean(p.permanent), expiresAt: p.status === 'granted' && !p.permanent ? p.expiresAt : null, requestedAt };
+}
+
 // viewerId: the member the answer is for, so "pinned" is theirs (CP3); live updates leave it out.
 function serializeConversation(conversation, viewerId = null) {
   const contact = conversation.contactId && typeof conversation.contactId === 'object' && conversation.contactId.name !== undefined ? conversation.contactId : null;
@@ -52,8 +62,9 @@ function serializeConversation(conversation, viewerId = null) {
     contact: contact
       ? { id: contact._id, name: contact.name, phone: contact.phoneE164 || contact.phone || '', company: contact.company || '' }
       : { id: conversation.contactId, name: '', phone: '', company: '' },
+    // calling: WhatsApp calls are on for this number (G7, D111).
     account: account
-      ? { id: account._id, name: account.name, displayPhone: account.displayPhone, verifiedName: account.verifiedName }
+      ? { id: account._id, name: account.name, displayPhone: account.displayPhone, verifiedName: account.verifiedName, calling: Boolean(account.calling?.enabled) }
       : { id: conversation.whatsappAccountId },
     assigneeId: conversation.assigneeId || null,
     status: conversation.status,
@@ -74,6 +85,7 @@ function serializeConversation(conversation, viewerId = null) {
     // The FAQ bot (Phase 6C): handedOffAt = it waits for a person in this chat.
     bot: { handedOffAt: conversation.bot?.handedOffAt || null, handoffReason: conversation.bot?.handoffReason || '' },
     private: Boolean(conversation.private), // only owners ever receive a private chat (D61)
+    callPermission: callPermissionOf(conversation), // G7 (D111)
     createdAt: conversation.createdAt,
   };
 }
@@ -111,6 +123,11 @@ function serializeMessage(message) {
         leadId: message.form.leadId || null, orderId: message.form.orderId || null, done: Boolean(message.form.done),
       }
       : null,
+    // G7 (D111): a WhatsApp call's line, and the customer's answer to our request to call them.
+    call: message.call?.callId ? { callId: message.call.callId, status: message.call.status || '', durationSec: message.call.durationSec || 0 } : null,
+    callPermission: message.callPermission?.response
+      ? { response: message.callPermission.response, permanent: Boolean(message.callPermission.permanent), expiresAt: message.callPermission.expiresAt || null }
+      : null,
     // D102: the Click-to-WhatsApp ad the customer wrote from.
     referral: message.referral?.sourceId || message.referral?.headline
       ? { headline: message.referral.headline || '', body: message.referral.body || '', sourceUrl: message.referral.sourceUrl || '', mediaType: message.referral.mediaType || '', mediaUrl: message.referral.mediaUrl || '' }
@@ -136,7 +153,7 @@ function serializeMessage(message) {
 
 const POPULATE = [
   { path: 'contactId', select: 'name phone phoneE164 company' },
-  { path: 'whatsappAccountId', select: 'name displayPhone verifiedName phoneNumberId' },
+  { path: 'whatsappAccountId', select: 'name displayPhone verifiedName phoneNumberId calling' },
 ];
 
 // D25: whoever handles a chat becomes the owner of its contact and the contact's open leads when
@@ -704,6 +721,18 @@ async function sendForm(req, id, form) {
   }));
 }
 
+// G7 (D111): asks the customer for permission to call them on WhatsApp (Meta's interactive
+// call_permission_request; like any free-form message, only inside the 24-hour window). Their
+// answer comes back as a call_permission_reply (whatsappInboundService).
+async function sendCallPermissionRequest(req, id, { text }) {
+  const context = await sendContext(req, id, { needsWindow: true });
+  const fields = { type: 'interactive', text, interactive: { kind: 'call_permission' } };
+  return deliver(asMember(req), context, fields, async () => ({
+    type: 'interactive',
+    interactive: { type: 'call_permission_request', action: { name: 'call_permission_request' }, body: { text } },
+  }));
+}
+
 // A teammate turns the FAQ bot off (it waits for a person) or back on in one chat.
 async function setBot(req, id, { active }) {
   const conversation = await findVisible(req, id);
@@ -771,4 +800,5 @@ module.exports = {
   sendQuickReplyFile, sendScheduledText, assertNotBlocked, // D103
   ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, sendProducts, sendForm, announce, findVisible, setBot,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
+  sendContext, claimCustomer, callPermissionOf, sendCallPermissionRequest, // G7 (D111): WhatsApp calls
 };

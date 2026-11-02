@@ -18,7 +18,7 @@ You need: an adult business owner with a real Facebook account, the business's d
 2. **App settings → Basic:** app icon (1024×1024), category Business, App domains `app.yourdomain`, Privacy Policy URL `https://app.yourdomain/crm/frontend/privacy.html`, Terms of Service URL `https://app.yourdomain/crm/frontend/terms.html`, User data deletion URL `https://app.yourdomain/crm/frontend/privacy.html#data-deletion`. Note the **App ID** and (Show) the **App secret**.
 3. Add **Facebook Login for Business** → **Settings → Client OAuth settings:** set to **Yes** Client OAuth login, Web OAuth login, Enforce HTTPS, Embedded Browser OAuth Login, Use Strict Mode for redirect URIs, Login with the JavaScript SDK. Put `https://app.yourdomain/` in **Allowed domains for the JavaScript SDK** and in **Valid OAuth redirect URIs**.
 4. **Facebook Login for Business → Configurations → Create from template** → "WhatsApp Embedded Signup Configuration With 60 Expiration Token". Copy the **Configuration ID** when it is shown.
-5. **WhatsApp → Configuration → Webhook:** Callback URL `https://app.yourdomain/api/v1/webhooks/meta`, Verify token: any long random text of your choice → **Verify and save**. Subscribe to the fields `messages`, `message_template_status_update`, `history`, `smb_app_state_sync`, `smb_message_echoes` and `account_update`.
+5. **WhatsApp → Configuration → Webhook:** Callback URL `https://app.yourdomain/api/v1/webhooks/meta`, Verify token: any long random text of your choice → **Verify and save**. Subscribe to the fields `messages`, `message_template_status_update`, `history`, `smb_app_state_sync`, `smb_message_echoes`, `account_update` and `calls` (WhatsApp calls, D111).
 6. In Render → the service → **Environment**, add and save (the service restarts):
    ```
    META_APP_ID=<App ID>
@@ -67,7 +67,7 @@ cloudflared tunnel --url http://127.0.0.1:3000
 
 It prints an address like `https://random-words.trycloudflare.com` (it changes every run; a named Cloudflare tunnel with your own domain keeps it fixed). Your callback URL is that address + the path shown in the CRM, e.g. `https://random-words.trycloudflare.com/api/v1/webhooks/whatsapp/<key>`.
 
-In the Meta app → WhatsApp → **Configuration** → Webhook → *Edit*: paste the callback URL and the verify token → *Verify and save*. Then under *Webhook fields* **subscribe to `messages`** and **`message_template_status_update`** (so template approvals and rejections show up in the CRM). If several of your numbers use the same Meta app, one callback URL is enough: messages for your other connected numbers are sorted to the right number.
+In the Meta app → WhatsApp → **Configuration** → Webhook → *Edit*: paste the callback URL and the verify token → *Verify and save*. Then under *Webhook fields* **subscribe to `messages`** and **`message_template_status_update`** (so template approvals and rejections show up in the CRM), and **`calls`** for WhatsApp calls. If several of your numbers use the same Meta app, one callback URL is enough: messages for your other connected numbers are sorted to the right number.
 
 ## 4. Check it
 
@@ -97,6 +97,18 @@ Customers can see your products inside WhatsApp, add them to a cart and send the
 4. **In a chat:** the store button next to the template button sends one product or a list (up to 30). Customers who send a cart get a thank-you message, and the order appears under Orders (stage Received) with a note under your bell.
 
 The catalog comes with the Growth plan (the trial has it).
+
+### WhatsApp calls (D111)
+
+Customers can call the business on WhatsApp, and the business can call customers who allowed it (Meta's Calling API, offered in India; checked 2026-11-02).
+
+1. **Meta:** the number is on the Cloud API (not only the WhatsApp Business app) and may message at least 2,000 customers a day; the Meta app is subscribed to the **`calls`** webhook field (part A step 5, or part B step 3).
+2. **CRM:** Settings → WhatsApp → the number's card → tick **WhatsApp calls** (the CRM switches calling on with Meta; customers see the call button in their chat with you). Tick **Customers who call can be called back** to let the team call back anyone who called in the last 7 days without asking first.
+3. **Answering:** keep the Inbox open in a tab. A call rings for everyone who sees that chat — a card with **Answer** and **Decline**; the first to answer takes the call. The browser asks once for the microphone: allow it. Calls need the CRM on HTTPS (or 127.0.0.1 while testing).
+4. **Calling a customer:** the green phone in the chat's header. Without their permission it asks them first, in the chat (only within 24 hours of their last message; one request a day, two a week); when they allow it, the same button calls them. A "yes" lasts 7 days unless they allow it for good.
+5. **Meta's limits:** at most 100 connected calls a day that the business makes from one number; 4 unanswered calls in a row withdraw the customer's permission. Calls the business makes are charged by Meta per minute (see Meta's pricing page); customers' calls to you are free.
+
+Every call is in the customer's history (Customer 360) with its length, and a line in the chat; a missed call also comes under the bell. The CRM never records calls.
 
 ## Login codes on WhatsApp: 2-step verification (the platform's own number)
 

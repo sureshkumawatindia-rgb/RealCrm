@@ -10,7 +10,8 @@ const PHONE_KEYS = new Set([
   'fromNumber', 'toNumber', // a call's two ends (D85)
 ]);
 // The company's own numbers: its WhatsApp number on a chat, the seller on a quotation or order.
-const COMPANY_KEYS = new Set(['displayPhone', 'seller']);
+// sdp: a WhatsApp call's audio set-up (G7), machine data whose digits are not a number.
+const COMPANY_KEYS = new Set(['displayPhone', 'seller', 'sdp']);
 // Keys that show a name, which is the number itself for a contact nobody has named yet.
 const NAME_KEYS = new Set(['name', 'title', 'contactName', 'customerName', 'relatedName', 'displayName', 'label']);
 

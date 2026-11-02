@@ -70,6 +70,26 @@ module.exports = {
       ctwaClid: Joi.string().trim().max(500).allow(''),
     }),
   }),
+  // G7 (D111): a pretend WhatsApp call webhook on a test number — a customer calls (incoming), our
+  // call rings, is picked up (answer) or declined, a call ends (end: COMPLETED or FAILED, with its
+  // length in seconds), or the customer answers our request to call them (permission). callId:
+  // Meta's call id or the CRM's; by default the number's newest WhatsApp call.
+  simulateCall: Joi.object({
+    accountId: objectId,
+    event: Joi.string().valid('incoming', 'ringing', 'answer', 'decline', 'end', 'permission').required(),
+    from: Joi.when('event', { is: Joi.valid('incoming', 'permission'), then: Joi.string().trim().max(30).required(), otherwise: Joi.forbidden() }),
+    name: Joi.string().trim().max(100).allow(''),
+    callId: Joi.string().trim().max(200),
+    status: Joi.when('event', { is: 'end', then: Joi.string().valid('COMPLETED', 'FAILED').default('COMPLETED'), otherwise: Joi.forbidden() }),
+    duration: Joi.when('event', { is: 'end', then: Joi.number().integer().min(0).max(36000), otherwise: Joi.forbidden() }),
+    response: Joi.when('event', { is: 'permission', then: Joi.string().valid('accept', 'reject').default('accept'), otherwise: Joi.forbidden() }),
+    permanent: Joi.when('event', { is: 'permission', then: Joi.boolean().default(false), otherwise: Joi.forbidden() }),
+  }),
+  // G7: WhatsApp calls on a number, and whether a customer who calls may be called back.
+  callingSettings: Joi.object({
+    enabled: Joi.boolean().required(),
+    callbackPermission: Joi.boolean().default(false),
+  }),
   // The Meta catalog of a number (Phase 8C), and whether WhatsApp shows the shop and a cart.
   catalogConnect: Joi.object({
     catalogId: numericId.required(),

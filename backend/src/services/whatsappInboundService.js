@@ -19,6 +19,7 @@ const templateService = require('./templateService');
 const attribution = require('./attributionService');
 const csat = require('./csatService');
 const { refCodeIn } = require('../views/whatsappButton');
+const calls = () => require('./whatsappCallService'); // eslint-disable-line global-require -- G7: it uses this service
 const { STAGE_PROBABILITY, OPEN_STAGES } = require('../constants/crm');
 const { MESSAGE_TYPES, MEDIA_TYPES, STATUS_RANK } = require('../constants/whatsapp');
 
@@ -51,7 +52,7 @@ const appSignatureOk = (rawBody, header) => signedWith(env.meta.appSecret, rawBo
 
 // --- storing the webhook ----------------------------------------------------
 // The events of one change of a webhook for the number `target`.
-// Fields: messages (messages and statuses), message_template_status_update, and for a WhatsApp
+// Fields: messages (messages and statuses), message_template_status_update, calls (G7), and for a WhatsApp
 // Business app number (coexistence, D60): history (its chats of the last 6 months, in chunks),
 // smb_message_echoes (what the business sent from the app on the phone), smb_app_state_sync
 // (its contacts) and account_update (e.g. PARTNER_REMOVED: the business disconnected the CRM).
@@ -74,7 +75,25 @@ function itemsOf(target, entry, change) {
       }
       for (const status of Array.isArray(value.statuses) ? value.statuses : []) {
         if (!status?.id || !status.status) continue;
-        items.push({ kind: 'status', sourceId, eventId: `status:${status.id}:${status.status}`, payload: { status } });
+        // G7: a call's progress (type "call") is not a message's.
+        const kind = status.type === 'call' ? 'call_status' : 'status';
+        items.push({ kind, sourceId, eventId: `${kind}:${status.id}:${status.status}`, payload: { status } });
+      }
+      break;
+    }
+    // G7 (D111): WhatsApp calls — one starting (connect: a customer's call with their audio offer,
+    // or ours with WhatsApp's answer) or ending (terminate), and our calls' progress (RINGING,
+    // ACCEPTED, REJECTED).
+    case 'calls': {
+      const contacts = Array.isArray(value.contacts) ? value.contacts : [];
+      for (const call of Array.isArray(value.calls) ? value.calls : []) {
+        if (!call?.id || !call.event) continue;
+        const contact = contacts.find((c) => c?.wa_id === call.from) || contacts[0] || null;
+        items.push({ kind: 'call', sourceId, eventId: `call:${call.id}:${call.event}`, payload: { call, contact } });
+      }
+      for (const status of Array.isArray(value.statuses) ? value.statuses : []) {
+        if (!status?.id || !status.status) continue;
+        items.push({ kind: 'call_status', sourceId, eventId: `call_status:${status.id}:${status.status}`, payload: { status } });
       }
       break;
     }
@@ -177,7 +196,7 @@ async function ingestApp(payload) {
 // --- turning a message into CRM records -----------------------------------------
 // The fields of our Message document for one webhook message object.
 function messageFields(message) {
-  const type = MESSAGE_TYPES.includes(message.type) && message.type !== 'template' ? message.type : 'unsupported';
+  const type = MESSAGE_TYPES.includes(message.type) && !['template', 'call'].includes(message.type) ? message.type : 'unsupported';
   const fields = { type, text: '' };
   if (type === 'text') fields.text = str(message.text?.body, TEXT_LIMIT);
   if (MEDIA_TYPES.includes(type)) {
@@ -210,6 +229,14 @@ function messageFields(message) {
     }
     fields.form = { token: str(parsed?.flow_token, 200), values };
     fields.text = str(reply.body, 200) || 'Form sent';
+  } else if (type === 'interactive' && message.interactive?.type === 'call_permission_reply') {
+    // G7 (D111): the customer's answer to our request to call them: for good, or until
+    // expiration_timestamp (Meta's call_permission_reply, read 2026-11-02).
+    const reply = message.interactive.call_permission_reply || {};
+    const accept = String(reply.response || '').toLowerCase() === 'accept';
+    const expires = Number(reply.expiration_timestamp);
+    fields.callPermission = { response: accept ? 'accept' : 'reject', permanent: accept && reply.is_permanent === true, ...(accept && expires > 0 && { expiresAt: new Date(expires * 1000) }) };
+    fields.text = accept ? 'Allowed WhatsApp calls' : 'Declined WhatsApp calls';
   } else if (type === 'interactive') {
     const choice = message.interactive?.button_reply || message.interactive?.list_reply || {};
     fields.reply = { id: str(choice.id, 200), title: str(choice.title, 200) };
@@ -373,6 +400,8 @@ async function handleMessage(account, { message, contact: profile }) {
     { returnDocument: 'after' },
   );
   if (rating) await csat.recordAnswer({ organizationId, contactId: contact._id, ...rating, at });
+  // G7: whether the business may call the customer now.
+  if (fields.callPermission) conversation = await calls().permissionReplied(conversation, fields.callPermission, at) || conversation;
   // A reaction shows on the message it is for; a removed reaction comes without an emoji.
   if (fields.type === 'reaction' && fields.reaction?.providerMessageId) {
     const emoji = fields.reaction.emoji;
@@ -393,8 +422,9 @@ async function handleMessage(account, { message, contact: profile }) {
 
   if (!hidden && !blocked && (ad || click)) conversation = await cameFrom({ account, conversation, contact, newLead, ad, ctwaClid, click, at, source });
   bus.emit('message:new', { organizationId, conversation, message: stored, contactCreated: created && !hidden });
-  // A reaction (a 👍 on our message) is not a new question: no bot, auto-reply or workflow runs on it (CP3).
-  if (!hidden && !quiet && stored.type !== 'reaction') {
+  // A reaction (a 👍 on our message) is not a new question: no bot, auto-reply or workflow runs on it
+  // (CP3); nor is the answer to our request to call (G7).
+  if (!hidden && !quiet && stored.type !== 'reaction' && !fields.callPermission) {
     automationEvents.emit('message.received', {
       organizationId, contactId: contact._id, conversationId: conversation._id, messageId: stored._id, text: stored.text || '', messageType: stored.type, replyId: stored.reply?.id || '', key: `message.received:${stored._id}`,
     });
@@ -409,6 +439,40 @@ async function handleMessage(account, { message, contact: profile }) {
   // Photos, voice notes and documents: copy the file now (WhatsApp keeps it only 7 days).
   if (stored.media?.providerMediaId) await media.storeInboundQuietly(stored);
   return 'processed';
+}
+
+// G7 (D111): a customer's WhatsApp call is met like a first message — a new number becomes a contact
+// and a lead ("First WhatsApp call"), the chat is found or made — then it rings (whatsappCallService).
+// Our own calls' events (WhatsApp's answer, the end) go straight to the call service.
+async function handleCall(account, { call: event, contact: profile }, attempts) {
+  const userCall = event.event === 'connect' && String(event.direction || 'USER_INITIATED').toUpperCase() === 'USER_INITIATED';
+  if (!userCall) return calls().callEvent(account, event, attempts);
+  const phoneE164 = phoneFromWaId(event.from);
+  if (!phoneE164) return 'ignored';
+  const organizationId = account.organizationId;
+  const at = unixTime(event.timestamp);
+  const name = str(profile?.profile?.name, 200).trim() || phoneE164;
+  const privateNumber = await privateNumbers.isPrivate(organizationId, phoneE164);
+  const { contact, created } = await findOrCreateContact(organizationId, phoneE164, name, { quiet: privateNumber, private: privateNumber });
+  const hidden = privateNumber || Boolean(contact.private);
+  const agent = hidden ? null : await agentOf(account);
+  if (agent && created) await Contact.updateOne({ _id: contact._id, ownerId: null }, { $set: { ownerId: agent._id } });
+  const newLead = created && !hidden && !contact.blocked?.at ? await createLead(contact, phoneE164, agent?._id || null, { note: 'First WhatsApp call' }) : null;
+  let conversation = await Conversation.findOneAndUpdate(
+    { organizationId, contactId: contact._id, whatsappAccountId: account._id },
+    { $setOnInsert: { status: 'open', openedAt: at, ...(agent && { assigneeId: agent._id }), ...(hidden && { private: true }), ...(contact.blocked?.at && { blockedAt: contact.blocked.at }) } },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+  );
+  if (agent && !conversation.assigneeId) {
+    conversation = await Conversation.findOneAndUpdate({ _id: conversation._id, assigneeId: null }, { $set: { assigneeId: agent._id } }, { returnDocument: 'after' }) || conversation;
+  }
+  const outcome = await calls().incoming({ account, contact, conversation, lead: newLead, event });
+  if (newLead) {
+    bus.emit('lead:intake', {
+      organizationId, source: newLead.source, sourceRef: newLead.sourceRef, leadId: newLead._id, contactId: contact._id, outcome: 'created', contactCreated: true, receivedAt: at,
+    });
+  }
+  return outcome;
 }
 
 // D102: an enquiry from an ad or the website button — the chat shows where it came from, and the
@@ -634,6 +698,8 @@ async function processEvent(id) {
       echo: () => handleEcho(account, event.payload),
       contact_sync: () => handleContactSync(account, event.payload),
       account_update: () => handleAccountUpdate(account, event.payload),
+      call: () => handleCall(account, event.payload, event.attempts), // G7 (D111)
+      call_status: () => calls().callStatus(account, event.payload.status),
     };
     const outcome = !account || !handlers[event.kind] ? 'ignored' : await handlers[event.kind]();
     await InboundEvent.updateOne({ _id: event._id }, { status: outcome, processedAt: new Date(), error: '', $unset: { claimedUntil: 1 } });

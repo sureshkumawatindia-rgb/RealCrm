@@ -66,6 +66,14 @@ const whatsappAccountSchema = new mongoose.Schema(
       lastSyncAt: { type: Date },
       lastSync: { sent: Number, removed: Number, failed: Number, error: String },
     },
+    // WhatsApp calls on this number (G7, D111), switched on in Settings → WhatsApp (Meta's calling
+    // settings): customers see the call button; callbackPermission = a customer who calls may be
+    // called back without being asked first.
+    calling: {
+      enabled: { type: Boolean },
+      callbackPermission: { type: Boolean },
+      updatedAt: { type: Date },
+    },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },

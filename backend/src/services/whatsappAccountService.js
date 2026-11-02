@@ -62,6 +62,8 @@ function serializeAccount(account) {
     accessToken: { configured: Boolean(account.accessTokenEnc), last4: account.accessTokenLast4 },
     appSecretConfigured: Boolean(account.appSecretEnc),
     catalog: serializeCatalog(account),
+    // WhatsApp calls on this number (G7, D111).
+    calling: { enabled: Boolean(account.calling?.enabled), callbackPermission: Boolean(account.calling?.callbackPermission), updatedAt: account.calling?.updatedAt || null },
     createdAt: account.createdAt,
   };
 }

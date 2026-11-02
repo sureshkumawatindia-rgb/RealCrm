@@ -136,6 +136,7 @@ crmI18n.ready.then(function settingsWhatsApp() {
           ${setup}
           ${agentHtml(a)}
           ${catalogHtml(a)}
+          ${callingHtml(a)}
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap">
           ${viaMeta && a.status !== "connected" ? `<a class="btn btn-primary" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("wa.reconnect"))}</a>` : ""}
@@ -173,6 +174,19 @@ crmI18n.ready.then(function settingsWhatsApp() {
         ${form ? "" : `<button class="btn btn-outline" type="button" data-wa-catalog="${escapeHtml(a.id)}"><i class="fa-solid fa-store"></i> ${escapeHtml(t(c ? "wa.cat.change" : "wa.cat.connectButton"))}</button>`}
         ${c && !form ? `<a class="btn btn-outline" href="Products.html"><i class="fa-solid fa-box-open"></i> ${escapeHtml(t("wa.cat.choose"))}</a><button class="btn btn-outline" type="button" data-wa-catalog-off="${escapeHtml(a.id)}">${escapeHtml(t("wa.disconnect"))}</button>` : ""}
       </div>${form}</div>`;
+  }
+
+  // G7 (D111): WhatsApp calls on this number (Meta's calling settings) — customers see the call
+  // button and their calls ring in the Inbox; callers may be called back without being asked.
+  function callingHtml(a) {
+    const c = a.calling || {};
+    return `<div class="sub wa-calling" style="margin-top:8px">
+      <div style="display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center">
+        <label class="ls-check" style="margin:0"><input type="checkbox" data-wa-calling="${escapeHtml(a.id)}" ${c.enabled ? "checked" : ""} /> <strong>${escapeHtml(t("wa.call.label"))}</strong></label>
+        <label class="ls-check" style="margin:0"><input type="checkbox" data-wa-callback="${escapeHtml(a.id)}" ${c.callbackPermission ? "checked" : ""} ${c.enabled ? "" : "disabled"} /> ${escapeHtml(t("wa.call.callback"))}</label>
+      </div>
+      <div style="margin-top:4px">${escapeHtml(t(c.enabled ? "wa.call.onHint" : "wa.call.offHint"))}</div>
+    </div>`;
   }
 
   function render() {
@@ -308,6 +322,17 @@ crmI18n.ready.then(function settingsWhatsApp() {
   }
 
   listEl.addEventListener("change", async (e) => {
+    // G7 (D111): WhatsApp calls on or off, and call-backs.
+    const calling = e.target.closest("[data-wa-calling], [data-wa-callback]");
+    if (calling) {
+      const id = calling.dataset.waCalling || calling.dataset.waCallback;
+      const card = calling.closest(".wa-calling");
+      const enabled = card.querySelector("[data-wa-calling]").checked;
+      const callbackPermission = enabled && card.querySelector("[data-wa-callback]").checked;
+      card.querySelectorAll("input").forEach((input) => { input.disabled = true; });
+      await run(() => crmApi(`/whatsapp/accounts/${id}/calling`, jsonRequest("PUT", { enabled, callbackPermission })), t(enabled ? "wa.call.nowOn" : "wa.call.nowOff"));
+      return;
+    }
     const select = e.target.closest("[data-wa-agent]");
     if (!select) return;
     const agentMemberId = select.value || null;

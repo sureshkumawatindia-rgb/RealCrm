@@ -189,6 +189,38 @@ module.exports = {
     await graph(enc(flowId), { accessToken, method: 'DELETE' });
   },
 
+  // --- WhatsApp calls (G7, D111) ---
+  // https://developers.facebook.com/documentation/business-messaging/whatsapp/calling (read
+  // 2026-11-02; India allowed for customer and business calls): calling is switched on per number
+  // with POST /{phone-number-id}/settings. A customer's call is answered with pre_accept, then
+  // accept (our SDP answer, the same both times), declined with reject and ended with terminate;
+  // a business call is made with connect (our SDP offer) once the customer gave permission —
+  // all POST /{phone-number-id}/calls. Meta answers { success: true }, or { calls: [{ id }] }.
+  async setCalling({ phoneNumberId, accessToken }, { enabled, callbackPermission }) {
+    const calling = enabled
+      ? { status: 'ENABLED', call_icon_visibility: 'DEFAULT', callback_permission_status: callbackPermission ? 'ENABLED' : 'DISABLED' }
+      : { status: 'DISABLED' };
+    await graph(`${enc(phoneNumberId)}/settings`, { accessToken, method: 'POST', body: { calling } });
+  },
+  async callAction({ phoneNumberId, accessToken }, { callId, action, sdp }) {
+    await graph(`${enc(phoneNumberId)}/calls`, {
+      accessToken,
+      method: 'POST',
+      body: { messaging_product: 'whatsapp', call_id: callId, action, ...(sdp && { session: { sdp_type: 'answer', sdp } }) },
+    });
+  },
+  // to: the customer's wa_id; tag: comes back in the call's webhooks (biz_opaque_callback_data).
+  async startCall({ phoneNumberId, accessToken }, { to, sdp, tag }) {
+    const data = await graph(`${enc(phoneNumberId)}/calls`, {
+      accessToken,
+      method: 'POST',
+      body: { messaging_product: 'whatsapp', to, action: 'connect', session: { sdp_type: 'offer', sdp }, ...(tag && { biz_opaque_callback_data: tag }) },
+    });
+    const callId = String(data.calls?.[0]?.id || '');
+    if (!callId) throw httpError(502, 'WHATSAPP_ERROR', 'WhatsApp did not return a call id.');
+    return { callId };
+  },
+
   // A received file's details and a download URL (valid 5 minutes).
   async getMedia({ phoneNumberId, accessToken }, mediaId) {
     const data = await graph(`${enc(mediaId)}?phone_number_id=${enc(phoneNumberId)}`, { accessToken });

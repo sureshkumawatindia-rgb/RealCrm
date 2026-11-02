@@ -5,7 +5,10 @@ const CALL_STATUSES = Object.freeze(['queued', 'ringing', 'in_progress', 'comple
 const END_STATUSES = Object.freeze(['completed', 'failed', 'busy', 'no_answer', 'cancelled']);
 // What came of it, in a salesperson's words (the board and Phase 8's dialer use the same list).
 const CALL_OUTCOMES = Object.freeze(['connected', 'interested', 'callback', 'not_interested', 'no_answer', 'busy', 'wrong_number', 'switched_off']);
-const CALL_PROVIDERS = Object.freeze(['manual', 'exotel', 'mock']);
+// whatsapp: a WhatsApp call, answered or made in the browser (G7, D111).
+const CALL_PROVIDERS = Object.freeze(['manual', 'exotel', 'mock', 'whatsapp']);
+// Calls still going on (not ended).
+const LIVE_STATUSES = Object.freeze(['queued', 'ringing', 'in_progress']);
 const TELEPHONY_PROVIDERS = Object.freeze(['exotel', 'mock']);
 
-module.exports = { CALL_DIRECTIONS, CALL_STATUSES, END_STATUSES, CALL_OUTCOMES, CALL_PROVIDERS, TELEPHONY_PROVIDERS };
+module.exports = { CALL_DIRECTIONS, CALL_STATUSES, END_STATUSES, LIVE_STATUSES, CALL_OUTCOMES, CALL_PROVIDERS, TELEPHONY_PROVIDERS };

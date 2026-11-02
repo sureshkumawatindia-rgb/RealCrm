@@ -12,6 +12,7 @@ const CONVERSATION_STATUSES = Object.freeze(['open', 'pending', 'closed']);
 const MESSAGE_TYPES = Object.freeze([
   'text', 'image', 'document', 'audio', 'video', 'sticker', 'location', 'contacts',
   'interactive', 'button', 'reaction', 'template', 'order', 'unsupported',
+  'call', // G7 (D111): a WhatsApp call's line in the chat (made by the CRM, never by a webhook message)
 ]);
 const MEDIA_TYPES = Object.freeze(['image', 'document', 'audio', 'video', 'sticker']);
 

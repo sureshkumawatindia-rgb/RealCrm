@@ -139,6 +139,21 @@ const SAMPLE_TEMPLATES = [
 ];
 const createdTemplates = new Map(); // phone number id → templates created on it
 const createdFlows = new Map(); // G6: flow id → { flowId, phoneNumberId, name, categories, flowJson, status }
+const callActions = []; // G7: what the CRM asked of calls ({ phoneNumberId, callId, action, sdp, to })
+const callSettings = new Map(); // G7: phone number id → { enabled, callbackPermission }
+
+// G7 (D111): a well-formed audio set-up (SDP, OPUS) for the simulator's calls, so a browser can
+// answer a simulated call or hear a simulated answer (no sound flows: nobody is on the other end).
+function sampleSdp(type = 'offer') {
+  const fingerprint = crypto.randomBytes(32).toString('hex').toUpperCase().match(/../g).join(':');
+  return [
+    'v=0', `o=- ${Date.now()} 2 IN IP4 127.0.0.1`, 's=-', 't=0 0', 'a=group:BUNDLE 0', 'a=msid-semantic: WMS',
+    'm=audio 9 UDP/TLS/RTP/SAVPF 111', 'c=IN IP4 0.0.0.0', 'a=rtcp:9 IN IP4 0.0.0.0',
+    `a=ice-ufrag:${crypto.randomBytes(4).toString('hex')}`, `a=ice-pwd:${crypto.randomBytes(12).toString('hex')}`,
+    `a=fingerprint:sha-256 ${fingerprint}`, `a=setup:${type === 'offer' ? 'actpass' : 'active'}`, 'a=mid:0', 'a=sendrecv', 'a=rtcp-mux',
+    'a=rtpmap:111 opus/48000/2', 'a=fmtp:111 minptime=10;useinbandfec=1', '',
+  ].join('\r\n');
+}
 
 // G6 (D110): what Meta would refuse in a form (a few of its Flow JSON checks).
 function flowProblems(flowJson) {
@@ -208,6 +223,22 @@ module.exports = {
     createdFlows.delete(flowId);
   },
   flows: () => [...createdFlows.values()],
+
+  // G7 (D111): a test number takes every call action; the simulator plays the customer.
+  async setCalling({ phoneNumberId }, { enabled, callbackPermission }) {
+    callSettings.set(phoneNumberId, { enabled: Boolean(enabled), callbackPermission: Boolean(callbackPermission) });
+  },
+  async callAction({ phoneNumberId }, { callId, action, sdp }) {
+    callActions.push({ phoneNumberId, callId, action, sdp: sdp || '' });
+  },
+  async startCall({ phoneNumberId }, { to, sdp, tag }) {
+    const callId = `wacid.MOCK${crypto.randomBytes(12).toString('hex')}`;
+    callActions.push({ phoneNumberId, callId, action: 'connect', sdp, to, tag: tag || '' });
+    return { callId };
+  },
+  callActions: () => [...callActions],
+  callSettings: (phoneNumberId) => callSettings.get(phoneNumberId) || null,
+  sampleSdp,
 
   // A pretend catalog: any id works, and every product is accepted.
   async getCatalog(credentials, catalogId) {
