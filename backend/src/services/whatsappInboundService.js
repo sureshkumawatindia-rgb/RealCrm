@@ -20,6 +20,7 @@ const attribution = require('./attributionService');
 const csat = require('./csatService');
 const { refCodeIn } = require('../views/whatsappButton');
 const calls = () => require('./whatsappCallService'); // eslint-disable-line global-require -- G7: it uses this service
+const social = () => require('./socialInboxService'); // eslint-disable-line global-require -- G8: it uses this service
 const { STAGE_PROBABILITY, OPEN_STAGES } = require('../constants/crm');
 const { MESSAGE_TYPES, MEDIA_TYPES, STATUS_RANK } = require('../constants/whatsapp');
 
@@ -170,6 +171,8 @@ async function ingest(account, payload) {
 // WhatsApp", of every company. Each change goes to the number named in it (phone_number_id), or —
 // for WABA-wide changes such as account_update — to the active number of that WABA (entry.id).
 async function ingestApp(payload) {
+  // G8 (D112): Instagram and Messenger come through the same app webhook (objects page and instagram).
+  if (payload?.object === 'page' || payload?.object === 'instagram') return social().ingest(payload);
   const items = [];
   const touched = new Set();
   const cache = new Map();
@@ -689,6 +692,12 @@ async function processEvent(id) {
   );
   if (!event) return;
   try {
+    // G8 (D112): an Instagram or Messenger item.
+    if (event.provider === social().PROVIDER) {
+      const outcome = await social().handleEvent(event);
+      await InboundEvent.updateOne({ _id: event._id }, { status: outcome, processedAt: new Date(), error: '', $unset: { claimedUntil: 1 } });
+      return;
+    }
     const account = await WhatsAppAccount.findOne({ _id: event.sourceId, organizationId: event.organizationId });
     const handlers = {
       message: () => handleMessage(account, event.payload),
@@ -728,7 +737,7 @@ async function idle() {
 // Picks up events left behind by a restart or a failure (runs at start-up and every few minutes).
 async function retryPending() {
   const stale = await InboundEvent.find({
-    provider: 'whatsapp', attempts: { $lt: MAX_ATTEMPTS },
+    provider: { $in: ['whatsapp', 'meta-social'] }, attempts: { $lt: MAX_ATTEMPTS }, // meta-social: Instagram and Messenger (G8)
     $or: [{ status: { $in: ['received', 'failed'] }, updatedAt: { $lt: new Date(Date.now() - 60 * 1000) } }, { status: 'processing', claimedUntil: { $lt: new Date() } }],
   }).sort({ createdAt: 1 }).limit(500).select('_id');
   await processNow(stale.map((event) => event._id));

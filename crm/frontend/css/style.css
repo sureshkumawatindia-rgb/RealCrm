@@ -5827,3 +5827,49 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   max-height: 180px;
   overflow-y: auto;
 }
+
+/* --- Settings → WhatsApp → Instagram and Messenger (G8, D112) --------------------------------- */
+.social-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.social-mark {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.social-card.instagram .social-mark {
+  color: #c13584;
+}
+.social-card.messenger .social-mark {
+  color: #0866ff;
+}
+.social-main {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.social-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.social-name strong {
+  overflow-wrap: anywhere;
+}
+.social-error {
+  color: var(--danger-text);
+  font-size: 13px;
+  margin-top: 4px;
+}
+.social-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}

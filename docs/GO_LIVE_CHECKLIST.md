@@ -139,5 +139,16 @@ service's **Environment** on Render — never into a chat, an email or a documen
 - **Guide:** `docs/FOUNDATION_SETUP_STEPS.md` sections Q–R.
 - **Without it:** after the grace days, owners and admins are sent to the set-up page.
 
+## 17. Instagram and Messenger (Meta App Review)
+
+- **Do:** on the same Meta app, add Messenger and Instagram messaging, create a Facebook Login
+  for Business configuration (`META_SOCIAL_CONFIG_ID`), subscribe the `page` and `instagram`
+  webhook objects to the same callback URL, and pass App Review for `pages_show_list`,
+  `pages_messaging`, `pages_manage_metadata`, `instagram_basic`, `instagram_manage_messages` and
+  the Human Agent feature.
+- **Guide:** `docs/INSTAGRAM_MESSENGER_SETUP.md`.
+- **Without it:** companies cannot connect a Facebook Page or an Instagram account; without the
+  Human Agent feature, replies after 24 hours are refused by Meta.
+
 When every item shows **Done** (or "Check by hand" items are done in their own consoles), the CRM
 is ready for paying customers.

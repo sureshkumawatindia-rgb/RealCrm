@@ -39,24 +39,50 @@ function fileNameOf(message) {
   const mime = String(message.media?.mimeType || '').split(';')[0].trim();
   const ext = EXTENSION_BY_MIME[mime] || 'bin';
   const stamp = new Date(message.providerTimestamp || message.createdAt || Date.now()).toISOString().slice(0, 10);
-  return `whatsapp-${message.type}-${stamp}.${ext}`;
+  return `${message.channel || 'whatsapp'}-${message.type}-${stamp}.${ext}`; // G8: instagram-… / messenger-…
 }
 
 // The number a message came through, even if it was removed from Settings since.
 const accountOf = (message) => WhatsAppAccount.findOne({ _id: message.whatsappAccountId, organizationId: message.organizationId, deletedAt: { $exists: true } });
 
+// G8 (D112): an Instagram or Messenger file — the webhook gives a link to it (on Meta's servers;
+// the simulator's links are the WhatsApp stand-in's sample files).
+const DOWNLOAD_TIMEOUT_MS = 120000;
+async function downloadLink(url) {
+  if (/^https:\/\/mock\.invalid\//.test(url)) return providerFor({ provider: 'mock' }).downloadMedia(null, url);
+  if (!/^https:\/\//i.test(url)) throw httpError(404, 'MEDIA_UNAVAILABLE', 'This file has no download address.');
+  let response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+  } catch {
+    throw httpError(502, 'MEDIA_UNAVAILABLE', 'Could not reach Meta for this file.');
+  }
+  if (!response.ok) throw httpError(404, 'MEDIA_UNAVAILABLE', 'Meta no longer has this file.');
+  if (Number(response.headers.get('content-length')) > MEDIA_MAX_BYTES) throw httpError(413, 'FILE_TOO_LARGE', 'This file is too big to keep in the CRM.');
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length > MEDIA_MAX_BYTES) throw httpError(413, 'FILE_TOO_LARGE', 'This file is too big to keep in the CRM.');
+  return { buffer, mimeType: String(response.headers.get('content-type') || '').split(';')[0].trim() };
+}
+
 // Copies an incoming file into storage. Returns the updated message; throws when WhatsApp
-// cannot give the file.
+// (or, G8, Instagram or Messenger) cannot give the file.
 async function storeInbound(message) {
-  if (message.media?.storageKey || !message.media?.providerMediaId) return message;
-  const account = await accountOf(message);
-  if (!account) throw httpError(404, 'MEDIA_UNAVAILABLE', 'The WhatsApp number of this chat is gone, so the file cannot be fetched.');
-  const provider = providerFor(account);
-  const creds = credentials(account);
-  const info = await provider.getMedia(creds, message.media.providerMediaId);
-  if (info.sizeBytes && info.sizeBytes > MEDIA_MAX_BYTES) throw httpError(413, 'FILE_TOO_LARGE', 'This file is too big to keep in the CRM.');
-  const { buffer, mimeType } = await provider.downloadMedia(creds, info.url, { maxBytes: MEDIA_MAX_BYTES });
-  if (!hashMatches(info.sha256 || message.media.sha256, buffer)) throw httpError(502, 'MEDIA_CORRUPT', 'The file from WhatsApp did not match its checksum.');
+  if (message.media?.storageKey || (!message.media?.providerMediaId && !message.media?.url)) return message;
+  let buffer;
+  let mimeType;
+  let info = {};
+  if (message.media.providerMediaId) {
+    const account = await accountOf(message);
+    if (!account) throw httpError(404, 'MEDIA_UNAVAILABLE', 'The WhatsApp number of this chat is gone, so the file cannot be fetched.');
+    const provider = providerFor(account);
+    const creds = credentials(account);
+    info = await provider.getMedia(creds, message.media.providerMediaId);
+    if (info.sizeBytes && info.sizeBytes > MEDIA_MAX_BYTES) throw httpError(413, 'FILE_TOO_LARGE', 'This file is too big to keep in the CRM.');
+    ({ buffer, mimeType } = await provider.downloadMedia(creds, info.url, { maxBytes: MEDIA_MAX_BYTES }));
+    if (!hashMatches(info.sha256 || message.media.sha256, buffer)) throw httpError(502, 'MEDIA_CORRUPT', 'The file from WhatsApp did not match its checksum.');
+  } else {
+    ({ buffer, mimeType } = await downloadLink(message.media.url));
+  }
 
   const storageKey = await documentStorage.put(message.organizationId, buffer);
   const updated = await Message.findOneAndUpdate(
@@ -92,7 +118,7 @@ async function storeInboundQuietly(message) {
 
 // A stream of the message's file, fetching it from WhatsApp first if needed.
 async function open(message) {
-  if (!message.media?.storageKey && !message.media?.providerMediaId) throw httpError(404, 'NOT_FOUND', 'This message has no file.');
+  if (!message.media?.storageKey && !message.media?.providerMediaId && !message.media?.url) throw httpError(404, 'NOT_FOUND', 'This message has no file.');
   let current = message;
   if (!current.media.storageKey) {
     if (current.direction !== 'in') throw httpError(404, 'MEDIA_UNAVAILABLE', 'This file is no longer available.');

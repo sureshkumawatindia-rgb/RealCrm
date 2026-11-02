@@ -169,13 +169,22 @@
                 <button class="inbox-tab" data-view="archived" role="tab" title="Archived chats" data-i18n-title="inbox.tab.archivedTitle"><i class="fa-solid fa-box-archive"></i> <span data-i18n="inbox.tab.archived">Archived</span></button>
                 <button class="inbox-tab icon-only" data-view="blocked" role="tab" title="Blocked customers" data-i18n-title="inbox.tab.blockedTitle"><i class="fa-solid fa-ban"></i> <span data-i18n="inbox.tab.blocked">Blocked</span></button>
               </div>
-              <select id="inboxStatus" aria-label="Status" data-i18n-aria-label="col.status">
-                <option value="" data-i18n="inbox.status.openPending">Open &amp; pending</option>
-                <option value="open" data-i18n="inbox.status.open">Open</option>
-                <option value="pending" data-i18n="inbox.status.pending">Pending</option>
-                <option value="closed" data-i18n="inbox.status.closed">Closed</option>
-                <option value="any" data-i18n="inbox.status.any">All chats</option>
-              </select>
+              <div class="inbox-filters">
+                <select id="inboxStatus" aria-label="Status" data-i18n-aria-label="col.status">
+                  <option value="" data-i18n="inbox.status.openPending">Open &amp; pending</option>
+                  <option value="open" data-i18n="inbox.status.open">Open</option>
+                  <option value="pending" data-i18n="inbox.status.pending">Pending</option>
+                  <option value="closed" data-i18n="inbox.status.closed">Closed</option>
+                  <option value="any" data-i18n="inbox.status.any">All chats</option>
+                </select>
+                <!-- G8 (D112): shown once the company has Instagram or Messenger chats -->
+                <select id="inboxChannel" aria-label="Channel" data-i18n-aria-label="inbox.channel.label" hidden>
+                  <option value="" data-i18n="inbox.channel.all">All channels</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="messenger">Messenger</option>
+                </select>
+              </div>
             </div>
             <div class="inbox-list-body" id="conversationList"></div>
             <button class="inbox-more" id="conversationMore" type="button" hidden data-i18n="inbox.moreChats">Load more chats</button>
@@ -214,7 +223,7 @@
                 </div>
                 <div class="composer-closed" id="composerClosed" hidden>
                   <i class="fa-solid fa-lock"></i>
-                  <span data-i18n="inbox.closedText">The customer has not written in the last 24 hours, so WhatsApp only allows an approved template now. You can still add internal notes.</span>
+                  <span id="composerClosedText" data-i18n="inbox.closedText">The customer has not written in the last 24 hours, so WhatsApp only allows an approved template now. You can still add internal notes.</span>
                   <button class="btn btn-outline" id="closedTemplateBtn" type="button"><i class="fa-solid fa-file-lines"></i> <span data-i18n="inbox.tpl.title">Send a template</span></button>
                 </div>
                 <div class="composer-closed" id="composerBlocked" hidden>

@@ -4,6 +4,9 @@ const mongoose = require('mongoose');
 const env = require('../config/env');
 const Call = require('../models/Call');
 const Message = require('../models/Message');
+const SocialAccount = require('../models/SocialAccount');
+const Conversation = require('../models/Conversation');
+const socialMock = require('../integrations/social/mock');
 const accountService = require('../services/whatsappAccountService');
 const inbound = require('../services/whatsappInboundService');
 const { authenticate } = require('../middleware/auth');
@@ -155,6 +158,48 @@ router.post('/simulate/whatsapp-call', validate({ body: schemas.simulateCall }),
   await inbound.processNow(await inbound.ingest(account, payload));
   const latest = call ? await Call.findById(call._id) : newCallId && await Call.findOne({ organizationId: account.organizationId, provider: 'whatsapp', providerCallId: newCallId });
   res.status(201).json({ success: true, data: { callId: event === 'permission' ? null : latest?._id || null, status: event === 'permission' ? null : latest?.status || null } });
+});
+
+// G8 (D112): pretends Meta sent an Instagram or Messenger webhook to a test Page, processed like a
+// real one: a customer's message (text, or a photo), a message the business sent from Meta's own
+// apps (echo), or the customer reading our messages (read).
+const socialSimulation = Joi.object({
+  accountId: Joi.string().hex().length(24),
+  channel: Joi.string().valid('instagram', 'messenger').default('instagram'),
+  from: Joi.string().trim().pattern(/^[A-Za-z0-9_-]{3,60}$/), // the customer's id (default: a new one)
+  name: Joi.string().trim().max(100).allow(''),
+  username: Joi.string().trim().max(60).allow(''),
+  event: Joi.string().valid('message', 'echo', 'read').default('message'),
+  type: Joi.string().valid('text', 'image').default('text'),
+  text: Joi.string().trim().max(2000).allow(''),
+});
+router.post('/simulate/social-inbound', validate({ body: socialSimulation }), async (req, res) => {
+  const { accountId, channel, name, username, event, type, text } = req.valid.body;
+  const account = await SocialAccount.findOne({ organizationId: req.tenant.organizationId, ...(accountId ? { _id: accountId } : { channel }), activeExternalId: { $type: 'string' } }).sort({ createdAt: -1 });
+  if (!account) throw httpError(400, 'NO_SOCIAL_ACCOUNT', 'Add a test Page in Settings → WhatsApp → Instagram and Messenger first.');
+  if (account.provider !== 'mock') throw httpError(400, 'VALIDATION_ERROR', 'Instagram and Messenger can only be simulated on a test Page.');
+  const from = req.valid.body.from || `${Date.now()}${crypto.randomInt(100, 999)}`;
+  if (name || username) socialMock.setProfile(from, { name, username });
+  const now = Date.now();
+  const mid = `m_SIM${crypto.randomBytes(12).toString('hex')}`;
+  // Instagram's "seen" names the last message read: ours, the newest in the chat.
+  let seenMid = '';
+  if (event === 'read' && channel === 'instagram') {
+    const chat = await Conversation.findOne({ organizationId: account.organizationId, socialAccountId: account._id, socialUserId: from });
+    seenMid = chat ? (await Message.findOne({ conversationId: chat._id, direction: 'out' }).sort({ createdAt: -1 }))?.providerMessageId || '' : '';
+  }
+  const content = type === 'image'
+    ? { attachments: [{ type: 'image', payload: { url: `https://mock.invalid/media/${mock.mockMediaId('image')}` } }], ...(text && { text }) }
+    : { text: text || 'Hello' };
+  const messaging = {
+    message: { sender: { id: from }, recipient: { id: account.externalId }, timestamp: now, message: { mid, ...content } },
+    echo: { sender: { id: account.externalId }, recipient: { id: from }, timestamp: now, message: { mid, is_echo: true, ...content } },
+    read: { sender: { id: from }, recipient: { id: account.externalId }, timestamp: now, read: channel === 'instagram' ? { mid: seenMid } : { watermark: now } },
+  }[event];
+  const payload = { object: channel === 'instagram' ? 'instagram' : 'page', entry: [{ id: account.externalId, time: now, messaging: [messaging] }] };
+  await inbound.processNow(await inbound.ingestApp(payload));
+  const message = event === 'read' ? null : await Message.findOne({ providerMessageId: mid, organizationId: account.organizationId });
+  res.status(201).json({ success: true, data: { from, messageId: message?._id || null, conversationId: message?.conversationId || null } });
 });
 
 // Pretends a lead arrived from a source (IndiaMART by default): the same intake as a real one.

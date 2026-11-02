@@ -13,6 +13,7 @@ module.exports = {
     status: Joi.string().valid(...CONVERSATION_STATUSES, 'any'),
     accountId: objectId,
     contactId: objectId,
+    channel: Joi.string().valid('whatsapp', 'instagram', 'messenger'), // G8 (D112)
     q: Joi.string().trim().max(100).allow(''),
   }),
   conversationStart: Joi.object({

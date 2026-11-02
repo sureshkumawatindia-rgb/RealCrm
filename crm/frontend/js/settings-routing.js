@@ -10,7 +10,7 @@
 
   const $ = (id) => document.getElementById(id);
   // Sources whose enquiries go through the rules (manual and imported leads do not).
-  const SOURCES = ["IndiaMART", "WhatsApp", "WhatsApp Ad", "Website", "Website widget", "Facebook", "Google Ads", "JustDial", "TradeIndia"];
+  const SOURCES = ["IndiaMART", "WhatsApp", "WhatsApp Ad", "Website", "Website widget", "Facebook", "Google Ads", "JustDial", "TradeIndia", "Instagram", "Messenger"]; // Instagram, Messenger: G8
   const DAYS = [[1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"], [0, "Sun"]];
   const VALUES = [
     ["contact.name", "Customer's name"],

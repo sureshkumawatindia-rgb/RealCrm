@@ -1,13 +1,24 @@
 const mongoose = require('mongoose');
 const { CONVERSATION_STATUSES } = require('../constants/whatsapp');
+const { CHAT_CHANNELS } = require('../constants/social');
 
-// One WhatsApp chat between a contact and one of the organization's numbers.
+// One WhatsApp chat between a contact and one of the organization's numbers — or (G8, D112) an
+// Instagram or Messenger chat with one of its connected Pages' accounts.
 // lastInboundAt drives the 24-hour customer service window.
 const conversationSchema = new mongoose.Schema(
   {
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
     contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact', required: true },
+    // An Instagram or Messenger chat keeps its SocialAccount's id here too, so a customer has one
+    // chat per account, as on a WhatsApp number (the unique index below), and every WhatsApp-only
+    // action finds no WhatsApp number for it.
     whatsappAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppAccount', required: true },
+    // G8 (D112): the channel (none = WhatsApp); for Instagram and Messenger the account, the
+    // customer's Page- or Instagram-scoped id (whom replies go to) and their Instagram @username.
+    channel: { type: String, enum: CHAT_CHANNELS },
+    socialAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'SocialAccount' },
+    socialUserId: { type: String },
+    socialUsername: { type: String },
     assigneeId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
     status: { type: String, enum: CONVERSATION_STATUSES, default: 'open' },
     lastInboundAt: { type: Date },
@@ -76,6 +87,8 @@ const conversationSchema = new mongoose.Schema(
 );
 
 conversationSchema.index({ organizationId: 1, contactId: 1, whatsappAccountId: 1 }, { unique: true });
+// G8: one chat per Instagram or Messenger customer of an account (the webhook finds it by them).
+conversationSchema.index({ organizationId: 1, socialAccountId: 1, socialUserId: 1 }, { unique: true, partialFilterExpression: { socialUserId: { $type: 'string' } } });
 conversationSchema.index({ organizationId: 1, assigneeId: 1, status: 1, lastMessageAt: -1 });
 conversationSchema.index({ organizationId: 1, status: 1, lastMessageAt: -1 });
 

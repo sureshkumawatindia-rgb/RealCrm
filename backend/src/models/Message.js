@@ -1,14 +1,18 @@
 const mongoose = require('mongoose');
 const { MESSAGE_TYPES, MESSAGE_STATUSES } = require('../constants/whatsapp');
+const { SOCIAL_CHANNELS } = require('../constants/social');
 
 // One WhatsApp message in a conversation, in either direction. providerMessageId (Meta's
 // "wamid") is unique across all organizations, so a webhook delivered twice is stored once.
+// G8 (D112): an Instagram or Messenger message has its channel, Meta's message id ("mid") as
+// providerMessageId, and its chat's SocialAccount id in whatsappAccountId (as the chat has).
 const messageSchema = new mongoose.Schema(
   {
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
     conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', required: true },
     contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact', required: true },
     whatsappAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppAccount', required: true },
+    channel: { type: String, enum: SOCIAL_CHANNELS }, // none = WhatsApp
     direction: { type: String, enum: ['in', 'out'], required: true },
     type: { type: String, enum: MESSAGE_TYPES, required: true },
     // Text body, or the caption of a photo/video/document.
@@ -21,6 +25,7 @@ const messageSchema = new mongoose.Schema(
       sizeBytes: { type: Number },
       storageKey: { type: String },
       voice: { type: Boolean },
+      url: { type: String }, // G8: an Instagram or Messenger file's link from the webhook (copied into storage)
     },
     location: {
       latitude: { type: Number },

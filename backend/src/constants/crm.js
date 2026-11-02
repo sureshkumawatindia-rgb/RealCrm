@@ -15,6 +15,7 @@ const CHANNELS = Object.freeze([
 // website's WhatsApp button).
 const LEAD_SOURCES = Object.freeze([
   'WhatsApp', 'WhatsApp Ad', 'IndiaMART', 'JustDial', 'TradeIndia', 'Facebook', 'Google Ads', 'Website', 'Website widget', 'Manual', 'Import', 'API',
+  'Instagram', 'Messenger', // G8 (D112): a first message on Instagram or Messenger
 ]);
 
 const CONTACT_LIFECYCLES = Object.freeze(['lead', 'customer']);

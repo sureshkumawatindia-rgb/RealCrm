@@ -67,7 +67,15 @@ crmI18n.ready.then(function inbox() {
     botEnabled: false, // the organization's WhatsApp FAQ bot is on (GET /bot/status)
     voice: false, // the file waiting is a recorded voice note (CP3)
     reactingTo: null, // the message whose reaction bar is open
+    channel: "", // G8 (D112): one channel's chats (whatsapp, instagram, messenger), or all
+    hasSocial: false, // an Instagram or Messenger chat was seen: the channel filter shows
   };
+  // G8 (D112): Instagram and Messenger chats (text only from the CRM; 7 days for a person to answer).
+  const SOCIAL = {
+    instagram: { icon: "fa-brands fa-instagram", name: "Instagram" },
+    messenger: { icon: "fa-brands fa-facebook-messenger", name: "Messenger" },
+  };
+  const isSocial = (c) => Boolean(c && SOCIAL[c.channel]);
 
   // --- small helpers -------------------------------------------------------
   const initialsOf = (name) =>
@@ -103,6 +111,7 @@ crmI18n.ready.then(function inbox() {
   function windowLeft(win) {
     if (!win || !win.open || !win.expiresAt) return null;
     const minutes = Math.max(0, Math.round((new Date(win.expiresAt) - Date.now()) / 60000));
+    if (minutes >= 48 * 60) return t("inbox.leftD", { d: Math.floor(minutes / 1440) }); // G8: Instagram and Messenger's 7 days
     return minutes >= 60 ? t("inbox.leftHm", { h: Math.floor(minutes / 60), m: minutes % 60 }) : t("inbox.leftM", { m: minutes });
   }
   // "+" on the smallest phones (R3): attach, template and products open above the message box,
@@ -129,6 +138,7 @@ crmI18n.ready.then(function inbox() {
   function windowLeftShort(win) {
     if (!win || !win.open || !win.expiresAt) return null;
     const minutes = Math.max(0, Math.round((new Date(win.expiresAt) - Date.now()) / 60000));
+    if (minutes >= 48 * 60) return t("inbox.leftD", { d: Math.floor(minutes / 1440) });
     return minutes >= 60 ? t("inbox.leftH", { h: Math.floor(minutes / 60) }) : t("inbox.leftM", { m: minutes });
   }
   const isWindowOpen = (c) => Boolean(c?.window?.open && new Date(c.window.expiresAt) > new Date());
@@ -141,9 +151,10 @@ crmI18n.ready.then(function inbox() {
     if (state.view === "mine" && String(c.assigneeId) !== String(me.id)) return false;
     if (state.view === "unassigned" && c.assigneeId) return false;
     if (state.view !== "blocked" && state.status !== "any" && (state.status ? c.status !== state.status : c.status === "closed")) return false;
+    if (state.channel && (c.channel || "whatsapp") !== state.channel) return false; // G8
     if (state.q) {
       const q = state.q.toLowerCase();
-      const hay = `${c.contact.name} ${c.contact.company} ${c.contact.phone} ${(c.tags || []).join(" ")}`.toLowerCase();
+      const hay = `${c.contact.name} ${c.contact.company} ${c.contact.phone} ${c.social?.customerUsername || ""} ${(c.tags || []).join(" ")}`.toLowerCase();
       if (!hay.includes(q) && !(q.replace(/\D/g, "") && c.contact.phone.includes(q.replace(/\D/g, "")))) return false;
     }
     return true;
@@ -153,9 +164,11 @@ crmI18n.ready.then(function inbox() {
     const active = state.current && String(state.current.id) === String(c.id);
     const preview = `${c.lastMessageDirection === "out" ? t("inbox.you") : ""}${c.lastMessagePreview || ""}`;
     const assignee = c.assigneeId ? memberNameOf(c.assigneeId) : t("inbox.queue");
+    // G8 (D112): an Instagram or Messenger chat carries its app's mark.
+    const channel = SOCIAL[c.channel] ? `<i class="${SOCIAL[c.channel].icon} conv-channel ${escapeHtml(c.channel)}" title="${escapeHtml(SOCIAL[c.channel].name)}" aria-label="${escapeHtml(SOCIAL[c.channel].name)}"></i>` : "";
     return `
       <button class="conv-item ${active ? "active" : ""} ${c.unreadCount ? "unread" : ""}" data-id="${escapeHtml(c.id)}" type="button">
-        <span class="conv-avatar">${escapeHtml(initialsOf(c.contact.name))}</span>
+        <span class="conv-avatar">${escapeHtml(initialsOf(c.contact.name))}${channel}</span>
         <span style="min-width:0">
           <span class="name">${c.private ? `<i class="fa-solid fa-lock private-lock" title="${escapeHtml(t("inbox.privateTitle"))}"></i> ` : ""}${escapeHtml(c.contact.name || c.contact.phone)}</span>
           <span class="preview">${escapeHtml(preview)}</span>
@@ -166,6 +179,12 @@ crmI18n.ready.then(function inbox() {
           ${c.unreadCount ? `<span class="unread-badge">${c.unreadCount}</span>` : `<span class="assignee-chip">${escapeHtml(assignee)}</span>`}
         </span>
       </button>`;
+  }
+
+  // G8 (D112): the channel filter appears once the company has an Instagram or Messenger chat.
+  function noteChannels(conversations) {
+    if (!state.hasSocial && (conversations || []).some(isSocial)) state.hasSocial = true;
+    $("inboxChannel").hidden = !state.hasSocial && !state.channel;
   }
 
   function renderList() {
@@ -199,10 +218,12 @@ crmI18n.ready.then(function inbox() {
     if (state.status) params.set("status", state.status);
     else if (state.view === "blocked") params.set("status", "any"); // D103: every blocked chat
     if (state.q) params.set("q", state.q);
+    if (state.channel) params.set("channel", state.channel);
     try {
       const body = await crmRequest(`/conversations?${params}`);
       state.conversations = append ? [...state.conversations, ...body.data] : body.data;
       state.hasMore = Boolean(body.pagination?.hasNextPage);
+      noteChannels(body.data);
       renderList();
     } catch (error) {
       $("conversationList").innerHTML = `<div class="inbox-list-empty">${escapeHtml(apiErrorMessage(error, t("inbox.err.loadChats")))}</div>`;
@@ -220,6 +241,7 @@ crmI18n.ready.then(function inbox() {
       state.conversations.unshift(c);
       state.conversations.sort(byPinThenTime);
     }
+    noteChannels([c]);
     renderList();
   }
 
@@ -473,23 +495,28 @@ crmI18n.ready.then(function inbox() {
 
   function renderThreadHead() {
     const c = state.current;
+    const social = SOCIAL[c.channel] || null; // G8 (D112): an Instagram or Messenger chat
     $("threadAvatar").textContent = initialsOf(c.contact.name);
     $("threadName").textContent = c.contact.name || c.contact.phone;
     const assignee = c.assigneeId ? t("inbox.assignedTo", { name: memberNameOf(c.assigneeId) }) : t("inbox.inQueue");
-    $("threadSub").textContent = `${c.contact.phone}${c.account?.displayPhone ? t("inbox.via", { phone: c.account.displayPhone }) : ""} · ${assignee}`;
+    $("threadSub").textContent = social
+      ? `${c.social?.customerUsername ? `@${c.social.customerUsername} · ` : ""}${t("inbox.viaSocial", { channel: social.name, name: c.social?.username ? `@${c.social.username}` : c.social?.name || "" })} · ${assignee}`
+      : `${c.contact.phone}${c.account?.displayPhone ? t("inbox.via", { phone: c.account.displayPhone }) : ""} · ${assignee}`;
     const left = windowLeft(c.window);
     const chip = $("threadWindow");
     const open = isWindowOpen(c);
     // The long text on computers, the short one on phones (inbox.css).
     chip.innerHTML = open
       ? `<i class="fa-regular fa-clock"></i> <span class="window-long">${escapeHtml(t("inbox.window.open", { left }))}</span><span class="window-short">${escapeHtml(t("inbox.window.short", { left: windowLeftShort(c.window) }))}</span>`
-      : `<i class="fa-regular fa-clock"></i> <span class="window-long">${escapeHtml(t("inbox.window.closed"))}</span><span class="window-short">${escapeHtml(t("inbox.window.templatesOnly"))}</span>`;
-    chip.title = open ? t("inbox.window.openTitle", { left }) : t("inbox.window.closedTitle");
+      : `<i class="fa-regular fa-clock"></i> <span class="window-long">${escapeHtml(t("inbox.window.closed"))}</span><span class="window-short">${escapeHtml(t(social ? "inbox.window.closed" : "inbox.window.templatesOnly"))}</span>`;
+    chip.title = social
+      ? t(open ? (c.window.humanAgent ? "inbox.window.socialAgentTitle" : "inbox.window.socialOpenTitle") : "inbox.window.socialClosedTitle", { left })
+      : open ? t("inbox.window.openTitle", { left }) : t("inbox.window.closedTitle");
     chip.className = `window-chip ${open ? "" : "closed"}`;
     renderBotChip(c);
     // Private numbers (D61): owners only — make the chat's number private, or show it again.
     const privateChip = $("threadPrivate");
-    privateChip.hidden = !isOrgOwner();
+    privateChip.hidden = !isOrgOwner() || Boolean(social); // private numbers are WhatsApp numbers (D61)
     privateChip.className = `private-chip ${c.private ? "on" : ""}`;
     privateChip.innerHTML = c.private ? `<i class="fa-solid fa-lock"></i> ${escapeHtml(t("inbox.private.on"))}` : `<i class="fa-solid fa-lock-open"></i> ${escapeHtml(t("inbox.private.make"))}`;
     privateChip.title = c.private ? t("inbox.private.onTitle") : t("inbox.private.makeTitle");
@@ -504,6 +531,10 @@ crmI18n.ready.then(function inbox() {
     const writable = canWrite(c);
     $("composerBlocked").hidden = !c.blocked;
     $("composerClosed").hidden = open || Boolean(c.blocked);
+    // G8: Instagram and Messenger take text only (no templates, files, products or forms).
+    $("composerClosedText").textContent = t(social ? "inbox.closedSocial" : "inbox.closedText");
+    $("closedTemplateBtn").hidden = Boolean(social);
+    ["attachBtn", "templateBtn", "productsBtn", "formBtn"].forEach((id) => { $(id).hidden = Boolean(social); });
     $("composerText").disabled = !writable;
     $("composerSend").disabled = !writable;
     $("quickRepliesBtn").disabled = !writable;
@@ -788,7 +819,7 @@ crmI18n.ready.then(function inbox() {
 
   // --- the microphone, emoji and "typing…" (CP3) ------------------------------------------
   // Nothing typed and no file: the microphone stands where the send button is.
-  const canRecord = () => Boolean(window.crmVoiceNote?.supported());
+  const canRecord = () => Boolean(window.crmVoiceNote?.supported()) && !isSocial(state.current); // G8: voice notes are WhatsApp's
   function syncSendButton() {
     const empty = !composer.value.trim() && !state.file;
     $("micBtn").hidden = !(empty && canRecord());
@@ -1771,6 +1802,10 @@ crmI18n.ready.then(function inbox() {
   );
   $("inboxStatus").addEventListener("change", (e) => {
     state.status = e.target.value;
+    loadConversations();
+  });
+  $("inboxChannel").addEventListener("change", (e) => {
+    state.channel = e.target.value; // G8 (D112)
     loadConversations();
   });
   let searchTimer = null;

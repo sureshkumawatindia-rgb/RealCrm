@@ -18,13 +18,14 @@ function settingsOf(organization) {
   return { enabled: Boolean(csat.enabled), question: csat.question || '' };
 }
 
-// After a chat is resolved: 'asked', or why not ('off', 'private', 'blocked', 'window_closed',
+// After a chat is resolved: 'asked', or why not ('off', 'private', 'whatsapp_only', 'blocked', 'window_closed',
 // 'asked_today', 'failed').
 async function askAfterClose(conversation, memberId) {
   const { organizationId, contactId } = conversation;
   const { enabled, question } = settingsOf(await Organization.findById(organizationId).select('settings').lean());
   if (!enabled) return 'off';
   if (conversation.private) return 'private';
+  if (['instagram', 'messenger'].includes(conversation.channel)) return 'whatsapp_only'; // G8: the question has WhatsApp buttons
   if (conversation.blockedAt) return 'blocked';
   const { serviceWindow, sendInteractiveAutomatically } = conversations();
   if (!serviceWindow(conversation).open) return 'window_closed';

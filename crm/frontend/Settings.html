@@ -1390,6 +1390,18 @@
                 </div>
                 <div id="waAccountList"></div>
 
+                <!-- G8 (D112): Instagram and Messenger in the same inbox (settings-social.js) -->
+                <div class="settings-section wa-block" id="socialSection" hidden>
+                  <div class="settings-section-label" data-i18n="soc.label">Instagram and Messenger</div>
+                  <p class="settings-hint" data-i18n="soc.hint">Messages to your Facebook Page and to the Instagram business account linked to it come into the Inbox, next to WhatsApp. Your team answers them with text: within 24 hours of the customer's message, or up to 7 days as a person.</p>
+                  <div id="socialList"></div>
+                  <div class="social-actions">
+                    <button class="btn btn-primary" id="socialConnect" type="button"><i class="fa-brands fa-facebook"></i> <span data-i18n="soc.connect">Connect Instagram and Messenger</span></button>
+                    <button class="btn btn-outline" id="socialTest" type="button" hidden><i class="fa-solid fa-flask"></i> <span data-i18n="soc.test">Add a test Page</span></button>
+                  </div>
+                  <p class="settings-hint" id="socialNotReady" hidden data-i18n="soc.notReady">Connecting Instagram and Messenger is not set up on this server yet (the platform's Meta app).</p>
+                </div>
+
                 <div class="settings-section wa-block" id="waReceiptsSection" hidden>
                   <div class="settings-section-label" data-i18n="wa.receipts.label">Read receipts</div>
                   <label class="two-step-row">
@@ -2591,6 +2603,7 @@
     <script src="./js/settings-sheets.js"></script>
     <script src="./js/settings-tally.js"></script>
     <script src="./js/settings-forms.js"></script>
+    <script src="./js/settings-social.js"></script>
     <script src="./js/settings-deletion.js"></script>
     <script src="./js/settings-totp.js"></script>
   </body>

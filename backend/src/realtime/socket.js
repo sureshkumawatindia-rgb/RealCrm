@@ -35,6 +35,7 @@ const rooms = {
 const POPULATE = [
   { path: 'contactId', select: 'name phone phoneE164 company' },
   { path: 'whatsappAccountId', select: 'name displayPhone verifiedName phoneNumberId calling' },
+  { path: 'socialAccountId', select: 'channel name username activeExternalId' }, // G8: Instagram and Messenger chats
 ];
 
 async function authenticateSocket(socket, next) {

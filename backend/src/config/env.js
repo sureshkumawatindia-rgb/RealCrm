@@ -62,6 +62,9 @@ const schema = Joi.object({
   META_APP_ID: Joi.string().pattern(/^\d*$/).allow('').default(''),
   META_APP_SECRET: Joi.string().allow('').default(''),
   META_ES_CONFIG_ID: Joi.string().pattern(/^\d*$/).allow('').default(''),
+  // G8 (D112): the Facebook Login for Business configuration that connects Pages for Instagram
+  // and Messenger (with META_APP_ID and META_APP_SECRET; docs/INSTAGRAM_MESSENGER_SETUP.md).
+  META_SOCIAL_CONFIG_ID: Joi.string().pattern(/^\d*$/).allow('').default(''),
   META_WEBHOOK_VERIFY_TOKEN: Joi.string().allow('').default(''),
   // Developer test tools (test numbers, the message simulator): never in production, and in
   // development and staging only when switched on.
@@ -242,6 +245,7 @@ const env = {
     appId: value.META_APP_ID,
     appSecret: value.META_APP_SECRET,
     esConfigId: value.META_ES_CONFIG_ID,
+    socialConfigId: value.META_SOCIAL_CONFIG_ID,
     webhookVerifyToken: value.META_WEBHOOK_VERIFY_TOKEN,
   },
   // Read each time, so it can never be on in production (staging runs with production settings

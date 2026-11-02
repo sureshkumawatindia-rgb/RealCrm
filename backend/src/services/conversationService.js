@@ -15,6 +15,10 @@ const { audit } = require('../utils/audit');
 const { toPage, paginationMeta } = require('../utils/pagination');
 const { isManager, canViewAll } = require('../constants/permissions');
 const { SERVICE_WINDOW_MS } = require('../constants/whatsapp');
+const { isSocialChannel, SOCIAL_WINDOW_MS, HUMAN_AGENT_MS } = require('../constants/social');
+const SocialAccount = require('../models/SocialAccount');
+const socialAccounts = require('./socialAccountService');
+const { providerFor: socialProviderFor } = require('../integrations/social');
 const csat = () => require('./csatService'); // eslint-disable-line global-require -- it uses this service
 const { OPEN_STAGES } = require('../constants/crm');
 const { providerFor } = require('../integrations/whatsapp');
@@ -37,8 +41,15 @@ const seesAll = (member) => isManager(member) || canViewAll(member, 'inbox');
 const scopeFilter = (req) => ({ ...(seesAll(req.member) ? {} : { $or: [{ assigneeId: req.member._id }, { assigneeId: null }] }), ...privacyFilter(req) });
 
 // Free-form messages are only allowed within 24 hours of the customer's last message.
+// G8 (D112): on Instagram and Messenger a person may still answer for 7 days (Meta's HUMAN_AGENT
+// tag, from the 24th hour on: humanAgent).
 function serviceWindow(conversation, now = Date.now()) {
   const last = conversation.lastInboundAt ? conversation.lastInboundAt.getTime() : 0;
+  if (isSocialChannel(conversation.channel)) {
+    const expiresAt = last ? new Date(last + HUMAN_AGENT_MS) : null;
+    const open = Boolean(expiresAt && expiresAt.getTime() > now);
+    return { open, expiresAt, humanAgent: open && now - last > SOCIAL_WINDOW_MS };
+  }
   const expiresAt = last ? new Date(last + SERVICE_WINDOW_MS) : null;
   return { open: Boolean(expiresAt && expiresAt.getTime() > now), expiresAt };
 }
@@ -57,8 +68,22 @@ function callPermissionOf(conversation, now = Date.now()) {
 function serializeConversation(conversation, viewerId = null) {
   const contact = conversation.contactId && typeof conversation.contactId === 'object' && conversation.contactId.name !== undefined ? conversation.contactId : null;
   const account = conversation.whatsappAccountId && typeof conversation.whatsappAccountId === 'object' && conversation.whatsappAccountId.phoneNumberId ? conversation.whatsappAccountId : null;
+  const social = isSocialChannel(conversation.channel);
+  const socialAccount = social && conversation.socialAccountId && typeof conversation.socialAccountId === 'object' && conversation.socialAccountId.channel ? conversation.socialAccountId : null;
   return {
     id: conversation._id,
+    // G8 (D112): whatsapp, instagram or messenger; for the last two, the Page's account and the
+    // customer's Instagram @username.
+    channel: social ? conversation.channel : 'whatsapp',
+    ...(social && {
+      social: {
+        accountId: socialAccount?._id || conversation.socialAccountId || null,
+        name: socialAccount?.name || '',
+        username: socialAccount?.username || '',
+        connected: Boolean(socialAccount?.activeExternalId),
+        customerUsername: conversation.socialUsername || '',
+      },
+    }),
     contact: contact
       ? { id: contact._id, name: contact.name, phone: contact.phoneE164 || contact.phone || '', company: contact.company || '' }
       : { id: conversation.contactId, name: '', phone: '', company: '' },
@@ -97,9 +122,10 @@ function serializeMessage(message) {
     direction: message.direction,
     type: message.type,
     text: message.text,
-    media: message.media?.providerMediaId || message.media?.storageKey
+    media: message.media?.providerMediaId || message.media?.storageKey || message.media?.url
       ? { mimeType: message.media.mimeType || '', fileName: message.media.fileName || '', sizeBytes: message.media.sizeBytes || null, voice: Boolean(message.media.voice), hasFile: Boolean(message.media.storageKey) }
       : null,
+    channel: message.channel || 'whatsapp', // G8 (D112)
     location: message.location?.latitude != null ? message.location : null,
     reply: message.reply?.title ? message.reply : null,
     reaction: message.reaction?.providerMessageId ? { providerMessageId: message.reaction.providerMessageId, emoji: message.reaction.emoji || '' } : null,
@@ -154,6 +180,7 @@ function serializeMessage(message) {
 const POPULATE = [
   { path: 'contactId', select: 'name phone phoneE164 company' },
   { path: 'whatsappAccountId', select: 'name displayPhone verifiedName phoneNumberId calling' },
+  { path: 'socialAccountId', select: 'channel name username activeExternalId' }, // G8: Instagram and Messenger chats
 ];
 
 // D25: whoever handles a chat becomes the owner of its contact and the contact's open leads when
@@ -199,6 +226,8 @@ async function list(req, query) {
   if (query.status && query.status !== 'any') filter.status = query.status;
   if (!query.status) filter.status = { $in: ['open', 'pending'] };
   if (query.accountId) filter.whatsappAccountId = query.accountId;
+  // G8 (D112): one channel's chats (chats from before G8 have no channel: WhatsApp).
+  if (query.channel) filter.channel = query.channel === 'whatsapp' ? { $nin: ['instagram', 'messenger'] } : query.channel;
   if (query.contactId) filter.contactId = query.contactId;
   if (query.q && !query.contactId) {
     const pattern = new RegExp(query.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -364,6 +393,9 @@ async function listMessages(req, id, { before, limit = MESSAGE_PAGE } = {}) {
 // 24-hour window; approved templates do not.
 async function sendContext(req, id, { needsWindow }) {
   const conversation = await findVisible(req, id);
+  // G8 (D112): templates, files, products, forms and calls are WhatsApp's; Instagram and
+  // Messenger chats get text (sendText).
+  if (isSocialChannel(conversation.channel)) throw httpError(409, 'WHATSAPP_ONLY', 'This works in WhatsApp chats only. In Instagram and Messenger chats you can send text.');
   if (needsWindow && !serviceWindow(conversation).open) {
     throw httpError(422, 'WINDOW_CLOSED', 'The customer has not written in the last 24 hours. WhatsApp only allows an approved template now.');
   }
@@ -398,8 +430,9 @@ const AS_SYSTEM_QUIETLY = Object.freeze({ memberId: null, takesChat: false, keep
 
 // The message is saved first (queued), then handed to WhatsApp: accepted → sent, refused →
 // failed with WhatsApp's reason (the message stays in the chat either way). buildBody(message)
-// returns the Cloud API message object (it may upload a file first).
-async function deliver(sender, { conversation, account, contact }, fields, buildBody) {
+// returns the Cloud API message object (it may upload a file first). send(body) hands it over
+// (G8: Instagram and Messenger pass their own) → { providerMessageId }.
+async function deliver(sender, { conversation, account, contact }, fields, buildBody, send = null) {
   const message = await Message.create({
     organizationId: conversation.organizationId, conversationId: conversation._id, contactId: contact._id,
     whatsappAccountId: account._id, direction: 'out', status: 'queued', ...(sender.memberId && { sentByMemberId: sender.memberId }),
@@ -407,7 +440,7 @@ async function deliver(sender, { conversation, account, contact }, fields, build
   });
   try {
     const body = await buildBody(message);
-    const { providerMessageId } = await providerFor(account).sendMessage(credentials(account), { to: contact.phoneE164.slice(1), ...body });
+    const { providerMessageId } = send ? await send(body) : await providerFor(account).sendMessage(credentials(account), { to: contact.phoneE164.slice(1), ...body });
     message.providerMessageId = providerMessageId || undefined;
     message.status = 'sent';
     message.sentAt = new Date();
@@ -456,7 +489,31 @@ async function react(req, id, messageId, { emoji }) {
   return serializeMessage(updated);
 }
 
+// G8 (D112): a text in an Instagram or Messenger chat, with the Page's token — within 24 hours a
+// reply, then (a person, up to 7 days) with Meta's HUMAN_AGENT tag.
+async function sendSocialText(sender, conversation, { text, replyToMessageId }) {
+  const [account, contact] = await Promise.all([
+    SocialAccount.findOne({ _id: conversation.socialAccountId, organizationId: conversation.organizationId }),
+    Contact.findOne({ _id: conversation.contactId, organizationId: conversation.organizationId }),
+  ]);
+  if (!socialAccounts.isConnected(account)) throw httpError(409, 'ACCOUNT_DISCONNECTED', 'This chat\'s Instagram or Messenger account is not connected any more (Settings → WhatsApp → Instagram and Messenger).');
+  if (!contact) throw httpError(409, 'NO_CONTACT', 'This chat\'s customer was deleted.');
+  assertNotBlocked(contact);
+  const window = serviceWindow(conversation);
+  if (!window.open) throw httpError(422, 'WINDOW_CLOSED', 'The customer has not written for 7 days: Instagram and Messenger allow no message now. They can write to you again.');
+  const replyTo = await replyTarget(conversation, replyToMessageId);
+  const fields = { type: 'text', text, channel: conversation.channel, replyToProviderMessageId: replyTo || undefined };
+  return deliver(sender, { conversation, account, contact }, fields, async () => ({ text }), async (body) => {
+    const { messageId } = await socialProviderFor(account).sendText(socialAccounts.credentials(account), {
+      channel: conversation.channel, recipientId: conversation.socialUserId, text: body.text, humanAgent: Boolean(window.humanAgent), replyToMid: replyTo || '',
+    });
+    return { providerMessageId: messageId };
+  });
+}
+
 async function sendText(req, id, { text, replyToMessageId }) {
+  const visible = await findVisible(req, id);
+  if (isSocialChannel(visible.channel)) return sendSocialText(asMember(req), visible, { text, replyToMessageId });
   const context = await sendContext(req, id, { needsWindow: true });
   const replyTo = await replyTarget(context.conversation, replyToMessageId);
   return deliver(asMember(req), context, { type: 'text', text, replyToProviderMessageId: replyTo || undefined }, async () => ({
@@ -533,6 +590,7 @@ async function sendQuickReplyFile(req, id, { quickReplyId, caption = '', replyTo
 // D103: a scheduled text, sent by the job as the teammate who wrote it (it takes an unassigned
 // chat for them, like their own reply). The caller has checked the 24-hour window.
 async function sendScheduledText({ conversation, memberId, text }) {
+  if (isSocialChannel(conversation.channel)) return sendSocialText({ memberId, takesChat: true }, conversation, { text }); // G8
   const [account, contact] = await Promise.all([
     WhatsAppAccount.findOne({ _id: conversation.whatsappAccountId, organizationId: conversation.organizationId }),
     Contact.findOne({ _id: conversation.contactId, organizationId: conversation.organizationId }),

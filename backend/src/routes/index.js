@@ -111,6 +111,7 @@ router.use('/sheet-syncs', require('./sheetSync')); // D108: new leads and order
 router.use('/tally', require('./tally')); // D109: invoices, credit notes and receipts for Tally
 router.use('/whatsapp-forms', require('./whatsappForms')); // D110: forms inside WhatsApp (Flows)
 router.use('/whatsapp-calls', require('./whatsappCalls')); // D111: WhatsApp calls in the Inbox
+router.use('/social', require('./social')); // D112: Instagram and Messenger accounts
 router.use('/documents', documentRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/workflows', workflowRoutes);

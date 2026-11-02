@@ -1730,3 +1730,37 @@ a.ctx-link:hover {
     justify-content: center;
   }
 }
+
+/* --- Instagram and Messenger (G8, D112) ---------------------------------------------------------
+   The app's mark on a chat's avatar, and the channel filter beside the status one. */
+.conv-avatar {
+  position: relative;
+}
+.conv-channel {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: #fff;
+  border: 2px solid var(--surface);
+}
+/* white on these brand colours reads in both themes */
+.conv-channel.instagram {
+  background: #c13584;
+}
+.conv-channel.messenger {
+  background: #0866ff;
+}
+.inbox-filters {
+  display: flex;
+  gap: 8px;
+}
+.inbox-filters select {
+  flex: 1 1 0;
+  min-width: 0;
+}

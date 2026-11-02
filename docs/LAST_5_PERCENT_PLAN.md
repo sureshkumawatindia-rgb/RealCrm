@@ -116,7 +116,7 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
 6. WhatsApp Flows: forms inside WhatsApp, answers into a lead or order. — done 2026-11-02 (D110)
 7. WhatsApp Business calling: only if Meta offers it for Indian numbers (checked first; if not,
    reported and stopped). — done 2026-11-02 (D111; Meta offers it in India)
-8. Instagram and Messenger in the same team inbox (Meta App Review needed).
+8. Instagram and Messenger in the same team inbox (Meta App Review needed). — done 2026-11-02 (D112)
 
 ## What the user will do (asked for at that checkpoint, never before)
 

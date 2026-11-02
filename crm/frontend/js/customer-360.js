@@ -473,6 +473,11 @@ const HIST_ICONS = {
   payment: ["fa-solid fa-indian-rupee-sign", "success"], ticket: ["fa-solid fa-headset", "warning"], task: ["fa-solid fa-list-check", "info"], event: ["fa-solid fa-calendar", "info"],
   enquiry: ["fa-solid fa-inbox", ""], consent: ["fa-solid fa-shield-halved", ""], document: ["fa-solid fa-file-lines", ""],
 };
+// G8 (D112): Instagram and Messenger messages come as source "whatsapp" with their channel.
+const SOCIAL_HIST = {
+  instagram: { icon: ["fa-brands fa-instagram", "brand"], in: "c360.hist.igIn", out: "c360.hist.igOut" },
+  messenger: { icon: ["fa-brands fa-facebook-messenger", "info"], in: "c360.hist.fbIn", out: "c360.hist.fbOut" },
+};
 const HIST_LABELS = {
   note: "c360.hist.s.note", lead: "c360.hist.s.lead", stage: "c360.hist.s.stage", quotation: "c360.hist.s.quotation", order: "c360.hist.s.order", payment: "c360.hist.s.payment",
   ticket: "c360.hist.s.ticket", task: "c360.hist.s.task", event: "c360.hist.s.event", enquiry: "c360.hist.s.enquiry", consent: "c360.hist.s.consent", document: "c360.hist.s.document",
@@ -485,7 +490,8 @@ const hist = { customer: null, kind: "", items: [], next: null, calling: false, 
 const minutesText = (sec) => (sec >= 60 ? t("call.minutes", { n: Math.round(sec / 60) }) : sec ? t("call.seconds", { n: sec }) : "");
 
 function historyItemHtml(it) {
-  const [icon, cls] = HIST_ICONS[it.source] || ["fa-solid fa-circle", ""];
+  const social = it.source === "whatsapp" ? SOCIAL_HIST[it.channel] : null;
+  const [icon, cls] = social?.icon || HIST_ICONS[it.source] || ["fa-solid fa-circle", ""];
   const [bg, fg] = HIST_COLORS[cls] || HIST_COLORS[""];
   const extra = it.source === "call"
     ? [it.outcome ? t(`call.outcome.${it.outcome}`) : t(`call.status.${it.status}`), minutesText(it.durationSec)].filter(Boolean).join(" · ")
@@ -493,6 +499,7 @@ function historyItemHtml(it) {
   // A translated label for the kind, then the record's own name (the server's `title` is English).
   // A WhatsApp call (G7, D111) says so.
   const label = it.source === "call" ? t(it.provider === "whatsapp" ? (it.direction === "in" ? "call.waIn" : "call.waOut") : it.direction === "in" ? "call.in" : "call.out")
+    : social ? t(it.direction === "in" ? social.in : social.out)
     : it.source === "whatsapp" ? t(it.direction === "in" ? "c360.hist.waIn" : "c360.hist.waOut")
     : it.source === "sms" ? t(it.direction === "in" ? "c360.hist.smsIn" : "c360.hist.smsOut")
     : it.source === "email" ? t(it.direction === "in" ? "c360.hist.emailIn" : "c360.hist.emailOut")

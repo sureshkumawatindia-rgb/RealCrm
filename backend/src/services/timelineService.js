@@ -64,10 +64,12 @@ const SOURCES = {
     if (!can(req.member, 'inbox', 'view')) return [];
     // A WhatsApp call's line in the chat is left out: the call itself is in the history (G7).
     const messages = await Message.find({ organizationId: contact.organizationId, contactId: contact._id, type: { $ne: 'call' }, createdAt: { $lte: until }, ...privacyFilter(req) }).sort({ createdAt: -1, _id: -1 }).limit(take)
-      .select('direction type text status createdAt sentByMemberId automation').lean();
+      .select('direction type text status createdAt sentByMemberId automation channel').lean();
+    // G8 (D112): Instagram and Messenger messages come with the chats (channel says which).
+    const NAMES = { instagram: 'Instagram', messenger: 'Messenger' };
     return messages.map((m) => ({
-      id: String(m._id), source: 'whatsapp', at: m.createdAt, direction: m.direction, status: m.status,
-      title: m.direction === 'in' ? 'WhatsApp from the customer' : 'WhatsApp sent',
+      id: String(m._id), source: 'whatsapp', channel: m.channel || 'whatsapp', at: m.createdAt, direction: m.direction, status: m.status,
+      title: `${NAMES[m.channel] || 'WhatsApp'} ${m.direction === 'in' ? 'from the customer' : 'sent'}`,
       detail: clip(m.text || `[${m.type}]`), actorId: m.sentByMemberId || null, automation: Boolean(m.automation?.kind || m.automation?.ruleId),
     }));
   },
