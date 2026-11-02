@@ -5693,3 +5693,47 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Tally (G5, D109): Settings → Billing */
+.tally-panel {
+  margin-top: 20px;
+}
+.tally-summary {
+  margin: 4px 0 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tally-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.tally-step {
+  flex: 1 1 240px;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.tally-step p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.tally-ledgers {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.tally-ledgers summary {
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tally-ledgers form {
+  margin-top: 10px;
+}

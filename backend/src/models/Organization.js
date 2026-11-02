@@ -105,6 +105,13 @@ const organizationSchema = new mongoose.Schema(
         workingHoursOnly: { type: Boolean, default: true },
         limits: { type: mongoose.Schema.Types.Mixed },
       },
+      // G5 (D109): the Tally export's ledger names, as in the company's Tally ({ sales, cgst, sgst,
+      // igst, roundOff, bank, cash, gateway }; missing = the defaults in services/tallyService.js),
+      // and one sales ledger per GST rate ("Sales 18%") or one for all.
+      tally: {
+        ledgers: { type: mongoose.Schema.Types.Mixed },
+        splitByRate: { type: Boolean, default: false },
+      },
       // D76: pages the company does not use, left out of everyone's menu and search (not a
       // permission: a direct link still opens). Only HIDEABLE_MODULES; missing = every page used.
       hiddenModules: { type: [String], default: undefined },

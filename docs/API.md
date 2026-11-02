@@ -122,6 +122,16 @@ Owners and admins. The company's new leads or new orders go to the end of a Goog
 | `POST` | `/sheet-syncs/:kind/resume` | A paused sheet carries on in the same sheet; 409 `MEMBER_GONE`, `GOOGLE_NO_DRIVE` or `GOOGLE_RECONNECT` while that is still so. Audited `sheet_sync.resumed`. |
 | `DELETE` | `/sheet-syncs/:kind` | Stops it; the sheet stays in that Drive (404 when it is not on). Audited `sheet_sync.stopped`. |
 
+## Tally (G5, D109)
+
+Owners and admins. The tax invoices, credit notes and receipts of a period (India days, at most 366) as Tally "Import Data" XML in UTF-8, for TallyPrime and Tally.ERP 9 (guide: `docs/TALLY_EXPORT.md`). Debits are negative amounts "deemed positive", credits positive; every voucher balances to the paisa and carries `REMOTEID="crm-<id>"`. Cancelled receipts are left out. At most 10,000 documents of each kind (400 `TOO_MANY`).
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/tally?from=&to=` | `{ ledgers { sales, cgst, sgst, igst, roundOff, bank, cash, gateway }, splitByRate, defaults, range, summary { invoices, invoicesPaise, creditNotes, creditNotesPaise, receipts, receiptsPaise, parties } }`. Default ledger names: Sales, Output CGST, Output SGST, Output IGST, Round Off, Bank, Cash, Bank. |
+| `PATCH` | `/tally` | `{ ledgers?: { <key>: name (1–100 characters) }, splitByRate?: boolean }` — the names as in the company's Tally; split: one sales ledger per GST rate ("Sales 18%"). Audited `tally.settings_updated`. |
+| `GET` | `/tally/export?from=&to=&part=ledgers\|vouchers` | The file (`tally-<part>-<from>-to-<to>.xml`). **ledgers** ("All Masters"): each customer under Sundry Debtors (bill-wise, address, state, GSTIN, Regular/Unregistered) and the company's own ledgers the vouchers use (sales under Sales Accounts; GST under Duties & Taxes as Central, State or Integrated Tax; round off under Indirect Expenses; bank and payment links under Bank Accounts; cash under Cash-in-Hand). **vouchers** ("Vouchers", accounting voucher view): Sales per invoice (customer Dr with New Ref = the invoice number; sales, GST and round off Cr), Credit Note per credit note (the reverse, Agst Ref = the invoice), Receipt per receipt (cash, bank or payment-link ledger Dr; customer Cr, Agst Ref = its invoice, else On Account). Audited `tally.exported`. |
+
 ## Sales core (Phase 2)
 
 Module permissions: contacts need `customers`; leads and quotations need `leads` or `deals`; products are readable by every member and writable with `products`. Agents and viewers only see records they own unless they have `<module>:view_all`. Only owners/admins can set `ownerId`; everyone else owns what they create. Money is integer paise.

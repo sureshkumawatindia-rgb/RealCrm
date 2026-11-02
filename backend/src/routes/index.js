@@ -108,6 +108,7 @@ router.use('/events', eventRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/ticket-sla', require('./ticketSla')); // D107: the ticket SLA's limits
 router.use('/sheet-syncs', require('./sheetSync')); // D108: new leads and orders into Google Sheets
+router.use('/tally', require('./tally')); // D109: invoices, credit notes and receipts for Tally
 router.use('/documents', documentRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/workflows', workflowRoutes);
