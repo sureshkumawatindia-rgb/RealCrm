@@ -246,6 +246,7 @@
                     <button class="icon-btn" id="attachBtn" type="button" title="Send a photo, video, audio file or document" aria-label="Attach a file" data-i18n-title="inbox.attachTitle" data-i18n-aria-label="inbox.attach"><i class="fa-solid fa-paperclip"></i></button>
                     <button class="icon-btn" id="templateBtn" type="button" title="Send a template (works any time)" aria-label="Send a template" data-i18n-title="inbox.tpl.buttonTitle" data-i18n-aria-label="inbox.tpl.title"><i class="fa-solid fa-file-lines"></i></button>
                     <button class="icon-btn" id="productsBtn" type="button" title="Send products from the WhatsApp catalog" aria-label="Send products" data-i18n-title="inbox.prod.buttonTitle" data-i18n-aria-label="inbox.prod.title"><i class="fa-solid fa-store"></i></button>
+                    <button class="icon-btn" id="formBtn" type="button" title="Send a form" aria-label="Send a form" data-i18n-title="inbox.form.button" data-i18n-aria-label="inbox.form.button"><i class="fa-solid fa-clipboard-list"></i></button>
                     <button class="icon-btn" id="laterBtn" type="button" title="Send later" aria-label="Send later" data-i18n-title="inbox.later.button" data-i18n-aria-label="inbox.later.button"><i class="fa-regular fa-clock"></i></button>
                   </span>
                   <button class="icon-btn" id="aiSuggestBtn" type="button" title="Suggest a reply (AI assistant)" data-i18n-title="inbox.ai.button" style="display: none"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
@@ -430,6 +431,23 @@
     </div>
 
     <!-- Products from the WhatsApp catalog (Phase 8C) -->
+    <!-- G6 (D110): a WhatsApp form into the chat -->
+    <div class="modal-overlay" id="formsModal">
+      <div class="modal template-modal">
+        <div class="modal-head">
+          <h3 data-i18n="inbox.form.title">Send a WhatsApp form</h3>
+          <button class="icon-btn" id="formsModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted template-hint" data-i18n="inbox.form.hint">The customer fills it inside WhatsApp; the answers come back here and go into the lead or an order.</p>
+          <div class="template-list" id="formsList"></div>
+          <div class="template-actions">
+            <button class="btn btn-primary" id="formsSend" type="button" disabled><i class="fa-solid fa-paper-plane"></i> <span data-i18n="inbox.form.send">Send</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="productsModal">
       <div class="modal template-modal">
         <div class="modal-head">

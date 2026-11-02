@@ -39,7 +39,7 @@ module.exports = {
     accountId: objectId,
     from: Joi.string().trim().max(30).required(),
     name: Joi.string().trim().max(100).allow(''),
-    type: Joi.string().valid('text', 'image', 'document', 'audio', 'interactive', 'order').default('text'),
+    type: Joi.string().valid('text', 'image', 'document', 'audio', 'interactive', 'order', 'form').default('text'),
     text: Joi.when('type', { is: Joi.valid('text', 'interactive'), then: Joi.string().trim().min(1).max(4096).required(), otherwise: Joi.string().trim().max(1024).allow('') }),
     // interactive: the id of the button or list row the customer tapped (text is its title).
     replyId: Joi.when('type', { is: 'interactive', then: Joi.string().trim().min(1).max(200).required(), otherwise: Joi.forbidden() }),
@@ -54,6 +54,13 @@ module.exports = {
       otherwise: Joi.forbidden(),
     }),
     catalogId: Joi.when('type', { is: 'order', then: Joi.string().trim().max(100).allow(''), otherwise: Joi.forbidden() }),
+    // G6 (D110): a WhatsApp form's answers (Meta's nfm_reply): the flow_token sent with the form, and the values.
+    flowToken: Joi.when('type', { is: 'form', then: Joi.string().trim().max(200).allow(''), otherwise: Joi.forbidden() }),
+    answers: Joi.when('type', {
+      is: 'form',
+      then: Joi.object().pattern(/^[A-Za-z0-9_]{1,40}$/, Joi.alternatives(Joi.string().max(2000).allow(''), Joi.number(), Joi.boolean())).max(30).default({}),
+      otherwise: Joi.forbidden(),
+    }),
     // D102: sent from a Click-to-WhatsApp ad (becomes the webhook's referral).
     ad: Joi.object({
       headline: Joi.string().trim().max(200).allow(''),

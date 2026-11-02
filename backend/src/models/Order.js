@@ -44,8 +44,15 @@ const orderSchema = new mongoose.Schema(
     financialYear: { type: String, required: true },
     quotationId: { type: ObjectId, ref: 'Quotation' },
     quotationNumber: { type: String, default: '' },
-    // Where it came from: an accepted quotation, or a cart sent from the WhatsApp catalog (8C).
-    source: { type: String, enum: ['quotation', 'catalog'], default: 'quotation' },
+    // Where it came from: an accepted quotation, a cart sent from the WhatsApp catalog (8C), or the
+    // answers to a WhatsApp order form (G6, D110: formOrder).
+    source: { type: String, enum: ['quotation', 'catalog', 'form'], default: 'quotation' },
+    formOrder: {
+      messageId: { type: ObjectId, ref: 'Message' },
+      conversationId: { type: ObjectId, ref: 'Conversation' },
+      formId: { type: ObjectId, ref: 'WhatsAppForm' },
+      formName: { type: String },
+    },
     catalogOrder: {
       messageId: { type: ObjectId, ref: 'Message' },
       conversationId: { type: ObjectId, ref: 'Conversation' },
@@ -98,5 +105,6 @@ orderSchema.index({ organizationId: 1, contactId: 1, createdAt: -1 });
 orderSchema.index({ organizationId: 1, quotationId: 1 }, { unique: true, partialFilterExpression: { quotationId: { $type: 'objectId' } } });
 // One order per catalog cart message, however often its job runs.
 orderSchema.index({ 'catalogOrder.messageId': 1 }, { unique: true, partialFilterExpression: { 'catalogOrder.messageId': { $type: 'objectId' } } });
+orderSchema.index({ 'formOrder.messageId': 1 }, { unique: true, partialFilterExpression: { 'formOrder.messageId': { $type: 'objectId' } } });
 
 module.exports = mongoose.model('Order', orderSchema);

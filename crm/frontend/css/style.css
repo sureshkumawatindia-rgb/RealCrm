@@ -5737,3 +5737,93 @@ a.c360-list-item.c360-record:hover .c360-list-title {
 .tally-ledgers form {
   margin-top: 10px;
 }
+
+/* WhatsApp forms (G6, D110): Settings → WhatsApp */
+.wf-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.wf-main {
+  flex: 1 1 260px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wf-main .settings-hint {
+  margin: 4px 0 0;
+}
+.wf-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wf-error {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--danger);
+}
+.wf-actions,
+.wf-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wf-block {
+  margin: 4px 0 14px;
+}
+.wf-block-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.wf-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.wf-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.wf-field-name {
+  flex: 0 0 150px;
+}
+.wf-field input[type="text"] {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: var(--surface);
+}
+.wf-field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+.wf-products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  max-height: 180px;
+  overflow-y: auto;
+}

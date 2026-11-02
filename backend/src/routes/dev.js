@@ -35,7 +35,7 @@ function simulatedMedia(type, caption) {
 
 // Pretends a customer sent a WhatsApp message: the same processing as a real webhook, without Meta.
 router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbound }), async (req, res) => {
-  const { accountId, from, name, type, text, replyId, items, catalogId, ad } = req.body;
+  const { accountId, from, name, type, text, replyId, items, catalogId, ad, flowToken, answers } = req.body;
   const account = accountId
     ? await accountService.findInOrg(req, accountId)
     : await accountService.defaultAccount(req.tenant.organizationId);
@@ -56,10 +56,13 @@ router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbou
       product_items: items.map((item) => ({ product_retailer_id: item.retailerId, quantity: item.quantity, item_price: item.price, currency: 'INR' })),
     },
   });
+  // G6 (D110): a WhatsApp form's answers look like Meta's nfm_reply (an interactive message).
+  const form = () => ({ interactive: { type: 'nfm_reply', nfm_reply: { name: 'flow', body: 'Sent', response_json: JSON.stringify({ ...(flowToken && { flow_token: flowToken }), ...answers }) } } });
   const content = type === 'text' ? { text: { body: text } }
     : type === 'interactive' ? { interactive: { type: 'button_reply', button_reply: { id: replyId, title: text } } }
       : type === 'order' ? order()
-        : simulatedMedia(type, text);
+        : type === 'form' ? form()
+          : simulatedMedia(type, text);
   const payload = {
     object: 'whatsapp_business_account',
     entry: [{
@@ -71,7 +74,7 @@ router.post('/simulate/whatsapp-inbound', validate({ body: schemas.simulateInbou
           metadata: { display_phone_number: account.displayPhone, phone_number_id: account.phoneNumberId },
           contacts: [{ profile: { name: name || '' }, wa_id: waId }],
           messages: [{
-            from: waId, id: messageId, timestamp: String(Math.floor(Date.now() / 1000)), type, ...content,
+            from: waId, id: messageId, timestamp: String(Math.floor(Date.now() / 1000)), type: type === 'form' ? 'interactive' : type, ...content,
             // D102: a Click-to-WhatsApp ad's referral, in Meta's field names.
             ...(ad && {
               referral: {

@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const ChatResolution = require('../models/ChatResolution');
@@ -102,6 +103,13 @@ function serializeMessage(message) {
       : null,
     order: message.order?.items?.length
       ? { catalogId: message.order.catalogId || '', text: message.order.text || '', items: message.order.items, orderId: message.order.orderId || null }
+      : null,
+    // G6 (D110): a WhatsApp form sent, or the customer's answers (and the lead or order they made).
+    form: message.form?.formId || message.form?.token || message.form?.answers?.length
+      ? {
+        formId: message.form.formId || null, name: message.form.name || '', answers: message.form.answers || [],
+        leadId: message.form.leadId || null, orderId: message.form.orderId || null, done: Boolean(message.form.done),
+      }
       : null,
     // D102: the Click-to-WhatsApp ad the customer wrote from.
     referral: message.referral?.sourceId || message.referral?.headline
@@ -669,6 +677,33 @@ async function sendProducts(req, id, { catalogId, products, header = '', body, f
   }));
 }
 
+// G6 (D110): a WhatsApp form, sent by a teammate inside the 24-hour window, with the form's Flow on
+// this chat's WhatsApp Business Account (a test number: its phone number id). token: the
+// flow_token Meta gives back with the answers. form: { formId, name, intro, cta, screen, flows }.
+async function sendForm(req, id, form) {
+  const context = await sendContext(req, id, { needsWindow: true });
+  const waba = context.account.wabaId || context.account.phoneNumberId;
+  const flow = (form.flows || []).find((f) => f.status === 'PUBLISHED' && f.flowId && f.wabaId === waba);
+  if (!flow) throw httpError(409, 'FORM_NOT_PUBLISHED', 'This form is not published on this chat\'s WhatsApp number. Publish it again in Settings → WhatsApp.');
+  const token = crypto.randomBytes(12).toString('hex');
+  const text = form.intro || form.name;
+  const fields = { type: 'interactive', text, interactive: { kind: 'flow' }, form: { formId: form.formId, name: form.name, token } };
+  return deliver(asMember(req), context, fields, async () => ({
+    type: 'interactive',
+    interactive: {
+      type: 'flow',
+      body: { text },
+      action: {
+        name: 'flow',
+        parameters: {
+          flow_message_version: '3', flow_token: token, flow_id: flow.flowId, flow_cta: form.cta,
+          flow_action: 'navigate', flow_action_payload: { screen: form.screen },
+        },
+      },
+    },
+  }));
+}
+
 // A teammate turns the FAQ bot off (it waits for a person) or back on in one chat.
 async function setBot(req, id, { active }) {
   const conversation = await findVisible(req, id);
@@ -734,6 +769,6 @@ async function addNote(req, id, body) {
 module.exports = {
   list, summary, get, update, markRead, typing, react, listMessages, sendText, sendTemplate, sendMedia, openMedia, start, listNotes, addNote,
   sendQuickReplyFile, sendScheduledText, assertNotBlocked, // D103
-  ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, sendProducts, announce, findVisible, setBot,
+  ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, sendProducts, sendForm, announce, findVisible, setBot,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
 };

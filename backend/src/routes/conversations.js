@@ -102,6 +102,10 @@ router.get('/:id/catalog', can('view'), byId, async (req, res) => {
 router.post('/:id/products', can('create'), idempotency, validate({ params: idParams, body: schemas.productsSend }), async (req, res) => {
   res.status(201).json({ success: true, data: await catalogService.sendProducts(req, req.valid.params.id, req.body) });
 });
+// G6 (D110): a WhatsApp form (Settings → WhatsApp) into this chat.
+router.post('/:id/form', can('create'), idempotency, validate({ params: idParams, body: Joi.object({ formId: Joi.string().hex().length(24).required() }) }), async (req, res) => {
+  res.status(201).json({ success: true, data: await require('../services/whatsappFormService').send(req, req.valid.params.id, req.body) }); // eslint-disable-line global-require
+});
 // D103: a quick reply's file (from Documents) with its text.
 router.post('/:id/messages/quick-reply-file', can('create'), idempotency, validate({ params: idParams, body: schemas.quickReplyFile }), async (req, res) => {
   res.status(201).json({ success: true, data: await conversationService.sendQuickReplyFile(req, req.valid.params.id, req.body) });

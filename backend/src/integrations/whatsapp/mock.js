@@ -138,6 +138,25 @@ const SAMPLE_TEMPLATES = [
   },
 ];
 const createdTemplates = new Map(); // phone number id → templates created on it
+const createdFlows = new Map(); // G6: flow id → { flowId, phoneNumberId, name, categories, flowJson, status }
+
+// G6 (D110): what Meta would refuse in a form (a few of its Flow JSON checks).
+function flowProblems(flowJson) {
+  const problems = [];
+  const screens = Array.isArray(flowJson?.screens) ? flowJson.screens : [];
+  if (!flowJson?.version || !screens.length) problems.push('The Flow JSON needs a version and a screen.');
+  for (const screen of screens) {
+    const children = screen?.layout?.children || [];
+    const footer = children.find((c) => c.type === 'Footer');
+    if (screen.terminal && footer?.['on-click-action']?.name !== 'complete') problems.push('The last screen needs a Footer that completes.');
+    for (const c of children) {
+      const limit = c.type === 'DatePicker' ? 40 : 20;
+      if (c.label && ['TextInput', 'TextArea', 'Dropdown', 'DatePicker'].includes(c.type) && c.label.length > limit) problems.push(`"${c.label}" is longer than ${limit} characters.`);
+      if (c.type === 'Dropdown' && !(c['data-source'] || []).length) problems.push('A dropdown needs options.');
+    }
+  }
+  return problems;
+}
 
 module.exports = {
   async getPhoneNumber() {
@@ -172,6 +191,23 @@ module.exports = {
     const list = createdTemplates.get(phoneNumberId) || [];
     createdTemplates.set(phoneNumberId, list.filter((t) => !(t.name === name && (!providerTemplateId || t.id === providerTemplateId))));
   },
+
+  // G6: a test number publishes a well-formed form at once; one Meta would refuse stays a draft.
+  async createFlow({ phoneNumberId }, { name, categories, flowJson }) {
+    const problems = flowProblems(flowJson);
+    const flowId = `mock-flow-${crypto.randomBytes(6).toString('hex')}`;
+    const status = problems.length ? 'DRAFT' : 'PUBLISHED';
+    createdFlows.set(flowId, { flowId, phoneNumberId, name, categories, flowJson, status });
+    return { flowId, status, problems };
+  },
+  async deprecateFlow(credentials, flowId) {
+    const flow = createdFlows.get(flowId);
+    if (flow) flow.status = 'DEPRECATED';
+  },
+  async deleteFlow(credentials, flowId) {
+    createdFlows.delete(flowId);
+  },
+  flows: () => [...createdFlows.values()],
 
   // A pretend catalog: any id works, and every product is accepted.
   async getCatalog(credentials, catalogId) {

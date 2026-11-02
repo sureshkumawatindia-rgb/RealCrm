@@ -192,7 +192,25 @@ function messageFields(message) {
     const place = message.location || {};
     fields.location = { latitude: Number(place.latitude), longitude: Number(place.longitude), name: str(place.name, 200), address: str(place.address, 500) };
   }
-  if (type === 'interactive') {
+  // G6 (D110): the answers to a WhatsApp form (a Flow): response_json is a JSON string with the
+  // flow_token we sent and the form's values (Meta's "Receiving Flow response", read 2026-11-02).
+  if (type === 'interactive' && message.interactive?.type === 'nfm_reply') {
+    const reply = message.interactive.nfm_reply || {};
+    let parsed = {};
+    try {
+      parsed = JSON.parse(String(reply.response_json || '{}'));
+    } catch {
+      parsed = {};
+    }
+    const values = {};
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      for (const [key, value] of Object.entries(parsed).slice(0, 50)) {
+        if (key !== 'flow_token' && /^[A-Za-z0-9_]{1,40}$/.test(key) && value !== null && typeof value !== 'object') values[key] = str(value, 2000);
+      }
+    }
+    fields.form = { token: str(parsed?.flow_token, 200), values };
+    fields.text = str(reply.body, 200) || 'Form sent';
+  } else if (type === 'interactive') {
     const choice = message.interactive?.button_reply || message.interactive?.list_reply || {};
     fields.reply = { id: str(choice.id, 200), title: str(choice.title, 200) };
     fields.text = fields.reply.title;

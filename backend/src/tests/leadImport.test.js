@@ -153,7 +153,8 @@ describe('Importing leads (G1, D105)', () => {
     const lead = await Lead.findOne({ organizationId: owner.data.organizationId, expectedValuePaise: 7500000 });
     expect(String(lead.ownerId)).toBe(String(agent.data.member.id));
 
-    expect((await importAs(owner, file, ['name', 'phone'])).body.message).toMatch(/column choices do not match/);
+    // Named .xlsx: read as CSV, a workbook's bytes (with the time in them) gave a varying column count.
+    expect((await importAs(owner, file, ['name', 'phone'], {}, 'leads.xlsx')).body.message).toMatch(/column choices do not match/);
     expect((await importAs(owner, file, ['name', '', 'owner', 'value'], {}, 'leads.xlsx')).body.errors[0].code).toBe('PHONE_REQUIRED');
     expect((await importAs(owner, file, ['name', 'phone', 'owner', 'price'], {}, 'leads.xlsx')).status).toBe(400);
     const viewer = await inviteAndJoin(owner.token, 'viewer@example.com', { role: 'viewer' });

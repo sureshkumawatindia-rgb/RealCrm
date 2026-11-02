@@ -57,7 +57,7 @@ const messageSchema = new mongoose.Schema(
     // Buttons or a list the CRM sent (Phase 6C bot); the customer's choice comes back as reply.
     // Products from the WhatsApp catalog (Phase 8C): kind product (one) or product_list.
     interactive: {
-      kind: { type: String, enum: ['button', 'list', 'product', 'product_list'] },
+      kind: { type: String, enum: ['button', 'list', 'product', 'product_list', 'flow'] },
       listButton: { type: String },
       footer: { type: String },
       options: {
@@ -78,6 +78,19 @@ const messageSchema = new mongoose.Schema(
         default: undefined,
       },
       orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
+    },
+    // G6 (D110): a WhatsApp form — the one sent (formId, its name, token: the flow_token Meta gives
+    // back with the answers), or the customer's answers to it (values as Meta sent them, answers
+    // as the chat shows them, the lead or order they went into, done once they were used).
+    form: {
+      formId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppForm' },
+      name: { type: String },
+      token: { type: String },
+      values: { type: mongoose.Schema.Types.Mixed },
+      answers: { type: [{ _id: false, label: String, value: String }], default: undefined },
+      leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
+      orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
+      done: { type: Boolean },
     },
     template: {
       name: { type: String },
@@ -122,5 +135,7 @@ messageSchema.index({ providerMessageId: 1 }, { unique: true, sparse: true });
 messageSchema.index({ organizationId: 1, conversationId: 1, createdAt: -1 });
 // Reports (Phase 9): messages of a date range.
 messageSchema.index({ organizationId: 1, createdAt: -1 });
+// G6 (D110): the form a customer's answers belong to, by the token sent with it.
+messageSchema.index({ organizationId: 1, 'form.token': 1 }, { partialFilterExpression: { 'form.token': { $exists: true } } });
 
 module.exports = mongoose.model('Message', messageSchema);

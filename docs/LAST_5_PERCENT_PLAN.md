@@ -113,7 +113,7 @@ of Meta, GST and Resend checked in their current official docs (with "checked on
 3. Ticket SLA: reply and resolve limits by priority, alerts on breach, a report. — done 2026-10-31 (D107)
 4. Google Sheets sync: new leads or orders added to a sheet (on the existing Google connection). — done 2026-11-02 (D108)
 5. Tally export: invoices and receipts as Tally import XML (needs C). — done 2026-11-02 (D109)
-6. WhatsApp Flows: forms inside WhatsApp, answers into a lead or order.
+6. WhatsApp Flows: forms inside WhatsApp, answers into a lead or order. — done 2026-11-02 (D110)
 7. WhatsApp Business calling: only if Meta offers it for Indian numbers (checked first; if not,
    reported and stopped).
 8. Instagram and Messenger in the same team inbox (Meta App Review needed).

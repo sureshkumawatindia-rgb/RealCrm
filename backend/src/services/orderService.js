@@ -74,6 +74,10 @@ function serializeOrder(order) {
     quotationId: order.quotationId || null,
     quotationNumber: order.quotationNumber || '',
     source: order.source || 'quotation',
+    // G6 (D110): an order from a WhatsApp order form.
+    formOrder: order.formOrder?.messageId
+      ? { messageId: order.formOrder.messageId, conversationId: order.formOrder.conversationId || null, formId: order.formOrder.formId || null, formName: order.formOrder.formName || '' }
+      : null,
     catalogOrder: order.catalogOrder?.messageId
       ? { messageId: order.catalogOrder.messageId, conversationId: order.catalogOrder.conversationId || null, text: order.catalogOrder.text || '', warnings: order.catalogOrder.warnings || [] }
       : null,

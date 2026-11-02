@@ -282,6 +282,20 @@ crmI18n.ready.then(function inbox() {
       const items = m.order.items.map((i) => `<li>${escapeHtml(String(i.quantity))} × ${escapeHtml(productNameOf(i.retailerId))}${i.itemPricePaise ? ` · ₹${(i.itemPricePaise / 100).toLocaleString(crmI18n.locale())}` : ""}</li>`).join("");
       return `<div class="attachment"><i class="fa-solid fa-cart-shopping"></i><strong>${escapeHtml(t("inbox.catalogOrder"))}</strong></div><ul class="cart-items">${items}</ul>${m.order.text ? `<div class="caption">${linkify(escapeHtml(m.order.text))}</div>` : ""}${m.order.orderId ? `<a class="btn btn-outline" href="Orders.html?id=${encodeURIComponent(m.order.orderId)}"><i class="fa-solid fa-truck-fast"></i> ${escapeHtml(t("inbox.openOrder"))}</a>` : `<div class="text-muted">${escapeHtml(t("inbox.makingOrder"))}</div>`}`;
     }
+    // G6 (D110): a WhatsApp form sent, and the customer's answers (with the lead or order they made).
+    if (m.type === "interactive" && m.interactive?.kind === "flow") {
+      return `${text}<div class="bot-options"><span class="bot-option"><i class="fa-solid fa-clipboard-list"></i> ${escapeHtml(m.form?.name || t("inbox.form.form"))}</span></div>`;
+    }
+    if (m.type === "interactive" && m.direction === "in" && m.form) {
+      const answers = (m.form.answers || []).map((a) => `<li><strong>${escapeHtml(a.label)}:</strong> ${escapeHtml(a.value)}</li>`).join("");
+      const link = m.form.orderId
+        ? `<a class="btn btn-outline" href="Orders.html?id=${encodeURIComponent(m.form.orderId)}"><i class="fa-solid fa-truck-fast"></i> ${escapeHtml(t("inbox.openOrder"))}</a>`
+        : m.form.leadId
+          ? `<a class="btn btn-outline" href="leads.html?open=${encodeURIComponent(m.form.leadId)}"><i class="fa-solid fa-filter-circle-dollar"></i> ${escapeHtml(t("inbox.form.openLead"))}</a>`
+          : m.form.done ? "" : `<div class="text-muted">${escapeHtml(t("inbox.form.reading"))}</div>`;
+      const title = m.form.name ? t("inbox.form.answersOf", { name: m.form.name }) : t("inbox.form.answers");
+      return `<div class="attachment"><i class="fa-solid fa-clipboard-check"></i><strong>${escapeHtml(title)}</strong></div>${answers ? `<ul class="cart-items">${answers}</ul>` : ""}${link}`;
+    }
     // The bot's buttons or list (sent), or the customer's choice (received).
     if (m.type === "interactive" && m.direction === "out" && m.interactive) {
       const options = m.interactive.options.map((o) => `<span class="bot-option">${escapeHtml(o.title)}</span>`).join("");
@@ -464,6 +478,7 @@ crmI18n.ready.then(function inbox() {
     $("quickRepliesBtn").disabled = !writable;
     $("attachBtn").disabled = !writable;
     $("productsBtn").disabled = !writable; // product messages need the 24-hour window
+    $("formBtn").disabled = !writable; // so do WhatsApp forms (D110)
     $("emojiBtn").disabled = !writable;
     $("laterBtn").disabled = !writable;
     $("templateBtn").disabled = Boolean(c.blocked);
@@ -1231,6 +1246,65 @@ crmI18n.ready.then(function inbox() {
       showToast(message.status === "failed" ? t("inbox.notSent", { reason: message.error?.message || t("inbox.unknownReason") }) : t("inbox.prod.sent"), message.status === "failed" ? "error" : "success");
     } catch (error) {
       showToast(apiErrorMessage(error, t("inbox.prod.sendFailed")), "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  // --- WhatsApp forms (D110): a published form into the chat, inside the 24-hour window -----
+  let pickedForm = null;
+  async function openFormPicker() {
+    if (!state.current) return;
+    pickedForm = null;
+    $("formsSend").disabled = true;
+    $("formsList").innerHTML = `<p class="text-muted template-empty">${escapeHtml(t("inbox.form.loading"))}</p>`;
+    $("formsModal").classList.add("open");
+    try {
+      const { items } = await crmApi("/whatsapp-forms");
+      const sendable = items.filter((f) => f.sendable);
+      $("formsList").innerHTML = sendable.length
+        ? sendable.map((f) => `
+          <label class="template-item product-pick">
+            <input type="radio" name="formPick" data-form="${escapeHtml(f.id)}" />
+            <span><strong>${escapeHtml(f.name)}</strong> <span class="badge badge-neutral">${escapeHtml(t(`wf.kind.${f.kind}`))}</span>
+              <span class="template-item-body">${escapeHtml(f.intro || "")}</span></span>
+          </label>`).join("")
+        : `<p class="text-muted template-empty">${escapeHtml(t(isOrgManager() ? "inbox.form.noneManager" : "inbox.form.none"))}</p>`;
+    } catch (error) {
+      $("formsList").innerHTML = `<p class="text-muted template-empty">${escapeHtml(apiErrorMessage(error, t("inbox.form.loadFailed")))}</p>`;
+    }
+  }
+  const closeFormPicker = () => $("formsModal").classList.remove("open");
+  $("formBtn").addEventListener("click", openFormPicker);
+  $("formsModalClose").addEventListener("click", closeFormPicker);
+  $("formsModal").addEventListener("click", (e) => {
+    if (e.target.id === "formsModal") closeFormPicker();
+  });
+  $("formsList").addEventListener("change", (e) => {
+    const radio = e.target.closest("[data-form]");
+    if (!radio) return;
+    pickedForm = radio.dataset.form;
+    $("formsSend").disabled = false;
+  });
+  $("formsSend").addEventListener("click", async () => {
+    const conversation = state.current;
+    if (!conversation || !pickedForm) return;
+    const button = $("formsSend");
+    button.disabled = true;
+    try {
+      const message = await crmApi(`/conversations/${conversation.id}/form`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
+        body: JSON.stringify({ formId: pickedForm }),
+      });
+      closeFormPicker();
+      if (state.current && String(state.current.id) === String(conversation.id)) {
+        addOrReplaceMessage(message);
+        renderMessages();
+      }
+      showToast(message.status === "failed" ? t("inbox.notSent", { reason: message.error?.message || t("inbox.unknownReason") }) : t("inbox.form.sent"), message.status === "failed" ? "error" : "success");
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("inbox.form.sendFailed")), "error");
     } finally {
       button.disabled = false;
     }

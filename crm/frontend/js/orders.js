@@ -215,7 +215,9 @@ crmI18n.ready.then(function ordersPage() {
       ? `<a href="Quotations.html?id=${encodeURIComponent(o.quotationId)}">${escapeHtml(o.quotationNumber || crmLabel("quoteType", "Quotation"))}</a>`
       : o.source === "catalog"
         ? `<a href="Inbox.html?c=${encodeURIComponent(o.catalogOrder?.conversationId || "")}"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("orders.fromCatalog"))}</a>`
-        : "";
+        : o.source === "form" // D110: from a WhatsApp order form
+          ? `<a href="Inbox.html?c=${encodeURIComponent(o.formOrder?.conversationId || "")}"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("orders.fromForm", { name: o.formOrder?.formName || "" }))}</a>`
+          : "";
     const b = o.billTo || {};
     $("oCustomer").innerHTML = `<strong>${escapeHtml(b.name || "—")}</strong><div class="q-muted">${[b.company && b.company !== b.name ? b.company : "", b.address, [b.city, b.state].filter(Boolean).join(", "), b.gstin ? `GSTIN ${b.gstin}` : "", b.phone].filter(Boolean).map(escapeHtml).join("<br>")}</div>`;
     // A cart from the WhatsApp catalog may need a look (an unknown item, a price that changed).

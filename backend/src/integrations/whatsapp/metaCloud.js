@@ -169,6 +169,26 @@ module.exports = {
     return { done: (unblock ? result.removed_users : result.added_users) || [], failed: result.failed_users || [] };
   },
 
+  // --- WhatsApp Flows (G6, D110): forms inside WhatsApp, made on the WhatsApp Business Account ---
+  // https://developers.facebook.com/documentation/business-messaging/whatsapp/flows/reference/flowsapi
+  // (read 2026-11-02): POST /{waba}/flows { name, categories, flow_json (a string), publish } makes
+  // the Flow and, when its JSON is valid, publishes it at once (Meta answers { id, success,
+  // validation_errors }); GET /{flow}?fields=status says whether it is PUBLISHED. A published Flow
+  // cannot change: it is retired with POST /{flow}/deprecate; a draft can be deleted.
+  async createFlow({ wabaId, accessToken }, { name, categories, flowJson }) {
+    const data = await graph(`${enc(wabaId)}/flows`, { accessToken, method: 'POST', body: { name, categories, flow_json: JSON.stringify(flowJson), publish: true } });
+    const problems = (Array.isArray(data.validation_errors) ? data.validation_errors : []).map((e) => String(e?.message || e?.error || 'Invalid')).slice(0, 5);
+    const flowId = String(data.id || '');
+    const status = flowId ? String((await graph(`${enc(flowId)}?fields=status`, { accessToken })).status || 'DRAFT').toUpperCase() : 'DRAFT';
+    return { flowId, status, problems };
+  },
+  async deprecateFlow({ accessToken }, flowId) {
+    await graph(`${enc(flowId)}/deprecate`, { accessToken, method: 'POST' });
+  },
+  async deleteFlow({ accessToken }, flowId) {
+    await graph(enc(flowId), { accessToken, method: 'DELETE' });
+  },
+
   // A received file's details and a download URL (valid 5 minutes).
   async getMedia({ phoneNumberId, accessToken }, mediaId) {
     const data = await graph(`${enc(mediaId)}?phone_number_id=${enc(phoneNumberId)}`, { accessToken });
