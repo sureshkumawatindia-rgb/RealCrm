@@ -329,7 +329,11 @@ async function updateTask(req, id, taskId, body) {
   }
   if (body.title !== undefined) task.title = body.title;
   if (body.dueDate !== undefined) task.dueDate = body.dueDate || undefined;
-  if (body.assigneeId !== undefined) task.assigneeId = body.assigneeId || undefined;
+  if (body.assigneeId !== undefined) {
+    // Phase 1 security review: an active member of this company only, as when the task is made.
+    if (body.assigneeId) await activeMembers(req.tenant.organizationId, [body.assigneeId]);
+    task.assigneeId = body.assigneeId || undefined;
+  }
   await task.save();
   if (project.status === 'not_started' && body.status === 'Done') await Project.updateOne({ _id: project._id }, { $set: { status: 'in_progress' } });
   return { ...serializeTask(task), milestoneId: task.milestoneId || null };

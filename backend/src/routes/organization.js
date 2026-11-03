@@ -15,19 +15,23 @@ const Joi = require('joi');
 const { HIDEABLE_MODULES } = require('../constants/permissions');
 
 const router = express.Router();
+// One logo file and nothing else (Phase 1 security review: no unlimited form fields).
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
+  limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 5, fieldSize: 1024 },
 });
 
 function uploadLogo(req, res, next) {
   upload.single('logo')(req, res, (error) => {
-    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-      error.statusCode = 400;
-      error.code = 'FILE_TOO_LARGE';
-      error.message = 'File size must be less than 2 MB.';
+    if (error instanceof multer.MulterError) {
+      const tooLarge = error.code === 'LIMIT_FILE_SIZE';
+      return next(Object.assign(error, {
+        statusCode: 400,
+        code: tooLarge ? 'FILE_TOO_LARGE' : 'UPLOAD_ERROR',
+        message: tooLarge ? 'File size must be less than 2 MB.' : 'Send one logo image in the "logo" field.',
+      }));
     }
-    next(error);
+    return next(error);
   });
 }
 

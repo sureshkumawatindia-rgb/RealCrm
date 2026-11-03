@@ -231,12 +231,13 @@ async function options(req, query) {
   if (planBlock) blocked = planBlock;
   else if (!connections.length) blocked = ['owner', 'admin'].includes(req.member.role) ? 'Connect Razorpay or Cashfree in Settings → Payments first.' : 'Ask an owner or admin to connect Razorpay or Cashfree in Settings → Payments.';
   // The subject's links: an order's (also those made for its quotation), a quotation's, a customer's.
+  // Only this company's order or quotation is looked at (Phase 1 security review).
   let filter = { contactId: query.contactId };
   if (query.orderId) {
-    const order = await Order.findById(query.orderId).select('quotationId');
+    const order = await Order.findOne({ _id: query.orderId, organizationId: req.tenant.organizationId }).select('quotationId');
     filter = { $or: [{ orderId: query.orderId }, ...(order?.quotationId ? [{ quotationId: order.quotationId }] : [])] };
   } else if (query.quotationId) {
-    const quotation = await Quotation.findById(query.quotationId).select('orderId');
+    const quotation = await Quotation.findOne({ _id: query.quotationId, organizationId: req.tenant.organizationId }).select('orderId');
     filter = { $or: [{ quotationId: query.quotationId }, ...(quotation?.orderId ? [{ orderId: quotation.orderId }] : [])] };
   }
   const links = await PaymentLink.find({ ...scope(req), ...filter }).sort({ createdAt: -1 }).limit(10);

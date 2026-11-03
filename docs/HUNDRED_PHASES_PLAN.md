@@ -33,7 +33,7 @@ JustDial and their website, and run on GST quotations, orders and Tally.
 
 1. **Security review.** One company never sees another's data (every route checked); sign-in and
    sessions; file uploads; webhook signatures; rate limits; no secrets or customers' numbers in
-   logs. Fix every finding; a test for each.
+   logs. Fix every finding; a test for each. — done 2026-11-03 (D113, `docs/SECURITY_REVIEW.md`)
 2. **End-to-end browser tests.** The ten flows that must never break (sign up → test WhatsApp
    number → a lead arrives → reply → quotation → order → invoice → payment → report → team
    invite), run in GitHub on every push.
