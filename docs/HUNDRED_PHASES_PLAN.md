@@ -36,7 +36,7 @@ JustDial and their website, and run on GST quotations, orders and Tally.
    logs. Fix every finding; a test for each. — done 2026-11-03 (D113, `docs/SECURITY_REVIEW.md`)
 2. **End-to-end browser tests.** The ten flows that must never break (sign up → test WhatsApp
    number → a lead arrives → reply → quotation → order → invoice → payment → report → team
-   invite), run in GitHub on every push.
+   invite), run in GitHub on every push. — done 2026-11-03 (D114, `docs/E2E_TESTS.md`)
 3. **Speed at scale.** A company with 20,000 contacts, 50,000 leads and 2 lakh messages: the
    Inbox, lists, search and reports answer within a second (indexes, paging, lighter queries).
 4. **Hindi everywhere.** Every remaining page in Hindi, and a test that stops English-only text

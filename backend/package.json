@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "jest"
+    "test": "jest",
+    "e2e": "playwright test"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +33,7 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "jest": "^30.5.1",
     "jest-circus": "^30.5.1",
     "mongodb-memory-server": "^11.3.0",

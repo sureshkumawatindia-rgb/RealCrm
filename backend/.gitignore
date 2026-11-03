@@ -3,3 +3,5 @@ node_modules/
 uploads/
 /storage/
 coverage/
+e2e-results/
+e2e-report/

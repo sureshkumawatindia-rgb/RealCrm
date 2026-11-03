@@ -50,3 +50,48 @@ jobs:
       - name: Alert watchdog tests
         working-directory: ops/alert-worker
         run: node --test worker.test.js
+
+  # Phase 2 (D114): the ten flows that must never break, in a real browser (Chromium) against
+  # the CRM with an in-memory database (backend/e2e, docs/E2E_TESTS.md).
+  e2e:
+    name: The ten flows in a browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.mongodb-binaries
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Keep the test MongoDB between runs
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.mongodb-binaries
+          key: mongodb-${{ runner.os }}-${{ hashFiles('backend/package-lock.json') }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: The ten flows
+        run: npx playwright test
+
+      - name: Keep what a failing flow saw (trace, screenshot, video)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            backend/e2e-results
+            backend/e2e-report
+          retention-days: 7
