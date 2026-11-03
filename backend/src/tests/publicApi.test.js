@@ -30,12 +30,13 @@ describe('Public API (Phase 10C)', () => {
     readOnly = (await api().post('/api/v1/api-keys').set(bearer(owner.token)).send({ name: 'Reports', scopes: ['contacts:read'] })).body.data.key;
     const listed = (await api().get('/api/v1/api-keys').set(bearer(owner.token))).body.data;
     expect(listed.items.map((k) => k.name)).toEqual(['Reports', 'Zapier']);
-    expect(JSON.stringify(listed)).not.toContain(full.split('_')[2]);
+    // The secret part after "ycrm_<prefix>_" (it may itself hold "_", even first: split('_') would cut it).
+    expect(JSON.stringify(listed)).not.toContain(full.replace(/^ycrm_[a-f0-9]{10}_/, ''));
     expect(listed.items[1]).toMatchObject({ preview: `${full.split('_').slice(0, 2).join('_')}_…`, createdBy: 'Asha' });
     expect(listed.scopes).toHaveLength(10); // D78 added records:read and records:write
     const stored = await ApiKey.findOne({ name: 'Zapier' });
     expect(stored.hash).toHaveLength(64);
-    expect(JSON.stringify(stored.toObject())).not.toContain(full.split('_')[2]);
+    expect(JSON.stringify(stored.toObject())).not.toContain(full.replace(/^ycrm_[a-f0-9]{10}_/, ''));
   });
 
   it('refuses missing, wrong and short-scoped keys', async () => {
