@@ -98,3 +98,15 @@ describe('Security review (Phase 1, D113)', () => {
     expect((await api().post('/api/v1/organization/logo').set(as(a)).attach('logo', png, 'logo.png')).status).toBe(200);
   });
 });
+
+// BUG-002 (100-point audit), fixed in Phase 3 (D115): the CRM pages are served before helmet, with
+// their own headers — never inside another site's frame, no type guessing, short referrers.
+describe('Page security headers (Phase 3, D115)', () => {
+  it.each(['/crm/frontend/dashboard.html', '/crm/frontend/login.html', '/crm/frontend/no-such-page.html', '/favicon.ico'])('%s', async (url) => {
+    const res = await api().get(url);
+    expect(res.headers['content-security-policy']).toBe("frame-ancestors 'none'; base-uri 'self'; object-src 'none'");
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  });
+});

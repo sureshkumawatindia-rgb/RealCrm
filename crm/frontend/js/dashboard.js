@@ -1,10 +1,10 @@
 /**
  * dashboard.js — Overview dashboard
  * Reads across every module's server data (through app.js) and renders a single
- * at-a-glance view. Reuses shared helpers from app.js (getCustomers,
- * getLeads, getAgents, getProducts, showToast, renderSidebarUser,
- * initSidebarToggle, requireAuth); the read* functions below wrap the
- * getters for deals, tasks, events and campaigns.
+ * at-a-glance view. Reuses shared helpers from app.js (getAgents, getProducts,
+ * showToast, renderSidebarUser, initSidebarToggle, requireAuth); the read*
+ * functions below wrap the getters for tasks, events and campaigns. Leads and
+ * customers are counted by the server (D115): the page does not load them all.
  */
 
 requireAuth();
@@ -66,9 +66,6 @@ function statusBadge(status) {
 // ---------------------------------------------------------------
 // Page-local names for the shared getters
 // ---------------------------------------------------------------
-function readDeals() {
-  return getDeals();
-}
 function readTasks() {
   return getTasks();
 }
@@ -182,20 +179,31 @@ async function renderServerKpis() {
     .join("");
 }
 
+// Phase 3 (D115): the leads' numbers counted by the server over every lead, the five newest
+// leads and how many customers — instead of loading every lead and contact into the page.
+const dashLeads = { summary: null, recent: [], customers: 0 };
+async function loadLeadNumbers() {
+  const [summary, recent, customers] = await Promise.all([
+    crmLeadSummary().catch(() => null),
+    crmRequest("/leads?limit=5").catch(() => ({ data: [] })),
+    crmRequest("/contacts?lifecycle=customer&limit=1").catch(() => ({ pagination: { total: 0 } })),
+  ]);
+  dashLeads.summary = summary;
+  dashLeads.recent = (recent.data || []).map(toLegacyLead);
+  dashLeads.customers = customers.pagination?.total || 0;
+}
+const leadNumbers = loadLeadNumbers();
+
 function renderKpis() {
-  const customers = getCustomers();
-  const leads = getLeads();
-  const deals = readDeals();
+  const summary = dashLeads.summary;
   const tasks = readTasks();
   const events = readEvents();
   const agents = getAgents();
   const products = getProducts();
 
   const today = todayStr();
-  const openDeals = deals.filter(
-    (d) => d.stage !== "Won" && d.stage !== "Lost",
-  );
-  const pipelineValue = openDeals.reduce((s, d) => s + Number(d.value || 0), 0);
+  const openCount = summary?.open.count || 0;
+  const pipelineValue = (summary?.open.valuePaise || 0) / 100;
   const tasksDueToday = tasks.filter(
     (t) => t.dueDate === today && t.status !== "Done",
   );
@@ -205,11 +213,11 @@ function renderKpis() {
   const upcomingEvents = events.filter((e) => e.date >= today);
 
   const cards = [
-    { label: t("dash.kpi.customers"), value: customers.length, cls: "", route: "customers.html" },
-    { label: t("dash.kpi.leads"), value: leads.length, cls: "info", route: "leads.html" },
+    { label: t("dash.kpi.customers"), value: dashLeads.customers, cls: "", route: "customers.html" },
+    { label: t("dash.kpi.leads"), value: summary?.total || 0, cls: "info", route: "leads.html" },
     {
       label: t("dash.kpi.pipeline"),
-      value: `${openDeals.length} · ${formatCurrency(pipelineValue)}`,
+      value: `${openCount} · ${formatCurrency(pipelineValue)}`,
       cls: "success",
       route: "Deals.html",
     },
@@ -249,28 +257,22 @@ function renderKpis() {
 // Pipeline by stage
 // ---------------------------------------------------------------
 function renderPipeline() {
-  const deals = readDeals();
+  const byStage = new Map((dashLeads.summary?.stages || []).map((row) => [row.stage, row]));
   const el = document.getElementById("pipelineBars");
 
-  if (!deals.length) {
+  if (!dashLeads.summary?.total) {
     el.innerHTML = `<div class="pipeline-empty"><i class="fa-solid fa-handshake"></i>${escapeHtml(t("dash.empty.deals"))}</div>`;
     return;
   }
 
   const stages = LEAD_STAGES;
-  const maxValue = Math.max(
-    ...stages.map((s) =>
-      deals
-        .filter((d) => d.stage === s)
-        .reduce((sum, d) => sum + Number(d.value || 0), 0),
-    ),
-    1,
-  );
+  const valueOf = (stage) => (byStage.get(stage)?.valuePaise || 0) / 100;
+  const maxValue = Math.max(...stages.map(valueOf), 1);
 
   el.innerHTML = stages
     .map((stage) => {
-      const stageDeals = deals.filter((d) => d.stage === stage);
-      const total = stageDeals.reduce((s, d) => s + Number(d.value || 0), 0);
+      const count = byStage.get(stage)?.count || 0;
+      const total = valueOf(stage);
       const p = Math.max(4, Math.round((total / maxValue) * 100));
       return `
         <div class="pipeline-row">
@@ -278,7 +280,7 @@ function renderPipeline() {
           <div class="stage-track">
             <div class="stage-fill" style="width:${p}%;background:${STAGE_DOT[stage]}"></div>
           </div>
-          <div class="stage-meta">${escapeHtml(t(stageDeals.length === 1 ? "dash.dealOne" : "dash.dealMany", { n: stageDeals.length }))} · ${formatCurrency(total)}</div>
+          <div class="stage-meta">${escapeHtml(t(count === 1 ? "dash.dealOne" : "dash.dealMany", { n: count }))} · ${formatCurrency(total)}</div>
         </div>`;
     })
     .join("");
@@ -288,10 +290,9 @@ function renderPipeline() {
 // Recent leads
 // ---------------------------------------------------------------
 function renderRecentLeads() {
-  const leads = getLeads();
   const products = getProducts();
   const container = document.getElementById("recentLeadsTable");
-  const recent = leads.slice(0, 5);
+  const recent = dashLeads.recent;
 
   if (!recent.length) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>${escapeHtml(t("dash.empty.leads"))}</p></div>`;
@@ -436,7 +437,7 @@ function renderUpcomingEvents() {
 // ---------------------------------------------------------------
 function renderProductsList() {
   const products = getProducts().slice(0, 6);
-  const leads = getLeads();
+  const leadCounts = new Map((dashLeads.summary?.products || []).map((row) => [String(row.productId), row.count]));
   const el = document.getElementById("productsList");
 
   if (!products.length) {
@@ -446,7 +447,7 @@ function renderProductsList() {
 
   el.innerHTML = products
     .map((p) => {
-      const count = leads.filter((l) => l.product === p.id).length;
+      const count = leadCounts.get(String(p.id)) || 0;
       const qty =
         p.quantity === "" || p.quantity == null ? null : Number(p.quantity);
       const qtyLabel = qty === null ? "" : ` · ${t("dash.qty", { n: qty })}`;
@@ -469,7 +470,7 @@ function renderProductsList() {
 // ---------------------------------------------------------------
 function renderTeamWorkload() {
   const agents = getAgents();
-  const deals = readDeals();
+  const openByOwner = new Map((dashLeads.summary?.owners || []).map((row) => [String(row.ownerId), row.count]));
   const tasks = readTasks();
   const el = document.getElementById("teamWorkloadList");
 
@@ -479,9 +480,7 @@ function renderTeamWorkload() {
   }
 
   const withLoad = agents.map((a) => {
-    const openDeals = deals.filter(
-      (d) => d.owner === a.name && d.stage !== "Won" && d.stage !== "Lost",
-    ).length;
+    const openDeals = openByOwner.get(String(a.id)) || 0;
     const openTasks = tasks.filter(
       (t) => t.assignee === a.name && t.status !== "Done",
     ).length;
@@ -609,5 +608,8 @@ function renderDashboard() {
   renderTeamWorkload();
 }
 
-crmReady(["leads", "contacts", "products", "members", "tasks", "events", "campaigns"], renderDashboard);
+crmReady(["products", "members", "tasks", "events", "campaigns"], async () => {
+  await leadNumbers;
+  renderDashboard();
+});
 initQuickActions();

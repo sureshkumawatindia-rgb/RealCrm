@@ -44,13 +44,24 @@ async function historyOf(organizationId, { valueOf, filter = {}, now = new Date(
 }
 
 // { pct, enough, similar, won, by: ['stage','source','value'] } or { pct: null, enough: false, … }.
+// Every lead with the same stage, source and value band gets the same answer: it is worked out
+// once per history (Phase 3, D115; AI Insights asks for each of a company's 30,000 open leads).
+const answers = new WeakMap(); // history → Map("stage|source|band" → answer)
 function chanceOf(lead, valuePaise, history) {
   const stageIndex = Math.max(OPEN_STAGES.indexOf(lead.stage), 0);
-  const atStage = history.filter((h) => h.reached >= stageIndex);
   const band = bandOf(valuePaise);
+  const key = `${stageIndex}|${lead.source || ''}|${band}`;
+  let known = answers.get(history);
+  if (!known) answers.set(history, (known = new Map()));
+  if (!known.has(key)) known.set(key, chanceFor(stageIndex, lead.source || '', band, history));
+  return { ...known.get(key) };
+}
+
+function chanceFor(stageIndex, source, band, history) {
+  const atStage = history.filter((h) => h.reached >= stageIndex);
   const levels = [
-    { by: ['stage', 'source', 'value'], pool: atStage.filter((h) => h.source === (lead.source || '') && h.band === band) },
-    { by: ['stage', 'source'], pool: atStage.filter((h) => h.source === (lead.source || '')) },
+    { by: ['stage', 'source', 'value'], pool: atStage.filter((h) => h.source === source && h.band === band) },
+    { by: ['stage', 'source'], pool: atStage.filter((h) => h.source === source) },
     { by: ['stage'], pool: atStage },
   ];
   const level = levels.find((l) => l.pool.length >= MIN_SIMILAR);

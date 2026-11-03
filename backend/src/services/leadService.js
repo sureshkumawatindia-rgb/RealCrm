@@ -6,8 +6,10 @@ const Product = require('../models/Product');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { toPage, paginationMeta } = require('../utils/pagination');
-const { searchFilter, sortSpec } = require('../utils/listQuery');
-const { STAGE_PROBABILITY } = require('../constants/crm');
+const { searchFilter, sortSpec, MATCH_MAX } = require('../utils/listQuery');
+const { STAGE_PROBABILITY, LEAD_STAGES, OPEN_STAGES } = require('../constants/crm');
+const { indiaDate } = require('../utils/dates');
+const { dayStart, rangeOf } = require('../utils/reportRange');
 const { visibilityFilter, privacyFilter, resolveOwnerId, ownerPatch } = require('./access');
 const contactService = require('./contactService');
 const customFieldService = require('./customFieldService');
@@ -141,6 +143,7 @@ async function listFilter(req, query) {
     ...(query.ownerId && { ownerId: query.ownerId }),
     ...(query.productId && { productId: query.productId }),
     ...(query.contactId && { contactId: query.contactId }),
+    ...(query.scoreBand && { 'score.band': query.scoreBand }), // hot, warm or cold (G2, D106)
   };
   if (query.followUpFrom || query.followUpTo) {
     filter.followUpAt = { ...(query.followUpFrom && { $gte: query.followUpFrom }), ...(query.followUpTo && { $lte: query.followUpTo }) };
@@ -161,7 +164,7 @@ async function listFilter(req, query) {
     ]);
     const contactSearch = searchFilter(query.q, ['name', 'email', 'phone', 'phoneE164', 'company']).$or;
     const contacts = await Contact.find({ organizationId, $or: [...contactSearch, ...contactFields] }).select('_id').limit(1000);
-    const text = searchFilter(query.q, ['title', 'notes']).$or;
+    const text = searchFilter(query.q, ['title', 'notes', 'source']).$or;
     filter.$or = [...text, ...leadFields, { contactId: { $in: contacts.map((contact) => contact._id) } }];
   }
   return filter;
@@ -177,6 +180,47 @@ async function list(req, query) {
   ]);
   const links = await lookupService.linksFor(req, 'lead', items);
   return { items: items.map((lead) => serializeLead(lead, keys, links)), pagination: paginationMeta(page, total) };
+}
+
+// Phase 3 (D115): the ids of the leads the list's search and filters match, in its order, for
+// "select all" in the Leads list without loading them (at most MATCH_MAX, the bulk actions' limit).
+async function matchingIds(req, query) {
+  const filter = await listFilter(req, query);
+  const [docs, total] = await Promise.all([
+    Lead.find(filter).sort(sortSpec(query.sort, SORTS)).select('_id').limit(MATCH_MAX).lean(),
+    Lead.countDocuments(filter),
+  ]);
+  return { ids: docs.map((doc) => doc._id), total, max: MATCH_MAX };
+}
+
+// Phase 3 (D115): the numbers the pages used to count from every loaded lead — by stage with the
+// expected value, by product, open leads by owner, and won this month by the day each was won
+// (BUG-003: not the expected close date) — so they stay right for a company with 50,000 leads.
+async function summary(req, query = {}) {
+  const match = { ...scope(req), organizationId: new mongoose.Types.ObjectId(String(req.tenant.organizationId)) };
+  // Reports: only the leads made in the chosen days (from/to, days in India), when asked.
+  if (query.from || query.to) {
+    const range = rangeOf({ from: query.from, to: query.to });
+    match.createdAt = { $gte: range.start, $lt: range.end };
+  }
+  const monthStart = dayStart(`${indiaDate(0).slice(0, 7)}-01`);
+  const value = { $sum: { $ifNull: ['$expectedValuePaise', 0] } };
+  const [stages, products, owners, won] = await Promise.all([
+    Lead.aggregate([{ $match: match }, { $group: { _id: '$stage', count: { $sum: 1 }, valuePaise: value } }]),
+    Lead.aggregate([{ $match: { ...match, productId: { $ne: null } } }, { $group: { _id: '$productId', count: { $sum: 1 } } }]),
+    Lead.aggregate([{ $match: { ...match, stage: { $in: OPEN_STAGES } } }, { $group: { _id: '$ownerId', count: { $sum: 1 }, valuePaise: value } }]),
+    Lead.aggregate([{ $match: { ...match, stage: 'Won', stageChangedAt: { $gte: monthStart } } }, { $group: { _id: null, count: { $sum: 1 }, valuePaise: value } }]),
+  ]);
+  const byStage = new Map(stages.map((row) => [row._id, row]));
+  const of = (stage) => ({ count: byStage.get(stage)?.count || 0, valuePaise: byStage.get(stage)?.valuePaise || 0 });
+  return {
+    total: stages.reduce((sum, row) => sum + row.count, 0),
+    open: OPEN_STAGES.map(of).reduce((sum, row) => ({ count: sum.count + row.count, valuePaise: sum.valuePaise + row.valuePaise }), { count: 0, valuePaise: 0 }),
+    wonMonth: { count: won[0]?.count || 0, valuePaise: won[0]?.valuePaise || 0 },
+    stages: LEAD_STAGES.map((stage) => ({ stage, ...of(stage) })),
+    products: products.map((row) => ({ productId: row._id, count: row.count })),
+    owners: owners.map((row) => ({ ownerId: row._id || null, count: row.count, valuePaise: row.valuePaise })),
+  };
 }
 
 async function create(req, body) {
@@ -384,7 +428,7 @@ async function addNote(req, id, { type = 'Note', text, mentions = [] }) {
 }
 
 module.exports = {
-  list, create, update, convert, remove, listActivities, addNote, mentionable,
+  list, create, update, convert, remove, listActivities, addNote, mentionable, matchingIds, summary,
   get: loadSerialized,
   changeStage: (req, id, { stage, lostReason, version, pipelineStageId, pipelineId }) => update(req, id, { stage, lostReason, version, pipelineStageId, pipelineId }, { source: 'board' }),
   // GET /leads/:id/stage-history (D84).

@@ -4,7 +4,7 @@ const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { normalizePhone } = require('../utils/phone');
 const { normalizeGstin, stateCodeFromGstin } = require('../utils/gstin');
-const { searchFilter, sortSpec } = require('../utils/listQuery');
+const { searchFilter, sortSpec, MATCH_MAX } = require('../utils/listQuery');
 const { visibilityFilter, privacyFilter, resolveOwnerId, ownerPatch } = require('./access');
 const planService = require('./planService');
 const customFieldService = require('./customFieldService');
@@ -116,6 +116,17 @@ async function list(req, query) {
   return { items: items.map((contact) => serializeContact(contact, keys, links)), pagination };
 }
 
+// Phase 3 (D115): the ids of the contacts the list's search and filters match, in its order, for
+// "select all" in the Customers list without loading them (at most MATCH_MAX).
+async function matchingIds(req, query) {
+  const filter = await listFilter(req, query);
+  const [docs, total] = await Promise.all([
+    repo(req).find(filter).sort(sortSpec(query.sort, SORTS)).select('_id').limit(MATCH_MAX).lean(),
+    repo(req).count(filter),
+  ]);
+  return { ids: docs.map((doc) => doc._id), total, max: MATCH_MAX };
+}
+
 async function findVisible(req, id, session) {
   const contact = await repo(req).findOne({ _id: id, ...visibilityFilter(req, MODULE), ...privacyFilter(req) }).session(session || null);
   if (!contact) throw httpError(404, 'NOT_FOUND', 'Contact not found');
@@ -206,6 +217,7 @@ module.exports = {
   listFilter,
   listSort: (query) => sortSpec(query.sort, SORTS),
   list,
+  matchingIds,
   get: async (req, id) => present(req, await findVisible(req, id)),
   create: async (req, body, options) => present(req, await create(req, body, options)),
   update: async (req, id, patch, options) => present(req, await update(req, id, patch, options)),

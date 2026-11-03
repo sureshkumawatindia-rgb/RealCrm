@@ -57,6 +57,10 @@ router.post('/import', can('create'), upload, async (req, res) => {
 });
 
 router.get('/', can('view'), validate({ query: schemas.contactList }), controller.list);
+// Phase 3 (D115): the ids the list's search and filters match, for "select all" in Customers.
+router.get('/ids', can('view'), validate({ query: schemas.contactList }), async (req, res) => {
+  res.json({ success: true, data: await contactService.matchingIds(req, req.valid.query) });
+});
 // Download Excel (D82): the list as on screen, for owners and admins (audited).
 router.get('/export', requireRole('owner', 'admin'), validate({ query: schemas.contactExport }), async (req, res) => {
   const { fileName, type, body } = await tableExport.exportList(req, 'contacts', req.valid.query);

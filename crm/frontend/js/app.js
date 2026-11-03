@@ -558,16 +558,36 @@ const CRM_SOURCES = {
   sequences: "/sequences",
 };
 const crmCache = {};
+// Phase 3 (D115): each loaded list's size on the server, and whether the page holds only its
+// newest records: { total, partial }.
+const crmCacheMeta = {};
 const MAX_LOAD_PAGES = 50; // 50 pages × 100 records per resource
+const LOAD_AT_ONCE = 6; // pages asked for together (BUG-004: 50 one after the other were slow)
 
-async function crmFetchAll(path) {
-  const items = [];
-  for (let page = 1; page <= MAX_LOAD_PAGES; page += 1) {
-    const body = await crmRequest(`${path}${path.includes("?") ? "&" : "?"}page=${page}&limit=100`);
-    items.push(...(body.data || []));
-    if (!body.pagination?.hasNextPage) break;
+// A list's pages up to MAX_LOAD_PAGES: the first, then the rest a few at a time.
+// → { items, total, partial }, partial when the server has more than were loaded.
+async function crmFetchPages(path) {
+  const url = (page) => `${path}${path.includes("?") ? "&" : "?"}page=${page}&limit=100`;
+  const first = await crmRequest(url(1));
+  const last = Math.min(first.pagination?.totalPages || 1, MAX_LOAD_PAGES);
+  const rest = [];
+  let next = 2;
+  async function worker() {
+    while (next <= last) {
+      const page = next;
+      next += 1;
+      rest[page - 2] = (await crmRequest(url(page))).data || [];
+    }
   }
-  return items;
+  await Promise.all(Array.from({ length: Math.min(LOAD_AT_ONCE, last - 1) }, worker));
+  // A record added while the pages load moves the others down a place: each is kept once.
+  const byId = new Map([...(first.data || []), ...rest.flat()].map((item) => [String(item.id), item]));
+  const items = [...byId.values()];
+  const total = first.pagination?.total ?? items.length;
+  return { items, total, partial: total > items.length };
+}
+async function crmFetchAll(path) {
+  return (await crmFetchPages(path)).items;
 }
 
 // Loads each resource once per page. A module the member may not open (403) loads as empty.
@@ -579,16 +599,43 @@ async function crmLoad(names, { force = false } = {}) {
         // Pending invites are for owners and admins: nobody else needs to ask.
         if (name === "invites" && !isOrgManager()) {
           crmCache[name] = [];
+          crmCacheMeta[name] = { total: 0, partial: false };
           return;
         }
         try {
-          crmCache[name] = await crmFetchAll(CRM_SOURCES[name]);
+          const { items, total, partial } = await crmFetchPages(CRM_SOURCES[name]);
+          crmCache[name] = items;
+          crmCacheMeta[name] = { total, partial };
         } catch (error) {
           if (error.status !== 403) throw error;
           crmCache[name] = [];
+          crmCacheMeta[name] = { total: 0, partial: false };
         }
       }),
   );
+}
+
+// Phase 3 (D115): a page that holds only the newest records of a long list says so; the
+// Customers and Leads lists page and search through all of them on the server.
+function crmPartialNote(names) {
+  document.getElementById("crm-partial-note")?.remove();
+  const partial = names.filter((name) => crmCacheMeta[name]?.partial);
+  const main = document.querySelector(".main .page") || document.querySelector(".main");
+  if (!partial.length || !main) return;
+  const number = (n) => n.toLocaleString(crmI18n.locale());
+  const lines = partial.map((name) => t("partial.note", {
+    n: number(cached(name).length),
+    total: number(crmCacheMeta[name].total),
+    what: t(crmI18n.has(`partial.what.${name}`) ? `partial.what.${name}` : "partial.what.records"),
+  }));
+  if (partial.includes("contacts") || partial.includes("leads")) lines.push(t("partial.find"));
+  const note = document.createElement("div");
+  note.id = "crm-partial-note";
+  note.className = "crm-partial-note";
+  note.setAttribute("role", "status");
+  note.innerHTML = `<i class="fa-solid fa-circle-info" aria-hidden="true"></i><span></span>`;
+  note.querySelector("span").textContent = lines.join(" ");
+  main.prepend(note);
 }
 
 // crmLoad with a loading bar and a retry banner, then runs the page's first render.
@@ -599,6 +646,7 @@ async function crmReady(names, onReady) {
     await Promise.all([crmLoad(names), crmI18n.ready]); // the data and the page's texts
     document.body.classList.remove("crm-loading");
     onReady();
+    crmPartialNote(names);
   } catch (error) {
     document.body.classList.remove("crm-loading");
     const banner = document.createElement("div");
@@ -624,6 +672,95 @@ function cacheUpsert(name, item) {
 }
 function cacheDrop(name, id) {
   crmCache[name] = cached(name).filter((item) => String(item.id) !== String(id));
+}
+
+// The record with this id from the page's copy, else from the server (a list paged on the
+// server holds only the rows shown, D115). null when it is gone or not the member's to see.
+async function crmRecord(name, id) {
+  const known = cached(name).find((item) => String(item.id) === String(id));
+  if (known) return known;
+  try {
+    return cacheUpsert(name, await crmApi(`${CRM_SOURCES[name].split("?")[0]}/${encodeURIComponent(id)}`));
+  } catch (error) {
+    if ([400, 403, 404].includes(error.status)) return null;
+    throw error;
+  }
+}
+
+// Phase 3 (D115): a list that pages, searches and filters on the server (Customers, Leads), so a
+// company with 50,000 records sees and finds every one; "Show more" adds the next 100. The rows
+// shown are kept in crmCache too, so the page's own buttons (edit, notes, ticks …) work as before.
+//   const list = crmServerList({ name, path, params, more, count, onRows })
+//     params() → URLSearchParams of the search and filters; more: the "Show more" button;
+//     count: where "Showing 100 of 6,002" goes; onRows(rows) draws them.
+//   list.reload({ wait })  from the first page (wait: while typing, a moment after the last key)
+//   list.redraw()          the rows shown again, from the page's copy (after a change)
+//   list.matching()        { total, allIds } for crmBulkBar's "select all"
+function crmServerList({ name, path, params, more, count, onRows, perPage = 100 }) {
+  const state = { ids: [], page: 1, total: 0, more: false, seq: 0, timer: null };
+  function redraw() {
+    const byId = new Map(cached(name).map((item) => [String(item.id), item]));
+    const rows = state.ids.map((id) => byId.get(id)).filter(Boolean);
+    if (rows.length < state.ids.length) { // deleted here: out of the list and its count
+      state.total = Math.max(0, state.total - (state.ids.length - rows.length));
+      state.ids = rows.map((row) => String(row.id));
+    }
+    if (count) {
+      count.hidden = !state.total;
+      count.textContent = t("list.showing", { n: rows.length.toLocaleString(crmI18n.locale()), total: state.total.toLocaleString(crmI18n.locale()) });
+    }
+    if (more) more.hidden = !state.more;
+    onRows(rows);
+  }
+  async function load(reset) {
+    if (reset) state.page = 1;
+    const seq = ++state.seq;
+    const query = params();
+    query.set("page", String(state.page));
+    query.set("limit", String(perPage));
+    try {
+      const body = await crmRequest(`${path}?${query}`);
+      if (seq !== state.seq) return; // an older search answered after a newer one
+      if (reset) state.ids = [];
+      const shown = new Set(state.ids);
+      (body.data || []).forEach((item) => {
+        cacheUpsert(name, item);
+        if (!shown.has(String(item.id))) state.ids.push(String(item.id));
+      });
+      state.total = body.pagination?.total ?? state.ids.length;
+      state.more = Boolean(body.pagination?.hasNextPage);
+      redraw();
+    } catch (error) {
+      if (seq === state.seq) showToast(t("common.loadFailed", { reason: error.message || t("common.unknownError") }), "error");
+    }
+  }
+  more?.addEventListener("click", () => {
+    state.page += 1;
+    load(false);
+  });
+  return {
+    reload({ wait = false } = {}) {
+      clearTimeout(state.timer);
+      if (!wait) return load(true);
+      state.timer = setTimeout(() => load(true), 300);
+      return undefined;
+    },
+    redraw,
+    matching: () => ({ total: state.total, allIds: async () => (await crmApi(`${path}/ids?${params()}`)).ids }),
+  };
+}
+
+// Phase 3 (D115): GET /leads/summary — leads by stage (with the value), by product, open ones by
+// owner, and won this month — counted by the server over every lead the member may see.
+let crmLeadSummaryAsk = null;
+function crmLeadSummary({ fresh = false } = {}) {
+  if (fresh || !crmLeadSummaryAsk) {
+    crmLeadSummaryAsk = crmApi("/leads/summary").catch((error) => {
+      crmLeadSummaryAsk = null;
+      throw error;
+    });
+  }
+  return crmLeadSummaryAsk;
 }
 
 const jsonRequest = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -1875,7 +2012,11 @@ function openFromAddress(openRecord) {
   params.delete("open");
   const rest = params.toString();
   history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
-  if (openRecord(id) === false) showToast("That record is no longer here. It may have been deleted.", "error");
+  // openRecord may look the record up on the server first (D115): it can return a promise.
+  Promise.resolve(openRecord(id)).then(
+    (opened) => { if (opened === false) showToast("That record is no longer here. It may have been deleted.", "error"); },
+    () => showToast("That record is no longer here. It may have been deleted.", "error"),
+  );
 }
 
 // The first steps after sign-in for owners and admins (D64): Connect WhatsApp (its page decides)

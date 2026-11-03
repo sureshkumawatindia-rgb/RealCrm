@@ -39,6 +39,7 @@ JustDial and their website, and run on GST quotations, orders and Tally.
    invite), run in GitHub on every push. — done 2026-11-03 (D114, `docs/E2E_TESTS.md`)
 3. **Speed at scale.** A company with 20,000 contacts, 50,000 leads and 2 lakh messages: the
    Inbox, lists, search and reports answer within a second (indexes, paging, lighter queries).
+   — done 2026-11-03 (D115, `docs/SPEED_AT_SCALE.md`)
 4. **Hindi everywhere.** Every remaining page in Hindi, and a test that stops English-only text
    from coming back.
 5. **The first day.** A "Getting started" checklist (connect WhatsApp, add products, import leads,

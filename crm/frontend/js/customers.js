@@ -176,71 +176,79 @@ customerForm.addEventListener("submit", async (e) => {
     await saveContact(id || null, id ? data : { ...data, lifecycle: "customer" });
     showToast(t(id ? "customers.updated" : "customers.added"), "success");
     closeModal();
-    renderTable();
+    if (id) renderTable();
+    else customerList.reload(); // the new one is at the top
   } catch (error) {
     showToast(cfShowErrors(customFieldsBox, error) ? t("cf.fixFields") : apiErrorMessage(error, t("customers.err.save")), "error");
   }
 });
 
-// Filters on the company's own fields (D74); the table is drawn again once the fields are in.
+// Filters on the company's own fields (D74); the list is asked for again when they change.
+let customersReady = false;
 const customerFieldFilters = cfFilterBar({
   container: document.getElementById("customerCfFilters"),
   object: "contact",
   storageKey: "customersFieldFilters",
   onChange: () => {
-    if (crmCache.contacts) renderTable();
+    if (customersReady) reloadCustomers();
   },
 });
 
-// Download Excel (D82): the same customers (lifecycle "customer"), search, status and field
-// filters as the table.
+// The search and filters: for the list and for Download Excel (D82), customers only.
+function customerParams() {
+  const params = cfQueryParams(customerFieldFilters.filters());
+  params.set("lifecycle", "customer");
+  const q = document.getElementById("searchInput").value.trim();
+  const status = document.getElementById("filterStatus").value;
+  if (q) params.set("q", q.slice(0, 100));
+  if (status !== "all") params.set("status", status);
+  return params;
+}
+
+// Download Excel (D82): the same customers, search, status and field filters as the table.
 cfExportButton({
   button: document.getElementById("exportBtn"),
   path: "/contacts/export",
   name: "customers",
-  params: () => {
-    const params = cfQueryParams(customerFieldFilters.filters());
-    params.set("lifecycle", "customer");
-    const q = document.getElementById("searchInput").value.trim();
-    const status = document.getElementById("filterStatus").value;
-    if (q) params.set("q", q.slice(0, 100));
-    if (status !== "all") params.set("status", status);
-    return params;
-  },
+  params: customerParams,
 });
+
+// The list pages, searches and filters on the server (Phase 3, D115), so a company with 50,000
+// customers sees and finds every one.
+const customerList = crmServerList({
+  name: "contacts",
+  path: "/contacts",
+  params: customerParams,
+  more: document.getElementById("customersMore"),
+  count: document.getElementById("customersCount"),
+  onRows: drawCustomers,
+});
+function reloadCustomers(options) {
+  customersBulk.clear();
+  return customerList.reload(options);
+}
 
 // Tick customers and act on all of them (D100): owner, tags, sequence, Excel, delete.
 const customersBulk = crmBulkBar({
   object: "contact",
   bar: document.getElementById("customersBulk"),
-  onDone: async () => {
-    await crmLoad(["contacts"], { force: true });
-    renderTable();
-  },
+  onDone: () => customerList.reload(),
 });
 
+// The rows shown, again from the page's copy (after an edit or a delete).
 function renderTable() {
-  const searchTerm = document.getElementById("searchInput").value.toLowerCase();
-  const statusFilter = document.getElementById("filterStatus").value;
+  customerList.redraw();
+}
+
+function drawCustomers(rows) {
   const container = document.getElementById("customersTable");
   const fields = cfFields("contact");
   const columns = cfListColumns(fields);
-
-  const searched = getCustomers().filter((c) => {
-    const matchesSearch =
-      c.name.toLowerCase().includes(searchTerm) ||
-      c.email.toLowerCase().includes(searchTerm) ||
-      (c.company || "").toLowerCase().includes(searchTerm) ||
-      (c.tags || []).some((t) => t.toLowerCase().includes(searchTerm)) ||
-      cfSearchText(fields, c.customFields).includes(searchTerm);
-    const matchesStatus = statusFilter === "all" || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-  const filtered = cfApplyFilters(searched, customerFieldFilters.filters(), fields);
+  const filtered = rows.map(toLegacyContact);
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-users"></i><p>${escapeHtml(t("customers.empty"))}</p></div>`;
-    customersBulk.wire(container, []);
+    customersBulk.wire(container, [], customerList.matching());
     return;
   }
 
@@ -272,7 +280,7 @@ function renderTable() {
           .join("")}
       </tbody>
     </table>`;
-  customersBulk.wire(container, filtered);
+  customersBulk.wire(container, filtered, customerList.matching());
 
   container.querySelectorAll(".edit-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
@@ -294,7 +302,10 @@ function renderTable() {
   );
 }
 
-document.getElementById("searchInput").addEventListener("input", renderTable);
-document.getElementById("filterStatus").addEventListener("change", renderTable);
+document.getElementById("searchInput").addEventListener("input", () => reloadCustomers({ wait: true }));
+document.getElementById("filterStatus").addEventListener("change", () => reloadCustomers());
 
-crmReady(["contacts", "products", "members"], renderTable);
+crmReady(["products", "members"], () => {
+  customersReady = true;
+  reloadCustomers();
+});

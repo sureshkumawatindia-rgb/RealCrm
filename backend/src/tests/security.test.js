@@ -47,7 +47,10 @@ describe('Request hardening', () => {
   it('serves the CRM pages without the API security headers', async () => {
     const res = await api().get('/crm/frontend/login.html');
     expect(res.status).toBe(200);
-    expect(res.headers['content-security-policy']).toBeUndefined();
+    // Helmet's policy would block the pages' inline scripts and Google sign-in. The pages' own
+    // policy (Phase 3, D115) only keeps them out of other sites' frames.
+    expect(res.headers['content-security-policy']).not.toMatch(/default-src|script-src/);
+    expect(res.headers['content-security-policy']).toMatch(/frame-ancestors 'none'/);
   });
 
   it('answers a missing CRM page with the "not found" page and /favicon.ico with the app icon', async () => {

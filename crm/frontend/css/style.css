@@ -2639,6 +2639,39 @@ body.crm-loading::before {
   border-bottom: 1px solid rgba(220, 38, 38, 0.25);
 }
 
+/* A page that holds only the newest records of a long list says so (D115, app.js
+   crmPartialNote). */
+.crm-partial-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.crm-partial-note i {
+  margin-top: 2px;
+}
+
+/* A list paged on the server (D115, app.js crmServerList): how many match, and "Show more". */
+.list-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 16px;
+  margin-top: 14px;
+}
+.list-count {
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
 /* ============================================================
    LANGUAGE AND THEME (CP5): the button next to the bell (app.js
    crmPrefsMenu). A Hindi page stays hidden until its texts are in

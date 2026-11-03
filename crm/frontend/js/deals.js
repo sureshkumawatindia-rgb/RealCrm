@@ -122,37 +122,53 @@ function getFilteredDeals() {
 // ---------------------------------------------------------------
 // KPI cards
 // ---------------------------------------------------------------
+// The cards are drawn from the deals on the page at once, then from the server's count over
+// every deal (Phase 3, D115): the page may hold only the newest 5,000.
+let dealSummary = null;
 function renderKpis() {
+  drawKpis();
+  crmLeadSummary({ fresh: true }).then((summary) => {
+    dealSummary = summary;
+    drawKpis();
+  }, () => {});
+}
+
+function drawKpis() {
   const deals = getDeals();
   const open = deals.filter((d) => d.stage !== "Won" && d.stage !== "Lost");
-  const pipelineValue = open.reduce((sum, d) => sum + Number(d.value || 0), 0);
 
+  // Won this month: by the day the deal was won (BUG-003), not by its expected close date.
   const now = new Date();
   const wonThisMonth = deals.filter((d) => {
-    if (d.stage !== "Won" || !d.closeDate) return false;
-    const c = new Date(d.closeDate);
+    if (d.stage !== "Won" || !d.stageChangedAt) return false;
+    const c = new Date(d.stageChangedAt);
     return (
       c.getMonth() === now.getMonth() && c.getFullYear() === now.getFullYear()
     );
   });
-  const wonValue = wonThisMonth.reduce(
-    (sum, d) => sum + Number(d.value || 0),
-    0,
-  );
+  const sum = (list) => list.reduce((total, d) => total + Number(d.value || 0), 0);
+  const s = dealSummary;
+  const numbers = {
+    total: s ? s.total : deals.length,
+    open: s ? s.open.count : open.length,
+    pipeline: s ? s.open.valuePaise / 100 : sum(open),
+    won: s ? s.wonMonth.count : wonThisMonth.length,
+    wonValue: s ? s.wonMonth.valuePaise / 100 : sum(wonThisMonth),
+  };
 
   const cards = [
-    { label: t("deals.kpi.total"), value: deals.length, cls: "" },
+    { label: t("deals.kpi.total"), value: numbers.total, cls: "" },
     {
       label: t("deals.kpi.pipeline"),
-      value: formatCurrency(pipelineValue),
+      value: formatCurrency(numbers.pipeline),
       cls: "info",
     },
     {
       label: t("deals.kpi.won"),
-      value: `${wonThisMonth.length} · ${formatCurrency(wonValue)}`,
+      value: `${numbers.won} · ${formatCurrency(numbers.wonValue)}`,
       cls: "success",
     },
-    { label: t("deals.kpi.progress"), value: open.length, cls: "warning" },
+    { label: t("deals.kpi.progress"), value: numbers.open, cls: "warning" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards

@@ -33,11 +33,22 @@ if (env.isStaging) {
 }
 
 // The CRM pages, so this one server runs the whole CRM (see start-crm.vbs).
-// Served before helmet: its headers would block the pages' inline scripts and Google sign-in.
+// Served before helmet: its script rules would block the pages' inline scripts and Google
+// sign-in. The pages get their own security headers instead (BUG-002, Phase 3 D115): no other
+// site may show them in a frame (clickjacking), no file is guessed into a script, links take
+// only this address along, and in production the browser always comes back over https.
+function pageHeaders(req, res, next) {
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; object-src 'none'");
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (env.isProduction) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+}
 app.get('/', (req, res) => res.redirect('/crm/frontend/index.html'));
 // Browsers ask for /favicon.ico on every page that names no icon: the app's own icon.
-app.get('/favicon.ico', (req, res) => res.sendFile(path.join(frontendDir, 'img', 'icons', 'icon-192.png'), { maxAge: '7d' }));
-app.use('/crm/frontend', express.static(frontendDir));
+app.get('/favicon.ico', pageHeaders, (req, res) => res.sendFile(path.join(frontendDir, 'img', 'icons', 'icon-192.png'), { maxAge: '7d' }));
+app.use('/crm/frontend', pageHeaders, express.static(frontendDir));
 // An address under the CRM with no page: a page that says so (not the API's JSON answer).
 app.use('/crm/frontend', (req, res, next) => {
   if (!['GET', 'HEAD'].includes(req.method)) return next();

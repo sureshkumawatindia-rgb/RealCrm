@@ -84,9 +84,19 @@ function getCustomerIdFromUrl() {
   return new URLSearchParams(window.location.search).get("id");
 }
 
-// A direct link (e.g. from the Inbox) may point at a contact that is still a lead.
-function findCustomer(id) {
-  return getContacts().find((c) => c.id === id) || null;
+// A direct link (e.g. from the Inbox) may point at a contact that is still a lead. The customer
+// and its own leads come from the server (Phase 3, D115): the page does not load every contact
+// and lead, so a customer from years ago opens too.
+async function findCustomer(id) {
+  const contact = await crmRecord("contacts", id).catch(() => null);
+  if (!contact) return null;
+  try {
+    const body = await crmRequest(`/leads?contactId=${encodeURIComponent(id)}&limit=100`);
+    (body.data || []).forEach((lead) => cacheUpsert("leads", lead));
+  } catch {
+    /* the deals tab shows none */
+  }
+  return toLegacyContact(contact);
 }
 
 // ---------------------------------------------------------------
@@ -162,15 +172,20 @@ function renderPicker() {
   document.getElementById("pickerView").style.display = "block";
   document.getElementById("profileView").style.display = "none";
 
-  function draw(filter) {
-    const q = (filter || "").toLowerCase().trim();
-    const list = getCustomers().filter(
-      (c) =>
-        !q ||
-        c.name.toLowerCase().includes(q) ||
-        (c.company || "").toLowerCase().includes(q) ||
-        (c.email || "").toLowerCase().includes(q),
-    );
+  // The newest 50 customers, or the ones the search finds among all of them (on the server, D115).
+  let asked = 0;
+  async function draw(filter) {
+    const params = new URLSearchParams({ lifecycle: "customer", limit: "50" });
+    const q = (filter || "").trim();
+    if (q) params.set("q", q.slice(0, 100));
+    const mine = ++asked;
+    let list = [];
+    try {
+      list = ((await crmRequest(`/contacts?${params}`)).data || []).map(toLegacyContact);
+    } catch {
+      list = [];
+    }
+    if (mine !== asked) return; // a newer search is on its way
     const el = document.getElementById("pickerList");
     if (!list.length) {
       el.innerHTML = `<div class="text-muted" style="text-align:center;padding:20px;font-size:12.5px">${escapeHtml(t("c360.noCustomers"))}</div>`;
@@ -196,7 +211,11 @@ function renderPicker() {
   }
 
   draw("");
-  document.getElementById("pickerSearch").addEventListener("input", (e) => draw(e.target.value));
+  let typing = null;
+  document.getElementById("pickerSearch").addEventListener("input", (e) => {
+    clearTimeout(typing);
+    typing = setTimeout(() => draw(e.target.value), 300);
+  });
 }
 
 // ---------------------------------------------------------------
@@ -892,9 +911,9 @@ function initTabs() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-crmReady(["leads", "contacts", "products", "members", "tasks", "events", "tickets", "documents"], async () => {
+crmReady(["products", "members", "tasks", "events", "tickets", "documents"], async () => {
   const customerId = getCustomerIdFromUrl();
-  const customer = customerId ? findCustomer(customerId) : null;
+  const customer = customerId ? await findCustomer(customerId) : null;
 
   if (!customer) {
     renderPicker();

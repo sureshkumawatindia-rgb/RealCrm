@@ -134,9 +134,20 @@ function populateCategoryDatalist() {
 // ---------------------------------------------------------------
 // Products panel — shows every product with how many leads want it
 // ---------------------------------------------------------------
+// Leads per product, counted by the server over every lead (Phase 3, D115).
+let leadCounts = new Map();
+async function refreshLeadCounts() {
+  try {
+    const summary = await crmLeadSummary({ fresh: true });
+    leadCounts = new Map(summary.products.map((row) => [String(row.productId), row.count]));
+  } catch {
+    /* the panel keeps the numbers it has */
+  }
+  renderProductsPanel();
+}
+
 function renderProductsPanel() {
   const products = getProducts();
-  const leads = getLeads();
   const el = document.getElementById("productsPanel");
   if (!el) return;
 
@@ -151,7 +162,7 @@ function renderProductsPanel() {
       <tbody>
         ${products
           .map((p) => {
-            const count = leads.filter((l) => l.product === p.id).length;
+            const count = leadCounts.get(String(p.id)) || 0;
             const qty =
               p.quantity === "" || p.quantity == null
                 ? null
@@ -372,8 +383,9 @@ leadForm.addEventListener("submit", async (e) => {
     showToast(cfShowErrors(customFieldsBox, error) ? t("cf.fixFields") : apiErrorMessage(error, t("leads.err.save")), "error");
     return;
   }
-  renderProductsPanel();
-  renderTable();
+  refreshLeadCounts();
+  if (id) renderTable();
+  else leadList.reload(); // the new one is at the top
 });
 
 // ---------------------------------------------------------------
@@ -705,67 +717,77 @@ notesModalOverlay.addEventListener("click", (e) => {
 // ---------------------------------------------------------------
 // Leads table
 // ---------------------------------------------------------------
-// Filters on the company's own fields (D74); the table is drawn again once the fields are in.
+// Filters on the company's own fields (D74); the list is asked for again when they change.
+let leadsReady = false;
 const leadFieldFilters = cfFilterBar({
   container: document.getElementById("leadCfFilters"),
   object: "lead",
   storageKey: "leadsFieldFilters",
   onChange: () => {
-    if (crmCache.leads) renderTable();
+    if (leadsReady) reloadLeads();
   },
 });
 
-// Download Excel (D82): the same search, stage and field filters as the table.
+// The search and filters (stage, score G2, the company's own fields): for the list and for
+// Download Excel (D82).
+function leadParams() {
+  const params = cfQueryParams(leadFieldFilters.filters());
+  const q = document.getElementById("searchInput").value.trim();
+  const stage = document.getElementById("filterStatus").value;
+  const score = document.getElementById("filterScore").value;
+  if (q) params.set("q", q.slice(0, 100));
+  if (stage !== "all") params.set("stage", stage);
+  if (score !== "all") params.set("scoreBand", score);
+  return params;
+}
+
+// Download Excel (D82): the same search, stage, score and field filters as the table.
 cfExportButton({
   button: document.getElementById("exportBtn"),
   path: "/leads/export",
   name: "leads",
-  params: () => {
-    const params = cfQueryParams(leadFieldFilters.filters());
-    const q = document.getElementById("searchInput").value.trim();
-    const stage = document.getElementById("filterStatus").value;
-    if (q) params.set("q", q.slice(0, 100));
-    if (stage !== "all") params.set("stage", stage);
-    return params;
-  },
+  params: leadParams,
 });
+
+// The list pages, searches and filters on the server (Phase 3, D115), so a company with 50,000
+// leads sees and finds every one.
+const leadList = crmServerList({
+  name: "leads",
+  path: "/leads",
+  params: leadParams,
+  more: document.getElementById("leadsMore"),
+  count: document.getElementById("leadsCount"),
+  onRows: drawLeads,
+});
+function reloadLeads(options) {
+  leadsBulk.clear();
+  return leadList.reload(options);
+}
 
 // Tick leads and act on all of them (D100): owner, stage, follow-up, tags, sequence, Excel, delete.
 const leadsBulk = crmBulkBar({
   object: "lead",
   bar: document.getElementById("leadsBulk"),
   onDone: async () => {
-    await crmLoad(["leads"], { force: true });
-    renderProductsPanel();
-    renderTable();
+    await leadList.reload();
+    refreshLeadCounts();
   },
 });
 
+// The rows shown, again from the page's copy (after an edit, a note or a delete).
 function renderTable() {
-  const searchTerm = document.getElementById("searchInput").value.toLowerCase();
-  const statusFilter = document.getElementById("filterStatus").value;
-  const scoreFilter = document.getElementById("filterScore").value; // G2 (D106)
+  leadList.redraw();
+}
+
+function drawLeads(rows) {
   const container = document.getElementById("leadsTable");
   const fields = cfFields("lead");
   const columns = cfListColumns(fields);
-
-  const searched = getLeads().filter((l) => {
-    const matchesSearch =
-      l.name.toLowerCase().includes(searchTerm) ||
-      (l.email || "").toLowerCase().includes(searchTerm) ||
-      (l.company || "").toLowerCase().includes(searchTerm) ||
-      (l.source || "").toLowerCase().includes(searchTerm) ||
-      (l.title || "").toLowerCase().includes(searchTerm) ||
-      cfSearchText(fields, l.customFields).includes(searchTerm);
-    const matchesStatus = statusFilter === "all" || l.status === statusFilter;
-    const matchesScore = scoreFilter === "all" || l.score?.band === scoreFilter;
-    return matchesSearch && matchesStatus && matchesScore;
-  });
-  const filtered = cfApplyFilters(searched, leadFieldFilters.filters(), fields);
+  const filtered = rows.map(toLegacyLead);
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>${escapeHtml(t("leads.empty.leads"))}</p></div>`;
-    leadsBulk.wire(container, []);
+    leadsBulk.wire(container, [], leadList.matching());
     return;
   }
 
@@ -807,7 +829,7 @@ function renderTable() {
           .join("")}
       </tbody>
     </table>`;
-  leadsBulk.wire(container, filtered);
+  leadsBulk.wire(container, filtered, leadList.matching());
   container.querySelectorAll(".edit-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
       const lead = getLeads().find((l) => l.id === btn.dataset.id);
@@ -833,23 +855,27 @@ function renderTable() {
       } catch (error) {
         showToast(apiErrorMessage(error, t("leads.err.delete")), "error");
       }
-      renderProductsPanel();
+      refreshLeadCounts();
       renderTable();
     }),
   );
 }
 
-document.getElementById("searchInput").addEventListener("input", renderTable);
-document.getElementById("filterStatus").addEventListener("change", renderTable);
-document.getElementById("filterScore").addEventListener("change", renderTable);
+document.getElementById("searchInput").addEventListener("input", () => reloadLeads({ wait: true }));
+document.getElementById("filterStatus").addEventListener("change", () => reloadLeads());
+document.getElementById("filterScore").addEventListener("change", () => reloadLeads());
 
-crmReady(["leads", "products", "members"], () => {
+crmReady(["products", "members"], () => {
+  leadsReady = true;
   renderProductOptions();
   renderProductsPanel();
-  renderTable();
-  openFromAddress((id) => {
-    const lead = getLeads().find((l) => l.id === id);
+  refreshLeadCounts();
+  reloadLeads();
+  // A lead from a link (leads.html?open=<id>): from the server when it is not in the list yet.
+  openFromAddress(async (id) => {
+    const lead = await crmRecord("leads", id);
     if (!lead) return false;
-    openModal(lead);
+    openModal(toLegacyLead(lead));
+    return true;
   });
 });

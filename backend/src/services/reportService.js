@@ -60,11 +60,45 @@ async function memberNames(organizationId) {
 async function leadValues(organizationId, leads) {
   const missing = leads.filter((l) => !l.expectedValuePaise).map((l) => l._id);
   const quotes = missing.length
-    ? await Quotation.find({ organizationId, leadId: { $in: missing }, status: { $in: ['Sent', 'Viewed', 'Accepted', 'Draft'] } }).select('leadId totals.grandTotalPaise sentAt createdAt').sort({ createdAt: -1 })
+    ? await Quotation.find({ organizationId, leadId: { $in: missing }, status: { $in: ['Sent', 'Viewed', 'Accepted', 'Draft'] } }).select('leadId totals.grandTotalPaise sentAt createdAt').sort({ createdAt: -1 }).lean()
     : [];
   const latest = new Map();
   for (const q of quotes) if (!latest.has(String(q.leadId))) latest.set(String(q.leadId), q.totals?.grandTotalPaise || 0);
   return (lead) => lead.expectedValuePaise || latest.get(String(lead._id)) || 0;
+}
+
+// Open leads by stage with their value and the stage-weighted value (Phase 3, D115): counted
+// and summed in the database, so a company with 50,000 leads does not load every one. A lead
+// without an expected value is worth its latest quotation (leadValues), as before.
+const PROBABILITY = { $switch: { branches: OPEN_STAGES.map((stage) => ({ case: { $eq: ['$stage', stage] }, then: STAGE_PROBABILITY[stage] || 0 })), default: 0 } };
+async function openPipeline(req, owner) {
+  const organizationId = req.tenant.organizationId;
+  const open = { stage: { $in: OPEN_STAGES }, ...owner };
+  const [valued, unvalued] = await Promise.all([
+    Lead.aggregate([
+      { $match: { organizationId: orgId(req), deletedAt: null, ...open, expectedValuePaise: { $gt: 0 } } },
+      // Math.round of each lead's weighted value, as before: floor(x + 0.5).
+      { $group: { _id: '$stage', count: { $sum: 1 }, valuePaise: { $sum: '$expectedValuePaise' }, weightedPaise: { $sum: { $floor: { $add: [{ $divide: [{ $multiply: ['$expectedValuePaise', PROBABILITY] }, 100] }, 0.5] } } } } },
+    ]),
+    Lead.find({ organizationId, ...open, $or: [{ expectedValuePaise: null }, { expectedValuePaise: { $lte: 0 } }] }).select('_id stage').lean(),
+  ]);
+  const valueOf = await leadValues(organizationId, unvalued);
+  const byStage = new Map(OPEN_STAGES.map((stage) => [stage, { stage, count: 0, valuePaise: 0, weightedPaise: 0 }]));
+  for (const row of valued) Object.assign(byStage.get(row._id), { count: row.count, valuePaise: row.valuePaise, weightedPaise: row.weightedPaise });
+  for (const lead of unvalued) {
+    const row = byStage.get(lead.stage);
+    const value = valueOf(lead);
+    row.count += 1;
+    row.valuePaise += value;
+    row.weightedPaise += Math.round((value * (STAGE_PROBABILITY[lead.stage] || 0)) / 100);
+  }
+  const stages = [...byStage.values()];
+  return {
+    open: stages.reduce((s, r) => s + r.count, 0),
+    valuePaise: stages.reduce((s, r) => s + r.valuePaise, 0),
+    weightedPaise: stages.reduce((s, r) => s + r.weightedPaise, 0),
+    byStage: stages.map(({ stage, count, valuePaise }) => ({ stage, count, valuePaise })),
+  };
 }
 
 // Payments received in the range (on orders), with the order's owner.
@@ -103,7 +137,7 @@ async function responseTurns(req, range, own) {
   const scanStart = new Date(range.start.getTime() - 7 * DAY_MS);
   const messages = await Message.find({
     organizationId: req.tenant.organizationId, createdAt: { $gte: scanStart, $lt: range.end }, type: { $ne: 'call' }, ...PUBLIC, // a call's line is no message (G7)
-  }).select('conversationId direction createdAt providerTimestamp sentByMemberId automation').sort({ conversationId: 1, createdAt: 1 }).limit(MAX_MESSAGES).lean();
+  }).select('conversationId direction createdAt providerTimestamp sentByMemberId automation').sort({ conversationId: -1, createdAt: 1 }).limit(MAX_MESSAGES).lean(); // the order of the index { organizationId, conversationId, createdAt: -1 } read backwards (D115)
   const turns = []; // { memberId, conversationId, seconds, first }
   const handled = new Map(); // member → Set(conversation)
   const sent = new Map(); // member → messages sent in the range
@@ -166,7 +200,7 @@ async function overview(req, query) {
     Order.find({ organizationId, createdAt: between(range), stage: { $ne: 'Cancelled' }, ...owner }).select('totals.grandTotalPaise'),
     paymentsIn(req, range, own),
     Contact.countDocuments({ organizationId, becameCustomerAt: between(range), ...owner }),
-    Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).select('expectedValuePaise stage'),
+    openPipeline(req, owner),
     duesNow(req, own),
     Conversation.countDocuments({ organizationId, createdAt: between(range), ...PUBLIC, ...(own && { assigneeId: own }) }),
     own ? Promise.resolve(null) : Message.countDocuments({ organizationId, direction: 'in', type: { $ne: 'call' }, createdAt: between(range), ...PUBLIC }), // a call's line is no message (G7)
@@ -174,7 +208,6 @@ async function overview(req, query) {
     Ticket.countDocuments({ organizationId, createdAt: between(range), ...(own && { assigneeId: own }) }),
     Ticket.countDocuments({ organizationId, resolvedAt: between(range), ...(own && { assigneeId: own }) }),
   ]);
-  const valueOf = await leadValues(organizationId, openLeads);
   const seconds = response.turns.map((t) => t.seconds);
   const firsts = response.turns.filter((t) => t.first).map((t) => t.seconds);
   return {
@@ -185,15 +218,7 @@ async function overview(req, query) {
     orders: { count: orders.length, valuePaise: orders.reduce((s, o) => s + (o.totals?.grandTotalPaise || 0), 0) },
     payments: { collectedPaise: sum(payments, 'amountPaise'), count: payments.length },
     customers: { new: newCustomers },
-    pipeline: {
-      open: openLeads.length,
-      valuePaise: openLeads.reduce((s, l) => s + valueOf(l), 0),
-      weightedPaise: openLeads.reduce((s, l) => s + Math.round((valueOf(l) * (STAGE_PROBABILITY[l.stage] || 0)) / 100), 0),
-      byStage: OPEN_STAGES.map((stage) => {
-        const list = openLeads.filter((l) => l.stage === stage);
-        return { stage, count: list.length, valuePaise: list.reduce((s, l) => s + valueOf(l), 0) };
-      }),
-    },
+    pipeline: openLeads,
     dues: { orders: dues.count, duePaise: dues.duePaise },
     whatsapp: {
       newChats, inboundMessages: inbound, replies: seconds.length,
@@ -573,21 +598,20 @@ async function dashboard(req) {
     Lead.countDocuments({ organizationId, stage: 'Won', stageChangedAt: between(month), ...owner }),
     Conversation.find({ organizationId, status: { $ne: 'closed' }, lastMessageDirection: 'in', ...PUBLIC, ...chatScope }).select('lastInboundAt').lean(),
     Conversation.countDocuments({ organizationId, status: { $ne: 'closed' }, assigneeId: null, ...PUBLIC }),
-    Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).select('expectedValuePaise stage'),
+    openPipeline(req, owner),
     paymentsIn(req, month, own),
     duesNow(req, own),
     Task.countDocuments({ organizationId, status: { $ne: 'Done' }, dueDate: today, ...(own && { assigneeId: own }) }),
     Task.countDocuments({ organizationId, status: { $ne: 'Done' }, dueDate: { $lt: today, $gt: '' }, ...(own && { assigneeId: own }) }),
     Quotation.countDocuments({ organizationId, status: { $in: ['Sent', 'Viewed'] }, sentAt: { $lte: new Date(Date.now() - 3 * DAY_MS) }, ...owner }),
   ]);
-  const valueOf = await leadValues(organizationId, openLeads);
   const longest = waiting.reduce((oldest, c) => (c.lastInboundAt && (!oldest || c.lastInboundAt < oldest) ? c.lastInboundAt : oldest), null);
   return {
     today,
     scope: own ? 'own' : 'company',
     leads: { today: leadsToday, month: leadsMonth, wonMonth },
     chats: { waitingForReply: waiting.length, unassigned, longestWaitMinutes: longest ? Math.round((Date.now() - new Date(longest).getTime()) / 60000) : null },
-    pipeline: { open: openLeads.length, valuePaise: openLeads.reduce((s, l) => s + valueOf(l), 0) },
+    pipeline: { open: openLeads.open, valuePaise: openLeads.valuePaise },
     quotations: { waitingThreeDays: quotesWaiting },
     payments: { collectedMonthPaise: sum(payments, 'amountPaise'), dueOrders: dues.count, duePaise: dues.duePaise },
     tasks: { dueToday: tasksToday, overdue: tasksOverdue },
@@ -601,14 +625,17 @@ async function insights(req) {
   const own = ownOnly(req, 'leads');
   const owner = { ...PUBLIC, ...(own ? { ownerId: own } : {}) };
   const now = Date.now();
-  const [names, open, closed90, slowChats, dues, overview90] = await Promise.all([
+  const last90 = rangeOf({ from: indiaDate(-89), to: indiaDate(0) });
+  const [names, open, closed90, slowChats, dues, response90, payments90] = await Promise.all([
     memberNames(organizationId),
-    Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).populate('contactId', 'name company').select('title stage source ownerId expectedValuePaise lastActivityAt createdAt contactId lastQuoteSentAt lastCustomerReplyAt followUpAt').lean(),
+    // Every open lead, without its customer: names are looked up for the rows shown (D115).
+    Lead.find({ organizationId, stage: { $in: OPEN_STAGES }, ...owner }).select('title stage source ownerId expectedValuePaise lastActivityAt createdAt contactId lastQuoteSentAt lastCustomerReplyAt followUpAt').lean(),
     Lead.find({ organizationId, stage: { $in: ['Won', 'Lost'] }, stageChangedAt: { $gte: new Date(now - 90 * DAY_MS) }, ...owner }).select('stage').lean(),
     Conversation.find({ organizationId, status: { $ne: 'closed' }, lastMessageDirection: 'in', lastInboundAt: { $lte: new Date(now - 2 * HOUR) }, ...PUBLIC, ...(own && { $or: [{ assigneeId: own }, { assigneeId: null }] }) })
       .populate('contactId', 'name').select('lastInboundAt assigneeId contactId').sort({ lastInboundAt: 1 }).limit(20).lean(),
     duesNow(req, own),
-    overview(req, { from: indiaDate(-89), to: indiaDate(0) }),
+    responseTurns(req, last90, own),
+    paymentsIn(req, last90, own),
   ]);
   const [valueOf, history] = await Promise.all([
     leadValues(organizationId, open),
@@ -617,7 +644,7 @@ async function insights(req) {
   ]);
   const idle = (lead) => Math.floor((now - new Date(lead.lastActivityAt || lead.createdAt).getTime()) / DAY_MS);
   const leadRow = (l) => ({
-    id: l._id, title: l.title || 'Enquiry', customer: l.contactId?.name || '', company: l.contactId?.company || '', stage: l.stage, source: l.source,
+    id: l._id, title: l.title || 'Enquiry', contactId: l.contactId || null, customer: '', company: '', stage: l.stage, source: l.source,
     owner: l.ownerId ? names.get(String(l.ownerId))?.name || '' : '', ownerId: l.ownerId || null,
     valuePaise: valueOf(l), probability: STAGE_PROBABILITY[l.stage] || 0, idleDays: idle(l), nextStep: NEXT_STEP[l.stage] || '',
     // D81: the chance learned from closed leads like this one (or "not enough history"), and the
@@ -631,6 +658,17 @@ async function insights(req) {
   const atRisk = rows.filter((r) => r.idleDays >= 14 || (r.stage === 'Quote Sent' && r.idleDays >= 7));
   const negotiation = rows.filter((r) => r.stage === 'Negotiation');
   const won = closed90.filter((l) => l.stage === 'Won').length;
+  const atRiskTop = atRisk.sort((a, b) => b.valuePaise - a.valuePaise).slice(0, 5);
+  const priority = [...rows].sort((a, b) => b.valuePaise * chance(b) - a.valuePaise * chance(a) || chance(b) - chance(a)).slice(0, 5);
+  // The customers' names, for the rows shown only.
+  const shown = [...atRiskTop, ...priority];
+  const customers = new Map((await Contact.find({ organizationId, _id: { $in: shown.map((r) => r.contactId).filter(Boolean) } }).select('name company').lean()).map((c) => [String(c._id), c]));
+  for (const row of shown) {
+    const customer = customers.get(String(row.contactId));
+    row.customer = customer?.name || '';
+    row.company = customer?.company || '';
+  }
+  const replies90 = response90.turns.map((t) => t.seconds);
   return {
     pipeline: {
       open: rows.length,
@@ -638,14 +676,14 @@ async function insights(req) {
       weightedPaise: rows.reduce((s, r) => s + Math.round((r.valuePaise * r.probability) / 100), 0),
       byStage: OPEN_STAGES.map((stage) => ({ stage, count: rows.filter((r) => r.stage === stage).length, valuePaise: sum(rows.filter((r) => r.stage === stage), 'valuePaise') })),
     },
-    atRisk: { count: atRisk.length, valuePaise: sum(atRisk, 'valuePaise'), items: atRisk.sort((a, b) => b.valuePaise - a.valuePaise).slice(0, 5) },
+    atRisk: { count: atRisk.length, valuePaise: sum(atRisk, 'valuePaise'), items: atRiskTop },
     negotiation: { count: negotiation.length, valuePaise: sum(negotiation, 'valuePaise') },
     unassignedLeads: rows.filter((r) => !r.ownerId).length,
-    priority: [...rows].sort((a, b) => b.valuePaise * chance(b) - a.valuePaise * chance(a) || chance(b) - chance(a)).slice(0, 5),
+    priority,
     winModel: { closed: history.length, won: history.filter((h) => h.won).length, minSimilar: winChance.MIN_SIMILAR, lookbackDays: winChance.LOOKBACK_DAYS },
     slowChats: slowChats.map((c) => ({ conversationId: c._id, customer: c.contactId?.name || '', waitingHours: Math.floor((now - new Date(c.lastInboundAt).getTime()) / HOUR), assignee: c.assigneeId ? names.get(String(c.assigneeId))?.name || '' : '' })),
     dues: { orders: dues.count, duePaise: dues.duePaise, over30Paise: dues.buckets['31-60'].duePaise + dues.buckets['60+'].duePaise },
-    last90Days: { won, lost: closed90.length - won, winRatePct: pct(won, closed90.length), responseMedianSeconds: overview90.whatsapp.responseMedianSeconds, collectedPaise: overview90.payments.collectedPaise },
+    last90Days: { won, lost: closed90.length - won, winRatePct: pct(won, closed90.length), responseMedianSeconds: median(replies90), collectedPaise: sum(payments90, 'amountPaise') },
     generatedAt: new Date(),
   };
 }

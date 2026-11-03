@@ -314,10 +314,14 @@
           `<tr><td><strong>Total</strong></td>${cell(s.totals.enquiries || "—")}${cell(s.totals.leads)}${cell("")}${cell("")}${cell(s.totals.won)}${cell("")}${cell(pctText(s.totals.conversionPct))}</tr>`])
       : `<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>No new leads in this period.</p></div>`;
 
-    const leads = getLeads().filter((l) => inPeriod(l.createdAt));
-    const products = getProducts();
-    const counted = products.map((p) => ({ label: p.name, value: leads.filter((l) => l.product === p.id).length })).filter((p) => p.value).sort((a, b) => b.value - a.value).slice(0, 8);
-    bars($("leadsByProduct"), counted, "No lead of this period names a product.", "fa-box-open");
+    // Counted by the server over every lead of the period (Phase 3, D115).
+    const range = { ...state.range };
+    crmApi(`/leads/summary?${new URLSearchParams({ from: range.from, to: range.to })}`).then((summary) => {
+      if (range.from !== state.range.from || range.to !== state.range.to) return; // another period since
+      const names = new Map(getProducts().map((p) => [String(p.id), p.name]));
+      const counted = summary.products.filter((row) => names.has(String(row.productId))).map((row) => ({ label: names.get(String(row.productId)), value: row.count })).sort((a, b) => b.value - a.value).slice(0, 8);
+      bars($("leadsByProduct"), counted, "No lead of this period names a product.", "fa-box-open");
+    }, () => bars($("leadsByProduct"), [], "No lead of this period names a product.", "fa-box-open"));
 
     const campaigns = getCampaigns().filter((c) => (!c.startDate || c.startDate <= state.range.to) && (!c.endDate || c.endDate >= state.range.from));
     $("campaignPerfTable").innerHTML = campaigns.length
@@ -535,5 +539,5 @@
 
   const remembered = getPreference("reportsRange", "30");
   if ([...$("filterRange").options].some((o) => o.value === remembered && remembered !== "custom")) $("filterRange").value = remembered;
-  crmReady(["leads", "products", "tickets", "campaigns"], applyRange);
+  crmReady(["products", "tickets", "campaigns"], applyRange);
 })();

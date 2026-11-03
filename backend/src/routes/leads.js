@@ -14,6 +14,7 @@ const idempotency = require('../middleware/idempotency');
 const validate = require('../middleware/validate');
 const { idParams } = require('../validators/common');
 const schemas = require('../validators/crm');
+const reportSchemas = require('../validators/reports');
 
 const router = express.Router();
 const controller = crudController(leadService, 'Lead');
@@ -22,6 +23,14 @@ const byId = validate({ params: idParams });
 
 router.use(authenticate);
 router.get('/', can('view'), validate({ query: schemas.leadList }), controller.list);
+// Phase 3 (D115): the numbers the pages show (by stage, product and owner; won this month), and the
+// ids the list's search and filters match, for "select all" — without loading every lead.
+router.get('/summary', can('view'), validate({ query: reportSchemas.range }), async (req, res) => {
+  res.json({ success: true, data: await leadService.summary(req, req.valid.query) });
+});
+router.get('/ids', can('view'), validate({ query: schemas.leadList }), async (req, res) => {
+  res.json({ success: true, data: await leadService.matchingIds(req, req.valid.query) });
+});
 // G1 (D105): leads from a CSV or Excel file — preview the columns, then import with the chosen
 // mapping (dryRun = check first). One file of up to 5 MB in the "file" field.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 20 } }).single('file');

@@ -34,6 +34,22 @@ should not? An outside penetration test comes later (phase 94).
 Tests: `securityReview.test.js` holds 14 cross-company probes on the newer modules, plus one test
 for each fix. Every pull of `main` runs them on GitHub.
 
+## Phase 3: page headers (BUG-002, D115)
+
+The 100-point audit found that the CRM pages had no security headers: they are served before
+`helmet()`, because helmet's script rules would block the pages' inline scripts and Google
+sign-in. Since Phase 3 (`backend/src/app.js`, `pageHeaders`) every page, the "page not found"
+page and the icon get their own:
+
+- `Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'` and
+  `X-Frame-Options: DENY`: no other site can show a CRM page inside a frame (clickjacking).
+- `X-Content-Type-Options: nosniff`: the browser never guesses a file into a script.
+- `Referrer-Policy: strict-origin-when-cross-origin`: links to other sites take only the address.
+- `Strict-Transport-Security` (production): the browser always comes back over https.
+
+`securityReview.test.js` checks them. Still to do: move the inline scripts into files, then add
+`script-src` (with `accounts.google.com` and `connect.facebook.net`) to the policy.
+
 ## Next
 
 - Phase 2 adds end-to-end browser tests for the ten flows that must never break.

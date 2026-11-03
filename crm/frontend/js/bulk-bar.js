@@ -1,16 +1,20 @@
 /**
  * bulk-bar.js — tick rows in the Leads or Customers list and act on all of them at once (D100).
  *   const bulk = crmBulkBar({ object: "lead" | "contact", bar, onDone })
- *   bulk.head(rows)          the header cell: ticks every row the list shows now (all that match
- *                            the search and filters; the lists hold up to 5,000)
+ *   bulk.head(rows)          the header cell: ticks every row the list shows now
  *   bulk.cell(id)            a row's tick box
- *   bulk.wire(table, rows)   after each drawing: the ticks, the count and the bar
+ *   bulk.wire(table, rows, matching)  after each drawing: the ticks, the count and the bar.
+ *                            matching { total, allIds } (a list paged on the server, D115): "Select
+ *                            all" ticks every row that matches its search and filters, up to
+ *                            5,000, and ticks stay while more rows are shown
+ *   bulk.clear()             no ticks (the list's search or filters changed)
  * Up to 200 rows are done at once; more go to the background (POST /bulk/leads or /bulk/contacts
  * answers with a job), whose progress shows here until the report. Private numbers are left
  * alone by the server; a stage change starts workflows only with "Run automations too".
  * Loads after app.js. Names start with crmBulk / bulk: page scripts share one global scope.
  */
 const BULK_INLINE_MAX = 200;
+const BULK_MATCH_MAX = 5000; // the server's limit for one action (and for "select all", D115)
 const BULK_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation", "Won", "Lost"];
 
 function crmBulkBar({ object, bar, onDone }) {
@@ -32,6 +36,7 @@ function crmBulkBar({ object, bar, onDone }) {
   ].filter(Boolean);
   const selected = new Set();
   let rows = [];
+  let matching = null; // { total, allIds } from a list paged on the server (D115)
   let sequences = null;
 
   const label = (key, vars) => t(`bulkbar.${key}`, vars);
@@ -76,8 +81,11 @@ function crmBulkBar({ object, bar, onDone }) {
     $q(".bulk-bar").hidden = !n;
     $q(".bulk-count").textContent = t("bulk.selected", { n: n.toLocaleString(crmI18n.locale()) });
     const all = $q(".bulk-all");
-    all.hidden = !n || n >= rows.length;
-    all.textContent = label("selectAll", { n: rows.length.toLocaleString(crmI18n.locale()) });
+    const total = matching ? Math.min(matching.total, BULK_MATCH_MAX) : rows.length;
+    all.hidden = !n || n >= total;
+    all.textContent = matching && matching.total > BULK_MATCH_MAX
+      ? label("selectFirst", { n: total.toLocaleString(crmI18n.locale()), total: matching.total.toLocaleString(crmI18n.locale()) })
+      : label("selectAll", { n: total.toLocaleString(crmI18n.locale()) });
     $q(".bulk-apply").disabled = !n || !$q(".bulk-action").value;
   }
 
@@ -219,6 +227,24 @@ function crmBulkBar({ object, bar, onDone }) {
     }
   }
 
+  // "Select all": every row shown, or (a list paged on the server) every row that matches it.
+  async function selectAll() {
+    if (matching && matching.total > rows.length) {
+      const button = $q(".bulk-all");
+      button.disabled = true;
+      try {
+        (await matching.allIds()).forEach((id) => selected.add(String(id)));
+      } catch (error) {
+        showToast(apiErrorMessage(error, t("bulk.failed")), "error");
+        return;
+      } finally {
+        button.disabled = false;
+      }
+    } else rows.forEach((r) => selected.add(String(r.id)));
+    document.querySelectorAll(".bulk-check, .bulk-check-all").forEach((box) => { box.checked = true; box.indeterminate = false; });
+    renderBar();
+  }
+
   function onChange(event) {
     if (event.target.matches(".bulk-action")) renderParams();
     else if (event.target.matches('.bulk-p[data-p="stage"]')) {
@@ -233,9 +259,7 @@ function crmBulkBar({ object, bar, onDone }) {
       document.querySelectorAll(".bulk-check, .bulk-check-all").forEach((box) => { box.checked = false; box.indeterminate = false; });
       renderBar();
     } else if (event.target.closest(".bulk-all")) {
-      rows.forEach((r) => selected.add(String(r.id)));
-      document.querySelectorAll(".bulk-check, .bulk-check-all").forEach((box) => { box.checked = true; box.indeterminate = false; });
-      renderBar();
+      selectAll();
     } else if (event.target.closest(".bulk-report-close")) {
       $q(".bulk-report").hidden = true;
       renderBar();
@@ -245,12 +269,16 @@ function crmBulkBar({ object, bar, onDone }) {
   return {
     head: () => `<th class="bulk-pick" scope="col"><input type="checkbox" class="bulk-check-all" aria-label="${escapeHtml(label("tickAll"))}" /></th>`,
     cell: (id, name = "") => `<td class="bulk-pick"><input type="checkbox" class="bulk-check" data-id="${escapeHtml(String(id))}" aria-label="${escapeHtml(label("tickOne", { name }))}" /></td>`,
-    // After each drawing: ticks of rows no longer in the list are dropped.
-    wire(table, list) {
+    // After each drawing: ticks of rows no longer in the list are dropped (a list paged on the
+    // server keeps them, and clears them itself when its search or filters change).
+    wire(table, list, { total, allIds } = {}) {
       build();
       rows = list;
-      const shown = new Set(list.map((r) => String(r.id)));
-      [...selected].forEach((id) => { if (!shown.has(id)) selected.delete(id); });
+      matching = allIds ? { total, allIds } : null;
+      if (!matching) {
+        const shown = new Set(list.map((r) => String(r.id)));
+        [...selected].forEach((id) => { if (!shown.has(id)) selected.delete(id); });
+      }
       if (table) {
         syncTicks(table);
         if (table.bulkWired) return renderBar();
@@ -267,6 +295,10 @@ function crmBulkBar({ object, bar, onDone }) {
         });
       }
       return renderBar();
+    },
+    clear() {
+      selected.clear();
+      if (built) renderBar();
     },
   };
 }

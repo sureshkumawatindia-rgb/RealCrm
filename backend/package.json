@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "bench:scale": "node scripts/scale-benchmark.js"
   },
   "keywords": [],
   "author": "",

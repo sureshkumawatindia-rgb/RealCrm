@@ -21,4 +21,8 @@ function sortSpec(sort, allowed, fallback = { createdAt: -1 }) {
   return { [field]: descending ? -1 : 1, _id: descending ? -1 : 1 };
 }
 
-module.exports = { escapeRegex, searchFilter, sortSpec };
+// "Select all" in the Leads and Customers lists (Phase 3, D115): at most this many matching ids,
+// the bulk actions' own limit (D100).
+const MATCH_MAX = 5000;
+
+module.exports = { escapeRegex, searchFilter, sortSpec, MATCH_MAX };

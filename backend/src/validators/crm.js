@@ -210,11 +210,12 @@ module.exports = {
     contactId: objectId,
     followUpFrom: Joi.date(),
     followUpTo: Joi.date(),
+    scoreBand: Joi.string().valid('hot', 'warm', 'cold'), // G2 (D106); the list's own filter (D115)
     cf: fieldFilters,
   }),
   // Download Excel (D82): the list's own filters, and the file type.
   contactExport: Joi.object({ ...listBase, lifecycle: Joi.string().valid(...CONTACT_LIFECYCLES), status: Joi.string().valid(...CONTACT_STATUSES), ownerId: objectId, tag: Joi.string().trim().max(50), consent: Joi.string().valid('unknown', 'opted_in', 'opted_out'), cf: fieldFilters, format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
-  leadExport: Joi.object({ ...listBase, stage: Joi.string().valid(...LEAD_STAGES), ownerId: objectId, productId: objectId, contactId: objectId, followUpFrom: Joi.date(), followUpTo: Joi.date(), cf: fieldFilters, format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
+  leadExport: Joi.object({ ...listBase, stage: Joi.string().valid(...LEAD_STAGES), ownerId: objectId, productId: objectId, contactId: objectId, followUpFrom: Joi.date(), followUpTo: Joi.date(), scoreBand: Joi.string().valid('hot', 'warm', 'cold'), cf: fieldFilters, format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
   // The rows ticked in the Leads or Customers list (D100).
   selectedExport: Joi.object({ ids: Joi.array().items(objectId).min(1).max(5000).unique().required(), format: Joi.string().valid('xlsx', 'csv').default('xlsx') }),
   // Merging two customers (D100): keep says which side each field comes from.

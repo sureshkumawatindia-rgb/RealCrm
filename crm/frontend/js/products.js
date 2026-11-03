@@ -1,7 +1,7 @@
 /**
  * products.js — Products module (catalog table + KPIs)
  * Products live on the CRM backend (getProducts / saveProduct / removeProduct
- * in app.js). Leads are loaded too, to show how many leads want each product.
+ * in app.js). How many leads want each product comes from the server's count (D115).
  * Reuses shared helpers from app.js (showToast, renderSidebarUser,
  * initSidebarToggle, requireAuth).
  */
@@ -219,9 +219,20 @@ function renderKpis() {
 // ---------------------------------------------------------------
 // Table
 // ---------------------------------------------------------------
+// Leads per product, counted by the server over every lead (Phase 3, D115).
+let leadCounts = new Map();
+async function loadLeadCounts() {
+  try {
+    const summary = await crmLeadSummary({ fresh: true });
+    leadCounts = new Map(summary.products.map((row) => [String(row.productId), row.count]));
+  } catch {
+    /* the column shows what it had */
+  }
+}
+const leadCountOf = (id) => leadCounts.get(String(id)) || 0;
+
 function renderTable() {
   const products = getFilteredProducts();
-  const leads = getLeads();
   const wrap = document.getElementById("productsTable");
 
   if (!products.length) {
@@ -249,7 +260,7 @@ function renderTable() {
       <tbody>
         ${products
           .map((p) => {
-            const leadCount = leads.filter((l) => l.product === p.id).length;
+            const leadCount = leadCountOf(p.id);
             return `
           <tr data-id="${p.id}">
             <td class="inline-edit-cell" data-field="name"><strong>${escapeHtml(p.name)}</strong></td>
@@ -340,7 +351,7 @@ function closeModal() {
 async function confirmDelete(id) {
   const product = getProducts().find((p) => p.id === id);
   if (!product) return;
-  const leadCount = getLeads().filter((l) => l.product === id).length;
+  const leadCount = leadCountOf(id);
   const warning = leadCount
     ? ` ${t(leadCount === 1 ? "products.del.one" : "products.del.many", { n: leadCount })}`
     : "";
@@ -366,7 +377,8 @@ function renderAll() {
 // ---------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------
-crmReady(["products", "leads", "members"], () => {
+crmReady(["products", "members"], async () => {
+  await loadLeadCounts();
   renderAll();
   loadCatalogBar();
   openFromAddress((id) => {
