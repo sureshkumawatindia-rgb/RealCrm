@@ -68,25 +68,25 @@
         <header class="topbar">
           <div style="display: flex; align-items: center; gap: 12px">
             <button id="menu-toggle" class="icon-btn" style="display: none"><i class="fa-solid fa-bars"></i></button>
-            <h2>Team live</h2>
-            <span class="live-pill" id="livePill"><span class="dot"></span> Live</span>
+            <h2 data-i18n="nav.teamLive">Team live</h2>
+            <span class="live-pill" id="livePill"><span class="dot"></span> <span data-i18n="inbox.live.on">Live</span></span>
           </div>
           <div class="topbar-right">
             <span class="text-muted team-updated" id="updatedAt"></span>
-            <a class="btn btn-outline" href="Inbox.html"><i class="fa-solid fa-comments"></i> Inbox</a>
+            <a class="btn btn-outline" href="Inbox.html"><i class="fa-solid fa-comments"></i> <span data-i18n="nav.inbox">Inbox</span></a>
           </div>
         </header>
 
         <div class="page">
-          <p class="team-intro">What your team is doing right now, and today so far. Updates by itself.</p>
+          <p data-i18n="teamlive.what-your-team-is-doing-right" class="team-intro">What your team is doing right now, and today so far. Updates by itself.</p>
           <div class="stat-grid" id="teamKpis"></div>
 
           <div class="panel">
             <div class="panel-head">
-              <h3>Your team</h3>
-              <span class="text-muted" style="font-size: 12px">Online = used the CRM in the last 5 minutes · waiting = the customer wrote last</span>
+              <h3 data-i18n="teamlive.your-team">Your team</h3>
+              <span data-i18n="teamlive.online-used-the-crm-in-the" class="text-muted" style="font-size: 12px">Online = used the CRM in the last 5 minutes · waiting = the customer wrote last</span>
             </div>
-            <div class="report-table" id="teamTable"><div class="report-empty"><i class="fa-solid fa-spinner fa-spin"></i>Loading…</div></div>
+            <div class="report-table" id="teamTable"><div class="report-empty"><i class="fa-solid fa-spinner fa-spin"></i><span data-i18n="bulkbar.loading">Loading…</span></div></div>
           </div>
         </div>
       </div>

@@ -202,7 +202,8 @@ function setPreference(name, value) {
 // ---------------------------------------------------------------
 // Language and theme (CP5). Texts: t(key) from i18n/en.json and i18n/hi.json, and on elements
 // with data-i18n, data-i18n-html (our own fixed texts only), data-i18n-placeholder,
-// data-i18n-title and data-i18n-aria-label. The signed-in person's language and theme are
+// data-i18n-title, data-i18n-aria-label and data-i18n-alt; data-i18n-js marks an element whose
+// texts its page script sets with t() (Phase 4, D116). The signed-in person's language and theme are
 // saved on their account (PATCH /auth/preferences) and in their copy (crm_user), which
 // js/boot.js reads before the page is drawn; before signing in, this browser's choice
 // (crm_prefs). Customers' messages are never translated.
@@ -239,7 +240,10 @@ const crmI18n = (() => {
             return data;
           });
   const lookup = (key) => texts[language]?.[key] ?? texts.en?.[key];
-  const fill = (text, values) => String(text).replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ""));
+  // {name} takes the caller's value; a WhatsApp variable written as {{1}} with no value given
+  // stays as it is (D116: hints that show how to write one).
+  const fill = (text, values) => String(text).replace(/\{(\w+)\}/g, (all, name, at, whole) =>
+    name in values || whole[at - 1] !== "{" || whole[at + all.length] !== "}" ? String(values[name] ?? "") : all);
 
   function t(key, values = {}) {
     const text = lookup(key);
@@ -257,10 +261,15 @@ const crmI18n = (() => {
     each("data-i18n-placeholder", (el, text) => { el.placeholder = text; });
     each("data-i18n-title", (el, text) => { el.title = text; });
     each("data-i18n-aria-label", (el, text) => { el.setAttribute("aria-label", text); });
+    each("data-i18n-alt", (el, text) => { el.alt = text; });
   }
   function show() {
     document.documentElement.lang = language;
     document.documentElement.classList.remove("i18n-pending");
+    // The browser tab's title from the page's own heading, in the person's language (D116).
+    const heading = language === "en" ? null : document.querySelector(".topbar h2[data-i18n], h1[data-i18n], h2[data-i18n]");
+    const brand = document.title.includes("|") ? document.title.split("|").pop().trim() : "";
+    if (heading?.textContent.trim() && brand) document.title = `${heading.textContent.trim()} | ${brand}`;
   }
   const domReady = () => (document.readyState === "loading" ? new Promise((resolve) => document.addEventListener("DOMContentLoaded", resolve, { once: true })) : Promise.resolve());
   const ready = Promise.all([load("en"), language === "en" ? null : load(language)])

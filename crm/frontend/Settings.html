@@ -957,7 +957,7 @@
           <div class="settings-panel active" data-settings-panel="profile">
             <div class="panel">
               <div class="panel-head">
-                <h3>Your Profile</h3>
+                <h3 data-i18n="set.tab.profile">Your Profile</h3>
               </div>
               <div style="padding: 20px">
                 <form id="profileForm">
@@ -977,12 +977,12 @@
                         </div>
                       </div>
                       <div class="field">
-                        <label for="uName">Full Name</label>
+                        <label data-i18n="customers.full-name" for="uName">Full Name</label>
                         <input type="text" id="uName" required />
                       </div>
                     </div>
                     <div class="field profile-logo-field">
-                      <label>Your Company Logo</label>
+                      <label data-i18n="set.your-company-logo">Your Company Logo</label>
                       <input
                         type="file"
                         id="uLogo"
@@ -995,17 +995,17 @@
                         role="button"
                         tabindex="0"
                         aria-label="Upload your logo"
-                      ></div>
+                       data-i18n-aria-label="set.upload-your-logo"></div>
                       <p class="logo-upload-error" id="logoUploadError" role="alert" hidden></p>
                     </div>
                   </div>
                   <div class="profile-fields-below">
                     <div class="field">
-                    <label for="uEmail">Email</label>
+                    <label data-i18n="c360.hist.email" for="uEmail">Email</label>
                     <input type="email" id="uEmail" required />
                     </div>
                     <div class="field">
-                    <label>Avatar URL</label>
+                    <label data-i18n="set.avatar-url">Avatar URL</label>
                     <input
                       type="text"
                       id="uPicture"
@@ -1015,7 +1015,7 @@
                   </div>
                   <div style="display: flex; justify-content: flex-end; margin-top: 6px">
                     <button class="btn btn-primary" type="submit">
-                      <i class="fa-solid fa-check"></i> Save Profile
+                      <i class="fa-solid fa-check"></i> <span data-i18n="set.save-profile">Save Profile</span>
                     </button>
                   </div>
                 </form>
@@ -1034,7 +1034,7 @@
                   <p class="settings-hint" data-i18n="prefs.hint">Saved on your account, the same on every device. System follows your phone or computer.</p>
                   <div class="crm-prefs__label" id="profileLanguageLabel" data-i18n="prefs.language">Language</div>
                   <div class="crm-prefs__options profile-prefs" role="radiogroup" aria-labelledby="profileLanguageLabel">
-                    <button type="button" role="radio" data-language="en" lang="en">English</button>
+                    <button type="button" role="radio" data-language="en" lang="en" translate="no">English</button>
                     <button type="button" role="radio" data-language="hi" lang="hi">हिंदी</button>
                   </div>
                   <div class="crm-prefs__label" id="profileThemeLabel" data-i18n="prefs.theme">Theme</div>
@@ -1045,42 +1045,42 @@
                   </div>
                 </div>
                 <div class="settings-section" id="companySwitchSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Your Companies</div>
-                  <p class="settings-hint">You are a member of more than one company. Switch to work in another one.</p>
+                  <div data-i18n="set.your-companies" class="settings-section-label">Your Companies</div>
+                  <p data-i18n="set.you-are-a-member-of-more" class="settings-hint">You are a member of more than one company. Switch to work in another one.</p>
                   <div id="companySwitchList"></div>
                 </div>
                 <div class="settings-section" id="pushSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Notifications on this device</div>
-                  <p class="settings-hint" id="pushHint">Get the bell's notes (new chats, leads, payments …) on this phone or computer, even when the CRM is closed. On a phone, first add the CRM to the home screen (browser menu → Install app / Add to Home Screen).</p>
+                  <div data-i18n="set.notifications-on-this-device" class="settings-section-label">Notifications on this device</div>
+                  <p data-i18n="set.get-the-bell-s-notes-new" class="settings-hint" id="pushHint">Get the bell's notes (new chats, leads, payments …) on this phone or computer, even when the CRM is closed. On a phone, first add the CRM to the home screen (browser menu → Install app / Add to Home Screen).</p>
                   <div class="data-actions">
-                    <button class="btn btn-primary" id="pushOnBtn" type="button"><i class="fa-solid fa-bell"></i> Switch on here</button>
-                    <button class="btn btn-outline" id="pushTestBtn" type="button">Send a test</button>
-                    <button class="btn btn-outline" id="pushOffBtn" type="button">Switch off here</button>
+                    <button class="btn btn-primary" id="pushOnBtn" type="button"><i class="fa-solid fa-bell"></i> <span data-i18n="set.switch-on-here">Switch on here</span></button>
+                    <button data-i18n="teams.test" class="btn btn-outline" id="pushTestBtn" type="button">Send a test</button>
+                    <button data-i18n="set.switch-off-here" class="btn btn-outline" id="pushOffBtn" type="button">Switch off here</button>
                   </div>
                 </div>
                 <div class="settings-section" id="phoneSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Mobile number and 2-step verification</div>
-                  <p class="settings-hint" id="phoneHint">Your mobile number, verified with a 6-digit code on WhatsApp.</p>
+                  <div data-i18n="set.mobile-number-and-2-step-verification" class="settings-section-label">Mobile number and 2-step verification</div>
+                  <p data-i18n="set.your-mobile-number-verified-with-a" class="settings-hint" id="phoneHint">Your mobile number, verified with a 6-digit code on WhatsApp.</p>
                   <form class="field-row" id="phoneForm" autocomplete="off">
-                    <div class="field"><label for="phoneNumber">Mobile number</label><input type="tel" id="phoneNumber" inputmode="tel" maxlength="30" placeholder="98290 12345" /></div>
-                    <div class="field" id="phoneCodeField" hidden><label for="phoneCode">Code from WhatsApp</label><input type="text" id="phoneCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" /></div>
+                    <div class="field"><label data-i18n="wa.priv.phone" for="phoneNumber">Mobile number</label><input type="tel" id="phoneNumber" inputmode="tel" maxlength="30" placeholder="98290 12345" /></div>
+                    <div class="field" id="phoneCodeField" hidden><label data-i18n="set.code-from-whatsapp" for="phoneCode">Code from WhatsApp</label><input type="text" id="phoneCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" /></div>
                   </form>
                   <div class="data-actions">
-                    <button class="btn btn-primary" id="phoneSendBtn" type="button"><i class="fa-brands fa-whatsapp"></i> Send a code</button>
-                    <button class="btn btn-primary" id="phoneVerifyBtn" type="button" hidden>Verify</button>
-                    <button class="btn btn-outline" id="phoneChangeBtn" type="button" hidden>Change number</button>
+                    <button class="btn btn-primary" id="phoneSendBtn" type="button"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="set.send-a-code">Send a code</span></button>
+                    <button data-i18n="set.verify" class="btn btn-primary" id="phoneVerifyBtn" type="button" hidden>Verify</button>
+                    <button data-i18n="login.changeNumber" class="btn btn-outline" id="phoneChangeBtn" type="button" hidden>Change number</button>
                   </div>
                   <label class="two-step-row" id="twoStepRow" hidden>
                     <input type="checkbox" id="twoStepToggle" />
-                    <span><strong>2-step verification</strong><br /><span class="settings-hint" id="twoStepHint">On a new browser, after Google, ask for a code sent on WhatsApp to this number.</span></span>
+                    <span><strong data-i18n="lp.2-step-verification">2-step verification</strong><br /><span data-i18n="set.on-a-new-browser-after-google" class="settings-hint" id="twoStepHint">On a new browser, after Google, ask for a code sent on WhatsApp to this number.</span></span>
                   </label>
                 </div>
                 <div class="settings-section" id="linkComputerSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Log in on another computer</div>
-                  <p class="settings-hint">On the computer, open this address. It shows a code: tap below on this phone and point it at the code.</p>
-                  <p class="settings-hint" style="display:flex; gap:8px; align-items:center"><code id="linkComputerUrl" style="word-break:break-all"></code><button class="btn btn-outline" type="button" id="linkComputerCopy" title="Copy the address"><i class="fa-solid fa-copy"></i></button></p>
+                  <div data-i18n="linkdev.log-in-on-another-computer" class="settings-section-label">Log in on another computer</div>
+                  <p data-i18n="set.on-the-computer-open-this-address" class="settings-hint">On the computer, open this address. It shows a code: tap below on this phone and point it at the code.</p>
+                  <p class="settings-hint" style="display:flex; gap:8px; align-items:center"><code id="linkComputerUrl" style="word-break:break-all"></code><button class="btn btn-outline" type="button" id="linkComputerCopy" title="Copy the address" data-i18n-title="set.copy-the-address"><i class="fa-solid fa-copy"></i></button></p>
                   <div class="data-actions">
-                    <a class="btn btn-primary" href="link-device.html"><i class="fa-solid fa-qrcode"></i> Scan the computer's code</a>
+                    <a class="btn btn-primary" href="link-device.html"><i class="fa-solid fa-qrcode"></i> <span data-i18n="set.scan-the-computer-s-code">Scan the computer's code</span></a>
                   </div>
                 </div>
                 <!-- 2-step login with an authenticator app (F7, js/settings-totp.js) -->
@@ -1092,16 +1092,16 @@
                   </div>
                 </div>
                 <div class="settings-section" id="devicesSection" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Where you're logged in</div>
-                  <p class="settings-hint">Every browser and phone where your account is open, like WhatsApp's linked devices. Log out one you don't know or no longer use.</p>
-                  <ul class="device-list" id="deviceList"><li class="device-empty">Loading…</li></ul>
+                  <div data-i18n="set.where-you-re-logged-in" class="settings-section-label">Where you're logged in</div>
+                  <p data-i18n="set.every-browser-and-phone-where-your" class="settings-hint">Every browser and phone where your account is open, like WhatsApp's linked devices. Log out one you don't know or no longer use.</p>
+                  <ul class="device-list" id="deviceList"><li data-i18n="bulkbar.loading" class="device-empty">Loading…</li></ul>
                   <!-- D104: shown only when the platform sends emails -->
                   <label class="two-step-row" id="loginEmailRow" hidden style="margin-top: 12px">
                     <input type="checkbox" id="loginEmailToggle" />
-                    <span><strong>Email me about new logins</strong><br /><span class="settings-hint">Besides the note under the bell, an email when your account is opened on a browser it was never opened on.</span></span>
+                    <span><strong data-i18n="set.email-me-about-new-logins">Email me about new logins</strong><br /><span data-i18n="set.besides-the-note-under-the-bell" class="settings-hint">Besides the note under the bell, an email when your account is opened on a browser it was never opened on.</span></span>
                   </label>
                   <div class="data-actions">
-                    <button class="btn btn-outline" id="devicesLogoutOthersBtn" type="button" hidden><i class="fa-solid fa-right-from-bracket"></i> Log out of all other devices</button>
+                    <button class="btn btn-outline" id="devicesLogoutOthersBtn" type="button" hidden><i class="fa-solid fa-right-from-bracket"></i> <span data-i18n="set.log-out-of-all-other-devices">Log out of all other devices</span></button>
                   </div>
                 </div>
               </div>
@@ -1112,7 +1112,7 @@
           <div class="settings-panel" data-settings-panel="company">
             <div class="panel">
               <div class="panel-head">
-                <h3>Company Profile</h3>
+                <h3 data-i18n="set.company-profile">Company Profile</h3>
                 <span
                   class="text-muted"
                   style="font-size: 12px"
@@ -1122,87 +1122,87 @@
               <div style="padding: 20px">
                 <p class="settings-hint" id="companyFormNote" hidden></p>
                 <div class="settings-section" id="workspaceCodeSection">
-                  <div class="settings-section-label">Login</div>
-                  <p class="settings-hint">On the login page your team types the company name or this workspace code, then continues with Google.</p>
+                  <div data-i18n="set.login" class="settings-section-label">Login</div>
+                  <p data-i18n="set.on-the-login-page-your-team" class="settings-hint">On the login page your team types the company name or this workspace code, then continues with Google.</p>
                   <div class="settings-summary-row workspace-code-row">
                     <div class="info" style="min-width: 0">
-                      <div class="name">Workspace code: <code class="workspace-code" id="workspaceCode">—</code></div>
+                      <div class="name"><span data-i18n="set.workspace-code">Workspace code:</span> <code class="workspace-code" id="workspaceCode">—</code></div>
                       <div class="sub" id="loginLinkText" style="word-break: break-all"></div>
                     </div>
                     <div class="workspace-code-actions">
                       <button class="btn btn-outline" type="button" id="copyLoginLinkBtn" disabled>
-                        <i class="fa-solid fa-copy"></i> Copy login link
+                        <i class="fa-solid fa-copy"></i> <span data-i18n="set.copy-login-link">Copy login link</span>
                       </button>
                       <button class="btn btn-outline" type="button" id="editWorkspaceCodeBtn" hidden>
-                        <i class="fa-solid fa-pen"></i> Change
+                        <i class="fa-solid fa-pen"></i> <span data-i18n="inbox.tpl.change">Change</span>
                       </button>
                     </div>
                   </div>
                   <form class="workspace-code-form" id="workspaceCodeForm" hidden novalidate>
                     <div class="field">
-                      <label for="workspaceCodeInput">New workspace code</label>
-                      <input type="text" id="workspaceCodeInput" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. sharma-traders" aria-describedby="workspaceCodeRule" />
+                      <label data-i18n="set.new-workspace-code" for="workspaceCodeInput">New workspace code</label>
+                      <input type="text" id="workspaceCodeInput" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. sharma-traders" aria-describedby="workspaceCodeRule"  data-i18n-placeholder="set.e-g-sharma-traders"/>
                     </div>
-                    <p class="settings-hint" id="workspaceCodeRule">2 to 40 small letters, numbers and hyphens. The old code stops working; the company name keeps working.</p>
+                    <p data-i18n="set.2-to-40-small-letters-numbers" class="settings-hint" id="workspaceCodeRule">2 to 40 small letters, numbers and hyphens. The old code stops working; the company name keeps working.</p>
                     <div class="data-actions">
-                      <button class="btn btn-primary" type="submit" id="saveWorkspaceCodeBtn">Save code</button>
-                      <button class="btn btn-outline" type="button" id="cancelWorkspaceCodeBtn">Cancel</button>
+                      <button data-i18n="set.save-code" class="btn btn-primary" type="submit" id="saveWorkspaceCodeBtn">Save code</button>
+                      <button data-i18n="common.cancel" class="btn btn-outline" type="button" id="cancelWorkspaceCodeBtn">Cancel</button>
                     </div>
                   </form>
                 </div>
                 <form id="companyForm">
-                  <div class="settings-section-label">Basics</div>
+                  <div data-i18n="company.basics" class="settings-section-label">Basics</div>
                   <div class="field">
-                    <label>Company Name</label>
+                    <label data-i18n="company.company-name">Company Name</label>
                     <input
                       type="text"
                       id="cName"
                       placeholder="e.g. YELLOW CRMS Pvt Ltd"
                       required
-                    />
+                     data-i18n-placeholder="set.e-g-yellow-crms-pvt-ltd"/>
                   </div>
                   <div class="field-row">
                     <div class="field">
-                      <label>Industry</label>
+                      <label data-i18n="company.industry">Industry</label>
                       <input
                         type="text"
                         id="cIndustry"
                         placeholder="e.g. SaaS, Retail, Manufacturing"
-                      />
+                       data-i18n-placeholder="company.e-g-saas-retail-manufacturing"/>
                     </div>
                     <div class="field">
-                      <label>Company Size</label>
+                      <label data-i18n="company.company-size">Company Size</label>
                       <select id="cSize">
-                        <option value="">— Select —</option>
-                        <option>1–10 employees</option>
-                        <option>11–50 employees</option>
-                        <option>51–200 employees</option>
+                        <option data-i18n="company.select" value="">— Select —</option>
+                        <option data-i18n="company.1-10-employees">1–10 employees</option>
+                        <option data-i18n="company.11-50-employees">11–50 employees</option>
+                        <option data-i18n="company.51-200-employees">51–200 employees</option>
                       </select>
                     </div>
                   </div>
                   <div class="field-row">
                     <div class="field">
-                      <label>Founded Year</label>
+                      <label data-i18n="company.founded-year">Founded Year</label>
                       <input
                         type="number"
                         id="cFounded"
                         min="1900"
                         max="2100"
                         placeholder="e.g. 2019"
-                      />
+                       data-i18n-placeholder="set.e-g-2019"/>
                     </div>
                     <div class="field">
-                      <label>Logo</label>
-                      <p class="text-muted" style="font-size: 12.5px; margin: 10px 0 0">
+                      <label data-i18n="company.logo">Logo</label>
+                      <p data-i18n="set.upload-the-logo-in-the-your" class="text-muted" style="font-size: 12.5px; margin: 10px 0 0">
                         Upload the logo in the Your Profile tab.
                       </p>
                     </div>
                   </div>
 
-                  <div class="settings-section-label">Contact</div>
+                  <div data-i18n="deals.contact" class="settings-section-label">Contact</div>
                   <div class="field-row">
                     <div class="field">
-                      <label>Website</label>
+                      <label data-i18n="source.Website">Website</label>
                       <input
                         type="text"
                         id="cWebsite"
@@ -1210,7 +1210,7 @@
                       />
                     </div>
                     <div class="field">
-                      <label>Support Email</label>
+                      <label data-i18n="company.support-email">Support Email</label>
                       <input
                         type="email"
                         id="cEmail"
@@ -1220,7 +1220,7 @@
                   </div>
                   <div class="field-row">
                     <div class="field">
-                      <label>Phone</label>
+                      <label data-i18n="board.field.lead.phone">Phone</label>
                       <input
                         type="text"
                         id="cPhone"
@@ -1234,57 +1234,57 @@
                         id="cGst"
                         maxlength="15"
                         placeholder="e.g. 23AAAAA0000A1Z5"
-                      />
+                       data-i18n-placeholder="company.e-g-23aaaaa0000a1z5"/>
                     </div>
                   </div>
 
-                  <div class="settings-section-label">Address</div>
+                  <div data-i18n="import.address" class="settings-section-label">Address</div>
                   <div class="field">
-                    <label>Address Line</label>
+                    <label data-i18n="company.address-line">Address Line</label>
                     <input
                       type="text"
                       id="cAddress"
                       placeholder="Street, building, area"
-                    />
+                     data-i18n-placeholder="company.street-building-area"/>
                   </div>
                   <div class="field-row">
                     <div class="field">
-                      <label>City</label>
-                      <input type="text" id="cCity" placeholder="e.g. Indore" />
+                      <label data-i18n="customers.city">City</label>
+                      <input type="text" id="cCity" placeholder="e.g. Indore"  data-i18n-placeholder="set.e-g-indore"/>
                     </div>
                     <div class="field">
-                      <label>State</label>
+                      <label data-i18n="customers.state">State</label>
                       <input
                         type="text"
                         id="cState"
                         placeholder="e.g. Madhya Pradesh"
-                      />
+                       data-i18n-placeholder="company.e-g-madhya-pradesh"/>
                     </div>
                   </div>
                   <div class="field-row">
                     <div class="field">
-                      <label>Country</label>
-                      <input type="text" id="cCountry" placeholder="e.g. India" />
+                      <label data-i18n="company.country">Country</label>
+                      <input type="text" id="cCountry" placeholder="e.g. India"  data-i18n-placeholder="company.e-g-india"/>
                     </div>
                     <div class="field">
-                      <label>Pincode</label>
-                      <input type="text" id="cPincode" placeholder="e.g. 462001" />
+                      <label data-i18n="company.pincode">Pincode</label>
+                      <input type="text" id="cPincode" placeholder="e.g. 462001"  data-i18n-placeholder="set.e-g-462001"/>
                     </div>
                   </div>
 
-                  <div class="settings-section-label">About</div>
+                  <div data-i18n="board.field.task.related" class="settings-section-label">About</div>
                   <div class="field">
-                    <label>Short Description</label>
+                    <label data-i18n="company.short-description">Short Description</label>
                     <textarea
                       id="cDescription"
                       rows="3"
                       placeholder="One or two lines about what your company does..."
-                    ></textarea>
+                     data-i18n-placeholder="company.one-or-two-lines-about-what"></textarea>
                   </div>
 
                   <div style="display: flex; justify-content: flex-end; margin-top: 6px">
                     <button class="btn btn-primary" type="submit">
-                      <i class="fa-solid fa-check"></i> Save Company Profile
+                      <i class="fa-solid fa-check"></i> <span data-i18n="set.save-company-profile">Save Company Profile</span>
                     </button>
                   </div>
                 </form>
@@ -1296,11 +1296,11 @@
           <div class="settings-panel" data-settings-panel="team">
             <div class="panel">
               <div class="panel-head">
-                <h3>Team & Access</h3>
+                <h3 data-i18n="set.tab.team">Team & Access</h3>
                 <span class="text-muted" style="font-size: 12px" id="teamCount"></span>
               </div>
               <div style="padding: 20px">
-                <p class="settings-hint">
+                <p data-i18n="set.everyone-listed-here-signs-in-with" class="settings-hint">
                   Everyone listed here signs in with Google and works in this
                   company's CRM. Owners and admins manage roles and invites.
                 </p>
@@ -1308,12 +1308,12 @@
 
                 <!-- D65: customers' numbers for agents and viewers -->
                 <div class="settings-section" id="phonePrivacySection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Customer privacy</div>
+                  <div data-i18n="set.customer-privacy" class="settings-section-label">Customer privacy</div>
                   <label class="two-step-row" id="hidePhonesRow">
                     <input type="checkbox" id="hidePhonesToggle" />
-                    <span><strong>Hide customer phone numbers from agents</strong><br /><span class="settings-hint">Agents and viewers see numbers like +91 98••• ••210 everywhere: chats, customers, leads, quotations, orders, search and exports. They can still reply, send quotations and payment links, and find a customer by number. Owners and admins always see the full number.</span></span>
+                    <span><strong data-i18n="set.hide-customer-phone-numbers-from-agents">Hide customer phone numbers from agents</strong><br /><span data-i18n="set.agents-and-viewers-see-numbers-like" class="settings-hint">Agents and viewers see numbers like +91 98••• ••210 everywhere: chats, customers, leads, quotations, orders, search and exports. They can still reply, send quotations and payment links, and find a customer by number. Owners and admins always see the full number.</span></span>
                   </label>
-                  <p class="settings-hint" id="hidePhonesInfo" hidden>Your company hides customers' phone numbers from agents. You can still reply, send quotations and payment links, and search by number.</p>
+                  <p data-i18n="set.your-company-hides-customers-phone-numbers" class="settings-hint" id="hidePhonesInfo" hidden>Your company hides customers' phone numbers from agents. You can still reply, send quotations and payment links, and search by number.</p>
                 </div>
 
                 <!-- D76: the pages the company uses (owners and admins, js/settings-pages.js) -->
@@ -1324,36 +1324,36 @@
                 </div>
 
                 <div class="settings-section" id="inviteSection" hidden style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px">
-                  <div class="settings-section-label">Invite a teammate</div>
+                  <div data-i18n="set.invite-a-teammate" class="settings-section-label">Invite a teammate</div>
                   <form id="inviteForm">
                     <div class="field-row">
                       <div class="field">
-                        <label for="inviteEmail">Their Google email</label>
+                        <label data-i18n="set.their-google-email" for="inviteEmail">Their Google email</label>
                         <input type="email" id="inviteEmail" placeholder="name@gmail.com" required />
                       </div>
                       <div class="field">
-                        <label for="inviteRole">Role</label>
+                        <label data-i18n="set.role" for="inviteRole">Role</label>
                         <select id="inviteRole">
-                          <option value="agent">Agent — works on their own leads and chats</option>
-                          <option value="viewer">Viewer — can only look</option>
-                          <option value="admin">Admin — manages the team and settings</option>
+                          <option data-i18n="set.agent-works-on-their-own-leads" value="agent">Agent — works on their own leads and chats</option>
+                          <option data-i18n="set.viewer-can-only-look" value="viewer">Viewer — can only look</option>
+                          <option data-i18n="set.admin-manages-the-team-and-settings" value="admin">Admin — manages the team and settings</option>
                         </select>
                       </div>
                     </div>
                     <div style="display: flex; justify-content: flex-end">
                       <button class="btn btn-primary" type="submit" id="inviteSubmitBtn">
-                        <i class="fa-solid fa-user-plus"></i> Create Invite Link
+                        <i class="fa-solid fa-user-plus"></i> <span data-i18n="set.create-invite-link">Create Invite Link</span>
                       </button>
                     </div>
                   </form>
                   <div class="settings-summary-row" id="inviteLinkBox" hidden style="margin-top: 14px">
                     <div class="info" style="min-width: 0">
-                      <div class="name">Share this link with <span id="inviteLinkEmail"></span></div>
+                      <div class="name"><span data-i18n="set.share-this-link-with">Share this link with</span> <span id="inviteLinkEmail"></span></div>
                       <div class="sub" id="inviteLinkText" style="word-break: break-all"></div>
                     </div>
                     <div style="display: flex; gap: 8px; flex-shrink: 0">
                       <button class="btn btn-outline" type="button" id="copyInviteBtn">
-                        <i class="fa-solid fa-copy"></i> Copy
+                        <i class="fa-solid fa-copy"></i> <span data-i18n="int.ex.copy">Copy</span>
                       </button>
                       <a class="btn btn-outline" id="whatsappInviteLink" target="_blank" rel="noopener">
                         <i class="fa-brands fa-whatsapp"></i> WhatsApp
@@ -1361,7 +1361,7 @@
                     </div>
                   </div>
 
-                  <div class="settings-section-label" style="margin-top: 20px">Pending invites</div>
+                  <div data-i18n="set.pending-invites" class="settings-section-label" style="margin-top: 20px">Pending invites</div>
                   <div id="pendingInviteList"></div>
                 </div>
               </div>
@@ -1383,7 +1383,7 @@
                 <div class="wa-connect-card" id="waConnectCard" hidden>
                   <i class="fa-brands fa-whatsapp"></i>
                   <div class="wa-connect-text">
-                    <strong id="waConnectTitle">Connect WhatsApp</strong>
+                    <strong data-i18n="inbox.connect.button" id="waConnectTitle">Connect WhatsApp</strong>
                     <span id="waConnectText"></span>
                   </div>
                   <a class="btn btn-primary" id="waConnectLink" href="connect-whatsapp.html?add=1"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="inbox.connect.button">Connect WhatsApp</span></a>
@@ -1466,18 +1466,18 @@
                         <div class="field">
                           <label for="waTplLanguage" data-i18n="prefs.language">Language</label>
                           <select id="waTplLanguage">
-                            <option value="en">English (en)</option>
-                            <option value="en_US">English US (en_US)</option>
-                            <option value="en_GB">English UK (en_GB)</option>
-                            <option value="hi">Hindi (hi)</option>
-                            <option value="gu">Gujarati (gu)</option>
-                            <option value="mr">Marathi (mr)</option>
-                            <option value="pa">Punjabi (pa)</option>
-                            <option value="bn">Bengali (bn)</option>
-                            <option value="ta">Tamil (ta)</option>
-                            <option value="te">Telugu (te)</option>
-                            <option value="kn">Kannada (kn)</option>
-                            <option value="ml">Malayalam (ml)</option>
+                            <option data-i18n="set.english-en" value="en">English (en)</option>
+                            <option data-i18n="set.english-us-en-us" value="en_US">English US (en_US)</option>
+                            <option data-i18n="set.english-uk-en-gb" value="en_GB">English UK (en_GB)</option>
+                            <option data-i18n="set.hindi-hi" value="hi">Hindi (hi)</option>
+                            <option data-i18n="set.gujarati-gu" value="gu">Gujarati (gu)</option>
+                            <option data-i18n="set.marathi-mr" value="mr">Marathi (mr)</option>
+                            <option data-i18n="set.punjabi-pa" value="pa">Punjabi (pa)</option>
+                            <option data-i18n="set.bengali-bn" value="bn">Bengali (bn)</option>
+                            <option data-i18n="set.tamil-ta" value="ta">Tamil (ta)</option>
+                            <option data-i18n="set.telugu-te" value="te">Telugu (te)</option>
+                            <option data-i18n="set.kannada-kn" value="kn">Kannada (kn)</option>
+                            <option data-i18n="set.malayalam-ml" value="ml">Malayalam (ml)</option>
                           </select>
                         </div>
                         <div class="field">
@@ -1490,11 +1490,11 @@
                       </div>
                       <div class="field">
                         <label for="waTplHeader" data-i18n="wa.tpl.header">Header (optional, up to 60 characters)</label>
-                        <input type="text" id="waTplHeader" maxlength="60" placeholder="Order update" />
+                        <input type="text" id="waTplHeader" maxlength="60" placeholder="Order update"  data-i18n-placeholder="set.order-update"/>
                       </div>
                       <div class="field">
                         <label for="waTplBody" data-i18n="inbox.quick.message">Message</label>
-                        <textarea id="waTplBody" rows="4" maxlength="1024" required placeholder="Namaste {{1}}, your order {{2}} has been dispatched today."></textarea>
+                        <textarea id="waTplBody" rows="4" maxlength="1024" required translate="no" placeholder="Namaste {{1}}, your order {{2}} has been dispatched today."></textarea>
                         <p class="settings-hint" style="margin: 6px 0 0" data-i18n="wa.tpl.variablesHint">
                           Write {{1}}, {{2}} … where you fill in details when sending. Do not start or end the message with one.
                         </p>
@@ -1502,7 +1502,7 @@
                       <div id="waTplExamples"></div>
                       <div class="field">
                         <label for="waTplFooter" data-i18n="wa.tpl.footer">Footer (optional)</label>
-                        <input type="text" id="waTplFooter" maxlength="60" placeholder="Reply STOP to stop updates" />
+                        <input type="text" id="waTplFooter" maxlength="60" placeholder="Reply STOP to stop updates"  data-i18n-placeholder="set.reply-stop-to-stop-updates"/>
                       </div>
                       <div class="field">
                         <label data-i18n="wa.tpl.buttons">Buttons (optional, up to 3)</label>
@@ -1536,11 +1536,11 @@
                     </div>
                     <div class="field">
                       <label for="waLinkText" data-i18n="wa.link.text">Message already typed for the customer (optional)</label>
-                      <input type="text" id="waLinkText" maxlength="500" placeholder="Hi, I want the price list" />
+                      <input type="text" id="waLinkText" maxlength="500" placeholder="Hi, I want the price list"  data-i18n-placeholder="set.hi-i-want-the-price-list"/>
                     </div>
                   </div>
                   <div class="wa-link" id="waLinkResult" hidden>
-                    <img id="waLinkQr" alt="QR code of the click-to-chat link" data-i18n-aria-label="wa.link.qrAlt" />
+                    <img id="waLinkQr" alt="QR code of the click-to-chat link" data-i18n-aria-label="wa.link.qrAlt"  data-i18n-alt="wa.link.qrAlt"/>
                     <div class="wa-link-info">
                       <code id="waLinkUrl"></code>
                       <div class="wa-link-actions">
@@ -1572,13 +1572,13 @@
                       </div>
                       <div class="field">
                         <label for="waPhoneNumberId" data-i18n="wa.adv.phoneId">Phone number ID</label>
-                        <input type="text" id="waPhoneNumberId" inputmode="numeric" placeholder="e.g. 106540352242922" required />
+                        <input type="text" id="waPhoneNumberId" inputmode="numeric" placeholder="e.g. 106540352242922" required  data-i18n-placeholder="set.e-g-106540352242922"/>
                       </div>
                     </div>
                     <div class="field-row">
                       <div class="field">
-                        <label for="waWabaId">WhatsApp Business Account ID</label>
-                        <input type="text" id="waWabaId" inputmode="numeric" placeholder="e.g. 102290129340398" />
+                        <label data-i18n="set.whatsapp-business-account-id" for="waWabaId">WhatsApp Business Account ID</label>
+                        <input type="text" id="waWabaId" inputmode="numeric" placeholder="e.g. 102290129340398"  data-i18n-placeholder="set.e-g-102290129340398"/>
                       </div>
                       <div class="field">
                         <label for="waAppSecret" data-i18n="wa.adv.secret">App secret</label>
@@ -1598,43 +1598,43 @@
                 </details>
 
                 <div class="settings-section wa-devtools" id="waDevTools" hidden>
-                  <div class="settings-section-label"><i class="fa-solid fa-flask"></i> Developer test tools</div>
-                  <p class="settings-hint">
+                  <div class="settings-section-label"><i class="fa-solid fa-flask"></i> <span data-i18n="set.developer-test-tools">Developer test tools</span></div>
+                  <p data-i18n="set.only-on-a-development-server-with" class="settings-hint">
                     Only on a development server with DEV_TOOLS=on — never on a live CRM. A test
                     number reaches nobody on WhatsApp; the simulator pretends a customer wrote.
                   </p>
                   <div class="data-actions" style="margin-bottom: 14px">
-                    <button class="btn btn-outline" type="button" id="waAddMockBtn"><i class="fa-solid fa-flask"></i> Add a test number</button>
+                    <button class="btn btn-outline" type="button" id="waAddMockBtn"><i class="fa-solid fa-flask"></i> <span data-i18n="set.add-a-test-number">Add a test number</span></button>
                   </div>
-                  <p class="settings-hint" id="waSimulateSection" hidden>Simulate a customer's message to your default number:</p>
+                  <p data-i18n="set.simulate-a-customer-s-message-to" class="settings-hint" id="waSimulateSection" hidden>Simulate a customer's message to your default number:</p>
                   <form id="waSimulateForm">
                     <div class="field-row">
                       <div class="field">
-                        <label for="waSimFrom">Customer's mobile</label>
+                        <label data-i18n="set.customer-s-mobile" for="waSimFrom">Customer's mobile</label>
                         <input type="tel" id="waSimFrom" placeholder="98111 00011" required />
                       </div>
                       <div class="field">
-                        <label for="waSimName">Their WhatsApp name</label>
-                        <input type="text" id="waSimName" placeholder="Sunita" />
+                        <label data-i18n="set.their-whatsapp-name" for="waSimName">Their WhatsApp name</label>
+                        <input type="text" id="waSimName" placeholder="Sunita"  data-i18n-placeholder="set.sunita"/>
                       </div>
                     </div>
                     <div class="field-row">
                       <div class="field" style="max-width: 220px">
-                        <label for="waSimType">Kind</label>
-                        <select id="waSimType" title="Photos, documents and voice notes work on test numbers">
-                          <option value="text">Text</option>
-                          <option value="image">Photo (test number)</option>
-                          <option value="document">Document (test number)</option>
-                          <option value="audio">Voice note (test number)</option>
+                        <label data-i18n="set.kind" for="waSimType">Kind</label>
+                        <select id="waSimType" title="Photos, documents and voice notes work on test numbers" data-i18n-title="set.photos-documents-and-voice-notes-work">
+                          <option data-i18n="cf.type.text" value="text">Text</option>
+                          <option data-i18n="set.photo-test-number" value="image">Photo (test number)</option>
+                          <option data-i18n="set.document-test-number" value="document">Document (test number)</option>
+                          <option data-i18n="set.voice-note-test-number" value="audio">Voice note (test number)</option>
                         </select>
                       </div>
                       <div class="field">
-                        <label for="waSimText" id="waSimTextLabel">Message</label>
-                        <input type="text" id="waSimText" maxlength="4096" placeholder="Price of cumin 1kg?" required />
+                        <label data-i18n="c360.message" for="waSimText" id="waSimTextLabel">Message</label>
+                        <input type="text" id="waSimText" maxlength="4096" placeholder="Price of cumin 1kg?" required  data-i18n-placeholder="set.price-of-cumin-1kg"/>
                       </div>
                     </div>
                     <div class="data-actions" style="justify-content: flex-end">
-                      <button class="btn btn-outline" type="submit"><i class="fa-solid fa-paper-plane"></i> Receive Test Message</button>
+                      <button class="btn btn-outline" type="submit"><i class="fa-solid fa-paper-plane"></i> <span data-i18n="set.receive-test-message">Receive Test Message</span></button>
                     </div>
                   </form>
                 </div>
@@ -1646,11 +1646,11 @@
           <div class="settings-panel" data-settings-panel="leadsources">
             <div class="panel">
               <div class="panel-head">
-                <h3>Lead sources</h3>
+                <h3 data-i18n="set.tab.leadsources">Lead sources</h3>
                 <span class="text-muted" style="font-size: 12px" id="lsCount"></span>
               </div>
               <div style="padding: 20px">
-                <p class="settings-hint">
+                <p data-i18n="set.where-your-enquiries-come-from-every" class="settings-hint">
                   Where your enquiries come from. Every enquiry becomes a contact and a lead
                   (the same mobile number is never added twice; a new enquiry from someone with an
                   open lead is added to that lead). Auto-replies and assignment rules follow in the
@@ -1658,17 +1658,17 @@
                 </p>
                 <div id="lsList"></div>
                 <div class="data-actions" style="margin-top: 14px">
-                  <button class="btn btn-primary" type="button" id="lsAddWebsite"><i class="fa-solid fa-globe"></i> New website form</button>
-                  <button class="btn btn-outline" type="button" id="lsAddIndiamart"><i class="fa-solid fa-store"></i> Connect IndiaMART</button>
-                  <button class="btn btn-outline" type="button" id="lsAddFacebook"><i class="fa-brands fa-facebook"></i> Facebook Lead Ads</button>
-                  <button class="btn btn-outline" type="button" data-ls-create="googleads"><i class="fa-brands fa-google"></i> Google Ads lead form</button>
+                  <button class="btn btn-primary" type="button" id="lsAddWebsite"><i class="fa-solid fa-globe"></i> <span data-i18n="set.new-website-form">New website form</span></button>
+                  <button class="btn btn-outline" type="button" id="lsAddIndiamart"><i class="fa-solid fa-store"></i> <span data-i18n="set.connect-indiamart">Connect IndiaMART</span></button>
+                  <button class="btn btn-outline" type="button" id="lsAddFacebook"><i class="fa-brands fa-facebook"></i> <span data-i18n="set.facebook-lead-ads">Facebook Lead Ads</span></button>
+                  <button class="btn btn-outline" type="button" data-ls-create="googleads"><i class="fa-brands fa-google"></i> <span data-i18n="set.google-ads-lead-form">Google Ads lead form</span></button>
                   <button class="btn btn-outline" type="button" data-ls-create="justdial"><i class="fa-solid fa-phone"></i> JustDial</button>
                   <button class="btn btn-outline" type="button" data-ls-create="tradeindia"><i class="fa-solid fa-industry"></i> TradeIndia</button>
-                  <button class="btn btn-outline" type="button" data-ls-create="whatsapp_button"><i class="fa-brands fa-whatsapp"></i> WhatsApp button for your website</button>
+                  <button class="btn btn-outline" type="button" data-ls-create="whatsapp_button"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="set.whatsapp-button-for-your-website">WhatsApp button for your website</span></button>
                 </div>
                 <form class="settings-section wa-block" id="lsFacebookForm" autocomplete="off" hidden>
-                  <div class="settings-section-label">Connect Facebook Lead Ads</div>
-                  <p class="settings-hint">
+                  <div data-i18n="set.connect-facebook-lead-ads" class="settings-section-label">Connect Facebook Lead Ads</div>
+                  <p data-i18n-html="set.you-need-a-meta-developer-app" class="settings-hint">
                     You need a Meta developer app (the WhatsApp one works too), the <strong>Page ID</strong>, a
                     <strong>long-lived Page access token</strong> with the permissions leads_retrieval,
                     pages_manage_metadata, pages_show_list, pages_read_engagement and ads_management, and the app's
@@ -1677,26 +1677,26 @@
                   </p>
                   <div class="field-row">
                     <div class="field">
-                      <label for="lsFbPageId">Page ID</label>
+                      <label data-i18n="set.page-id" for="lsFbPageId">Page ID</label>
                       <input type="text" id="lsFbPageId" inputmode="numeric" maxlength="30" required />
                     </div>
                     <div class="field">
-                      <label for="lsFbSecret">App secret</label>
+                      <label data-i18n="wa.adv.secret" for="lsFbSecret">App secret</label>
                       <input type="password" id="lsFbSecret" maxlength="200" required />
                     </div>
                   </div>
                   <div class="field">
-                    <label for="lsFbToken">Page access token</label>
+                    <label data-i18n="set.page-access-token" for="lsFbToken">Page access token</label>
                     <input type="password" id="lsFbToken" maxlength="1000" required />
                   </div>
                   <div class="data-actions" style="justify-content: flex-end">
-                    <button class="btn btn-outline" type="button" id="lsFbCancel">Cancel</button>
-                    <button class="btn btn-primary" type="submit"><i class="fa-brands fa-facebook"></i> Connect</button>
+                    <button data-i18n="common.cancel" class="btn btn-outline" type="button" id="lsFbCancel">Cancel</button>
+                    <button class="btn btn-primary" type="submit"><i class="fa-brands fa-facebook"></i> <span data-i18n="dash.setup.leads.action">Connect</span></button>
                   </div>
                 </form>
                 <form class="settings-section wa-block" id="lsIndiamartForm" autocomplete="off" hidden>
-                  <div class="settings-section-label">Connect IndiaMART</div>
-                  <p class="settings-hint">
+                  <div data-i18n="set.connect-indiamart" class="settings-section-label">Connect IndiaMART</div>
+                  <p data-i18n-html="set.in-indiamart-seller-panel-lead-manager" class="settings-hint">
                     In IndiaMART Seller Panel → Lead Manager → <strong>Import/Export Leads</strong> → CRM Integration,
                     generate the <strong>CRM API key</strong> (it comes by email) and paste it here. The CRM then
                     pulls your IndiaMART leads every 5 minutes (IndiaMART allows no more), and IndiaMART
@@ -1704,71 +1704,71 @@
                   </p>
                   <div class="field-row">
                     <div class="field">
-                      <label for="lsImName">Name</label>
+                      <label data-i18n="ap.name" for="lsImName">Name</label>
                       <input type="text" id="lsImName" maxlength="100" value="IndiaMART" />
                     </div>
                     <div class="field">
-                      <label for="lsImKey">CRM API key</label>
+                      <label data-i18n="set.crm-api-key" for="lsImKey">CRM API key</label>
                       <input type="password" id="lsImKey" maxlength="300" required />
                     </div>
                   </div>
                   <div class="field">
-                    <label>Take these kinds of leads</label>
+                    <label data-i18n="set.take-these-kinds-of-leads">Take these kinds of leads</label>
                     <div id="lsImTypes"></div>
                   </div>
                   <div class="data-actions" style="justify-content: flex-end">
-                    <button class="btn btn-outline" type="button" id="lsImCancel">Cancel</button>
-                    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plug"></i> Connect</button>
+                    <button data-i18n="common.cancel" class="btn btn-outline" type="button" id="lsImCancel">Cancel</button>
+                    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plug"></i> <span data-i18n="dash.setup.leads.action">Connect</span></button>
                   </div>
                 </form>
 
                 <div class="settings-section wa-block" id="lsSimulateSection">
-                  <div class="settings-section-label">Try it: receive a test lead</div>
-                  <p class="settings-hint">Pretends an enquiry arrived (development only). Check Leads and Customers afterwards.</p>
+                  <div data-i18n="set.try-it-receive-a-test-lead" class="settings-section-label">Try it: receive a test lead</div>
+                  <p data-i18n="set.pretends-an-enquiry-arrived-development-only" class="settings-hint">Pretends an enquiry arrived (development only). Check Leads and Customers afterwards.</p>
                   <form id="lsSimulateForm">
                     <div class="field-row">
                       <div class="field">
-                        <label for="lsSimSource">Source</label>
+                        <label data-i18n="board.field.lead.source" for="lsSimSource">Source</label>
                         <select id="lsSimSource">
                           <option>IndiaMART</option>
-                          <option>Website</option>
+                          <option data-i18n="source.Website">Website</option>
                           <option>JustDial</option>
                           <option>TradeIndia</option>
                           <option>Facebook</option>
-                          <option>Google Ads</option>
+                          <option data-i18n="set.google-ads">Google Ads</option>
                         </select>
                       </div>
                       <div class="field">
-                        <label for="lsSimName">Buyer's name</label>
-                        <input type="text" id="lsSimName" maxlength="120" placeholder="Ravi Traders" required />
+                        <label data-i18n="set.buyer-s-name" for="lsSimName">Buyer's name</label>
+                        <input type="text" id="lsSimName" maxlength="120" placeholder="Ravi Traders" required  data-i18n-placeholder="set.ravi-traders"/>
                       </div>
                       <div class="field">
-                        <label for="lsSimPhone">Mobile</label>
+                        <label data-i18n="merge.field.phone" for="lsSimPhone">Mobile</label>
                         <input type="tel" id="lsSimPhone" maxlength="30" placeholder="98290 12345" required />
                       </div>
                     </div>
                     <div class="field-row">
                       <div class="field">
-                        <label for="lsSimProduct">Product</label>
-                        <input type="text" id="lsSimProduct" maxlength="200" placeholder="Cumin Seeds" />
+                        <label data-i18n="col.product" for="lsSimProduct">Product</label>
+                        <input type="text" id="lsSimProduct" maxlength="200" placeholder="Cumin Seeds"  data-i18n-placeholder="set.cumin-seeds"/>
                       </div>
                       <div class="field">
-                        <label for="lsSimMessage">Requirement</label>
-                        <input type="text" id="lsSimMessage" maxlength="2000" placeholder="Need 50kg, send rate" />
+                        <label data-i18n="wf.field.requirement" for="lsSimMessage">Requirement</label>
+                        <input type="text" id="lsSimMessage" maxlength="2000" placeholder="Need 50kg, send rate"  data-i18n-placeholder="set.need-50kg-send-rate"/>
                       </div>
                     </div>
                     <div class="field-row">
                       <div class="field">
-                        <label for="lsSimCity">City</label>
-                        <input type="text" id="lsSimCity" maxlength="100" placeholder="Jaipur" />
+                        <label data-i18n="customers.city" for="lsSimCity">City</label>
+                        <input type="text" id="lsSimCity" maxlength="100" placeholder="Jaipur"  data-i18n-placeholder="set.jaipur"/>
                       </div>
                       <div class="field">
-                        <label for="lsSimState">State</label>
-                        <input type="text" id="lsSimState" maxlength="100" placeholder="Rajasthan" />
+                        <label data-i18n="customers.state" for="lsSimState">State</label>
+                        <input type="text" id="lsSimState" maxlength="100" placeholder="Rajasthan"  data-i18n-placeholder="set.rajasthan"/>
                       </div>
                     </div>
                     <div class="data-actions" style="justify-content: flex-end">
-                      <button class="btn btn-outline" type="submit"><i class="fa-solid fa-paper-plane"></i> Receive Test Lead</button>
+                      <button class="btn btn-outline" type="submit"><i class="fa-solid fa-paper-plane"></i> <span data-i18n="set.receive-test-lead">Receive Test Lead</span></button>
                     </div>
                   </form>
                 </div>
@@ -1780,10 +1780,10 @@
           <div class="settings-panel" data-settings-panel="billing">
             <div class="panel">
               <div class="panel-head">
-                <h3>Billing</h3>
+                <h3 data-i18n="set.tab.billing">Billing</h3>
               </div>
               <form style="padding: 20px" id="billForm" autocomplete="off">
-                <p class="settings-hint">What your quotations, estimates, proforma invoices and orders show, and how they are numbered.</p>
+                <p data-i18n="set.what-your-quotations-estimates-proforma-invoices" class="settings-hint">What your quotations, estimates, proforma invoices and orders show, and how they are numbered.</p>
 
                 <div class="settings-section">
                   <div class="settings-section-label">GST</div>
@@ -1791,61 +1791,61 @@
                 </div>
 
                 <div class="settings-section wa-block">
-                  <div class="settings-section-label">Bank account (printed on quotations)</div>
+                  <div data-i18n="set.bank-account-printed-on-quotations" class="settings-section-label">Bank account (printed on quotations)</div>
                   <div class="field-row">
-                    <div class="field"><label for="billAccName">Account name</label><input type="text" id="billAccName" maxlength="200" /></div>
-                    <div class="field"><label for="billAccNo">Account number</label><input type="text" id="billAccNo" inputmode="numeric" maxlength="20" /></div>
+                    <div class="field"><label data-i18n="set.account-name" for="billAccName">Account name</label><input type="text" id="billAccName" maxlength="200" /></div>
+                    <div class="field"><label data-i18n="set.account-number" for="billAccNo">Account number</label><input type="text" id="billAccNo" inputmode="numeric" maxlength="20" /></div>
                   </div>
                   <div class="field-row">
-                    <div class="field"><label for="billIfsc">IFSC</label><input type="text" id="billIfsc" maxlength="11" placeholder="e.g. HDFC0001234" /></div>
-                    <div class="field"><label for="billBank">Bank</label><input type="text" id="billBank" maxlength="200" placeholder="e.g. HDFC Bank" /></div>
+                    <div class="field"><label for="billIfsc">IFSC</label><input type="text" id="billIfsc" maxlength="11" placeholder="e.g. HDFC0001234"  data-i18n-placeholder="set.e-g-hdfc0001234"/></div>
+                    <div class="field"><label data-i18n="set.bank" for="billBank">Bank</label><input type="text" id="billBank" maxlength="200" placeholder="e.g. HDFC Bank"  data-i18n-placeholder="set.e-g-hdfc-bank"/></div>
                   </div>
                   <div class="field-row">
-                    <div class="field"><label for="billBranch">Branch</label><input type="text" id="billBranch" maxlength="200" /></div>
-                    <div class="field"><label for="billUpi">UPI ID (for the QR code)</label><input type="text" id="billUpi" maxlength="300" placeholder="e.g. yourshop@okhdfcbank" /></div>
+                    <div class="field"><label data-i18n="set.branch" for="billBranch">Branch</label><input type="text" id="billBranch" maxlength="200" /></div>
+                    <div class="field"><label data-i18n="set.upi-id-for-the-qr-code" for="billUpi">UPI ID (for the QR code)</label><input type="text" id="billUpi" maxlength="300" placeholder="e.g. yourshop@okhdfcbank"  data-i18n-placeholder="set.e-g-yourshop-okhdfcbank"/></div>
                   </div>
                 </div>
 
                 <div class="settings-section wa-block">
-                  <div class="settings-section-label">Quotations</div>
-                  <div class="field"><label for="billTerms">Standard terms and conditions</label><textarea id="billTerms" rows="5" maxlength="5000" placeholder="e.g. 50% advance, balance before dispatch. Prices ex-works. Delivery in 7 days."></textarea></div>
+                  <div data-i18n="nav.quotations" class="settings-section-label">Quotations</div>
+                  <div class="field"><label data-i18n="set.standard-terms-and-conditions" for="billTerms">Standard terms and conditions</label><textarea id="billTerms" rows="5" maxlength="5000" placeholder="e.g. 50% advance, balance before dispatch. Prices ex-works. Delivery in 7 days." data-i18n-placeholder="set.e-g-50-advance-balance-before"></textarea></div>
                   <div class="field-row">
-                    <div class="field"><label for="billValidity">Valid for (days)</label><input type="number" id="billValidity" min="1" max="365" /></div>
+                    <div class="field"><label data-i18n="pl.validDays" for="billValidity">Valid for (days)</label><input type="number" id="billValidity" min="1" max="365" /></div>
                     <div class="field">
-                      <label>Total</label>
-                      <label class="ls-check"><input type="checkbox" id="billRound" /> Round the total to the nearest rupee</label>
+                      <label data-i18n="quotes.total">Total</label>
+                      <label class="ls-check"><input type="checkbox" id="billRound" /> <span data-i18n="set.round-the-total-to-the-nearest">Round the total to the nearest rupee</span></label>
                     </div>
                   </div>
                 </div>
 
                 <div class="settings-section wa-block">
-                  <div class="settings-section-label">Numbers</div>
-                  <p class="settings-hint">Each kind of document is numbered on its own, starting again every financial year (April): <strong id="billExample"></strong></p>
+                  <div data-i18n="set.numbers" class="settings-section-label">Numbers</div>
+                  <p class="settings-hint"><span data-i18n="set.each-kind-of-document-is-numbered">Each kind of document is numbered on its own, starting again every financial year (April):</span> <strong id="billExample"></strong></p>
                   <div class="field-row lr-hours">
-                    <div class="field"><label for="billPreQ">Quotation prefix</label><input type="text" id="billPreQ" maxlength="10" data-prefix="quotation" /></div>
-                    <div class="field"><label for="billPreE">Estimate prefix</label><input type="text" id="billPreE" maxlength="10" data-prefix="estimate" /></div>
-                    <div class="field"><label for="billPreP">Proforma invoice prefix</label><input type="text" id="billPreP" maxlength="10" data-prefix="proforma" /></div>
+                    <div class="field"><label data-i18n="set.quotation-prefix" for="billPreQ">Quotation prefix</label><input type="text" id="billPreQ" maxlength="10" data-prefix="quotation" /></div>
+                    <div class="field"><label data-i18n="set.estimate-prefix" for="billPreE">Estimate prefix</label><input type="text" id="billPreE" maxlength="10" data-prefix="estimate" /></div>
+                    <div class="field"><label data-i18n="set.proforma-invoice-prefix" for="billPreP">Proforma invoice prefix</label><input type="text" id="billPreP" maxlength="10" data-prefix="proforma" /></div>
                   </div>
                   <div class="field-row lr-hours">
-                    <div class="field"><label for="billPreO">Order prefix</label><input type="text" id="billPreO" maxlength="10" data-prefix="order" /></div>
+                    <div class="field"><label data-i18n="set.order-prefix" for="billPreO">Order prefix</label><input type="text" id="billPreO" maxlength="10" data-prefix="order" /></div>
                   </div>
-                  <p class="settings-hint">Tax invoices, credit notes and receipts use 1 to 4 letters or digits and a short year, because GST allows 16 characters in an invoice number: <strong id="billInvExample"></strong></p>
+                  <p class="settings-hint"><span data-i18n="set.tax-invoices-credit-notes-and-receipts">Tax invoices, credit notes and receipts use 1 to 4 letters or digits and a short year, because GST allows 16 characters in an invoice number:</span> <strong id="billInvExample"></strong></p>
                   <div class="field-row lr-hours">
-                    <div class="field"><label for="billPreI">Tax invoice prefix</label><input type="text" id="billPreI" maxlength="4" data-prefix="invoice" /></div>
-                    <div class="field"><label for="billPreC">Credit note prefix</label><input type="text" id="billPreC" maxlength="4" data-prefix="creditNote" /></div>
-                    <div class="field"><label for="billPreR">Receipt prefix</label><input type="text" id="billPreR" maxlength="4" data-prefix="receipt" /></div>
+                    <div class="field"><label data-i18n="set.tax-invoice-prefix" for="billPreI">Tax invoice prefix</label><input type="text" id="billPreI" maxlength="4" data-prefix="invoice" /></div>
+                    <div class="field"><label data-i18n="set.credit-note-prefix" for="billPreC">Credit note prefix</label><input type="text" id="billPreC" maxlength="4" data-prefix="creditNote" /></div>
+                    <div class="field"><label data-i18n="set.receipt-prefix" for="billPreR">Receipt prefix</label><input type="text" id="billPreR" maxlength="4" data-prefix="receipt" /></div>
                   </div>
                 </div>
 
                 <div class="settings-section wa-block">
-                  <div class="settings-section-label">Orders</div>
-                  <label class="ls-check"><input type="checkbox" id="billStock" /> Reduce product stock when an order is dispatched</label>
-                  <label class="ls-check"><input type="checkbox" id="billInvoice" /> Make the tax invoice by itself when an order is dispatched</label>
-                  <p class="settings-hint">Off: make it with the "Make tax invoice" button on the order. It needs your GSTIN and address in Company. An invoice is never edited: a mistake is put right with a credit note.</p>
+                  <div data-i18n="nav.orders" class="settings-section-label">Orders</div>
+                  <label class="ls-check"><input type="checkbox" id="billStock" /> <span data-i18n="set.reduce-product-stock-when-an-order">Reduce product stock when an order is dispatched</span></label>
+                  <label class="ls-check"><input type="checkbox" id="billInvoice" /> <span data-i18n="set.make-the-tax-invoice-by-itself">Make the tax invoice by itself when an order is dispatched</span></label>
+                  <p data-i18n="set.off-make-it-with-the-make" class="settings-hint">Off: make it with the "Make tax invoice" button on the order. It needs your GSTIN and address in Company. An invoice is never edited: a mistake is put right with a credit note.</p>
                 </div>
 
                 <div class="data-actions" style="justify-content: flex-end">
-                  <button class="btn btn-primary" type="submit">Save billing settings</button>
+                  <button data-i18n="set.save-billing-settings" class="btn btn-primary" type="submit">Save billing settings</button>
                 </div>
               </form>
             </div>
@@ -1863,60 +1863,60 @@
           <div class="settings-panel" data-settings-panel="payments">
             <div class="panel">
               <div class="panel-head">
-                <h3>Payments</h3>
+                <h3 data-i18n="conn.group.payments">Payments</h3>
               </div>
               <div style="padding: 20px" class="pay-settings">
-                <p class="settings-hint">Collect money with payment links in WhatsApp, through your own Razorpay or Cashfree account (the money goes straight to you). When a customer pays, the order is updated, the lead is won, the customer gets a receipt and you get a note under the bell. Step-by-step help: <strong>docs/PAYMENTS_SETUP.md</strong>.</p>
+                <p data-i18n-html="set.collect-money-with-payment-links-in" class="settings-hint">Collect money with payment links in WhatsApp, through your own Razorpay or Cashfree account (the money goes straight to you). When a customer pays, the order is updated, the lead is won, the customer gets a receipt and you get a note under the bell. Step-by-step help: <strong>docs/PAYMENTS_SETUP.md</strong>.</p>
 
                 <div class="settings-section">
-                  <div class="settings-section-label">Payment gateways</div>
-                  <div id="payGateways"><p class="settings-hint">Loading…</p></div>
-                  <button class="btn btn-outline" id="payAddBtn" type="button"><i class="fa-solid fa-plus"></i> Connect a gateway</button>
+                  <div data-i18n="set.payment-gateways" class="settings-section-label">Payment gateways</div>
+                  <div id="payGateways"><p data-i18n="bulkbar.loading" class="settings-hint">Loading…</p></div>
+                  <button class="btn btn-outline" id="payAddBtn" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="set.connect-a-gateway">Connect a gateway</span></button>
                   <form class="wa-block" id="payForm" autocomplete="off" hidden>
-                    <h4 id="payFormTitle" style="margin: 0 0 12px">Connect a gateway</h4>
+                    <h4 data-i18n="set.connect-a-gateway" id="payFormTitle" style="margin: 0 0 12px">Connect a gateway</h4>
                     <div class="field-row">
                       <div class="field">
-                        <label for="payProvider">Gateway</label>
+                        <label data-i18n="set.gateway" for="payProvider">Gateway</label>
                         <select id="payProvider">
                           <option value="razorpay">Razorpay</option>
                           <option value="cashfree">Cashfree</option>
-                          <option value="mock">Test gateway (no real money, for trying out)</option>
+                          <option data-i18n="set.test-gateway-no-real-money-for" value="mock">Test gateway (no real money, for trying out)</option>
                         </select>
                       </div>
                       <div class="field" id="payModeField" hidden>
-                        <label for="payMode">Account</label>
-                        <select id="payMode"><option value="test">Test (sandbox)</option><option value="live">Live</option></select>
+                        <label data-i18n="deals.col.account" for="payMode">Account</label>
+                        <select id="payMode"><option data-i18n="set.test-sandbox" value="test">Test (sandbox)</option><option data-i18n="inbox.live.on" value="live">Live</option></select>
                       </div>
                     </div>
                     <div id="payKeyFields">
                       <div class="field-row">
-                        <div class="field"><label for="payKeyId" id="payKeyIdLabel">Key Id</label><input type="text" id="payKeyId" maxlength="100" spellcheck="false" /></div>
-                        <div class="field"><label for="payKeySecret" id="payKeySecretLabel">Key Secret</label><input type="password" id="payKeySecret" maxlength="300" autocomplete="new-password" /></div>
+                        <div class="field"><label data-i18n="set.key-id" for="payKeyId" id="payKeyIdLabel">Key Id</label><input type="text" id="payKeyId" maxlength="100" spellcheck="false" /></div>
+                        <div class="field"><label data-i18n="set.key-secret" for="payKeySecret" id="payKeySecretLabel">Key Secret</label><input type="password" id="payKeySecret" maxlength="300" autocomplete="new-password" /></div>
                       </div>
-                      <div class="field" id="payWebhookSecretField"><label for="payWebhookSecret">Webhook secret (you choose it; type the same in Razorpay)</label><input type="password" id="payWebhookSecret" maxlength="300" autocomplete="new-password" /></div>
+                      <div class="field" id="payWebhookSecretField"><label data-i18n="set.webhook-secret-you-choose-it-type" for="payWebhookSecret">Webhook secret (you choose it; type the same in Razorpay)</label><input type="password" id="payWebhookSecret" maxlength="300" autocomplete="new-password" /></div>
                       <p class="settings-hint" id="payKeyHint"></p>
                     </div>
                     <div class="data-actions" style="justify-content: flex-end">
-                      <button class="btn btn-outline" id="payFormCancel" type="button">Cancel</button>
-                      <button class="btn btn-primary" id="payFormSave" type="submit">Check and save</button>
+                      <button data-i18n="common.cancel" class="btn btn-outline" id="payFormCancel" type="button">Cancel</button>
+                      <button data-i18n="set.check-and-save" class="btn btn-primary" id="payFormSave" type="submit">Check and save</button>
                     </div>
                   </form>
                 </div>
 
                 <form class="settings-section wa-block" id="paySettingsForm" autocomplete="off">
-                  <div class="settings-section-label">Links and receipts</div>
+                  <div data-i18n="set.links-and-receipts" class="settings-section-label">Links and receipts</div>
                   <div class="field-row">
-                    <div class="field"><label for="payExpiry">A payment link is valid for (days)</label><input type="number" id="payExpiry" min="1" max="180" /></div>
+                    <div class="field"><label data-i18n="set.a-payment-link-is-valid-for" for="payExpiry">A payment link is valid for (days)</label><input type="number" id="payExpiry" min="1" max="180" /></div>
                     <div class="field">
-                      <label>Receipts</label>
-                      <label class="ls-check"><input type="checkbox" id="paySendReceipt" /> Send the customer a receipt on WhatsApp</label>
+                      <label data-i18n="set.receipts">Receipts</label>
+                      <label class="ls-check"><input type="checkbox" id="paySendReceipt" /> <span data-i18n="set.send-the-customer-a-receipt-on">Send the customer a receipt on WhatsApp</span></label>
                     </div>
                   </div>
-                  <div class="field"><label for="payLinkTpl">Template for a payment link when the customer has not written in 24 hours</label><select id="payLinkTpl"></select></div>
-                  <div class="field"><label for="payReceiptTpl">Template for a receipt when the customer has not written in 24 hours</label><select id="payReceiptTpl"></select></div>
-                  <p class="settings-hint">Inside 24 hours a normal message goes. A template gets the customer's name, the amount, the order number and the link, in that order (or by the names of its variables, e.g. {{customer_name}}, {{amount}}, {{order_number}}, {{link}}); a link button gets the end of the link.</p>
+                  <div class="field"><label data-i18n="set.template-for-a-payment-link-when" for="payLinkTpl">Template for a payment link when the customer has not written in 24 hours</label><select id="payLinkTpl"></select></div>
+                  <div class="field"><label data-i18n="set.template-for-a-receipt-when-the" for="payReceiptTpl">Template for a receipt when the customer has not written in 24 hours</label><select id="payReceiptTpl"></select></div>
+                  <p data-i18n="set.inside-24-hours-a-normal-message" class="settings-hint">Inside 24 hours a normal message goes. A template gets the customer's name, the amount, the order number and the link, in that order (or by the names of its variables, e.g. {{customer_name}}, {{amount}}, {{order_number}}, {{link}}); a link button gets the end of the link.</p>
                   <div class="data-actions" style="justify-content: flex-end">
-                    <button class="btn btn-primary" type="submit">Save payment settings</button>
+                    <button data-i18n="set.save-payment-settings" class="btn btn-primary" type="submit">Save payment settings</button>
                   </div>
                 </form>
               </div>
@@ -1927,95 +1927,95 @@
           <div class="settings-panel" data-settings-panel="leadrules">
             <div class="panel">
               <div class="panel-head">
-                <h3>Lead rules</h3>
+                <h3 data-i18n="set.tab.leadrules">Lead rules</h3>
               </div>
               <div style="padding: 20px">
-                <p class="settings-hint">
+                <p data-i18n="set.what-happens-the-moment-an-enquiry" class="settings-hint">
                   What happens the moment an enquiry arrives (from any lead source, or a customer's first
                   WhatsApp message): who gets the lead, and the instant WhatsApp reply.
                 </p>
 
                 <form class="settings-section" id="lrHoursForm">
-                  <div class="settings-section-label">Working hours</div>
-                  <div class="field"><label>Days</label><div id="lrDays"></div></div>
+                  <div data-i18n="wfb.cond.businessHours" class="settings-section-label">Working hours</div>
+                  <div class="field"><label data-i18n="wfb.field.days">Days</label><div id="lrDays"></div></div>
                   <div class="field-row lr-hours">
-                    <div class="field"><label for="lrStart">From</label><input type="time" id="lrStart" required /></div>
-                    <div class="field"><label for="lrEnd">To</label><input type="time" id="lrEnd" required /></div>
-                    <div class="field"><label for="lrTz">Time zone</label><input type="text" id="lrTz" maxlength="60" placeholder="Asia/Kolkata" /></div>
+                    <div class="field"><label data-i18n="tally.from" for="lrStart">From</label><input type="time" id="lrStart" required /></div>
+                    <div class="field"><label data-i18n="tally.to" for="lrEnd">To</label><input type="time" id="lrEnd" required /></div>
+                    <div class="field"><label data-i18n="set.time-zone" for="lrTz">Time zone</label><input type="text" id="lrTz" maxlength="60" placeholder="Asia/Kolkata"  data-i18n-placeholder="set.asia-kolkata"/></div>
                   </div>
                   <div class="data-actions" style="justify-content: space-between; align-items: center">
                     <span class="settings-hint" style="margin: 0" id="lrOpenNow"></span>
-                    <button class="btn btn-primary" type="submit">Save hours</button>
+                    <button data-i18n="set.save-hours" class="btn btn-primary" type="submit">Save hours</button>
                   </div>
                 </form>
 
                 <div class="settings-section wa-block">
-                  <div class="settings-section-label">Who gets a new lead</div>
-                  <p class="settings-hint">
+                  <div data-i18n="set.who-gets-a-new-lead" class="settings-section-label">Who gets a new lead</div>
+                  <p data-i18n="set.rules-are-tried-from-the-top" class="settings-hint">
                     Rules are tried from the top; the first that fits the enquiry decides. A lead that no rule
                     fits stays unassigned: everyone with "See all" sees it in Leads, and its WhatsApp chat waits in the queue.
                   </p>
                   <div id="lrAssignList"></div>
                   <div class="data-actions" style="margin-top: 10px">
-                    <button class="btn btn-outline" type="button" id="lrAssignNew"><i class="fa-solid fa-plus"></i> New rule</button>
+                    <button class="btn btn-outline" type="button" id="lrAssignNew"><i class="fa-solid fa-plus"></i> <span data-i18n="set.new-rule">New rule</span></button>
                   </div>
                   <form class="wa-new lr-form" id="lrAssignForm" hidden autocomplete="off">
                     <input type="hidden" id="lrAssignId" />
-                    <div class="field"><label for="lrAssignName">Rule name</label><input type="text" id="lrAssignName" maxlength="100" placeholder="IndiaMART leads from Rajasthan" /></div>
-                    <div class="field"><label>Leads from (none ticked = any source)</label><div id="lrAssignSources"></div></div>
+                    <div class="field"><label data-i18n="set.rule-name" for="lrAssignName">Rule name</label><input type="text" id="lrAssignName" maxlength="100" placeholder="IndiaMART leads from Rajasthan"  data-i18n-placeholder="set.indiamart-leads-from-rajasthan"/></div>
+                    <div class="field"><label data-i18n="set.leads-from-none-ticked-any-source">Leads from (none ticked = any source)</label><div id="lrAssignSources"></div></div>
                     <div class="field-row">
-                      <div class="field"><label for="lrAssignStates">Only these states (optional, comma separated)</label><input type="text" id="lrAssignStates" maxlength="1000" placeholder="Rajasthan, Gujarat" /></div>
-                      <div class="field"><label for="lrAssignCities">Only these cities (optional)</label><input type="text" id="lrAssignCities" maxlength="1000" placeholder="Jaipur, Jodhpur" /></div>
+                      <div class="field"><label data-i18n="set.only-these-states-optional-comma-separated" for="lrAssignStates">Only these states (optional, comma separated)</label><input type="text" id="lrAssignStates" maxlength="1000" placeholder="Rajasthan, Gujarat"  data-i18n-placeholder="set.rajasthan-gujarat"/></div>
+                      <div class="field"><label data-i18n="set.only-these-cities-optional" for="lrAssignCities">Only these cities (optional)</label><input type="text" id="lrAssignCities" maxlength="1000" placeholder="Jaipur, Jodhpur"  data-i18n-placeholder="set.jaipur-jodhpur"/></div>
                     </div>
-                    <div class="field"><label>Only these products (optional)</label><div id="lrAssignProducts"></div></div>
+                    <div class="field"><label data-i18n="set.only-these-products-optional">Only these products (optional)</label><div id="lrAssignProducts"></div></div>
                     <div class="field">
-                      <label>How</label>
+                      <label data-i18n="orders.how">How</label>
                       <div class="lr-stack">
-                        <label class="ls-check"><input type="radio" name="lrStrategy" value="round_robin" checked /> In turns (round-robin) among the people ticked</label>
-                        <label class="ls-check"><input type="radio" name="lrStrategy" value="specific" /> Always the first person ticked</label>
+                        <label class="ls-check"><input type="radio" name="lrStrategy" value="round_robin" checked /> <span data-i18n="set.in-turns-round-robin-among-the">In turns (round-robin) among the people ticked</span></label>
+                        <label class="ls-check"><input type="radio" name="lrStrategy" value="specific" /> <span data-i18n="set.always-the-first-person-ticked">Always the first person ticked</span></label>
                       </div>
                     </div>
-                    <div class="field"><label>People</label><div id="lrAssignMembers"></div></div>
+                    <div class="field"><label data-i18n="set.people">People</label><div id="lrAssignMembers"></div></div>
                     <div class="field-row">
                       <div class="field">
-                        <label>Working hours</label>
-                        <label class="ls-check"><input type="checkbox" id="lrAssignHours" /> Outside working hours, give the lead to the fallback person</label>
+                        <label data-i18n="wfb.cond.businessHours">Working hours</label>
+                        <label class="ls-check"><input type="checkbox" id="lrAssignHours" /> <span data-i18n="set.outside-working-hours-give-the-lead">Outside working hours, give the lead to the fallback person</span></label>
                       </div>
-                      <div class="field"><label for="lrAssignFallback">Fallback person</label><select id="lrAssignFallback"></select></div>
+                      <div class="field"><label data-i18n="set.fallback-person" for="lrAssignFallback">Fallback person</label><select id="lrAssignFallback"></select></div>
                     </div>
                     <div class="data-actions" style="justify-content: flex-end">
-                      <button class="btn btn-outline" type="button" id="lrAssignCancel">Cancel</button>
-                      <button class="btn btn-primary" type="submit">Save rule</button>
+                      <button data-i18n="common.cancel" class="btn btn-outline" type="button" id="lrAssignCancel">Cancel</button>
+                      <button data-i18n="ap.save" class="btn btn-primary" type="submit">Save rule</button>
                     </div>
                   </form>
                 </div>
 
                 <div class="settings-section wa-block">
-                  <div class="settings-section-label">Instant WhatsApp reply</div>
-                  <p class="settings-hint">
+                  <div data-i18n="set.instant-whatsapp-reply" class="settings-section-label">Instant WhatsApp reply</div>
+                  <p data-i18n="set.sends-one-of-your-approved-whatsapp" class="settings-hint">
                     Sends one of your approved WhatsApp templates within seconds of a new enquiry, in the chat of
                     the lead's owner, marked "Auto-reply". Repeat enquiries, enquiries older than the limit (for example
                     IndiaMART's first pull of the last 24 hours) and customers without a mobile number get none.
                   </p>
                   <div id="lrReplyList"></div>
                   <div class="data-actions" style="margin-top: 10px">
-                    <button class="btn btn-outline" type="button" id="lrReplyNew"><i class="fa-solid fa-plus"></i> New auto-reply</button>
+                    <button class="btn btn-outline" type="button" id="lrReplyNew"><i class="fa-solid fa-plus"></i> <span data-i18n="set.new-auto-reply">New auto-reply</span></button>
                   </div>
                   <form class="wa-new lr-form" id="lrReplyForm" hidden autocomplete="off">
                     <input type="hidden" id="lrReplyId" />
-                    <div class="field"><label for="lrReplyName">Name</label><input type="text" id="lrReplyName" maxlength="100" placeholder="Welcome IndiaMART buyers" /></div>
-                    <div class="field"><label>For leads from (none ticked = any source)</label><div id="lrReplySources"></div></div>
-                    <div class="field"><label for="lrReplyTemplate">WhatsApp template</label><select id="lrReplyTemplate" required></select></div>
+                    <div class="field"><label data-i18n="ap.name" for="lrReplyName">Name</label><input type="text" id="lrReplyName" maxlength="100" placeholder="Welcome IndiaMART buyers"  data-i18n-placeholder="set.welcome-indiamart-buyers"/></div>
+                    <div class="field"><label data-i18n="set.for-leads-from-none-ticked-any">For leads from (none ticked = any source)</label><div id="lrReplySources"></div></div>
+                    <div class="field"><label data-i18n="set.whatsapp-template" for="lrReplyTemplate">WhatsApp template</label><select id="lrReplyTemplate" required></select></div>
                     <div id="lrReplyVars"></div>
-                    <div class="field"><label>Preview</label><div class="lr-preview" id="lrReplyPreview"></div></div>
+                    <div class="field"><label data-i18n="inbox.tpl.preview">Preview</label><div class="lr-preview" id="lrReplyPreview"></div></div>
                     <div class="field-row">
-                      <div class="field"><label for="lrReplyAge">Skip enquiries older than (minutes, 0 = never)</label><input type="number" id="lrReplyAge" min="0" max="10080" value="60" /></div>
-                      <div class="field"><label for="lrReplyDelay">Wait before sending (seconds)</label><input type="number" id="lrReplyDelay" min="0" max="3600" value="0" /></div>
+                      <div class="field"><label data-i18n="set.skip-enquiries-older-than-minutes-0" for="lrReplyAge">Skip enquiries older than (minutes, 0 = never)</label><input type="number" id="lrReplyAge" min="0" max="10080" value="60" /></div>
+                      <div class="field"><label data-i18n="set.wait-before-sending-seconds" for="lrReplyDelay">Wait before sending (seconds)</label><input type="number" id="lrReplyDelay" min="0" max="3600" value="0" /></div>
                     </div>
-                    <div class="field"><label class="ls-check"><input type="checkbox" id="lrReplyOnlyNew" checked /> Only people who are new to the CRM (no second greeting)</label></div>
+                    <div class="field"><label class="ls-check"><input type="checkbox" id="lrReplyOnlyNew" checked /> <span data-i18n="set.only-people-who-are-new-to">Only people who are new to the CRM (no second greeting)</span></label></div>
                     <div class="data-actions" style="justify-content: flex-end">
-                      <button class="btn btn-outline" type="button" id="lrReplyCancel">Cancel</button>
-                      <button class="btn btn-primary" type="submit">Save auto-reply</button>
+                      <button data-i18n="common.cancel" class="btn btn-outline" type="button" id="lrReplyCancel">Cancel</button>
+                      <button data-i18n="set.save-auto-reply" class="btn btn-primary" type="submit">Save auto-reply</button>
                     </div>
                   </form>
                 </div>
@@ -2027,37 +2027,37 @@
           <div class="settings-panel" data-settings-panel="ai">
             <div class="panel">
               <div class="panel-head">
-                <h3>AI assistant</h3>
+                <h3 data-i18n="inbox.auto.ai">AI assistant</h3>
               </div>
               <div style="padding: 20px">
-                <p class="settings-hint">The assistant answers from your company profile, your products and prices (Products) and your FAQ answers (Sales Automation → FAQ bot). It never makes up prices, discounts or delivery dates: when it is not sure, it leaves the chat to your team. To write answers, the customer's recent messages and your product list are sent to Anthropic's Claude API.</p>
+                <p data-i18n="set.the-assistant-answers-from-your-company" class="settings-hint">The assistant answers from your company profile, your products and prices (Products) and your FAQ answers (Sales Automation → FAQ bot). It never makes up prices, discounts or delivery dates: when it is not sure, it leaves the chat to your team. To write answers, the customer's recent messages and your product list are sent to Anthropic's Claude API.</p>
                 <p class="settings-hint" id="aiNotReady" hidden></p>
                 <form class="settings-section" id="aiForm" autocomplete="off">
-                  <div class="settings-section-label">Switches</div>
+                  <div data-i18n="set.switches" class="settings-section-label">Switches</div>
                   <div class="field">
-                    <label class="ls-check"><input type="checkbox" id="aiEnabled" /> Switch on the AI assistant: agents get <strong>Suggest a reply</strong> in the inbox (they check and send it themselves)</label>
-                    <label class="ls-check"><input type="checkbox" id="aiAutoReply" /> Let it answer customers by itself on WhatsApp, only when it is sure and only in chats no teammate wrote in for 30 minutes (the FAQ bot answers first)</label>
+                    <label class="ls-check"><input type="checkbox" id="aiEnabled" /> <span data-i18n="set.switch-on-the-ai-assistant-agents">Switch on the AI assistant: agents get</span> <strong data-i18n="set.suggest-a-reply">Suggest a reply</strong> <span data-i18n="set.in-the-inbox-they-check-and">in the inbox (they check and send it themselves)</span></label>
+                    <label class="ls-check"><input type="checkbox" id="aiAutoReply" /> <span data-i18n="set.let-it-answer-customers-by-itself">Let it answer customers by itself on WhatsApp, only when it is sure and only in chats no teammate wrote in for 30 minutes (the FAQ bot answers first)</span></label>
                   </div>
                   <div class="field">
-                    <label for="aiInstructions">Your instructions (optional)</label>
-                    <textarea id="aiInstructions" rows="3" maxlength="1500" placeholder="e.g. Always mention free delivery above 50 bags. Use 'ji' with customers. Our working hours are 10 am to 7 pm."></textarea>
+                    <label data-i18n="set.your-instructions-optional" for="aiInstructions">Your instructions (optional)</label>
+                    <textarea id="aiInstructions" rows="3" maxlength="1500" placeholder="e.g. Always mention free delivery above 50 bags. Use 'ji' with customers. Our working hours are 10 am to 7 pm." data-i18n-placeholder="set.e-g-always-mention-free-delivery"></textarea>
                   </div>
                   <div class="data-actions" style="justify-content: flex-end">
-                    <button class="btn btn-primary" type="submit">Save</button>
+                    <button data-i18n="common.save" class="btn btn-primary" type="submit">Save</button>
                   </div>
                 </form>
                 <div class="settings-section">
-                  <div class="settings-section-label">This month</div>
+                  <div data-i18n="myperf.this-month" class="settings-section-label">This month</div>
                   <div class="plan-meters" id="aiUsage"></div>
                 </div>
                 <form class="settings-section" id="aiTestForm" autocomplete="off">
-                  <div class="settings-section-label">Try it</div>
+                  <div data-i18n="wa.link.try" class="settings-section-label">Try it</div>
                   <div class="field">
-                    <label for="aiTestMessage">A customer writes…</label>
-                    <input type="text" id="aiTestMessage" maxlength="1000" placeholder="e.g. Jeera 25 kg ka rate kya hai?" />
+                    <label data-i18n="set.a-customer-writes" for="aiTestMessage">A customer writes…</label>
+                    <input type="text" id="aiTestMessage" maxlength="1000" placeholder="e.g. Jeera 25 kg ka rate kya hai?"  data-i18n-placeholder="set.e-g-jeera-25-kg-ka"/>
                   </div>
                   <div class="data-actions" style="justify-content: flex-end">
-                    <button class="btn btn-outline" type="submit" id="aiTestBtn">See what it would answer</button>
+                    <button data-i18n="set.see-what-it-would-answer" class="btn btn-outline" type="submit" id="aiTestBtn">See what it would answer</button>
                   </div>
                   <div id="aiTestResult"></div>
                 </form>
@@ -2083,24 +2083,24 @@
           <div class="settings-panel" data-settings-panel="integrations">
             <div class="panel">
               <div class="panel-head">
-                <h3>API & webhooks</h3>
+                <h3 data-i18n="set.tab.integrations">API & webhooks</h3>
               </div>
               <div style="padding: 20px">
-                <p class="settings-hint">Connect your own software, Zapier or Make to the CRM. Step-by-step help: <strong>docs/INTEGRATIONS.md</strong>.</p>
+                <p data-i18n-html="set.connect-your-own-software-zapier-or" class="settings-hint">Connect your own software, Zapier or Make to the CRM. Step-by-step help: <strong>docs/INTEGRATIONS.md</strong>.</p>
                 <p class="settings-hint" id="intPlanNote" hidden></p>
 
                 <div class="settings-section">
-                  <div class="settings-section-label">API keys</div>
-                  <p class="settings-hint">Your systems call <strong id="intApiBase"></strong> with <code>Authorization: Bearer &lt;key&gt;</code>. A key works for the whole company, within the permissions you tick, and stops when you revoke it.</p>
-                  <div id="intKeys"><p class="settings-hint">Loading…</p></div>
+                  <div data-i18n="conn.kind.apiKeys" class="settings-section-label">API keys</div>
+                  <p class="settings-hint"><span data-i18n="set.your-systems-call">Your systems call</span> <strong id="intApiBase"></strong> <span data-i18n="set.with">with</span> <code translate="no">Authorization: Bearer &lt;key&gt;</code><span data-i18n="set.a-key-works-for-the-whole">. A key works for the whole company, within the permissions you tick, and stops when you revoke it.</span></p>
+                  <div id="intKeys"><p data-i18n="bulkbar.loading" class="settings-hint">Loading…</p></div>
                   <div class="pl-url" id="intNewKey" hidden></div>
-                  <button class="btn btn-outline" id="intKeyAddBtn" type="button"><i class="fa-solid fa-plus"></i> New API key</button>
+                  <button class="btn btn-outline" id="intKeyAddBtn" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="set.new-api-key">New API key</span></button>
                   <form class="wa-block" id="intKeyForm" autocomplete="off" hidden>
-                    <div class="field"><label for="intKeyName">Name (who uses it)</label><input type="text" id="intKeyName" maxlength="100" placeholder="e.g. Zapier, our ERP" /></div>
-                    <div class="field"><label>What it may do</label><div id="intKeyScopes"></div></div>
+                    <div class="field"><label data-i18n="set.name-who-uses-it" for="intKeyName">Name (who uses it)</label><input type="text" id="intKeyName" maxlength="100" placeholder="e.g. Zapier, our ERP"  data-i18n-placeholder="set.e-g-zapier-our-erp"/></div>
+                    <div class="field"><label data-i18n="set.what-it-may-do">What it may do</label><div id="intKeyScopes"></div></div>
                     <div class="data-actions" style="justify-content: flex-end">
-                      <button class="btn btn-outline" id="intKeyCancel" type="button">Cancel</button>
-                      <button class="btn btn-primary" type="submit">Make the key</button>
+                      <button data-i18n="common.cancel" class="btn btn-outline" id="intKeyCancel" type="button">Cancel</button>
+                      <button data-i18n="set.make-the-key" class="btn btn-primary" type="submit">Make the key</button>
                     </div>
                   </form>
                 </div>
@@ -2124,59 +2124,59 @@
                 </div>
 
                 <div class="settings-section">
-                  <div class="settings-section-label">Webhooks</div>
-                  <p class="settings-hint">The CRM tells your https address when something happens (a new lead, a stage change, a WhatsApp message, an order, a payment …). Each call is signed with the webhook's secret: <code>X-CRM-Signature: sha256=&lt;HMAC of the body&gt;</code>.</p>
+                  <div data-i18n="set.webhooks" class="settings-section-label">Webhooks</div>
+                  <p data-i18n-html="set.the-crm-tells-your-https-address" class="settings-hint">The CRM tells your https address when something happens (a new lead, a stage change, a WhatsApp message, an order, a payment …). Each call is signed with the webhook's secret: <code>X-CRM-Signature: sha256=&lt;HMAC of the body&gt;</code>.</p>
                   <p class="settings-hint" data-i18n="int.signHint">Safer (D78): X-CRM-Signature-256 signs the time too (t=…,v1=…), so your system can refuse a message older than 5 minutes. See docs/INTEGRATIONS.md.</p>
-                  <div id="intHooks"><p class="settings-hint">Loading…</p></div>
+                  <div id="intHooks"><p data-i18n="bulkbar.loading" class="settings-hint">Loading…</p></div>
                   <!-- D78: what each event sends, for Zapier and Make -->
                   <details class="int-examples" id="intHookExamples" hidden>
                     <summary data-i18n="int.ex.title">What each event sends (examples)</summary>
                     <div id="intHookExampleList"></div>
                   </details>
                   <div class="pl-url" id="intNewSecret" hidden></div>
-                  <button class="btn btn-outline" id="intHookAddBtn" type="button"><i class="fa-solid fa-plus"></i> Add a webhook</button>
+                  <button class="btn btn-outline" id="intHookAddBtn" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="set.add-a-webhook">Add a webhook</span></button>
                   <form class="wa-block" id="intHookForm" autocomplete="off" hidden>
-                    <h4 id="intHookFormTitle" style="margin: 0 0 12px">Add a webhook</h4>
-                    <div class="field"><label for="intHookUrl">Address (https)</label><input type="url" id="intHookUrl" maxlength="2000" placeholder="https://hooks.zapier.com/…" spellcheck="false" /></div>
-                    <div class="field"><label for="intHookDesc">Note (optional)</label><input type="text" id="intHookDesc" maxlength="200" /></div>
-                    <div class="field"><label>Events</label><div id="intHookEvents"></div></div>
+                    <h4 data-i18n="set.add-a-webhook" id="intHookFormTitle" style="margin: 0 0 12px">Add a webhook</h4>
+                    <div class="field"><label data-i18n="set.address-https" for="intHookUrl">Address (https)</label><input type="url" id="intHookUrl" maxlength="2000" placeholder="https://hooks.zapier.com/…" spellcheck="false" /></div>
+                    <div class="field"><label data-i18n="orders.note-optional" for="intHookDesc">Note (optional)</label><input type="text" id="intHookDesc" maxlength="200" /></div>
+                    <div class="field"><label data-i18n="set.events">Events</label><div id="intHookEvents"></div></div>
                     <div class="data-actions" style="justify-content: flex-end">
-                      <button class="btn btn-outline" id="intHookCancel" type="button">Cancel</button>
-                      <button class="btn btn-primary" type="submit" id="intHookSave">Save</button>
+                      <button data-i18n="common.cancel" class="btn btn-outline" id="intHookCancel" type="button">Cancel</button>
+                      <button data-i18n="common.save" class="btn btn-primary" type="submit" id="intHookSave">Save</button>
                     </div>
                   </form>
                 </div>
 
                 <form class="settings-section wa-block" id="intCapiForm" autocomplete="off">
-                  <div class="settings-section-label">Meta Conversions API</div>
-                  <p class="settings-hint">Tells Meta which Facebook and Instagram Lead Ads leads move on (Contacted, Quote Sent, Won …), so your ads find more people like your best customers. In Meta Events Manager: make (or pick) a dataset, then Settings → Conversions API → Generate access token.</p>
+                  <div data-i18n="conn.kind.metaCapi" class="settings-section-label">Meta Conversions API</div>
+                  <p data-i18n="set.tells-meta-which-facebook-and-instagram" class="settings-hint">Tells Meta which Facebook and Instagram Lead Ads leads move on (Contacted, Quote Sent, Won …), so your ads find more people like your best customers. In Meta Events Manager: make (or pick) a dataset, then Settings → Conversions API → Generate access token.</p>
                   <p class="settings-hint" id="intCapiStatus"></p>
                   <div class="field-row">
-                    <div class="field"><label for="intCapiDataset">Dataset (pixel) ID</label><input type="text" id="intCapiDataset" inputmode="numeric" maxlength="20" spellcheck="false" /></div>
-                    <div class="field"><label for="intCapiToken">Access token</label><input type="password" id="intCapiToken" maxlength="1000" autocomplete="new-password" /></div>
+                    <div class="field"><label data-i18n="set.dataset-pixel-id" for="intCapiDataset">Dataset (pixel) ID</label><input type="text" id="intCapiDataset" inputmode="numeric" maxlength="20" spellcheck="false" /></div>
+                    <div class="field"><label data-i18n="wa.adv.token" for="intCapiToken">Access token</label><input type="password" id="intCapiToken" maxlength="1000" autocomplete="new-password" /></div>
                   </div>
                   <div class="field-row">
-                    <div class="field"><label for="intCapiTest">Test event code (only while testing)</label><input type="text" id="intCapiTest" maxlength="50" spellcheck="false" /></div>
+                    <div class="field"><label data-i18n="set.test-event-code-only-while-testing" for="intCapiTest">Test event code (only while testing)</label><input type="text" id="intCapiTest" maxlength="50" spellcheck="false" /></div>
                     <div class="field">
-                      <label>Send</label>
-                      <label class="ls-check"><input type="checkbox" id="intCapiEnabled" /> Switched on</label>
-                      <label class="ls-check"><input type="checkbox" id="intCapiAll" /> Leads from every source, not only Lead Ads (matched by phone and email)</label>
+                      <label data-i18n="inbox.form.send">Send</label>
+                      <label class="ls-check"><input type="checkbox" id="intCapiEnabled" /> <span data-i18n="set.switched-on">Switched on</span></label>
+                      <label class="ls-check"><input type="checkbox" id="intCapiAll" /> <span data-i18n="set.leads-from-every-source-not-only">Leads from every source, not only Lead Ads (matched by phone and email)</span></label>
                     </div>
                   </div>
-                  <div class="field"><label>Stages to send</label><div id="intCapiStages"></div></div>
+                  <div class="field"><label data-i18n="set.stages-to-send">Stages to send</label><div id="intCapiStages"></div></div>
                   <div class="field">
-                    <label>Click-to-WhatsApp ads</label>
-                    <label class="ls-check"><input type="checkbox" id="intCapiCtwa" /> Also tell Meta when a lead from a Click-to-WhatsApp ad moves on (new lead, Quote Sent, Won), with the ad's click id</label>
-                    <div class="cf-help">These go to your WhatsApp Business Account's dataset with Meta's own event names (LeadSubmitted, QualifiedLead, Purchase). The token above needs the whatsapp_business_manage_events permission.</div>
+                    <label data-i18n="set.click-to-whatsapp-ads">Click-to-WhatsApp ads</label>
+                    <label class="ls-check"><input type="checkbox" id="intCapiCtwa" /> <span data-i18n="set.also-tell-meta-when-a-lead">Also tell Meta when a lead from a Click-to-WhatsApp ad moves on (new lead, Quote Sent, Won), with the ad's click id</span></label>
+                    <div data-i18n="set.these-go-to-your-whatsapp-business" class="cf-help">These go to your WhatsApp Business Account's dataset with Meta's own event names (LeadSubmitted, QualifiedLead, Purchase). The token above needs the whatsapp_business_manage_events permission.</div>
                   </div>
                   <div class="field-row">
-                    <div class="field"><label for="intCapiCtwaDataset">WhatsApp dataset ID (empty: the dataset above)</label><input type="text" id="intCapiCtwaDataset" inputmode="numeric" maxlength="20" spellcheck="false" /></div>
-                    <div class="field"><label>&nbsp;</label><button class="btn btn-outline" id="intCapiCtwaFind" type="button" hidden>Find it in Meta</button></div>
+                    <div class="field"><label data-i18n="set.whatsapp-dataset-id-empty-the-dataset" for="intCapiCtwaDataset">WhatsApp dataset ID (empty: the dataset above)</label><input type="text" id="intCapiCtwaDataset" inputmode="numeric" maxlength="20" spellcheck="false" /></div>
+                    <div class="field"><label>&nbsp;</label><button data-i18n="set.find-it-in-meta" class="btn btn-outline" id="intCapiCtwaFind" type="button" hidden>Find it in Meta</button></div>
                   </div>
                   <div class="data-actions" style="justify-content: flex-end">
-                    <button class="btn btn-danger-outline" id="intCapiRemove" type="button" hidden>Remove</button>
-                    <button class="btn btn-outline" id="intCapiTestBtn" type="button" hidden>Send a test event</button>
-                    <button class="btn btn-primary" type="submit">Check and save</button>
+                    <button data-i18n="cf.sec.remove" class="btn btn-danger-outline" id="intCapiRemove" type="button" hidden>Remove</button>
+                    <button data-i18n="set.send-a-test-event" class="btn btn-outline" id="intCapiTestBtn" type="button" hidden>Send a test event</button>
+                    <button data-i18n="set.check-and-save" class="btn btn-primary" type="submit">Check and save</button>
                   </div>
                 </form>
               </div>
@@ -2368,7 +2368,7 @@
                   <button type="button" class="btn btn-primary" id="psetAdd"><i class="fa-solid fa-plus"></i> <span data-i18n="pset.add">Add pipeline</span></button>
                 </div>
                 <div id="psetEditor"></div>
-                <div id="psetList"><p class="settings-hint">Loading…</p></div>
+                <div id="psetList"><p data-i18n="bulkbar.loading" class="settings-hint">Loading…</p></div>
               </div>
             </div>
           </div>
@@ -2424,19 +2424,19 @@
           <div class="settings-panel" data-settings-panel="audit">
             <div class="panel">
               <div class="panel-head">
-                <h3>Audit log</h3>
+                <h3 data-i18n="set.tab.audit">Audit log</h3>
               </div>
               <div style="padding: 20px">
-                <p class="settings-hint">Who did what, and when: sign-ins, changes to customers, leads, quotations, orders and settings, keys, the plan and more. Entries cannot be changed or removed. Passwords and keys never appear here.</p>
+                <p data-i18n="set.who-did-what-and-when-sign" class="settings-hint">Who did what, and when: sign-ins, changes to customers, leads, quotations, orders and settings, keys, the plan and more. Entries cannot be changed or removed. Passwords and keys never appear here.</p>
                 <form class="field-row" id="auditFilters" autocomplete="off">
-                  <div class="field"><label for="auditArea">Area</label><select id="auditArea"><option value="">Everything</option></select></div>
-                  <div class="field"><label for="auditPerson">Person</label><select id="auditPerson"><option value="">Everyone</option></select></div>
-                  <div class="field"><label for="auditFrom">From</label><input type="date" id="auditFrom" /></div>
-                  <div class="field"><label for="auditTo">To</label><input type="date" id="auditTo" /></div>
+                  <div class="field"><label data-i18n="set.area" for="auditArea">Area</label><select id="auditArea"><option data-i18n="set.everything" value="">Everything</option></select></div>
+                  <div class="field"><label data-i18n="wfb.field.memberId" for="auditPerson">Person</label><select id="auditPerson"><option data-i18n="set.everyone" value="">Everyone</option></select></div>
+                  <div class="field"><label data-i18n="tally.from" for="auditFrom">From</label><input type="date" id="auditFrom" /></div>
+                  <div class="field"><label data-i18n="tally.to" for="auditTo">To</label><input type="date" id="auditTo" /></div>
                 </form>
-                <div id="auditList"><p class="settings-hint">Loading…</p></div>
+                <div id="auditList"><p data-i18n="bulkbar.loading" class="settings-hint">Loading…</p></div>
                 <div class="data-actions" style="justify-content: center; margin-top: 12px">
-                  <button class="btn btn-outline" id="auditMore" type="button" hidden>Show more</button>
+                  <button data-i18n="list.more" class="btn btn-outline" id="auditMore" type="button" hidden>Show more</button>
                 </div>
               </div>
             </div>
@@ -2446,30 +2446,30 @@
           <div class="settings-panel" data-settings-panel="plan">
             <div class="panel">
               <div class="panel-head">
-                <h3>Plan & usage</h3>
+                <h3 data-i18n="set.tab.plan">Plan & usage</h3>
               </div>
               <div style="padding: 20px">
                 <div class="settings-section">
-                  <div class="settings-section-label">Your plan</div>
-                  <div id="planCurrent"><p class="settings-hint">Loading…</p></div>
+                  <div data-i18n="set.your-plan" class="settings-section-label">Your plan</div>
+                  <div id="planCurrent"><p data-i18n="bulkbar.loading" class="settings-hint">Loading…</p></div>
                 </div>
                 <div class="settings-section">
-                  <div class="settings-section-label">Usage</div>
+                  <div data-i18n="set.usage" class="settings-section-label">Usage</div>
                   <div id="planMeters"></div>
-                  <p class="settings-hint" style="margin-top: 10px" id="planUsageHint">Broadcasts and quotations count from the 1st of each month. A pending invite holds a seat. Customers who write on WhatsApp and leads from your lead sources are always added, even at the limit.</p>
+                  <p data-i18n="set.broadcasts-and-quotations-count-from-the" class="settings-hint" style="margin-top: 10px" id="planUsageHint">Broadcasts and quotations count from the 1st of each month. A pending invite holds a seat. Customers who write on WhatsApp and leads from your lead sources are always added, even at the limit.</p>
                 </div>
                 <div class="settings-section">
-                  <div class="settings-section-label">Plans</div>
+                  <div data-i18n="set.plans" class="settings-section-label">Plans</div>
                   <div class="plan-grid" id="planGrid"></div>
-                  <p class="settings-hint" style="margin-top: 10px" id="planGridHint">Prices are per month, plus 18% GST.</p>
+                  <p data-i18n="set.prices-are-per-month-plus-18" class="settings-hint" style="margin-top: 10px" id="planGridHint">Prices are per month, plus 18% GST.</p>
                   <div class="plan-included" id="planIncluded" hidden>
-                    <div class="plan-included-title">Every plan has</div>
+                    <div data-i18n="lp.every-plan-has" class="plan-included-title">Every plan has</div>
                     <ul id="planIncludedList"></ul>
                   </div>
-                  <p class="settings-hint" style="margin-top: 10px">Users are the whole team: admins, agents and viewers (the owner is one of them). A plan has a WhatsApp number for each agent, up to 20: Meta lets a new business connect 2 numbers, and up to 20 once Meta has verified the business. Each number needs its own phone number.</p>
+                  <p data-i18n="set.users-are-the-whole-team-admins" class="settings-hint" style="margin-top: 10px">Users are the whole team: admins, agents and viewers (the owner is one of them). A plan has a WhatsApp number for each agent, up to 20: Meta lets a new business connect 2 numbers, and up to 20 once Meta has verified the business. Each number needs its own phone number.</p>
                 </div>
                 <div class="settings-section" id="planInvoicesSection" hidden>
-                  <div class="settings-section-label">Invoices</div>
+                  <div data-i18n="set.invoices" class="settings-section-label">Invoices</div>
                   <div id="planInvoices"></div>
                 </div>
               </div>
@@ -2480,12 +2480,12 @@
           <div class="settings-panel" data-settings-panel="data">
             <div class="panel">
               <div class="panel-head">
-                <h3>Data & Privacy</h3>
+                <h3 data-i18n="set.tab.data">Data & Privacy</h3>
               </div>
               <div style="padding: 20px">
                 <div class="settings-section">
-                  <div class="settings-section-label">Storage</div>
-                  <p class="settings-hint">
+                  <div data-i18n="set.storage" class="settings-section-label">Storage</div>
+                  <p data-i18n="set.your-account-company-profile-team-customers" class="settings-hint">
                     Your account, company profile, team, customers, leads, deals,
                     products, quotations, tasks, calendar events, support tickets, notes, documents, campaigns, automations and your team are on the CRM server. The list below
                     shows what is still saved in this browser.
@@ -2494,8 +2494,8 @@
                 </div>
 
                 <div class="settings-section" id="serverImportSection" hidden>
-                  <div class="settings-section-label">Move my browser data to server</div>
-                  <p class="settings-hint">
+                  <div data-i18n="set.move-my-browser-data-to-server" class="settings-section-label">Move my browser data to server</div>
+                  <p data-i18n="set.copies-the-customers-leads-deals-products" class="settings-hint">
                     Copies the customers, leads, deals, products, quotations,
                     tasks, calendar events, support tickets, notes, documents, campaigns and automations saved in this browser to the CRM server, and invites your Account Champions, so your whole team
                     sees them. Nothing in this browser is deleted, and running it
@@ -2504,7 +2504,7 @@
                   </p>
                   <div class="data-actions">
                     <button class="btn btn-primary" id="serverImportBtn">
-                      <i class="fa-solid fa-cloud-arrow-up"></i> Move my browser data to server
+                      <i class="fa-solid fa-cloud-arrow-up"></i> <span data-i18n="set.move-my-browser-data-to-server">Move my browser data to server</span>
                     </button>
                   </div>
                   <div id="serverImportReport" style="margin-top: 12px"></div>
@@ -2512,8 +2512,8 @@
 
                 <div class="settings-section">
                   <div id="serverExportSection" hidden>
-                    <div class="settings-section-label">Download CRM data</div>
-                    <p class="settings-hint">
+                    <div data-i18n="set.download-crm-data" class="settings-section-label">Download CRM data</div>
+                    <p data-i18n="set.all-of-your-company-s-crm" class="settings-hint">
                       All of your company's CRM data on the server as one JSON file:
                       customers, leads, quotations, orders, products, WhatsApp chats and
                       messages, templates, lead sources, automations, broadcasts, payments,
@@ -2523,12 +2523,12 @@
                     </p>
                     <div class="data-actions" style="margin-bottom: 20px">
                       <button class="btn btn-primary" id="serverExportBtn">
-                        <i class="fa-solid fa-cloud-arrow-down"></i> Download CRM Data
+                        <i class="fa-solid fa-cloud-arrow-down"></i> <span data-i18n="set.download-crm-data-2">Download CRM Data</span>
                       </button>
                     </div>
                   </div>
-                  <div class="settings-section-label">Old browser data</div>
-                  <p class="settings-hint">
+                  <div data-i18n="set.old-browser-data" class="settings-section-label">Old browser data</div>
+                  <p data-i18n="set.copies-the-crm-data-this-browser" class="settings-hint">
                     Copies the CRM data this browser kept before it moved to the
                     server into a JSON file, or loads such a file into this
                     browser — for example to move it from another address before
@@ -2536,36 +2536,36 @@
                   </p>
                   <div class="data-actions">
                     <button class="btn btn-outline" id="exportBtn">
-                      <i class="fa-solid fa-download"></i> Export Browser Data
+                      <i class="fa-solid fa-download"></i> <span data-i18n="set.export-browser-data">Export Browser Data</span>
                     </button>
                     <button class="btn btn-outline" id="importBtn">
-                      <i class="fa-solid fa-upload"></i> Import Browser Data
+                      <i class="fa-solid fa-upload"></i> <span data-i18n="set.import-browser-data">Import Browser Data</span>
                     </button>
                     <input type="file" id="importFileInput" accept="application/json" />
                   </div>
                 </div>
 
                 <div class="settings-section">
-                  <div class="settings-section-label">Danger Zone</div>
+                  <div data-i18n="set.danger-zone" class="settings-section-label">Danger Zone</div>
                   <div class="danger-zone">
-                    <p>
+                    <p data-i18n="set.deletes-the-crm-data-saved-in">
                       Deletes the CRM data saved in this browser (older copies
                       of records that are now on the server).
                       Data on the CRM server is not touched. Move your data to
                       the server first. You'll stay signed in.
                     </p>
                     <button class="btn btn-danger-outline" id="resetBtn">
-                      <i class="fa-solid fa-triangle-exclamation"></i> Clear This Browser's CRM Data
+                      <i class="fa-solid fa-triangle-exclamation"></i> <span data-i18n="set.clear-this-browser-s-crm-data">Clear This Browser's CRM Data</span>
                     </button>
                   </div>
                   <!-- Deleting the company (Phase 10F, owners) -->
                   <div class="danger-zone" id="orgDeleteSection" hidden style="margin-top: 14px">
                     <p id="orgDeleteText"></p>
                     <div id="orgDeleteForm">
-                      <div class="field"><label for="orgDeleteName">Type the company name to confirm</label><input type="text" id="orgDeleteName" autocomplete="off" maxlength="200" /></div>
-                      <button class="btn btn-danger-outline" id="orgDeleteBtn" type="button"><i class="fa-solid fa-trash"></i> Delete this company</button>
+                      <div class="field"><label data-i18n="set.type-the-company-name-to-confirm" for="orgDeleteName">Type the company name to confirm</label><input type="text" id="orgDeleteName" autocomplete="off" maxlength="200" /></div>
+                      <button class="btn btn-danger-outline" id="orgDeleteBtn" type="button"><i class="fa-solid fa-trash"></i> <span data-i18n="set.delete-this-company">Delete this company</span></button>
                     </div>
-                    <button class="btn btn-primary" id="orgKeepBtn" type="button" hidden>Keep the company (cancel the deletion)</button>
+                    <button data-i18n="set.keep-the-company-cancel-the-deletion" class="btn btn-primary" id="orgKeepBtn" type="button" hidden>Keep the company (cancel the deletion)</button>
                   </div>
                 </div>
               </div>

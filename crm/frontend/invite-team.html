@@ -205,9 +205,9 @@
     <main class="onboard-page">
       <div class="onboard-card">
         <div class="onboard-head">
-          <span class="badge badge-brand">Almost there</span>
-          <h1>Invite your team</h1>
-          <p>
+          <span data-i18n="invite.almost-there" class="badge badge-brand">Almost there</span>
+          <h1 data-i18n="dash.setup.team.title">Invite your team</h1>
+          <p data-i18n="invite.add-the-people-who-will-answer">
             Add the people who will answer chats and handle leads. Each person signs in with their own Google account and
             sees only the pages you choose. You can add or change people any time in Settings → Team &amp; Access.
           </p>
@@ -218,18 +218,18 @@
           <div class="onboard-body">
             <div class="invite-error" id="inviteError" role="alert" hidden></div>
             <div id="inviteRows"></div>
-            <button type="button" class="invite-add" id="addRowBtn"><i class="fa-solid fa-plus"></i> Add another person</button>
+            <button type="button" class="invite-add" id="addRowBtn"><i class="fa-solid fa-plus"></i> <span data-i18n="invite.add-another-person">Add another person</span></button>
           </div>
           <div class="onboard-foot">
-            <button type="button" class="onboard-skip" id="skipBtn">Skip for now</button>
-            <button type="submit" class="btn btn-primary" id="sendBtn"><i class="fa-solid fa-paper-plane"></i> Send invites</button>
+            <button data-i18n="cw.skip" type="button" class="onboard-skip" id="skipBtn">Skip for now</button>
+            <button type="submit" class="btn btn-primary" id="sendBtn"><i class="fa-solid fa-paper-plane"></i> <span data-i18n="invite.send-invites">Send invites</span></button>
           </div>
         </form>
 
         <!-- The links to send -->
         <div data-view="done" hidden>
           <div class="onboard-body invite-done">
-            <p class="invite-admin-note" style="margin: 0 0 8px">
+            <p data-i18n="invite.send-each-person-their-link-on" class="invite-admin-note" style="margin: 0 0 8px">
               Send each person their link (on WhatsApp or any way you like). The link works for 7 days; they open it and sign
               in with Google using the same email.
             </p>
@@ -238,7 +238,7 @@
           </div>
           <div class="onboard-foot">
             <span></span>
-            <button type="button" class="btn btn-primary" id="continueBtn">Continue <i class="fa-solid fa-arrow-right"></i></button>
+            <button type="button" class="btn btn-primary" id="continueBtn"><span data-i18n="invite.continue">Continue</span> <i class="fa-solid fa-arrow-right"></i></button>
           </div>
         </div>
       </div>

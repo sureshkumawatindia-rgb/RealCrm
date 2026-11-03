@@ -70,38 +70,38 @@
         <header class="topbar">
           <div style="display: flex; align-items: center; gap: 12px">
             <button id="menu-toggle" class="icon-btn" style="display: none"><i class="fa-solid fa-bars"></i></button>
-            <h2>Platform admin</h2>
+            <h2 data-i18n="nav.platformAdmin">Platform admin</h2>
           </div>
           <div class="topbar-right">
             <span class="text-muted pa-until" id="paUntil" hidden></span>
-            <button class="btn btn-outline" id="paLock" type="button" hidden><i class="fa-solid fa-lock"></i> Lock</button>
+            <button class="btn btn-outline" id="paLock" type="button" hidden><i class="fa-solid fa-lock"></i> <span data-i18n="padmin.lock">Lock</span></button>
           </div>
         </header>
 
         <div class="page">
-          <div class="panel pa-gate" id="paLoading"><div class="report-empty"><i class="fa-solid fa-spinner fa-spin"></i>Loading…</div></div>
+          <div class="panel pa-gate" id="paLoading"><div class="report-empty"><i class="fa-solid fa-spinner fa-spin"></i><span data-i18n="bulkbar.loading">Loading…</span></div></div>
 
           <div class="panel pa-gate" id="paNotAdmin" hidden>
             <i class="fa-solid fa-user-shield pa-gate-icon"></i>
-            <h3>Only for the platform's admins</h3>
-            <p class="text-muted">This page is for the people who run YELLOW CRM itself. Their Google emails are set on the server (PLATFORM_ADMIN_EMAILS).</p>
-            <a class="btn btn-outline" href="dashboard.html">Go to the dashboard</a>
+            <h3 data-i18n="padmin.only-for-the-platform-s-admins">Only for the platform's admins</h3>
+            <p data-i18n="padmin.this-page-is-for-the-people" class="text-muted">This page is for the people who run YELLOW CRM itself. Their Google emails are set on the server (PLATFORM_ADMIN_EMAILS).</p>
+            <a data-i18n="padmin.go-to-the-dashboard" class="btn btn-outline" href="dashboard.html">Go to the dashboard</a>
           </div>
 
           <div class="panel pa-gate" id="paNeedsApp" hidden>
             <i class="fa-solid fa-shield-halved pa-gate-icon"></i>
-            <h3>Turn on 2-step login first</h3>
-            <p class="text-muted">The platform admin page opens only with a code from an authenticator app (Google Authenticator, Microsoft Authenticator…).</p>
-            <a class="btn btn-primary" href="two-factor.html">Set up 2-step login</a>
+            <h3 data-i18n="padmin.turn-on-2-step-login-first">Turn on 2-step login first</h3>
+            <p data-i18n="padmin.the-platform-admin-page-opens-only" class="text-muted">The platform admin page opens only with a code from an authenticator app (Google Authenticator, Microsoft Authenticator…).</p>
+            <a data-i18n="tfa.manage" class="btn btn-primary" href="two-factor.html">Set up 2-step login</a>
           </div>
 
           <form class="panel pa-gate" id="paUnlock" hidden autocomplete="off">
             <i class="fa-solid fa-lock pa-gate-icon"></i>
-            <h3>Enter a code from your authenticator app</h3>
-            <p class="text-muted">The page stays open on this device for 30 minutes.</p>
+            <h3 data-i18n="padmin.enter-a-code-from-your-authenticator">Enter a code from your authenticator app</h3>
+            <p data-i18n="padmin.the-page-stays-open-on-this" class="text-muted">The page stays open on this device for 30 minutes.</p>
             <div class="pa-code-row">
-              <input type="text" id="paCode" inputmode="numeric" autocomplete="one-time-code" maxlength="20" placeholder="6-digit code" aria-label="Code from the authenticator app" />
-              <button class="btn btn-primary" id="paUnlockBtn" type="submit">Open</button>
+              <input type="text" id="paCode" inputmode="numeric" autocomplete="one-time-code" maxlength="20" placeholder="6-digit code" aria-label="Code from the authenticator app"  data-i18n-aria-label="padmin.code-from-the-authenticator-app" data-i18n-placeholder="login.codePlaceholder"/>
+              <button data-i18n="dash.open" class="btn btn-primary" id="paUnlockBtn" type="submit">Open</button>
             </div>
             <p class="pa-error" id="paUnlockError" hidden></p>
           </form>
@@ -109,10 +109,10 @@
           <div id="paMain" hidden>
             <div class="toolbar pa-toolbar">
               <div class="report-tabs" id="paTabs" role="tablist">
-                <button class="report-tab active" data-tab="overview" type="button" role="tab"><i class="fa-solid fa-gauge-high"></i> Overview</button>
-                <button class="report-tab" data-tab="companies" type="button" role="tab"><i class="fa-solid fa-building"></i> Companies</button>
-                <button class="report-tab" data-tab="emails" type="button" role="tab"><i class="fa-solid fa-envelope"></i> Emails</button>
-                <button class="report-tab" data-tab="checklist" type="button" role="tab"><i class="fa-solid fa-list-check"></i> Go-live checklist</button>
+                <button class="report-tab active" data-tab="overview" type="button" role="tab"><i class="fa-solid fa-gauge-high"></i> <span data-i18n="c360.overview">Overview</span></button>
+                <button class="report-tab" data-tab="companies" type="button" role="tab"><i class="fa-solid fa-building"></i> <span data-i18n="padmin.companies">Companies</span></button>
+                <button class="report-tab" data-tab="emails" type="button" role="tab"><i class="fa-solid fa-envelope"></i> <span data-i18n="padmin.emails">Emails</span></button>
+                <button class="report-tab" data-tab="checklist" type="button" role="tab"><i class="fa-solid fa-list-check"></i> <span data-i18n="padmin.go-live-checklist">Go-live checklist</span></button>
               </div>
             </div>
 
@@ -123,23 +123,23 @@
 
             <section class="report-panel" id="paPanel-companies">
               <div class="pa-filters">
-                <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="paSearch" placeholder="Company name or id" aria-label="Search companies" maxlength="100" /></div>
-                <select class="filter" id="paStatus" aria-label="Plan status">
-                  <option value="">All companies</option>
-                  <option value="trialing">On trial</option>
-                  <option value="paying">Paying</option>
-                  <option value="past_due">Payment due</option>
-                  <option value="locked">Locked (trial over or stopped)</option>
-                  <option value="comped">Complimentary</option>
-                  <option value="cancelled">Cancelling</option>
+                <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="paSearch" placeholder="Company name or id" aria-label="Search companies" maxlength="100"  data-i18n-aria-label="padmin.search-companies" data-i18n-placeholder="padmin.company-name-or-id"/></div>
+                <select class="filter" id="paStatus" aria-label="Plan status" data-i18n-aria-label="padmin.plan-status">
+                  <option data-i18n="padmin.all-companies" value="">All companies</option>
+                  <option data-i18n="padmin.on-trial" value="trialing">On trial</option>
+                  <option data-i18n="padmin.paying" value="paying">Paying</option>
+                  <option data-i18n="orders.tab.dues" value="past_due">Payment due</option>
+                  <option data-i18n="padmin.locked-trial-over-or-stopped" value="locked">Locked (trial over or stopped)</option>
+                  <option data-i18n="padmin.complimentary" value="comped">Complimentary</option>
+                  <option data-i18n="padmin.cancelling" value="cancelled">Cancelling</option>
                 </select>
               </div>
               <div class="panel">
-                <div class="report-table pa-companies" id="paCompanyTable"><div class="report-empty"><i class="fa-solid fa-spinner fa-spin"></i>Loading…</div></div>
+                <div class="report-table pa-companies" id="paCompanyTable"><div class="report-empty"><i class="fa-solid fa-spinner fa-spin"></i><span data-i18n="bulkbar.loading">Loading…</span></div></div>
                 <div class="pa-pager" id="paPager" hidden>
-                  <button class="btn btn-outline" id="paPrev" type="button">Previous</button>
+                  <button data-i18n="padmin.previous" class="btn btn-outline" id="paPrev" type="button">Previous</button>
                   <span class="text-muted" id="paPageInfo"></span>
-                  <button class="btn btn-outline" id="paNext" type="button">Next</button>
+                  <button data-i18n="padmin.next" class="btn btn-outline" id="paNext" type="button">Next</button>
                 </div>
               </div>
             </section>
@@ -148,13 +148,13 @@
               <div class="stat-grid" id="paEmailKpis"></div>
               <div class="panel">
                 <div class="panel-head">
-                  <h3>Latest emails</h3>
-                  <select class="filter" id="paEmailStatus" aria-label="Email status">
-                    <option value="">All</option>
-                    <option value="sent">Sent</option>
-                    <option value="failed">Failed</option>
-                    <option value="skipped">Not sent (no key)</option>
-                    <option value="queued">Waiting</option>
+                  <h3 data-i18n="padmin.latest-emails">Latest emails</h3>
+                  <select class="filter" id="paEmailStatus" aria-label="Email status" data-i18n-aria-label="padmin.email-status">
+                    <option data-i18n="c360.hist.f.all" value="">All</option>
+                    <option data-i18n="inbox.tick.sent" value="sent">Sent</option>
+                    <option data-i18n="call.status.failed" value="failed">Failed</option>
+                    <option data-i18n="padmin.not-sent-no-key" value="skipped">Not sent (no key)</option>
+                    <option data-i18n="orders.col.waiting" value="queued">Waiting</option>
                   </select>
                 </div>
                 <div class="report-table" id="paEmailTable"></div>
@@ -175,38 +175,38 @@
     <div class="modal-overlay" id="paActionModal">
       <div class="modal">
         <div class="modal-head">
-          <h3 id="paActionTitle">Change the plan</h3>
-          <button class="icon-btn" id="paActionClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 data-i18n="padmin.change-the-plan" id="paActionTitle">Change the plan</h3>
+          <button class="icon-btn" id="paActionClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
           <p class="text-muted" id="paActionCompany"></p>
           <div class="field">
-            <label for="paAction">What to do</label>
+            <label data-i18n="wfb.field.stepType" for="paAction">What to do</label>
             <select id="paAction">
-              <option value="trial">Give a trial</option>
-              <option value="plan">Change the plan</option>
-              <option value="comp">Make it complimentary (free, no end)</option>
+              <option data-i18n="padmin.give-a-trial" value="trial">Give a trial</option>
+              <option data-i18n="padmin.change-the-plan" value="plan">Change the plan</option>
+              <option data-i18n="padmin.make-it-complimentary-free-no-end" value="comp">Make it complimentary (free, no end)</option>
             </select>
           </div>
           <div class="field" id="paDaysField">
-            <label for="paDays">Trial ends after (days from today)</label>
+            <label data-i18n="padmin.trial-ends-after-days-from-today" for="paDays">Trial ends after (days from today)</label>
             <input type="number" id="paDays" min="1" max="365" value="14" />
           </div>
           <div class="field" id="paPlanField" hidden>
-            <label for="paPlan">Plan</label>
+            <label data-i18n="padmin.plan" for="paPlan">Plan</label>
             <select id="paPlan">
-              <option value="starter">Starter</option>
-              <option value="pro">Pro</option>
-              <option value="growth">Growth</option>
-              <option value="scale">Scale</option>
-              <option value="infinite">Infinite</option>
+              <option data-i18n="padmin.starter" value="starter">Starter</option>
+              <option data-i18n="padmin.pro" value="pro">Pro</option>
+              <option data-i18n="padmin.growth" value="growth">Growth</option>
+              <option data-i18n="padmin.scale" value="scale">Scale</option>
+              <option data-i18n="padmin.infinite" value="infinite">Infinite</option>
             </select>
           </div>
           <p class="pa-hint" id="paActionHint"></p>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-outline" id="paActionCancel" type="button">Cancel</button>
-          <button class="btn btn-primary" id="paActionSave" type="button">Save</button>
+          <button data-i18n="common.cancel" class="btn btn-outline" id="paActionCancel" type="button">Cancel</button>
+          <button data-i18n="common.save" class="btn btn-primary" id="paActionSave" type="button">Save</button>
         </div>
       </div>
     </div>

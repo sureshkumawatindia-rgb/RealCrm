@@ -6,7 +6,7 @@
  * kept for when the network is gone; images from the cache first. The API is never cached:
  * business data stays on the server.
  */
-const CACHE = "ycrm-shell-v1";
+const CACHE = "ycrm-shell-v2"; // v2 (D116): the offline page in Hindi too
 const OFFLINE_PAGE = "offline.html";
 
 self.addEventListener("install", (event) => {

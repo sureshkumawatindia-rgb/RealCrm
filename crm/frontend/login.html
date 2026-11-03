@@ -73,10 +73,10 @@
             <form class="login-company" id="companyForm" novalidate>
               <label for="loginCompany" data-i18n="login.companyLabel">Company name</label>
               <div class="login-company-field" id="companyField">
-                <input type="text" id="loginCompany" name="organization" autocomplete="organization" maxlength="200" spellcheck="false" placeholder="e.g. Sharma Traders" aria-describedby="companyHelp companyError" />
+                <input type="text" id="loginCompany" name="organization" autocomplete="organization" maxlength="200" spellcheck="false" placeholder="e.g. Sharma Traders" aria-describedby="companyHelp companyError"  data-i18n-placeholder="login.companyPlaceholder"/>
                 <span class="login-company-state" id="companyState" aria-hidden="true"></span>
               </div>
-              <p class="login-field-help" id="companyHelp">Enter the name your company registered with Yellow CRM.</p>
+              <p data-i18n="login.companyHelp" class="login-field-help" id="companyHelp">Enter the name your company registered with Yellow CRM.</p>
               <p class="login-error" id="companyError" role="alert" hidden></p>
             </form>
             <div class="login-google">
@@ -87,10 +87,10 @@
               <div id="google-signin-slot" hidden></div>
             </div>
             <p class="login-error" id="googleError" role="alert" hidden></p>
-            <p class="login-hint" id="googleHint">Use the Google account your company added you with.</p>
+            <p data-i18n="login.googleHint" class="login-hint" id="googleHint">Use the Google account your company added you with.</p>
             <p class="login-links login-signup" id="signupRow">
-              <span id="signupAsk">New to Yellow CRM?</span>
-              <button type="button" class="login-link" id="signupLink">Create your company</button>
+              <span data-i18n="login.newHere" id="signupAsk">New to Yellow CRM?</span>
+              <button data-i18n="login.createCompany" type="button" class="login-link" id="signupLink">Create your company</button>
             </p>
           </div>
 
@@ -98,7 +98,7 @@
           <div class="login-step" id="phoneStep" hidden>
             <p class="login-who"><i class="fa-solid fa-circle-check"></i> <span id="whoEmail"></span> <button type="button" class="login-link" id="changeGoogle" data-i18n="login.change">Change</button></p>
             <form class="login-form" id="phoneForm" autocomplete="on">
-              <input type="tel" id="loginPhone" inputmode="tel" autocomplete="tel" maxlength="30" data-i18n-placeholder="login.phonePlaceholder" placeholder="Your mobile number" aria-label="Your mobile number" required />
+              <input type="tel" id="loginPhone" inputmode="tel" autocomplete="tel" maxlength="30" data-i18n-placeholder="login.phonePlaceholder" placeholder="Your mobile number" aria-label="Your mobile number" required  data-i18n-aria-label="login.phonePlaceholder"/>
               <button class="btn btn-primary" type="submit" id="sendCodeBtn"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="login.getCode">Get a code on WhatsApp</span></button>
             </form>
             <p class="login-hint" id="phoneHint"></p>
@@ -108,11 +108,11 @@
           <div class="login-step" id="codeStep" hidden>
             <p class="login-hint" id="codeHint"></p>
             <form class="login-form" id="codeForm" autocomplete="off">
-              <input type="text" id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-i18n-placeholder="login.codePlaceholder" placeholder="6-digit code" aria-label="6-digit code" required />
+              <input type="text" id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-i18n-placeholder="login.codePlaceholder" placeholder="6-digit code" aria-label="6-digit code" required  data-i18n-aria-label="login.codePlaceholder"/>
               <button class="btn btn-primary" type="submit" id="verifyBtn" data-i18n="login.logIn">Log in</button>
             </form>
             <p class="login-links">
-              <button type="button" class="login-link" id="resendBtn">Send the code again</button>
+              <button data-i18n="login.resend" type="button" class="login-link" id="resendBtn">Send the code again</button>
               <span aria-hidden="true">·</span>
               <button type="button" class="login-link" id="changePhone" data-i18n="login.changeNumber">Change number</button>
             </p>
@@ -137,7 +137,7 @@
           <!-- A computer logged in from a phone (opened as login.html?with=phone) -->
           <div class="login-step" id="qrStep" hidden>
             <div class="login-qr" id="qrBox">
-              <img id="qrImage" alt="Code to scan with your phone" width="220" height="220" hidden />
+              <img id="qrImage" alt="Code to scan with your phone" width="220" height="220" hidden  data-i18n-alt="login.code-to-scan-with-your-phone"/>
               <div class="login-qr-wait" id="qrWait"><i class="fa-solid fa-spinner fa-spin"></i></div>
               <button class="login-qr-reload" id="qrReload" type="button" hidden>
                 <i class="fa-solid fa-rotate-right"></i><span data-i18n="login.qrReload">Click to show a new code</span>

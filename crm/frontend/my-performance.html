@@ -67,21 +67,21 @@
         <header class="topbar">
           <div style="display: flex; align-items: center; gap: 12px">
             <button id="menu-toggle" class="icon-btn" style="display: none"><i class="fa-solid fa-bars"></i></button>
-            <h2>My performance</h2>
+            <h2 data-i18n="nav.myPerformance">My performance</h2>
           </div>
         </header>
 
         <div class="page">
           <div class="perf-toolbar">
-            <p class="team-intro" style="margin: 0">Your own work: chats you answered and resolved, leads and sales. Your owner sees the whole team.</p>
-            <select id="perfPeriod" aria-label="Period">
-              <option value="today">Today</option>
-              <option value="7">Last 7 days</option>
-              <option value="30" selected>Last 30 days</option>
-              <option value="this-month">This month</option>
+            <p data-i18n="myperf.your-own-work-chats-you-answered" class="team-intro" style="margin: 0">Your own work: chats you answered and resolved, leads and sales. Your owner sees the whole team.</p>
+            <select id="perfPeriod" aria-label="Period" data-i18n-aria-label="myperf.period">
+              <option data-i18n="board.today" value="today">Today</option>
+              <option data-i18n="myperf.last-7-days" value="7">Last 7 days</option>
+              <option data-i18n="myperf.last-30-days" value="30" selected>Last 30 days</option>
+              <option data-i18n="myperf.this-month" value="this-month">This month</option>
             </select>
           </div>
-          <div id="perfBody"><div class="perf-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div></div>
+          <div id="perfBody"><div class="perf-empty"><i class="fa-solid fa-spinner fa-spin"></i> <span data-i18n="bulkbar.loading">Loading…</span></div></div>
         </div>
       </div>
     </div>

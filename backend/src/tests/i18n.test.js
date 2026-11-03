@@ -30,7 +30,7 @@ describe('Texts in English and Hindi', () => {
 
   it.each(pages)('%s uses only keys that exist', (page) => {
     const html = fs.readFileSync(path.join(FRONTEND, page), 'utf8');
-    const keys = [...html.matchAll(/data-i18n(?:-html|-placeholder|-title|-aria-label)?="([^"]+)"/g)].map((m) => m[1]);
+    const keys = [...html.matchAll(/data-i18n(?:-html|-placeholder|-title|-aria-label|-alt)?="([^"]+)"/g)].map((m) => m[1]);
     expect(keys.filter((key) => !(key in en))).toEqual([]);
   });
 

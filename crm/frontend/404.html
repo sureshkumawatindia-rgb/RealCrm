@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-hi-title="पेज नहीं मिला | YELLOW CRM">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -87,12 +87,28 @@
     <main>
       <img src="/crm/frontend/img/icons/icon-192.png" alt="YELLOW CRM" />
       <div class="code">404</div>
-      <h1>This page doesn't exist</h1>
-      <p>The link may be old or mistyped. Your chats, leads and orders are safe — open the CRM from the dashboard.</p>
+      <h1 data-hi="यह पेज मौजूद नहीं है">This page doesn't exist</h1>
+      <p data-hi="लिंक पुराना या गलत लिखा हो सकता है। आपकी चैट, लीड और ऑर्डर सुरक्षित हैं — CRM डैशबोर्ड से खोलें।">The link may be old or mistyped. Your chats, leads and orders are safe — open the CRM from the dashboard.</p>
       <div class="actions">
-        <a class="primary" href="/crm/frontend/dashboard.html">Go to the dashboard</a>
-        <a class="secondary" href="/crm/frontend/login.html">Log in</a>
+        <a class="primary" href="/crm/frontend/dashboard.html" data-hi="डैशबोर्ड पर जाएँ">Go to the dashboard</a>
+        <a class="secondary" href="/crm/frontend/login.html" data-hi="लॉग इन करें">Log in</a>
       </div>
     </main>
+    <script>
+      // No other script loads on this page (D116): its Hindi (data-hi) when the person chose
+      // Hindi in the CRM — the same settings js/boot.js reads.
+      try {
+        const user = JSON.parse(localStorage.getItem("crm_user") || "null");
+        const prefs = JSON.parse(localStorage.getItem("crm_prefs") || "null") || {};
+        const language = localStorage.getItem("crm_session") ? user?.preferences?.language : prefs.language || prefs.loginLanguage;
+        if (language === "hi") {
+          document.documentElement.lang = "hi";
+          document.title = document.documentElement.dataset.hiTitle;
+          document.querySelectorAll("[data-hi]").forEach((el) => { el.textContent = el.dataset.hi; });
+        }
+      } catch {
+        /* storage blocked: English */
+      }
+    </script>
   </body>
 </html>

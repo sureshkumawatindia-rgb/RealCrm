@@ -146,9 +146,9 @@
     <main class="setup-page">
       <div class="setup-card">
         <div class="setup-head">
-          <span class="badge badge-brand">Step 1 of 1</span>
-          <h1>Tell us about your company</h1>
-          <p>
+          <span data-i18n="company.step-1-of-1" class="badge badge-brand">Step 1 of 1</span>
+          <h1 data-i18n="company.tell-us-about-your-company">Tell us about your company</h1>
+          <p data-i18n="company.this-shows-up-across-every-page">
             This shows up across every page of your CRM — sidebar branding,
             documents, and reports. You can always update it later.
           </p>
@@ -156,58 +156,58 @@
 
         <div class="setup-body">
           <form id="companyForm">
-            <div class="setup-section-label">Basics</div>
+            <div data-i18n="company.basics" class="setup-section-label">Basics</div>
             <div class="field">
-              <label>Company Name</label>
+              <label data-i18n="company.company-name">Company Name</label>
               <input
                 type="text"
                 id="cName"
                 placeholder="e.g. OneCoreCRM Pvt Ltd"
                 required
-              />
+               data-i18n-placeholder="company.e-g-onecorecrm-pvt-ltd"/>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Industry</label>
+                <label data-i18n="company.industry">Industry</label>
                 <input
                   type="text"
                   id="cIndustry"
                   placeholder="e.g. SaaS, Retail, Manufacturing"
-                />
+                 data-i18n-placeholder="company.e-g-saas-retail-manufacturing"/>
               </div>
               <div class="field">
-                <label>Company Size</label>
+                <label data-i18n="company.company-size">Company Size</label>
                 <select id="cSize">
-                  <option value="">— Select —</option>
-                  <option>1–10 employees</option>
-                  <option>11–50 employees</option>
-                  <option>51–200 employees</option>
+                  <option data-i18n="company.select" value="">— Select —</option>
+                  <option data-i18n="company.1-10-employees">1–10 employees</option>
+                  <option data-i18n="company.11-50-employees">11–50 employees</option>
+                  <option data-i18n="company.51-200-employees">51–200 employees</option>
                 </select>
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Founded Year</label>
+                <label data-i18n="company.founded-year">Founded Year</label>
                 <input
                   type="number"
                   id="cFounded"
                   min="1900"
                   max="2100"
                   placeholder="e.g. 2019"
-                />
+                 data-i18n-placeholder="set.e-g-2019"/>
               </div>
               <div class="field">
-                <label>Logo</label>
-                <p class="text-muted" style="font-size: 12.5px; margin: 10px 0 0">
+                <label data-i18n="company.logo">Logo</label>
+                <p data-i18n="company.upload-your-logo-later-in-settings" class="text-muted" style="font-size: 12.5px; margin: 10px 0 0">
                   Upload your logo later in Settings → Your Profile.
                 </p>
               </div>
             </div>
 
-            <div class="setup-section-label">Contact</div>
+            <div data-i18n="deals.contact" class="setup-section-label">Contact</div>
             <div class="field-row">
               <div class="field">
-                <label>Website</label>
+                <label data-i18n="source.Website">Website</label>
                 <input
                   type="text"
                   id="cWebsite"
@@ -215,7 +215,7 @@
                 />
               </div>
               <div class="field">
-                <label>Support Email</label>
+                <label data-i18n="company.support-email">Support Email</label>
                 <input
                   type="email"
                   id="cEmail"
@@ -225,7 +225,7 @@
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Phone</label>
+                <label data-i18n="board.field.lead.phone">Phone</label>
                 <input type="text" id="cPhone" placeholder="+91 98765 43210" />
               </div>
               <div class="field">
@@ -235,58 +235,58 @@
                   id="cGst"
                   maxlength="15"
                   placeholder="e.g. 23AAAAA0000A1Z5"
-                />
+                 data-i18n-placeholder="company.e-g-23aaaaa0000a1z5"/>
               </div>
             </div>
 
-            <div class="setup-section-label">Address</div>
+            <div data-i18n="import.address" class="setup-section-label">Address</div>
             <div class="field">
-              <label>Address Line</label>
+              <label data-i18n="company.address-line">Address Line</label>
               <input
                 type="text"
                 id="cAddress"
                 placeholder="Street, building, area"
-              />
+               data-i18n-placeholder="company.street-building-area"/>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>City</label>
-                <input type="text" id="cCity" placeholder="e.g. indore" />
+                <label data-i18n="customers.city">City</label>
+                <input type="text" id="cCity" placeholder="e.g. indore"  data-i18n-placeholder="company.e-g-indore"/>
               </div>
               <div class="field">
-                <label>State</label>
+                <label data-i18n="customers.state">State</label>
                 <input
                   type="text"
                   id="cState"
                   placeholder="e.g. Madhya Pradesh"
-                />
+                 data-i18n-placeholder="company.e-g-madhya-pradesh"/>
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Country</label>
-                <input type="text" id="cCountry" placeholder="e.g. India" />
+                <label data-i18n="company.country">Country</label>
+                <input type="text" id="cCountry" placeholder="e.g. India"  data-i18n-placeholder="company.e-g-india"/>
               </div>
               <div class="field">
-                <label>Pincode</label>  
-                <input type="text" id="cPincode" placeholder="e.g. 462001" />
+                <label data-i18n="company.pincode">Pincode</label>  
+                <input type="text" id="cPincode" placeholder="e.g. 462001"  data-i18n-placeholder="set.e-g-462001"/>
               </div>
             </div>
 
-            <div class="setup-section-label">About</div>
+            <div data-i18n="board.field.task.related" class="setup-section-label">About</div>
             <div class="field">
-              <label>Short Description</label>
+              <label data-i18n="company.short-description">Short Description</label>
               <textarea
                 id="cDescription"
                 rows="3"
                 placeholder="One or two lines about what your company does..."
-              ></textarea>
+               data-i18n-placeholder="company.one-or-two-lines-about-what"></textarea>
             </div>
           </form>
         </div>
 
         <div class="setup-foot">
-          <button type="button" class="setup-skip" id="skipBtn">
+          <button data-i18n="cw.skip" type="button" class="setup-skip" id="skipBtn">
             Skip for now
           </button>
           <button
@@ -295,7 +295,7 @@
             type="submit"
             form="companyForm"
           >
-            <i class="fa-solid fa-check"></i> Save & Continue
+            <i class="fa-solid fa-check"></i> <span data-i18n="company.save-continue">Save & Continue</span>
           </button>
         </div>
       </div>

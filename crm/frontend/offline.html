@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-hi-title="ऑफ़लाइन | YELLOW CRM">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -57,9 +57,25 @@
   <body>
     <main>
       <img src="./img/icons/icon-192.png" alt="YELLOW CRM" />
-      <h1>You are offline</h1>
-      <p>The CRM needs the internet to show your chats, leads and orders. It opens again as soon as you are back online.</p>
-      <button type="button" onclick="location.reload()">Try again</button>
+      <h1 data-hi="आप ऑफ़लाइन हैं">You are offline</h1>
+      <p data-hi="आपकी चैट, लीड और ऑर्डर दिखाने के लिए CRM को इंटरनेट चाहिए। इंटरनेट आते ही यह फिर खुल जाएगा।">The CRM needs the internet to show your chats, leads and orders. It opens again as soon as you are back online.</p>
+      <button type="button" onclick="location.reload()" data-hi="फिर कोशिश करें">Try again</button>
     </main>
+    <script>
+      // No other script loads on this page (D116): its Hindi (data-hi) when the person chose
+      // Hindi in the CRM — the same settings js/boot.js reads.
+      try {
+        const user = JSON.parse(localStorage.getItem("crm_user") || "null");
+        const prefs = JSON.parse(localStorage.getItem("crm_prefs") || "null") || {};
+        const language = localStorage.getItem("crm_session") ? user?.preferences?.language : prefs.language || prefs.loginLanguage;
+        if (language === "hi") {
+          document.documentElement.lang = "hi";
+          document.title = document.documentElement.dataset.hiTitle;
+          document.querySelectorAll("[data-hi]").forEach((el) => { el.textContent = el.dataset.hi; });
+        }
+      } catch {
+        /* storage blocked: English */
+      }
+    </script>
   </body>
 </html>

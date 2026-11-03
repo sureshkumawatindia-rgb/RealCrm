@@ -150,7 +150,7 @@
             <button class="btn btn-outline inbox-notify-btn" id="inboxNotifyBtn" type="button" hidden>
               <i class="fa-regular fa-bell"></i> <span data-i18n="inbox.notifyOn">Turn on notifications</span>
             </button>
-            <button class="icon-btn" id="inboxSoundBtn" type="button" aria-pressed="true" title="Sound for new messages: on"><i class="fa-solid fa-volume-high"></i></button>
+            <button class="icon-btn" id="inboxSoundBtn" type="button" aria-pressed="true" title="Sound for new messages: on" data-i18n-js><i class="fa-solid fa-volume-high"></i></button>
           </div>
         </header>
 
@@ -262,7 +262,7 @@
                   </span>
                   <button class="icon-btn" id="aiSuggestBtn" type="button" title="Suggest a reply (AI assistant)" data-i18n-title="inbox.ai.button" style="display: none"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                   <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.mp4,.3gp,.aac,.amr,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
-                  <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies"></textarea>
+                  <textarea id="composerText" rows="1" maxlength="4096" placeholder="Message · / for quick replies" data-i18n-placeholder="inbox.composer.long"></textarea>
                   <!-- With nothing typed, the microphone takes the send button's place (as in WhatsApp) -->
                   <button class="btn btn-primary composer-send" id="micBtn" type="button" title="Record a voice note" aria-label="Record a voice note" data-i18n-title="inbox.voice.record" data-i18n-aria-label="inbox.voice.record" hidden><i class="fa-solid fa-microphone"></i></button>
                   <button class="btn btn-primary composer-send" id="composerSend" type="submit" title="Send (Enter)" aria-label="Send" data-i18n-title="inbox.sendEnter" data-i18n-aria-label="inbox.send"><i class="fa-solid fa-paper-plane"></i></button>
@@ -380,7 +380,7 @@
             <div class="field-row">
               <div class="field">
                 <label for="quickShortcut" data-i18n="inbox.quick.shortcut">Shortcut</label>
-                <input type="text" id="quickShortcut" maxlength="30" placeholder="price" required />
+                <input type="text" id="quickShortcut" maxlength="30" placeholder="price" required  data-i18n-placeholder="inbox.price"/>
               </div>
               <div class="field">
                 <label for="quickTitle" data-i18n="inbox.quick.titleLabel">Title</label>
@@ -478,7 +478,7 @@
             <input type="text" id="productsText" maxlength="1024" placeholder="e.g. Fresh stock, dispatch in 2 days" data-i18n-placeholder="inbox.prod.messagePlaceholder" />
           </div>
           <div class="template-actions">
-            <button class="btn btn-primary" id="productsSend" type="button" disabled><i class="fa-solid fa-paper-plane"></i> Send</button>
+            <button class="btn btn-primary" id="productsSend" type="button" disabled><i class="fa-solid fa-paper-plane"></i> <span data-i18n="inbox.form.send">Send</span></button>
           </div>
         </div>
       </div>
