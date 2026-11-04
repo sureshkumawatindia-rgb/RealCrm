@@ -12,7 +12,7 @@
 
   async function render() {
     if (!crmPush.supported()) {
-      $("pushHint").textContent = "This browser cannot show notifications from the CRM here. They work in Chrome, Edge, Firefox and Safari over https, and in the installed app.";
+      $("pushHint").textContent = t("setpush.this-browser-cannot-show-notifications-from");
       [on, off, test].forEach((button) => { button.hidden = true; });
       return;
     }
@@ -27,16 +27,16 @@
     off.hidden = !subscribed;
     test.hidden = !subscribed;
     on.disabled = blocked;
-    if (blocked) $("pushHint").textContent = "Notifications are blocked for this site. Allow them in the browser's site settings (the lock icon next to the address), then come back.";
+    if (blocked) $("pushHint").textContent = t("setpush.notifications-are-blocked-for-this-site");
   }
 
   on.addEventListener("click", async () => {
     on.disabled = true;
     try {
       await crmPush.enable();
-      showToast("Notifications are on for this device.", "success");
+      showToast(t("setpush.notifications-are-on-for-this-device"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not switch on notifications."), "error");
+      showToast(apiErrorMessage(error, t("setpush.could-not-switch-on-notifications")), "error");
     } finally {
       on.disabled = false;
       render();
@@ -45,18 +45,18 @@
   off.addEventListener("click", async () => {
     try {
       await crmPush.disable();
-      showToast("Notifications are off for this device.", "success");
+      showToast(t("setpush.notifications-are-off-for-this-device"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not switch off notifications."), "error");
+      showToast(apiErrorMessage(error, t("setpush.could-not-switch-off-notifications")), "error");
     }
     render();
   });
   test.addEventListener("click", async () => {
     try {
       const result = await crmApi("/push/test", { method: "POST" });
-      showToast(result.sent ? "Sent. It should appear in a moment." : "Not delivered: switch notifications off and on again here.", result.sent ? "success" : "error");
+      showToast(result.sent ? t("setpush.sent-it-should-appear-in-a") : t("setpush.not-delivered-switch-notifications-off-and"), result.sent ? "success" : "error");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not send a test."), "error");
+      showToast(apiErrorMessage(error, t("setpush.could-not-send-a-test")), "error");
     }
   });
 

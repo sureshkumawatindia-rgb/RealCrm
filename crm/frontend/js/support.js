@@ -147,7 +147,7 @@ function slaChip(t) {
   let text;
   if (left !== null) {
     cls = left <= 0 ? "late" : left <= SLA_SOON_MS ? "soon" : "due";
-    text = crmI18n.t(`sla.chip.${focus.kind}${left <= 0 ? "Late" : "In"}`, { time: slaTime(left) });
+    text = crmI18n.t(`sla.chip.${focus.kind}${left <= 0 ? "Late" : "In"}`, { time: slaTime(left) }); // i18n-ok: parts of a text key
   } else if (OPEN_STATUSES.includes(t.status)) {
     cls = "paused";
     text = crmI18n.t("sla.chip.paused");

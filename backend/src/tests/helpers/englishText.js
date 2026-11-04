@@ -23,6 +23,7 @@ const KEEP = new Set([
   'justdial', 'tradeindia', 'google', 'gmail', 'meta', 'facebook', 'instagram', 'messenger', 'razorpay', 'cashfree', 'phonepe',
   'paytm', 'tally', 'microsoft', 'outlook', 'teams', 'sms', 'ifsc', 'hsn', 'sac', 'moq', 'sku', 'kb', 'mb', 'gb', 'rs', 'inr', 'am',
   'pm', 'ok', 'ai', 'html', 'json', 'xml', 'ist', 'utc', 'lr', 'tds', 'tcs', 'neft', 'rtgs', 'imps', 'dnd', 'sla', 'csat', 'kpi', 'fy',
+  'exotel', 'zapier', 'claude', 'anthropic', 'opus', 'webm', 'mp4', 'cgst', 'sgst', 'igst', 'utgst', 'cess',
 ]);
 // Addresses, emails, domains and names_with_underscores are not words to translate.
 const NOT_WORDS = /https?:\/\/\S+|[\w.+-]+@[\w-]+(\.[\w-]+)+|\b[\w-]+(\.[\w-]+)*\.(com|in|net|org|io|co|app|dev)\b\S*|\b\w*_\w*\b|&[a-z]+;|&#\d+;/gi;
@@ -81,7 +82,7 @@ const CODE_CALLS = new Set([
   'querySelector', 'querySelectorAll', 'getElementById', 'closest', 'matches', 'addEventListener', 'removeEventListener', 'setAttribute',
   'getAttribute', 'removeAttribute', 'hasAttribute', 'toggleAttribute', 'add', 'remove', 'toggle', 'contains', 'replace', 'replaceAll',
   'createElement', 'dispatchEvent', 'getItem', 'setItem', 'removeItem', 'getPreference', 'setPreference', 'crmApi', 'crmRequest',
-  'crmFetchAll', 'crmFetchPages', 'crmDownload', 'fetch', 'log', 'warn', 'error', 'info', 'debug', 't', 'lt', 'has', 'crmLabel',
+  'crmFetchAll', 'crmFetchPages', 'crmDownload', 'fetch', 'log', 'warn', 'error', 'info', 'debug', 't', 'lt', 'btr', 'has', 'crmLabel',
   'postMessage', 'Event', 'CustomEvent', 'URL', 'URLSearchParams', 'RegExp', 'get', 'set', 'append', 'delete', 'includes',
   'startsWith', 'endsWith', 'split', 'join', 'indexOf', 'padStart', 'toLocaleString', 'toLocaleDateString', 'toLocaleTimeString',
   'DateTimeFormat', 'NumberFormat', 'insertAdjacentHTML', 'cfFields', 'crmLoad', 'crmReady', 'jsonRequest', 'on', 'off', 'emit',
@@ -93,6 +94,10 @@ function looksLikeCode(text) {
   if (!s) return true;
   if (/^[\w.-]+$/.test(s) && !/^[A-Z][a-z]+[.!?]?$/.test(s)) return true; // identifiers, keys, class names, lowercase words
   if (/^[#.[:]/.test(s) || /^(?:https?:|mailto:|tel:|data:|\/)/.test(s)) return true; // selectors, links, paths
+  if (/\.html?(?:[?#]|$)/.test(s)) return true; // page names ("Reports & Analytics.html")
+  if (/^[a-z]+(?:\s*,\s*[a-z]+)+$/.test(s)) return true; // selector lists ("input, textarea, select")
+  if (/^(?:checked|disabled|selected|hidden|readonly|required|multiple)(?:\s+(?:checked|disabled|selected|hidden|readonly|required|multiple))*$/.test(s)) return true; // attributes
+  if (/^[\w-]+(?:="[^"]*")?(?:\s+[\w-]+(?:="[^"]*")?)*$/.test(s) && /="/.test(s)) return true; // attributes ('disabled aria-current="true"')
   if (/^\S*[:/(=]\S*$/.test(s) || /^var\(|^\(prefers|^\((?:min|max)-width/.test(s)) return true; // CSS, MIME types, keys
   if (/^[a-z0-9 _-]+$/.test(s) && /-/.test(s)) return true; // class lists
   if (/^[a-z]+(?:\s+[a-z-]+)*$/.test(s) && s.split(/\s+/).every((w) => CLASS_WORD.test(w))) return true;
@@ -107,14 +112,20 @@ function scanJs(code) {
     if (!node || typeof node.type !== 'string') return;
     let pieces = null;
     if (node.type === 'StringLiteral') pieces = DOMAIN.has(node.value) ? [] : [node.value];
-    // A template: its tags may span ${…} parts, so they are taken out of the whole first.
-    if (node.type === 'TemplateLiteral') pieces = node.quasis.map((q) => q.value.cooked || '').join('\u0000').replace(/<[^>]*>/g, ' ').split('\u0000');
+    // A template: its tags may span ${…} parts, so they are taken out of the whole first. One that
+    // starts like a selector (".a[data-x=…]") is code; keys (<kbd>) and elements marked
+    // translate="no" keep their own words.
+    if (node.type === 'TemplateLiteral') {
+      pieces = /^[.#[]/.test((node.quasis[0].value.cooked || '').trim()) ? [] : node.quasis.map((q) => q.value.cooked || '').join('\u0000')
+        .replace(/<kbd>[^<]*<\/kbd>/g, ' ').replace(/<(\w+)\b[^>]*\btranslate="no"[^>]*>[^<]*<\/\1>/g, ' ')
+        .replace(/<[^>]*>/g, ' ').split('\u0000');
+    }
     if (pieces) {
-      const callee = parent && parent.type === 'CallExpression' && key === 'arguments' ? parent.callee : null;
+      const callee = parent && /^(?:Optional)?CallExpression$/.test(parent.type) && key === 'arguments' ? parent.callee : null;
       const calleeName = callee ? (callee.type === 'Identifier' ? callee.name : callee.property && callee.property.name) : '';
       const skip = CODE_CALLS.has(calleeName)
         || (parent && parent.type === 'ObjectProperty' && key === 'key')
-        || (parent && parent.type === 'BinaryExpression' && /^[!=]==?$/.test(parent.operator))
+        || (parent && parent.type === 'BinaryExpression' && /^(?:[!=]==?|in)$/.test(parent.operator))
         || (parent && parent.type === 'SwitchCase')
         || OK.test(lines[node.loc.start.line - 1] || '');
       if (!skip) {

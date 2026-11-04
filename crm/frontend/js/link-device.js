@@ -33,7 +33,7 @@
     $("doneText").textContent = text;
     show("doneStep");
   }
-  const unusable = (error) => finish("warn", "This code can't be used", apiErrorMessage(error, "Show a new code on the computer and scan it again."));
+  const unusable = (error) => finish("warn", t("linkdev.this-code-can-t-be-used"), apiErrorMessage(error, t("linkdev.show-a-new-code-on-the")));
 
   async function ask(found) {
     code = found;
@@ -42,7 +42,7 @@
       const request = await crmApi(`/auth/qr/${code.id}/peek`, json({ secret: code.secret }));
       $("askComputer").textContent = request.computer;
       const email = getCurrentUser()?.email;
-      $("askAccount").textContent = email ? `It will be logged in as ${email}.` : "";
+      $("askAccount").textContent = email ? t("linkdev.it-will-be-logged-in-as", { email }) : "";
       show("askStep");
       $("allowBtn").focus();
     } catch (error) {
@@ -55,8 +55,8 @@
     $("denyBtn").disabled = true;
     try {
       const result = await crmApi(`/auth/qr/${code.id}/approve`, json({ secret: code.secret, allow }));
-      if (allow) finish("ok", "Done", `${result.computer} is logging in now. You can put the phone away.`);
-      else finish("no", "Not allowed", "The computer was not logged in.");
+      if (allow) finish("ok", t("linkdev.done"), t("linkdev.is-logging-in-now-you-can", { computer: result.computer }));
+      else finish("no", t("bulkbar.reason.FORBIDDEN"), t("linkdev.the-computer-was-not-logged-in"));
     } catch (error) {
       unusable(error);
     } finally {
@@ -75,14 +75,14 @@
   }
 
   async function startCamera() {
-    const cameraApp = "Open your phone's camera app and point it at the code on the computer. It opens this page.";
+    const cameraApp = t("linkdev.open-your-phone-s-camera-app");
     if (!("BarcodeDetector" in window) || !navigator.mediaDevices?.getUserMedia) {
-      $("scanHint").textContent = `This browser can't scan here. ${cameraApp}`;
+      $("scanHint").textContent = t("linkdev.this-browser-can-t-scan-here", { cameraApp });
       return;
     }
     try {
       const formats = await BarcodeDetector.getSupportedFormats();
-      if (!formats.includes("qr_code")) throw new Error("QR codes are not supported");
+      if (!formats.includes("qr_code")) throw new Error("QR codes are not supported"); // i18n-ok: caught below, never shown
       const detector = new BarcodeDetector({ formats: ["qr_code"] });
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
       const video = $("cameraVideo");
@@ -90,7 +90,7 @@
       await video.play();
       $("cameraBox").hidden = false;
       $("startCameraBtn").hidden = true;
-      $("scanHint").textContent = "Point the camera at the code on the computer.";
+      $("scanHint").textContent = t("linkdev.point-the-camera");
       scanning = true;
       const look = async () => {
         if (!scanning) return;
@@ -106,8 +106,8 @@
     } catch (error) {
       stopCamera();
       $("scanHint").textContent = error?.name === "NotAllowedError"
-        ? `The camera is blocked for this site. Allow it in the browser, or: ${cameraApp}`
-        : `The camera could not start. ${cameraApp}`;
+        ? t("linkdev.the-camera-is-blocked-for-this", { cameraApp })
+        : t("linkdev.the-camera-could-not-start", { cameraApp });
     }
   }
 

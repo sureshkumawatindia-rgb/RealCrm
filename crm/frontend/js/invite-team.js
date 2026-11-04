@@ -45,24 +45,24 @@
     row.innerHTML = `
       <div class="invite-row-main">
         <div class="field">
-          <label for="${id}Email">Their Google email</label>
+          <label for="${id}Email">${escapeHtml(t("set.their-google-email"))}</label>
           <input type="email" id="${id}Email" class="invite-email" placeholder="name@gmail.com" autocomplete="off" />
         </div>
         <div class="field role-field">
-          <label for="${id}Role">Role</label>
+          <label for="${id}Role">${escapeHtml(t("set.role"))}</label>
           <select id="${id}Role" class="invite-role">
-            <option value="agent" selected>Agent</option>
-            <option value="viewer">Viewer</option>
-            ${isOwner ? '<option value="admin">Admin</option>' : ""}
+            <option value="agent" selected>${escapeHtml(t("role.Agent"))}</option>
+            <option value="viewer">${escapeHtml(t("role.Viewer"))}</option>
+            ${isOwner ? `<option value="admin">${escapeHtml(t("role.Admin"))}</option>` : ""}
           </select>
         </div>
         <button type="button" class="icon-btn invite-remove" aria-label="Remove this person" title="Remove this person"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <details class="invite-pages">
-        <summary>Pages they can open</summary>
+        <summary>${escapeHtml(t("invite.pages-they-can-open"))}</summary>
         <div class="invite-pages-grid">${pagesFor("agent")}</div>
       </details>
-      <p class="invite-admin-note" hidden>An admin can open every page and manage the team, like you.</p>`;
+      <p class="invite-admin-note" hidden>${escapeHtml(t("invite.an-admin-can-open-every-page"))}</p>`;
     const role = row.querySelector(".invite-role");
     role.addEventListener("change", () => {
       const admin = role.value === "admin";
@@ -95,16 +95,16 @@
   }
 
   function showLinks(sent, failure = "") {
-    const company = companyName || "our company";
+    const company = companyName || t("invite.our-company");
     $("inviteLinks").innerHTML = sent
       .map(({ email, role, link, emailed }, index) => {
-        const message = `Join ${company} on YELLOW CRM: ${link}`;
+        const message = t("invite.join-on-yellow-crm", { company, link });
         return `
         <li>
-          <span class="who"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(role.charAt(0).toUpperCase() + role.slice(1))}${emailed ? " · invite emailed" : ""}</span></span>
+          <span class="who"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(crmLabel("role", role.charAt(0).toUpperCase() + role.slice(1)))}${emailed ? t("invite.invite-emailed") : ""}</span></span>
           <span class="actions">
-            <a class="btn btn-outline" href="https://wa.me/?text=${encodeURIComponent(message)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> Send on WhatsApp</a>
-            <button type="button" class="btn btn-outline" data-copy="${index}"><i class="fa-regular fa-copy"></i> Copy link</button>
+            <a class="btn btn-outline" href="https://wa.me/?text=${encodeURIComponent(message)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(t("inv.sendTitle"))}</a>
+            <button type="button" class="btn btn-outline" data-copy="${index}"><i class="fa-regular fa-copy"></i> ${escapeHtml(t("cal.teams.copy"))}</button>
           </span>
         </li>`;
       })
@@ -113,9 +113,9 @@
       button.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(sent[Number(button.dataset.copy)].link);
-          showToast("Link copied", "success");
+          showToast(t("invite.link-copied"), "success");
         } catch {
-          showToast("Couldn't copy. Use Send on WhatsApp instead.", "error");
+          showToast(t("invite.couldn-t-copy-use-send-on"), "error");
         }
       }),
     );
@@ -136,17 +136,17 @@
       }))
       .filter((person) => person.email);
     if (!people.length) {
-      showError("Type at least one email, or choose Skip for now.");
+      showError(t("invite.type-at-least-one-email-or"));
       return;
     }
     const wrong = people.find((person) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email));
     if (wrong) {
-      showError(`“${wrong.email}” is not an email address.`);
+      showError(t("invite.is-not-an-email-address", { email: wrong.email }));
       return;
     }
     const noPages = people.find((person) => person.role !== "admin" && !person.modules.length);
     if (noPages) {
-      showError(`Choose at least one page for ${noPages.email}.`);
+      showError(t("invite.choose-at-least-one-page-for", { email: noPages.email }));
       return;
     }
 
@@ -161,7 +161,7 @@
       }
     } catch (error) {
       const who = people[sent.length]?.email;
-      failure = `${who ? `${who}: ` : ""}${apiErrorMessage(error, "The invite could not be sent.")}`;
+      failure = `${who ? `${who}: ` : ""}${apiErrorMessage(error, t("invite.the-invite-could-not-be-sent"))}`;
     } finally {
       $("sendBtn").disabled = false;
     }

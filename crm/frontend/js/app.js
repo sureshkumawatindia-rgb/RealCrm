@@ -104,7 +104,7 @@ async function crmRequest(path, options = {}, { retried = false, blob = false } 
   try {
     response = await fetch(`${CRM_API_BASE}${path}`, { credentials: "include", ...options, headers });
   } catch (error) {
-    throw new Error(`CRM API is unreachable at ${CRM_API_BASE}. Start the backend and verify its port.`);
+    throw new Error(`CRM API is unreachable at ${CRM_API_BASE}. Start the backend and verify its port.`); // i18n-ok: for the developer, may come before the texts
   }
   if (blob && response.ok) return response.blob();
   const body = await response.json().catch(() => ({}));
@@ -114,7 +114,7 @@ async function crmRequest(path, options = {}, { retried = false, blob = false } 
     endSession();
   }
   if (!response.ok) {
-    const error = new Error(body.message || "Request failed.");
+    const error = new Error(body.message || t("app.request-failed"));
     error.status = response.status;
     error.code = body.code;
     error.errors = body.errors;
@@ -375,20 +375,21 @@ async function logout() {
 // so the dashboard card and company modal can render synchronously)
 // ---------------------------------------------------------------
 const COMPANY_FIELDS = [
-  { key: "name", label: "Company Name" },
-  { key: "industry", label: "Industry" },
-  { key: "email", label: "Company Email" },
-  { key: "phone", label: "Phone" },
-  { key: "website", label: "Website" },
-  { key: "address", label: "Address" },
-  { key: "city", label: "City" },
-  { key: "state", label: "State" },
-  { key: "country", label: "Country" },
-  { key: "postalCode", label: "Pincode" },
-  { key: "gstin", label: "GSTIN" },
-  { key: "size", label: "Company Size" },
-  { key: "foundedYear", label: "Founded Year" },
-  { key: "description", label: "Description", full: true },
+  // label: the text's key (D116), looked up when the card is drawn.
+  { key: "name", label: "company.company-name" },
+  { key: "industry", label: "company.industry" },
+  { key: "email", label: "app.company-email" },
+  { key: "phone", label: "leads.phone" },
+  { key: "website", label: "app.website" },
+  { key: "address", label: "app.address" },
+  { key: "city", label: "customers.city" },
+  { key: "state", label: "customers.state" },
+  { key: "country", label: "company.country" },
+  { key: "postalCode", label: "company.pincode" },
+  { key: "gstin", label: "app.gstin" },
+  { key: "size", label: "company.company-size" },
+  { key: "foundedYear", label: "company.founded-year" },
+  { key: "description", label: "customers.description", full: true },
 ];
 
 // Company form inputs (company.html and Settings) → organization fields.
@@ -500,7 +501,7 @@ function buildCompanyReviewHTML(company) {
     const value = company[f.key] ? escapeHtml(company[f.key]) : "—";
     return `
       <div class="review-item${f.full ? " full" : ""}">
-        <span class="review-label">${f.label}</span>
+        <span class="review-label">${escapeHtml(t(f.label))}</span>
         <span class="review-value">${value}</span>
       </div>`;
   }).join("");
@@ -512,7 +513,7 @@ function renderCompanyModal() {
   if (!body) return;
   const company = getCompanyInfo();
   if (!company) {
-    body.innerHTML = `<p class="text-muted" style="font-size:13px;">No company details saved yet.</p>`;
+    body.innerHTML = `<p class="text-muted" style="font-size:13px;">${escapeHtml(t("app.no-company-details-saved-yet"))}</p>`;
     return;
   }
   body.innerHTML = `<div class="company-review-grid">${buildCompanyReviewHTML(company)}</div>`;
@@ -537,8 +538,8 @@ function renderCompanyDashboardCard() {
     panel.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-building"></i>
-        <p>No company details yet.</p>
-        <a href="company.html" class="btn btn-primary" style="margin-top:8px;">Add Company Details</a>
+        <p>${escapeHtml(t("app.no-company-details-yet"))}</p>
+        <a href="company.html" class="btn btn-primary" style="margin-top:8px;">${escapeHtml(t("app.add-company-details"))}</a>
       </div>`;
     return;
   }
@@ -782,6 +783,17 @@ const LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation", "Won", "Lo
 const OPEN_LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation"];
 const ROLE_LABELS = { owner: "Owner", admin: "Admin", agent: "Agent", viewer: "Viewer" };
 
+// A length of time for people — "45 s", "12 min", "3 h 5 min", "4 days" — in their language (D116).
+function crmDuration(seconds, empty = "—") {
+  if (seconds == null) return empty;
+  if (seconds < 60) return t("time.s", { n: Math.round(seconds) });
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return t("time.min", { n: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours >= 48) return t("time.days", { n: Math.round(hours / 24) });
+  return minutes % 60 ? t("time.hMin", { h: hours, n: minutes % 60 }) : t("time.h", { h: hours });
+}
+
 // A value the server keeps in English (a lead stage, a priority, a role …) in the person's
 // language (CP5): t("<group>.<value>") when the texts have it, else the value itself.
 function crmLabel(group, value) {
@@ -935,7 +947,7 @@ function toLegacyLead(lead) {
   const contact = lead.contact || {};
   return {
     ...lead,
-    name: contact.name || lead.title || "(deleted contact)",
+    name: contact.name || lead.title || t("app.deleted-contact"),
     email: contact.email || "",
     phone: contact.phone || "",
     company: contact.company || "",
@@ -1001,7 +1013,7 @@ async function getLeadActivities(id) {
 }
 // mentions: ids of @mentioned teammates (D87), who get a bell note.
 async function addLeadNote(id, text, mentions = []) {
-  return crmApi(`/leads/${id}/activities`, jsonRequest("POST", { type: "Note", text, ...(mentions.length && { mentions }) }));
+  return crmApi(`/leads/${id}/activities`, jsonRequest("POST", { type: "Note", text, ...(mentions.length && { mentions }) })); // i18n-ok: a value the server keeps
 }
 
 // --- tasks and calendar events ------------------------------------
@@ -1298,7 +1310,7 @@ const crmPrefsMenu = (() => {
       <div class="crm-prefs__panel" id="crmPrefsPanel" role="dialog" aria-label="${escapeHtml(t("prefs.title"))}" hidden>
         <div class="crm-prefs__label" id="crmPrefsLanguage">${escapeHtml(t("prefs.language"))}</div>
         <div class="crm-prefs__options" role="radiogroup" aria-labelledby="crmPrefsLanguage">
-          <button type="button" role="radio" data-language="en" lang="en">English</button>
+          <button type="button" role="radio" data-language="en" lang="en" translate="no">English</button>
           <button type="button" role="radio" data-language="hi" lang="hi">हिंदी</button>
         </div>
         <div class="crm-prefs__label" id="crmPrefsTheme">${escapeHtml(t("prefs.theme"))}</div>
@@ -1926,7 +1938,7 @@ const crmSearch = (() => {
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
           <input type="search" id="crmSearchInput" placeholder="${escapeHtml(t("search.placeholder"))}" autocomplete="off" spellcheck="false"
             role="combobox" aria-expanded="true" aria-controls="crmSearchResults" aria-autocomplete="list" />
-          <button type="button" class="search-esc" aria-label="${escapeHtml(t("search.close"))}">Esc</button>
+          <button type="button" class="search-esc" translate="no" aria-label="${escapeHtml(t("search.close"))}">Esc</button>
         </div>
         <div class="search-results" id="crmSearchResults" role="listbox" aria-label="${escapeHtml(t("search.results"))}"></div>
         <div class="search-foot" aria-hidden="true">
@@ -1987,8 +1999,8 @@ const crmSearch = (() => {
     button.type = "button";
     button.className = "topbar-search";
     button.id = "crmSearchBtn";
-    button.setAttribute("aria-label", `${t("search.title")} (${isMac ? "⌘" : "Ctrl"}+K)`);
-    button.innerHTML = `<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>${escapeHtml(t("search.button"))}</span><kbd>${isMac ? "⌘" : "Ctrl"} K</kbd>`;
+    button.setAttribute("aria-label", `${t("search.title")} (${isMac ? "⌘" : "Ctrl"}+K)`); // i18n-ok: the keyboard's own key names
+    button.innerHTML = `<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>${escapeHtml(t("search.button"))}</span><kbd>${isMac ? "⌘" : "Ctrl" /* i18n-ok: the key's own name */} K</kbd>`;
     button.addEventListener("click", open);
     const bell = document.getElementById("crmBell");
     if (bell) bell.before(button);
@@ -2023,8 +2035,8 @@ function openFromAddress(openRecord) {
   history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
   // openRecord may look the record up on the server first (D115): it can return a promise.
   Promise.resolve(openRecord(id)).then(
-    (opened) => { if (opened === false) showToast("That record is no longer here. It may have been deleted.", "error"); },
-    () => showToast("That record is no longer here. It may have been deleted.", "error"),
+    (opened) => { if (opened === false) showToast(t("app.that-record-is-no-longer-here"), "error"); },
+    () => showToast(t("app.that-record-is-no-longer-here"), "error"),
   );
 }
 
@@ -2058,7 +2070,7 @@ document.addEventListener("focusin", (event) => {
   if (masked && !field.readOnly) {
     field.readOnly = true;
     field.dataset.maskedNumber = "1";
-    field.title = "Hidden by your company's settings";
+    field.title = t("app.hidden-by-your-company-s-settings");
   } else if (!masked && field.dataset.maskedNumber) {
     field.readOnly = false;
     delete field.dataset.maskedNumber;
@@ -2116,9 +2128,9 @@ const crmPush = (() => {
   }
 
   async function enable() {
-    if (!supported()) throw new Error("This browser cannot show notifications from the CRM here (it needs https, or the installed app).");
+    if (!supported()) throw new Error(t("app.this-browser-cannot-show-notifications-from"));
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") throw new Error("Notifications are blocked for this site. Allow them in the browser's site settings, then try again.");
+    if (permission !== "granted") throw new Error(t("app.notifications-are-blocked-for-this-site"));
     const registration = await navigator.serviceWorker.register("sw.js");
     await navigator.serviceWorker.ready;
     const { publicKey } = await crmApi("/push/key");
@@ -2252,25 +2264,27 @@ function labelTableCells() {
 // A button that is only an icon gets a name from its icon: read out by screen readers and
 // shown as a tooltip on hover ("Edit", "Delete", …). Buttons that have a name keep it.
 const ICON_NAMES = {
-  "fa-pen": "Edit",
-  "fa-pen-to-square": "Edit",
-  "fa-trash": "Delete",
-  "fa-trash-can": "Delete",
-  "fa-xmark": "Remove",
-  "fa-plus": "Add",
-  "fa-chevron-left": "Previous",
-  "fa-chevron-right": "Next",
-  "fa-eye": "View",
-  "fa-download": "Download",
-  "fa-copy": "Copy",
+  // The texts' keys (D116), looked up once the texts are in.
+  "fa-pen": "common.edit",
+  "fa-pen-to-square": "common.edit",
+  "fa-trash": "common.delete",
+  "fa-trash-can": "common.delete",
+  "fa-xmark": "app.icon.remove",
+  "fa-plus": "common.add",
+  "fa-chevron-left": "app.icon.previous",
+  "fa-chevron-right": "app.icon.next",
+  "fa-eye": "app.icon.view",
+  "fa-download": "app.icon.download",
+  "fa-copy": "app.icon.copy",
 };
 function nameIconButtons(root = document) {
   root.querySelectorAll("button:not([aria-label]):not([title])").forEach((button) => {
     if (button.textContent.trim() || button.children.length !== 1) return;
     const icon = [...button.firstElementChild.classList].find((name) => ICON_NAMES[name]);
     if (!icon) return;
-    button.setAttribute("aria-label", ICON_NAMES[icon]);
-    button.title = ICON_NAMES[icon];
+    const name = t(ICON_NAMES[icon]);
+    button.setAttribute("aria-label", name);
+    button.title = name;
   });
 }
 
@@ -2327,7 +2341,7 @@ function watchTabBars() {
 const POPUP_CLOSE = '.modal-head .icon-btn[id$="Close"], .modal-head .icon-btn[id$="close"]';
 function initPopupKeys() {
   document.querySelectorAll(POPUP_CLOSE).forEach((button) => {
-    if (!button.getAttribute("aria-label")) button.setAttribute("aria-label", button.title || "Close");
+    if (!button.getAttribute("aria-label")) button.setAttribute("aria-label", button.title || t("common.close"));
   });
   window.addEventListener(
     "keydown",
@@ -2475,7 +2489,7 @@ function firstAllowedPage(member = getCurrentMember()) {
   const first = pages.find((page) => !pageSwitchedOff(page)) || pages[0];
   return first ? encodeURI(first) : "Settings.html";
 }
-const PAGE_NAMES = { "al insights.html": "AI Insights", "customer-360.html": "Customer 360°" };
+const PAGE_NAMES = { "al insights.html": "AI Insights", "customer-360.html": "Customer 360°" }; // i18n-ok: page names in a message that may come before the texts
 function pageName(fileName) {
   const name = PAGE_NAMES[String(fileName).toLowerCase()] || String(fileName).replace(/\.html$/i, "");
   return name.charAt(0).toUpperCase() + name.slice(1);
@@ -2658,39 +2672,39 @@ function injectGlobalNavItems() {
     {
       href: "customer-360.html",
       icon: "fa-address-card",
-      label: "Customer 360°",
+      label: "Customer 360°", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "dashboard.html",
     },
     {
       href: "Inbox.html",
       icon: "fa-comments",
-      label: 'Inbox <span class="nav-badge" id="navInboxBadge" hidden></span>',
+      label: 'Inbox <span class="nav-badge" id="navInboxBadge" hidden></span>', // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "dashboard.html",
     },
     {
       href: "Quotations.html",
       icon: "fa-file-invoice",
-      label: "Quotations",
+      label: "Quotations", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "Deals.html",
     },
     {
       href: "Orders.html",
       icon: "fa-truck-fast",
-      label: "Orders",
+      label: "Orders", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "Quotations.html",
     },
     // Boards (D87): saved table, Kanban and calendar views, right after Deals.
     {
       href: "boards.html",
       icon: "fa-table-columns",
-      label: "Boards",
+      label: "Boards", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "Deals.html",
     },
     // The power dialer (D89), right after Boards.
     {
       href: "dialer.html",
       icon: "fa-headset",
-      label: "Power dialer",
+      label: "Power dialer", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "boards.html",
     },
     // Projects after the sale (D92), right after Tasks.
@@ -2704,7 +2718,7 @@ function injectGlobalNavItems() {
     {
       href: "workflow-builder.html",
       icon: "fa-diagram-project",
-      label: "Workflow builder",
+      label: "Workflow builder", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "Sales Automation.html",
     },
     // The team's work (D61): everyone sees their own; owners and admins see the team live.
@@ -2712,13 +2726,13 @@ function injectGlobalNavItems() {
     {
       href: "my-performance.html",
       icon: "fa-user-check",
-      label: "My performance",
+      label: "My performance", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "Reports & Analytics.html",
     },
     {
       href: "team-live.html",
       icon: "fa-signal",
-      label: "Team live",
+      label: "Team live", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "Reports & Analytics.html",
       managersOnly: true,
     },
@@ -2726,7 +2740,7 @@ function injectGlobalNavItems() {
     {
       href: "platform-admin.html",
       icon: "fa-user-shield",
-      label: "Platform admin",
+      label: "Platform admin", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
       afterHref: "Settings.html",
       platformOnly: true,
     },
@@ -2769,7 +2783,7 @@ function renderRecordNav(objects) {
     submenu?.remove();
     return;
   }
-  const label = crmI18n.has("nav.group.records") ? t("nav.group.records") : "Your records";
+  const label = crmI18n.has("nav.group.records") ? t("nav.group.records") : "Your records"; // i18n-ok: only until the texts arrive
   if (!parent) {
     parent = document.createElement("div");
     parent.className = "nav-parent";
@@ -2854,8 +2868,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   initSidebarToggle();
   initNavGroups();
-  initPopupKeys(); // before the icon names: a popup's × is "Close", not "Remove"
-  initTableCards();
+  // Once the texts are in (D116): the icons' names and the mobile cards' labels in the person's language.
+  crmI18n.ready.then(() => {
+    initPopupKeys(); // before the icon names: a popup's × is "Close", not "Remove"
+    initTableCards();
+  });
   watchTabBars();
 
   // Company profile modal (trigger sits next to the logout button)

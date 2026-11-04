@@ -18,44 +18,37 @@
     if (period === "this-month") return { from: `${to.slice(0, 8)}01`, to };
     return { from: indiaDay(1 - Number(period)), to };
   }
-  function duration(seconds) {
-    if (seconds == null) return "—";
-    if (seconds < 60) return `${Math.round(seconds)} s`;
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    return hours < 48 ? `${hours} h${minutes % 60 ? ` ${minutes % 60} min` : ""}` : `${Math.round(hours / 24)} days`;
-  }
+  const duration = (seconds) => crmDuration(seconds);
   const rupees = (paise) => `₹${Math.round(Number(paise || 0) / 100).toLocaleString("en-IN")}`;
   const pct = (value) => `${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 1 })}%`;
   const kpi = (label, value, sub = "", cls = "") => `<div class="stat-card ${cls}"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(String(value))}</div><div class="report-note">${escapeHtml(sub)}</div></div>`;
 
   function render(me) {
     if (!me) {
-      $("perfBody").innerHTML = '<div class="perf-empty">Nothing to show for this period yet.</div>';
+      $("perfBody").innerHTML = `<div class="perf-empty">${escapeHtml(t("myperf.nothing-to-show"))}</div>`;
       return;
     }
     $("perfBody").innerHTML = `
       <div class="perf-section"><i class="fa-brands fa-whatsapp"></i> WhatsApp</div>
       <div class="stat-grid">
-        ${kpi("Chats answered", me.chatsHandled, `${me.messagesSent} ${me.messagesSent === 1 ? "message" : "messages"} sent`)}
-        ${kpi("First reply", duration(me.firstResponseMedianSeconds), "median, new chats")}
-        ${kpi("Reply time", duration(me.responseMedianSeconds), me.replies ? `median of ${me.replies} ${me.replies === 1 ? "reply" : "replies"}` : "no replies yet")}
-        ${kpi("Chats resolved", me.chatsResolved, me.chatsResolved ? `${pct(me.resolutionRatePct)} · ${duration(me.resolutionMedianSeconds)} to resolve` : "chats you closed", "success")}
-        ${kpi("Customer feedback", me.csatAnswers ? `${pct(me.csatScorePct)} good` : "—", me.csatAnswers ? `${me.csatAnswers} answer${me.csatAnswers === 1 ? "" : "s"} · ${me.csatBad} bad` : "no answers yet")}
+        ${kpi(t("myperf.chats-answered"), me.chatsHandled, t(me.messagesSent === 1 ? "myperf.message-sent-one" : "myperf.message-sent-many", { n: me.messagesSent }))}
+        ${kpi(t("sla.box.reply"), duration(me.firstResponseMedianSeconds), t("myperf.median-new-chats"))}
+        ${kpi(t("myperf.reply-time"), duration(me.responseMedianSeconds), me.replies ? t(me.replies === 1 ? "myperf.median-of-one" : "myperf.median-of-many", { n: me.replies }) : t("myperf.no-replies-yet"))}
+        ${kpi(t("myperf.chats-resolved"), me.chatsResolved, me.chatsResolved ? t("myperf.to-resolve", { v: pct(me.resolutionRatePct), v2: duration(me.resolutionMedianSeconds) }) : t("myperf.chats-you-closed"), "success")}
+        ${kpi(t("wa.csat.label"), me.csatAnswers ? t("myperf.good", { v: pct(me.csatScorePct) }) : "—", me.csatAnswers ? t(me.csatAnswers === 1 ? "teamlive.answer-bad-one" : "teamlive.answer-bad-many", { n: me.csatAnswers, bad: me.csatBad }) : t("myperf.no-answers-yet"))}
       </div>
-      <div class="perf-section"><i class="fa-solid fa-bullseye"></i> Leads and sales</div>
+      <div class="perf-section"><i class="fa-solid fa-bullseye"></i> ${escapeHtml(t("myperf.leads-and-sales"))}</div>
       <div class="stat-grid">
-        ${kpi("New leads", me.leadsCreated)}
-        ${kpi("Won", me.won, me.won || me.lost ? `win rate ${pct(me.winRatePct)}` : "")}
-        ${kpi("Quotations", me.quotationsSent, `${me.quotationsAccepted} accepted`)}
-        ${kpi("Orders", me.orders, rupees(me.orderValuePaise))}
-        ${kpi("Collected", rupees(me.collectedPaise), "payments received", "success")}
+        ${kpi(t("gs.kind.leads"), me.leadsCreated)}
+        ${kpi(crmLabel("stage", "Won"), me.won, me.won || me.lost ? t("myperf.win-rate", { v: pct(me.winRatePct) }) : "")}
+        ${kpi(t("nav.quotations"), me.quotationsSent, t("myperf.accepted", { n: me.quotationsAccepted }))}
+        ${kpi(t("nav.orders"), me.orders, rupees(me.orderValuePaise))}
+        ${kpi(t("reports.collected"), rupees(me.collectedPaise), t("dash.kpi.collectedSub"), "success")}
       </div>
-      <div class="perf-section"><i class="fa-solid fa-list-check"></i> Tasks and support</div>
+      <div class="perf-section"><i class="fa-solid fa-list-check"></i> ${escapeHtml(t("myperf.tasks-and-support"))}</div>
       <div class="stat-grid">
-        ${kpi("Tasks done", me.tasksDone)}
-        ${kpi("Tickets resolved", me.ticketsResolved)}
+        ${kpi(t("myperf.tasks-done"), me.tasksDone)}
+        ${kpi(t("myperf.tickets-resolved"), me.ticketsResolved)}
       </div>`;
   }
 
@@ -66,7 +59,7 @@
       render((await crmApi(`/reports/me?from=${from}&to=${to}`)).me);
       setPreference("myPerformancePeriod", period);
     } catch (error) {
-      $("perfBody").innerHTML = `<div class="perf-empty">${escapeHtml(apiErrorMessage(error, "Couldn't load your figures."))}</div>`;
+      $("perfBody").innerHTML = `<div class="perf-empty">${escapeHtml(apiErrorMessage(error, t("myperf.couldn-t-load-your-figures")))}</div>`;
     }
   }
 

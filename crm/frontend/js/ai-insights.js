@@ -21,12 +21,7 @@
   const rupees = (paise) => `₹${Math.round(Number(paise || 0) / 100).toLocaleString("en-IN")}`;
   const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
   const initials = (name) => String(name || "?").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "?";
-  function duration(seconds) {
-    if (seconds == null) return "";
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return `${minutes} min`;
-    return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
-  }
+  const duration = (seconds) => crmDuration(seconds, "");
 
   // --- KPI cards ----------------------------------------------------------------------------
   function renderKpis() {

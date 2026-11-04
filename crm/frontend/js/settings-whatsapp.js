@@ -106,7 +106,7 @@ crmI18n.ready.then(function settingsWhatsApp() {
   function accountHtml(a) {
     const title = a.verifiedName || a.name || t("wa.number");
     const tunnelHint = isLocal(a.webhookUrl)
-      ? `<div class="sub" style="margin-top:4px">Meta cannot reach ${escapeHtml(new URL(a.webhookUrl).host)}. Start a tunnel (for example <code>cloudflared tunnel --url http://127.0.0.1:3000</code>) and use <strong>https://&lt;tunnel address&gt;${escapeHtml(a.webhookPath)}</strong> as the callback URL.</div>`
+      ? `<div class="sub" style="margin-top:4px">${t("setwa.tunnelHint", { host: escapeHtml(new URL(a.webhookUrl).host), path: escapeHtml(a.webhookPath) })}</div>`
       : "";
     const viaMeta = a.connectionType === "embedded" || a.connectionType === "coexistence";
     const setup = a.provider === "mock"
@@ -131,7 +131,7 @@ crmI18n.ready.then(function settingsWhatsApp() {
             ${STATUS_BADGE[a.status] || ""} ${a.isDefault ? `<span class="badge badge-brand">${escapeHtml(t("wa.default"))}</span>` : ""}
             ${a.provider === "mock" ? `<span class="badge badge-neutral">${escapeHtml(t("wa.testNumber"))}</span>` : ""}
           </div>
-          ${viaMeta ? "" : `<div class="sub">${escapeHtml(t("wa.phoneId", { id: a.phoneNumberId }))}${a.accessToken.configured ? ` · token …${escapeHtml(a.accessToken.last4)}` : ""} · ${escapeHtml(a.lastWebhookAt ? t("wa.lastFromWhatsApp", { when: when(a.lastWebhookAt) }) : t("wa.noMessage"))}</div>`}
+          ${viaMeta ? "" : `<div class="sub">${escapeHtml(t("wa.phoneId", { id: a.phoneNumberId }))}${a.accessToken.configured ? t("setwa.token", { last4: escapeHtml(a.accessToken.last4) }) : ""} · ${escapeHtml(a.lastWebhookAt ? t("wa.lastFromWhatsApp", { when: when(a.lastWebhookAt) }) : t("wa.noMessage"))}</div>`}
           ${["error", "disconnected"].includes(a.status) && a.statusMessage ? `<div class="sub" style="color:var(--danger)">${escapeHtml(a.statusMessage)}</div>` : ""}
           ${setup}
           ${agentHtml(a)}
@@ -426,7 +426,7 @@ crmI18n.ready.then(function settingsWhatsApp() {
   });
 
   document.getElementById("waAddMockBtn").addEventListener("click", () =>
-    run(() => crmApi("/whatsapp/accounts", jsonRequest("POST", { provider: "mock", name: "Test number" })), "Test number added."));
+    run(() => crmApi("/whatsapp/accounts", jsonRequest("POST", { provider: "mock", name: "Test number" /* i18n-ok: the account's name is data */ })), "Test number added."));
 
   // The simulator: a text, or (test numbers) a photo, document or voice note with a caption.
   const simType = document.getElementById("waSimType");
@@ -436,7 +436,7 @@ crmI18n.ready.then(function settingsWhatsApp() {
     input.required = isText;
     input.disabled = simType.value === "audio";
     if (!isText) input.value = "";
-    document.getElementById("waSimTextLabel").textContent = isText ? "Message" : simType.value === "audio" ? "Message (voice notes have none)" : "Caption (optional)";
+    document.getElementById("waSimTextLabel").textContent = isText ? t("c360.message") : simType.value === "audio" ? t("setwa.message-voice-notes-have-none") : t("setwa.caption-optional");
   });
   document.getElementById("waSimulateForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -444,9 +444,9 @@ crmI18n.ready.then(function settingsWhatsApp() {
     try {
       await crmApi("/dev/simulate/whatsapp-inbound", jsonRequest("POST", { from: value("waSimFrom"), name: value("waSimName"), type: simType.value, text: value("waSimText") }));
       document.getElementById("waSimText").value = "";
-      showToast("Test message received. The sender is now a contact (and a new lead if the number was new).", "success");
+      showToast(t("setwa.test-message-received-the-sender-is"), "success");
     } catch (error) {
-      showToast(error.status === 404 ? "Test messages are turned off on this server." : apiErrorMessage(error, "Couldn't receive the test message."), "error");
+      showToast(error.status === 404 ? t("setwa.test-messages-are-turned-off-on") : apiErrorMessage(error, t("setwa.couldn-t-receive-the-test-message")), "error");
     }
     await load();
   });

@@ -9,7 +9,7 @@
 (function settingsPhone() {
   const $ = (id) => document.getElementById(id);
   const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, ...(body && { body: JSON.stringify(body) }) });
-  const DEFAULT_HINT = "Your mobile number, verified with a 6-digit code on WhatsApp.";
+  const defaultHint = () => t("set.your-mobile-number-verified-with-a");
 
   function render(status) {
     $("phoneSection").hidden = !status.available && !status.phone;
@@ -20,17 +20,17 @@
     $("phoneSendBtn").hidden = verified || !status.available;
     $("phoneVerifyBtn").hidden = true;
     $("phoneChangeBtn").hidden = !verified || !status.available;
-    $("phoneHint").textContent = verified ? `${status.phone} is verified.` : DEFAULT_HINT;
+    $("phoneHint").textContent = verified ? t("setphone.verified", { phone: status.phone }) : defaultHint();
 
     // 2-step verification: each person's choice (optional), or fixed by the CRM.
     $("twoStepRow").hidden = status.twoStepMode === "off" || !status.available;
     $("twoStepToggle").checked = Boolean(status.twoStep);
     $("twoStepToggle").disabled = status.twoStepMode === "required" || (!verified && !status.twoStep);
     $("twoStepHint").textContent = status.twoStepMode === "required"
-      ? "Always on for this CRM: a new browser asks for a code on WhatsApp after Google."
+      ? t("setphone.always-on-for-this-crm-a")
       : verified
-        ? "On a new browser, after Google, ask for a code sent on WhatsApp to this number. A browser where you choose \"Stay logged in\" is not asked again for 30 days."
-        : "Verify your number above first.";
+        ? t("setphone.on-a-new-browser-after-google")
+        : t("setphone.verify-your-number-above-first");
   }
 
   async function load() {
@@ -50,7 +50,7 @@
       $("phoneVerifyBtn").hidden = false;
       $("phoneCode").focus();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not send a code."), "error");
+      showToast(apiErrorMessage(error, t("login.errSend")), "error");
     } finally {
       $("phoneSendBtn").disabled = false;
     }
@@ -59,9 +59,9 @@
     try {
       render(await crmApi("/auth/phone/verify", json("POST", { phone: $("phoneNumber").value.trim(), code: $("phoneCode").value.trim() })));
       $("phoneCode").value = "";
-      showToast("Number verified.", "success");
+      showToast(t("setphone.number-verified"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "That code did not work."), "error");
+      showToast(apiErrorMessage(error, t("login.errApp")), "error");
     }
   });
   // The old number stays until the new one is verified.
@@ -71,18 +71,18 @@
     $("phoneNumber").focus();
     $("phoneChangeBtn").hidden = true;
     $("phoneSendBtn").hidden = false;
-    $("phoneHint").textContent = "Enter the new number. It replaces the old one once you enter the code from WhatsApp.";
+    $("phoneHint").textContent = t("setphone.enter-the-new-number-it-replaces");
   });
   $("twoStepToggle").addEventListener("change", async () => {
     const enabled = $("twoStepToggle").checked;
     $("twoStepToggle").disabled = true;
     try {
       render(await crmApi("/auth/two-step", json("PUT", { enabled })));
-      showToast(enabled ? "2-step verification is on." : "2-step verification is off.", "success");
+      showToast(enabled ? t("setphone.2-step-verification-is-on") : t("setphone.2-step-verification-is-off"), "success");
     } catch (error) {
       $("twoStepToggle").checked = !enabled;
       $("twoStepToggle").disabled = false;
-      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+      showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
     }
   });
 

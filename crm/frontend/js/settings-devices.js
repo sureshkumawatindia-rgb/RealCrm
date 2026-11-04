@@ -8,45 +8,45 @@
 (function settingsDevices() {
   const $ = (id) => document.getElementById(id);
   const METHODS = {
-    "google+whatsapp": "Google + WhatsApp code",
-    "google+sms": "Google + SMS code",
-    qr: "QR code from your phone",
-    google: "Google",
+    "google+whatsapp": "setdev.method.whatsapp",
+    "google+sms": "setdev.method.sms",
+    qr: "setdev.method.qr",
+    google: "setdev.method.google",
   };
   const when = (iso) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   const day = (iso) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
   function ago(iso) {
     const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-    if (minutes < 2) return "just now";
-    if (minutes < 60) return `${minutes} min ago`;
-    if (minutes < 24 * 60) return `${Math.round(minutes / 60)} h ago`;
+    if (minutes < 2) return t("bell.justNow");
+    if (minutes < 60) return t("setdev.min-ago", { minutes });
+    if (minutes < 24 * 60) return t("setdev.h-ago", { v: Math.round(minutes / 60) });
     return when(iso);
   }
 
   function render({ devices }) {
     const list = $("deviceList");
     if (!devices.length) {
-      list.innerHTML = '<li class="device-empty">No other device is logged in.</li>';
+      list.innerHTML = `<li class="device-empty">${escapeHtml(t("setdev.no-other-device"))}</li>`;
       $("devicesLogoutOthersBtn").hidden = true;
       return;
     }
     list.innerHTML = devices.map((device) => {
       const phone = /Android|iPhone/.test(device.device);
       const meta = [
-        METHODS[device.method] || "Google",
-        `logged in ${when(device.loggedInAt)}`,
-        device.current ? "" : `last used ${ago(device.lastActiveAt)}`,
-        device.rememberedUntil ? `stays logged in until ${day(device.rememberedUntil)}` : "",
+        t(METHODS[device.method] || METHODS.google),
+        t("setdev.logged-in", { v: when(device.loggedInAt) }),
+        device.current ? "" : t("setdev.last-used", { v: ago(device.lastActiveAt) }),
+        device.rememberedUntil ? t("setdev.stays-logged-in-until", { v: day(device.rememberedUntil) }) : "",
       ].filter(Boolean).join(" · ");
       return `
         <li>
           <span class="device-icon"><i class="fa-solid ${phone ? "fa-mobile-screen" : "fa-desktop"}"></i></span>
           <span class="device-text">
-            <span class="device-name">${escapeHtml(device.device)}</span>${device.current ? '<span class="device-here">This device</span>' : ""}
+            <span class="device-name">${escapeHtml(device.device)}</span>${device.current ? `<span class="device-here">${escapeHtml(t("setdev.this-device"))}</span>` : ""}
             <br /><span class="device-meta">${escapeHtml(meta)}</span>
           </span>
-          <button class="btn btn-outline" type="button" data-device="${escapeHtml(device.id)}" data-current="${device.current ? "1" : ""}">Log out</button>
+          <button class="btn btn-outline" type="button" data-device="${escapeHtml(device.id)}" data-current="${device.current ? "1" : ""}">${escapeHtml(t("setdev.log-out"))}</button>
         </li>`;
     }).join("");
     $("devicesLogoutOthersBtn").hidden = !devices.some((device) => !device.current);
@@ -56,7 +56,7 @@
     try {
       render(await crmApi("/auth/devices"));
     } catch (error) {
-      $("deviceList").innerHTML = `<li class="device-empty">${escapeHtml(apiErrorMessage(error, "Could not load the list."))}</li>`;
+      $("deviceList").innerHTML = `<li class="device-empty">${escapeHtml(apiErrorMessage(error, t("setdev.could-not-load-the-list")))}</li>`;
     }
     loadLoginEmails();
   }
@@ -75,10 +75,10 @@
     try {
       const { email } = await crmApi("/auth/login-alerts", jsonRequest("PATCH", { email: event.target.checked }));
       event.target.checked = email;
-      showToast(email ? "You'll get an email about new logins." : "New logins only under the bell now.", "success");
+      showToast(email ? t("setdev.you-ll-get-an-email-about") : t("setdev.new-logins-only-under-the-bell"), "success");
     } catch (error) {
       event.target.checked = !event.target.checked;
-      showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+      showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
     }
   });
 
@@ -86,26 +86,26 @@
     const button = event.target.closest("button[data-device]");
     if (!button) return;
     const current = Boolean(button.dataset.current);
-    if (!confirm(current ? "Log out on this device?" : "Log out on this device? It will need Google, the number and a code again.")) return;
+    if (!confirm(current ? t("setdev.log-out-on-this-device") : t("setdev.log-out-on-this-device-it"))) return;
     if (current) return logout();
     button.disabled = true;
     try {
       render(await crmApi(`/auth/devices/${encodeURIComponent(button.dataset.device)}`, { method: "DELETE" }));
-      showToast("Logged out on that device.", "success");
+      showToast(t("setdev.logged-out-on-that-device"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not log it out."), "error");
+      showToast(apiErrorMessage(error, t("setdev.could-not-log-it-out")), "error");
       button.disabled = false;
     }
   });
 
   $("devicesLogoutOthersBtn").addEventListener("click", async () => {
-    if (!confirm("Log out on every other browser and phone? Only this one stays logged in.")) return;
+    if (!confirm(t("setdev.log-out-on-every-other-browser"))) return;
     $("devicesLogoutOthersBtn").disabled = true;
     try {
       render(await crmApi("/auth/devices/logout-others", { method: "POST" }));
-      showToast("Logged out everywhere else.", "success");
+      showToast(t("setdev.logged-out-everywhere-else"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not log them out."), "error");
+      showToast(apiErrorMessage(error, t("setdev.could-not-log-them-out")), "error");
     } finally {
       $("devicesLogoutOthersBtn").disabled = false;
     }
@@ -117,9 +117,9 @@
   $("linkComputerCopy").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(loginUrl);
-      showToast("Address copied.", "success");
+      showToast(t("setdev.address-copied"), "success");
     } catch {
-      showToast("Copy it by hand: select the address.", "info");
+      showToast(t("setdev.copy-it-by-hand-select-the"), "info");
     }
   });
 

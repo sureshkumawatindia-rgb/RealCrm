@@ -56,7 +56,7 @@
     each("data-i18n-aria-label", (el, text) => { el.setAttribute("aria-label", text); });
     document.documentElement.lang = language;
     document.title = t("lp.title");
-    $("langBtn").textContent = language === "hi" ? "English" : "हिंदी";
+    $("langBtn").textContent = language === "hi" ? "English" : "हिंदी"; // i18n-ok: each language by its own name
     $("langBtn").lang = language === "hi" ? "en" : "hi";
     document.documentElement.classList.remove("i18n-pending");
   }
@@ -79,7 +79,7 @@
   // The same words as Settings → Plan & usage (js/settings-plan.js), in the page's language.
   const limitText = (metric, n) => {
     if (n === null) return has(`lp.unlimited.${metric}`) ? t(`lp.unlimited.${metric}`) : "";
-    const key = `lp.limit.${metric}${n === 1 ? "One" : ""}`;
+    const key = `lp.limit.${metric}${n === 1 ? "One" : ""}`; // i18n-ok: part of a text key
     if (!has(key)) return "";
     return t(key, { n: count(n) }) + (metric === "whatsappNumbers" && n >= 20 ? t("lp.limit.metaMax") : "");
   };

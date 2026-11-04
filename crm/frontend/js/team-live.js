@@ -17,14 +17,7 @@
   let soon = null;
 
   const initials = (name) => String(name || "?").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "?";
-  function duration(seconds) {
-    if (seconds == null) return "—";
-    if (seconds < 60) return `${Math.round(seconds)} s`;
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    return hours < 48 ? `${hours} h${minutes % 60 ? ` ${minutes % 60} min` : ""}` : `${Math.round(hours / 24)} days`;
-  }
+  const duration = (seconds) => crmDuration(seconds);
   const since = (iso) => (iso ? duration((Date.now() - new Date(iso).getTime()) / 1000) : "");
   const kpi = (label, value, sub, cls = "") => `<div class="stat-card ${cls}"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(String(value))}</div><div class="report-note">${escapeHtml(sub)}</div></div>`;
   const cell = (value, sub = "", cls = "") => `<td class="num ${cls}">${escapeHtml(String(value))}${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ""}</td>`;
@@ -32,32 +25,32 @@
   function waitingCell(count, oldest) {
     if (!count) return cell(0);
     const long = oldest && Date.now() - new Date(oldest).getTime() > WAITING_LONG_MS;
-    return cell(count, `oldest ${since(oldest)}`, long ? "waiting-long" : "");
+    return cell(count, crmI18n.t("teamlive.oldest", { v: since(oldest) }), long ? "waiting-long" : "");
   }
 
   function render(data) {
     const t = data.today;
     $("teamKpis").innerHTML = [
-      kpi("Online now", `${t.online} / ${data.items.length}`, "team members"),
-      kpi("Waiting for a reply", t.waiting, data.queue.waitingChats ? `${data.queue.waitingChats} not taken by anyone` : "customers who wrote last", t.waiting ? "warning" : ""),
-      kpi("Replies today", t.replies, `first reply ${duration(t.firstResponseMedianSeconds)} (median)`),
-      kpi("Resolved today", t.resolved, "chats closed", "success"),
-      kpi("Feedback today", t.csat?.answers ? `${Number(t.csat.scorePct).toLocaleString("en-IN", { maximumFractionDigits: 1 })}% good` : "—", t.csat?.answers ? `${t.csat.answers} answer${t.csat.answers === 1 ? "" : "s"} · ${t.csat.bad} bad` : "no answers yet"),
+      kpi(crmI18n.t("teamlive.online-now"), `${t.online} / ${data.items.length}`, crmI18n.t("teamlive.team-members")),
+      kpi(crmI18n.t("teamlive.waiting-for-a-reply"), t.waiting, data.queue.waitingChats ? crmI18n.t("teamlive.not-taken-by-anyone", { waitingChats: data.queue.waitingChats }) : crmI18n.t("teamlive.customers-who-wrote-last"), t.waiting ? "warning" : ""),
+      kpi(crmI18n.t("teamlive.replies-today"), t.replies, crmI18n.t("teamlive.first-reply-median", { v: duration(t.firstResponseMedianSeconds) })),
+      kpi(crmI18n.t("teamlive.resolved-today"), t.resolved, crmI18n.t("teamlive.chats-closed"), "success"),
+      kpi(crmI18n.t("teamlive.feedback-today"), t.csat?.answers ? crmI18n.t("teamlive.good", { v: Number(t.csat.scorePct).toLocaleString("en-IN", { maximumFractionDigits: 1 }) }) : "—", t.csat?.answers ? crmI18n.t(t.csat.answers === 1 ? "teamlive.answer-bad-one" : "teamlive.answer-bad-many", { n: t.csat.answers, bad: t.csat.bad }) : crmI18n.t("teamlive.no-answers-yet")),
     ].join("");
     const queueRow = `<tr class="queue-row">
-      <td><div class="leaderboard-agent"><span class="avatar"><i class="fa-solid fa-inbox"></i></span><div>Not taken yet<span class="sub">the Inbox queue</span></div></div></td>
+      <td><div class="leaderboard-agent"><span class="avatar"><i class="fa-solid fa-inbox"></i></span><div>${escapeHtml(crmI18n.t("teamlive.not-taken-yet"))}<span class="sub">${escapeHtml(crmI18n.t("teamlive.the-inbox-queue"))}</span></div></div></td>
       <td></td>${cell(data.queue.openChats)}${waitingCell(data.queue.waitingChats, data.queue.oldestWaitingSince)}<td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
     </tr>`;
     const rows = data.items.map((m) => `<tr>
-      <td><div class="leaderboard-agent"><span class="avatar">${escapeHtml(initials(m.name))}</span><div>${escapeHtml(m.name)}<span class="sub">${escapeHtml(m.role)}</span></div></div></td>
-      <td><span class="presence ${m.online ? "on" : ""}"><span class="dot"></span>${m.online ? "Online" : m.lastSeenAt ? `Seen ${escapeHtml(since(m.lastSeenAt))} ago` : "Not seen yet"}</span></td>
-      ${cell(m.openChats)}${waitingCell(m.waitingChats, m.oldestWaitingSince)}${cell(m.repliesToday)}${cell(m.resolvedToday)}${cell(duration(m.firstResponseMedianSeconds))}${cell(m.csatAnswersToday ? `${Number(m.csatScorePctToday).toLocaleString("en-IN", { maximumFractionDigits: 1 })}%` : "—", m.csatAnswersToday ? `${m.csatAnswersToday} answer${m.csatAnswersToday === 1 ? "" : "s"}` : "")}
+      <td><div class="leaderboard-agent"><span class="avatar">${escapeHtml(initials(m.name))}</span><div>${escapeHtml(m.name)}<span class="sub">${escapeHtml(crmLabel("role", String(m.role || "").replace(/^./, (c) => c.toUpperCase())))}</span></div></div></td>
+      <td><span class="presence ${m.online ? "on" : ""}"><span class="dot"></span>${m.online ? crmI18n.t("teamlive.online") : m.lastSeenAt ? crmI18n.t("teamlive.seen-ago", { v: escapeHtml(since(m.lastSeenAt)) }) : crmI18n.t("teamlive.not-seen-yet")}</span></td>
+      ${cell(m.openChats)}${waitingCell(m.waitingChats, m.oldestWaitingSince)}${cell(m.repliesToday)}${cell(m.resolvedToday)}${cell(duration(m.firstResponseMedianSeconds))}${cell(m.csatAnswersToday ? `${Number(m.csatScorePctToday).toLocaleString("en-IN", { maximumFractionDigits: 1 })}%` : "—", m.csatAnswersToday ? crmI18n.t(m.csatAnswersToday === 1 ? "teamlive.answer-one" : "teamlive.answer-many", { n: m.csatAnswersToday }) : "")}
     </tr>`);
     $("teamTable").innerHTML = `<table>
-      <thead><tr><th>Member</th><th>Status</th><th class="num">Open chats</th><th class="num">Waiting</th><th class="num">Replies today</th><th class="num">Resolved today</th><th class="num">First reply today</th><th class="num">Feedback today</th></tr></thead>
+      <thead><tr><th>${escapeHtml(crmI18n.t("teamlive.member"))}</th><th>${escapeHtml(crmI18n.t("board.field.task.status"))}</th><th class="num">${escapeHtml(crmI18n.t("teamlive.open-chats"))}</th><th class="num">${escapeHtml(crmI18n.t("orders.col.waiting"))}</th><th class="num">${escapeHtml(crmI18n.t("teamlive.replies-today"))}</th><th class="num">${escapeHtml(crmI18n.t("teamlive.resolved-today"))}</th><th class="num">${escapeHtml(crmI18n.t("teamlive.first-reply-today"))}</th><th class="num">${escapeHtml(crmI18n.t("teamlive.feedback-today"))}</th></tr></thead>
       <tbody>${queueRow}${rows.join("")}</tbody>
     </table>`;
-    $("updatedAt").textContent = `Updated ${new Date(data.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit" })}`;
+    $("updatedAt").textContent = crmI18n.t("teamlive.updated", { v: new Date(data.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit" }) });
   }
 
   async function load() {
@@ -66,7 +59,7 @@
       $("livePill").classList.remove("off");
     } catch (error) {
       $("livePill").classList.add("off");
-      $("teamTable").innerHTML = `<div class="report-empty"><i class="fa-solid fa-triangle-exclamation"></i>${escapeHtml(apiErrorMessage(error, "Couldn't load the team."))}</div>`;
+      $("teamTable").innerHTML = `<div class="report-empty"><i class="fa-solid fa-triangle-exclamation"></i>${escapeHtml(apiErrorMessage(error, t("teamlive.couldn-t-load-the-team")))}</div>`;
     }
   }
 

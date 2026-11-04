@@ -26,14 +26,14 @@
   function render() {
     $("auditList").innerHTML = rows.length ? `
       <div style="overflow-x: auto"><table>
-        <thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead>
+        <thead><tr><th>${escapeHtml(t("inbox.later.when"))}</th><th>${escapeHtml(t("wfb.field.to"))}</th><th>${escapeHtml(t("setaudit.what"))}</th><th>${escapeHtml(t("cw.details"))}</th></tr></thead>
         <tbody>${rows.map((e) => `<tr>
           <td style="white-space: nowrap">${escapeHtml(when(e.at))}</td>
-          <td>${e.actor ? `${escapeHtml(e.actor.name || e.actor.email)}` : '<span class="settings-hint" style="margin: 0">The CRM</span>'}</td>
+          <td>${e.actor ? `${escapeHtml(e.actor.name || e.actor.email)}` : `<span class="settings-hint" style="margin: 0">${escapeHtml(t("setaudit.theCrm"))}</span>`}</td>
           <td>${escapeHtml(words(e.action))}${e.entityType ? `<div class="settings-hint" style="margin: 0">${escapeHtml(e.entityType)}</div>` : ""}</td>
           <td style="font-size: 12px; word-break: break-word">${escapeHtml(details(e.changes))}</td>
         </tr>`).join("")}</tbody>
-      </table></div>` : '<p class="settings-hint">Nothing for these filters.</p>';
+      </table></div>` : `<p class="settings-hint">${escapeHtml(t("setaudit.nothing"))}</p>`;
   }
 
   function query() {
@@ -53,7 +53,7 @@
       render();
       $("auditMore").hidden = !result.pagination?.hasNextPage;
     } catch (error) {
-      $("auditList").innerHTML = `<p class="settings-hint">${escapeHtml(apiErrorMessage(error, "Could not load the audit log."))}</p>`;
+      $("auditList").innerHTML = `<p class="settings-hint">${escapeHtml(apiErrorMessage(error, t("setaudit.could-not-load-the-audit-log")))}</p>`;
     }
   }
 

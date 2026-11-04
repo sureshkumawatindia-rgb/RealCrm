@@ -7,6 +7,9 @@
  * Used by inbox.js; the conversion is also tested on the server (tests/voiceNote.test.js).
  */
 (function voiceNoteModule(root) {
+  // A message in the person's language on the page; in English where the page's texts are not
+  // loaded (the server's tests run this file on its own).
+  const say = (key, english) => (typeof crmI18n !== "undefined" && crmI18n.has(key) ? crmI18n.t(key) : english);
   // --- WebM (EBML) ---------------------------------------------------------------------------------
   const ID = {
     EBML: 0x1a45dfa3, SEGMENT: 0x18538067, CLUSTER: 0x1f43b675, TRACKS: 0x1654ae6b, TRACK_ENTRY: 0xae, AUDIO: 0xe1,
@@ -70,13 +73,13 @@
       pos = end;
     }
     const opus = tracks.find((t) => t.codec === 'A_OPUS');
-    if (!opus) throw new Error('The recording has no Opus audio.');
+    if (!opus) throw new Error(say("voice.the-recording-has-no-opus-audio", "The recording has no Opus audio.")); // i18n-ok: English without the page's texts
     const packets = [];
     for (const block of blocks) {
       const trackNumber = readVint(block, 0, false);
       if (!trackNumber || trackNumber.value !== opus.number) continue;
       const flags = block[trackNumber.length + 2];
-      if ((flags >> 1) & 3) throw new Error('Laced WebM blocks are not supported.'); // browsers do not lace audio
+      if ((flags >> 1) & 3) throw new Error(say("voice.laced-webm-blocks-are-not-supported", "Laced WebM blocks are not supported.")); // i18n-ok: English without the page's texts; browsers do not lace audio
       packets.push(block.slice(trackNumber.length + 3));
     }
     const fromHead = opus.opusHead && String.fromCharCode(...opus.opusHead.subarray(0, 8)) === 'OpusHead' ? opus.opusHead : null;
@@ -200,8 +203,8 @@
   // A WebM recording (Chrome, Edge) → Ogg Opus bytes; throws when it cannot.
   function webmToOgg(webmBytes) {
     const opus = readWebmOpus(webmBytes instanceof Uint8Array ? webmBytes : new Uint8Array(webmBytes));
-    if (opus.channels !== 1) throw new Error('WhatsApp voice notes must be mono.');
-    if (!opus.packets.length) throw new Error('The recording is empty.');
+    if (opus.channels !== 1) throw new Error(say("voice.whatsapp-voice-notes-must-be-mono", "WhatsApp voice notes must be mono.")); // i18n-ok: English without the page's texts
+    if (!opus.packets.length) throw new Error(say("voice.the-recording-is-empty", "The recording is empty.")); // i18n-ok: English without the page's texts
     return writeOggOpus(opus);
   }
 

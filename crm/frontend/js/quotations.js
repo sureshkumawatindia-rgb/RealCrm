@@ -46,29 +46,29 @@ crmI18n.ready.then(function quotationsPage() {
   let products = [];
 
   // Indian numbering in words, as the PDF the customer gets prints it (so English in both languages): 1,27,13,00 paise → "Rupees One Lakh Twenty-Seven Thousand One Hundred Thirty Only".
-  const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-  const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]; // i18n-ok: the amount in words is English, as on GST documents
+  const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]; // i18n-ok: the amount in words is English, as on GST documents
   function belowHundred(n) {
     return n < 20 ? ONES[n] : TENS[Math.floor(n / 10)] + (n % 10 ? `-${ONES[n % 10]}` : "");
   }
   function belowThousand(n) {
     const hundreds = Math.floor(n / 100);
     const rest = n % 100;
-    return [hundreds ? `${ONES[hundreds]} Hundred` : "", rest ? belowHundred(rest) : ""].filter(Boolean).join(" ");
+    return [hundreds ? `${ONES[hundreds]} Hundred` : "", rest ? belowHundred(rest) : ""].filter(Boolean).join(" "); // i18n-ok: the amount in words is English, as on GST documents
   }
   function inWords(paise) {
     const total = Math.round(Number(paise) || 0);
     let rupeesPart = Math.floor(total / 100);
     const paisePart = total % 100;
-    if (!rupeesPart && !paisePart) return "Rupees Zero Only";
+    if (!rupeesPart && !paisePart) return "Rupees Zero Only"; // i18n-ok: the amount in words is English, as on GST documents
     const parts = [];
-    for (const [size, name] of [[10000000, "Crore"], [100000, "Lakh"], [1000, "Thousand"]]) {
+    for (const [size, name] of [[10000000, "Crore"], [100000, "Lakh"], [1000, "Thousand"]]) { // i18n-ok: the amount in words is English, as on GST documents
       const count = Math.floor(rupeesPart / size);
       if (count) parts.push(`${count >= 1000 ? inWords(count * 100).replace(/^Rupees | Only$/g, "") : belowThousand(count)} ${name}`);
       rupeesPart %= size;
     }
     if (rupeesPart) parts.push(belowThousand(rupeesPart));
-    return `Rupees ${parts.join(" ") || "Zero"}${paisePart ? ` and ${belowHundred(paisePart)} Paise` : ""} Only`;
+    return `Rupees ${parts.join(" ") || "Zero"}${paisePart ? ` and ${belowHundred(paisePart)} Paise` : ""} Only`; // i18n-ok: the amount in words is English, as on GST documents
   }
 
   // ------------------------------------------------------------------------------------------

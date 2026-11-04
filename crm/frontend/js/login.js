@@ -82,7 +82,7 @@ function errorText(error, fallbackKey) {
 }
 
 function applyLanguage() {
-  $("langLabel").textContent = crmI18n.language() === "hi" ? "English" : "हिंदी";
+  $("langLabel").textContent = crmI18n.language() === "hi" ? "English" : "हिंदी"; // i18n-ok: each language by its own name
   crmI18n.apply(document);
   document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
     el.setAttribute("aria-label", el.placeholder);
@@ -147,7 +147,7 @@ async function showInviteDetails() {
     else fillCompany(invite.organizationName);
   } catch (error) {
     sessionStorage.removeItem(INVITE_KEY);
-    setLoginNote(error.message || "This invite link is no longer valid. Ask for a new one.");
+    setLoginNote(error.message || lt("inviteInvalid"));
     fillCompany(companyFromLink || getPreference(COMPANY_PREF, ""));
   }
 }

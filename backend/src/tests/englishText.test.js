@@ -7,21 +7,20 @@ const { OWNER_FILES } = require('./helpers/responsiveScan');
 // in a page script goes through i18n/en.json and hi.json; see helpers/englishText.js for what
 // counts. The owner's own files are left to the owner; the legal pages stay in English.
 const LEGAL = new Set(['privacy.html', 'terms.html']);
+// The FAQ bot tab belongs to the owner's Sales Automation page, which the owner is putting into
+// Hindi (round 3): left to the owner as well.
+const OWNER_ROUND = new Set(['js/automation-bot.js']);
 // Scripts whose texts are still to be put into Hindi (Phase 4 part B). A file comes off this list
 // once it is done, and the test below makes sure a finished file is not left on it.
 const NOT_YET = new Set([
-  'js/accounts.js', 'js/ai-insights.js', 'js/app.js', 'js/automation-bot.js', 'js/boards.js', 'js/company.js', 'js/dashboard.js',
-  'js/dialer.js', 'js/inbox.js', 'js/invite-team.js', 'js/landing.js', 'js/link-device.js', 'js/login.js', 'js/my-performance.js',
-  'js/platform-admin.js', 'js/quotations.js', 'js/reports.js', 'js/settings-ai.js', 'js/settings-audit.js', 'js/settings-billing.js',
-  'js/settings-calling.js', 'js/settings-deletion.js', 'js/settings-devices.js', 'js/settings-fields.js', 'js/settings-google.js',
-  'js/settings-integrations.js', 'js/settings-leadsources.js', 'js/settings-payments.js', 'js/settings-phone.js', 'js/settings-plan.js',
-  'js/settings-push.js', 'js/settings-routing.js', 'js/settings-whatsapp.js', 'js/settings.js', 'js/support.js', 'js/team-live.js',
-  'js/voice-note.js', 'js/whatsapp-calls.js', 'js/workflow-builder.js',
+  'js/accounts.js', 'js/ai-insights.js', 'js/platform-admin.js', 'js/settings-integrations.js',
+  'js/settings-leadsources.js', 'js/settings-plan.js', 'js/settings-routing.js', 'js/settings.js', 'js/workflow-builder.js',
 ]);
 
 const read = (file) => fs.readFileSync(path.join(FRONTEND, file), 'utf8');
 const pages = fs.readdirSync(FRONTEND).filter((f) => f.endsWith('.html') && !OWNER_FILES.has(f) && !LEGAL.has(f));
-const scripts = fs.readdirSync(path.join(FRONTEND, 'js')).filter((f) => f.endsWith('.js')).map((f) => `js/${f}`).filter((f) => !OWNER_FILES.has(f));
+const scripts = fs.readdirSync(path.join(FRONTEND, 'js')).filter((f) => f.endsWith('.js')).map((f) => `js/${f}`)
+  .filter((f) => !OWNER_FILES.has(f) && !OWNER_ROUND.has(f));
 const en = JSON.parse(read('i18n/en.json'));
 
 describe('The English-text guard itself', () => {

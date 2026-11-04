@@ -25,15 +25,9 @@
   // --- formatting ----------------------------------------------------------------------------
   const rupees = (paise) => `₹${Math.round(Number(paise || 0) / 100).toLocaleString("en-IN")}`;
   const pctText = (value) => `${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 1 })}%`;
-  function duration(seconds) {
-    if (seconds == null) return "—";
-    if (seconds < 60) return `${seconds} s`;
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 48) return `${hours} h${minutes % 60 ? ` ${minutes % 60} min` : ""}`;
-    return `${Math.round(hours / 24)} days`;
-  }
+  const duration = (seconds) => crmDuration(seconds);
+  // "3 payments" in the person's language: <key>.one or <key>.many with {n} (D116).
+  const count = (n, key) => crmI18n.t(`${key}.${n === 1 ? "one" : "many"}`, { n });
   const initials = (name) => String(name || "?").replace(/^=/, "").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "?";
   const empty = (icon, text) => `<div class="report-empty"><i class="fa-solid ${icon}"></i>${escapeHtml(text)}</div>`;
   const pct = (part, whole) => (whole ? Math.round((part / whole) * 100) : 0);
@@ -89,7 +83,7 @@
       } catch (error) {
         if (seq !== state.seq) return;
         $("kpiGrid").innerHTML = "";
-        showToast(apiErrorMessage(error, "Couldn't load the report."), "error");
+        showToast(apiErrorMessage(error, t("rep.couldn-t-load-the-report")), "error");
         return;
       }
     }
@@ -103,19 +97,19 @@
     const o = got("overview");
     if (!o) return;
     const cards = [
-      ["Collected", rupees(o.payments.collectedPaise), `${o.payments.count} payment${o.payments.count === 1 ? "" : "s"}`, "success"],
-      ["Orders", rupees(o.orders.valuePaise), `${o.orders.count} order${o.orders.count === 1 ? "" : "s"}`, "info"],
-      ["New leads", o.leads.created, `${o.customers.new} new customer${o.customers.new === 1 ? "" : "s"}`, ""],
-      ["Won", o.leads.won, `win rate ${pctText(o.leads.winRatePct)} (${o.leads.lost} lost)`, "success"],
-      ["Quotations", o.quotations.sent, `${o.quotations.accepted} accepted`, ""],
-      ["First reply", duration(o.whatsapp.firstResponseMedianSeconds), `median · all replies ${duration(o.whatsapp.responseMedianSeconds)}`, ""],
-      ["Open pipeline", rupees(o.pipeline.valuePaise), `${o.pipeline.open} open leads · now`, "info"],
-      ["Due now", rupees(o.dues.duePaise), `${o.dues.orders} order${o.dues.orders === 1 ? "" : "s"}`, o.dues.duePaise ? "warning" : ""],
+      [t("reports.collected"), rupees(o.payments.collectedPaise), count(o.payments.count, "rep.n.payment"), "success"],
+      [t("nav.orders"), rupees(o.orders.valuePaise), count(o.orders.count, "rep.n.order"), "info"],
+      [t("gs.kind.leads"), o.leads.created, count(o.customers.new, "rep.n.newCustomer"), ""],
+      [crmLabel("stage", "Won"), o.leads.won, t("rep.win-rate-lost", { v: pctText(o.leads.winRatePct), lost: o.leads.lost }), "success"],
+      [t("nav.quotations"), o.quotations.sent, t("myperf.accepted", { n: o.quotations.accepted }), ""],
+      [t("sla.box.reply"), duration(o.whatsapp.firstResponseMedianSeconds), t("rep.median-all-replies", { v: duration(o.whatsapp.responseMedianSeconds) }), ""],
+      [t("dash.kpi.pipeline"), rupees(o.pipeline.valuePaise), t("rep.open-leads-now", { open: o.pipeline.open }), "info"],
+      [t("dash.kpi.due"), rupees(o.dues.duePaise), count(o.dues.orders, "rep.n.order"), o.dues.duePaise ? "warning" : ""],
     ];
     $("kpiGrid").innerHTML = cards
       .map(([label, value, sub, cls]) => `<div class="stat-card ${cls}"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(String(value))}</div><div class="report-note">${escapeHtml(sub)}</div></div>`)
       .join("");
-    $("rangeLabel").textContent = `${niceDay(o.range.from)} – ${niceDay(o.range.to)} (${o.range.days} day${o.range.days === 1 ? "" : "s"}, India time)${o.scope === "own" ? " · your own figures" : ""}`;
+    $("rangeLabel").textContent = `${niceDay(o.range.from)} – ${niceDay(o.range.to)} (${count(o.range.days, "rep.n.dayIndia")})${o.scope === "own" ? t("rep.your-own-figures") : ""}`;
   }
 
   // --- charts ---------------------------------------------------------------------------------
@@ -146,7 +140,7 @@
     el.innerHTML = rows
       .map((row, i) => {
         const label = labelOf(row);
-        return `<div class="trend-bar-col ${i % every === 0 || i === rows.length - 1 ? "labelled" : ""}" title="${escapeHtml(`${label}: invoiced ${formatter(row.invoicedPaise)}, collected ${formatter(row.amountPaise)}`)}">
+        return `<div class="trend-bar-col ${i % every === 0 || i === rows.length - 1 ? "labelled" : ""}" title="${escapeHtml(t("rep.invoiced-collected", { label, v: formatter(row.invoicedPaise), v2: formatter(row.amountPaise) }))}">
           <div class="trend-pair"><div class="trend-bar" style="height:${height(row.invoicedPaise)}%"></div><div class="trend-bar alt" style="height:${height(row.amountPaise)}%"></div></div>
           <div class="trend-month">${escapeHtml(label)}</div>
         </div>`;
@@ -200,31 +194,31 @@
     const money = state.series.endsWith("Paise");
     if (!t.items.some((r) => r[state.series])) {
       $("trendChart").classList.remove("dense");
-      $("trendChart").innerHTML = empty("fa-chart-column", "Nothing in this period yet.");
+      $("trendChart").innerHTML = empty("fa-chart-column", crmI18n.t("rep.nothing-in-this-period-yet"));
     } else {
       barChart($("trendChart"), t.items, (r) => r[state.series], (r) => bucketLabel(r.bucket, t.range.unit), (v) => (money ? rupees(v) : String(v)));
     }
-    if (!donut($("winLossDonut"), [{ label: "Won", count: o.leads.won, color: "var(--success)" }, { label: "Lost", count: o.leads.lost, color: "var(--danger)" }], pctText(o.leads.winRatePct), "Win rate")) {
-      $("winLossDonut").innerHTML = empty("fa-scale-balanced", "No lead was won or lost in this period.");
+    if (!donut($("winLossDonut"), [{ label: crmLabel("stage", "Won"), count: o.leads.won, color: "var(--success)" }, { label: crmLabel("stage", "Lost"), count: o.leads.lost, color: "var(--danger)" }], pctText(o.leads.winRatePct), crmI18n.t("rep.win-rate"))) {
+      $("winLossDonut").innerHTML = empty("fa-scale-balanced", crmI18n.t("rep.no-lead-was-won-or-lost"));
     }
     const f = s.items.reduce((acc, r) => ({ created: acc.created + r.funnel.created, contacted: acc.contacted + r.funnel.contacted, quoted: acc.quoted + r.funnel.quoted, won: acc.won + r.funnel.won }), { created: 0, contacted: 0, quoted: 0, won: 0 });
-    if (!f.created) $("leadFunnel").innerHTML = empty("fa-filter", "No new leads in this period.");
+    if (!f.created) $("leadFunnel").innerHTML = empty("fa-filter", crmI18n.t("rep.at.empty"));
     else funnel($("leadFunnel"), [
-      { label: "New leads", count: f.created },
-      { label: "Contacted or further", count: f.contacted, note: `${pct(f.contacted, f.created)}%` },
-      { label: "Quotation sent or further", count: f.quoted, note: `${pct(f.quoted, f.created)}%` },
-      { label: "Won", count: f.won, note: `${pct(f.won, f.created)}%` },
+      { label: crmI18n.t("gs.kind.leads"), count: f.created },
+      { label: crmI18n.t("rep.contacted-or-further"), count: f.contacted, note: `${pct(f.contacted, f.created)}%` },
+      { label: crmI18n.t("rep.quotation-sent-or-further"), count: f.quoted, note: `${pct(f.quoted, f.created)}%` },
+      { label: crmLabel("stage", "Won"), count: f.won, note: `${pct(f.won, f.created)}%` },
     ]);
     const stages = o.pipeline.byStage || [];
     if (!o.pipeline.open) {
-      $("pipelineBars").innerHTML = empty("fa-handshake", "No open leads right now.");
+      $("pipelineBars").innerHTML = empty("fa-handshake", crmI18n.t("rep.no-open-leads-right-now"));
     } else {
       const max = Math.max(...stages.map((x) => x.count), 1);
       $("pipelineBars").innerHTML = stages.map((x) => `
         <div class="pipeline-row">
           <div class="stage-label">${escapeHtml(x.stage)}</div>
           <div class="stage-track"><div class="stage-fill" style="width:${Math.max(4, Math.round((x.count / max) * 100))}%;background:${STAGE_COLOR[x.stage]}"></div></div>
-          <div class="stage-meta"><strong>${x.count}</strong> lead${x.count === 1 ? "" : "s"} · ${rupees(x.valuePaise)}</div>
+          <div class="stage-meta"><strong>${x.count}</strong> ${escapeHtml(crmI18n.t(x.count === 1 ? "rep.leadWord.one" : "rep.leadWord.many"))} · ${rupees(x.valuePaise)}</div>
         </div>`).join("");
     }
   }
@@ -235,23 +229,23 @@
     if (!q) return;
     const t = q.totals;
     if (!t.sent) {
-      $("quoteFunnel").innerHTML = empty("fa-file-invoice", "No quotation was sent in this period.");
+      $("quoteFunnel").innerHTML = empty("fa-file-invoice", crmI18n.t("rep.no-quotation-was-sent-in-this"));
     } else {
       funnel($("quoteFunnel"), [
-        { label: `Sent · ${rupees(t.sentValuePaise)}`, count: t.sent },
-        { label: "Opened by the customer", count: t.viewed, note: pctText(t.viewedPct) },
-        { label: `Accepted · ${rupees(t.acceptedValuePaise)}`, count: t.accepted, note: `win rate ${pctText(t.winRatePct)}` },
+        { label: crmI18n.t("rep.sent", { v: rupees(t.sentValuePaise) }), count: t.sent },
+        { label: crmI18n.t("quotes.openedByCustomer"), count: t.viewed, note: pctText(t.viewedPct) },
+        { label: crmI18n.t("rep.accepted", { v: rupees(t.acceptedValuePaise) }), count: t.accepted, note: crmI18n.t("rep.win-rate-2", { v: pctText(t.winRatePct) }) },
         { label: "Rejected", count: t.rejected },
         { label: "Expired", count: t.expired },
-        { label: "Still waiting", count: t.open },
+        { label: crmI18n.t("rep.still-waiting"), count: t.open },
       ]);
-      if (t.averageDaysToAccept != null) $("quoteFunnel").insertAdjacentHTML("beforeend", `<p class="report-note">Accepted on average ${t.averageDaysToAccept} day${t.averageDaysToAccept === 1 ? "" : "s"} after sending.</p>`);
+      if (t.averageDaysToAccept != null) $("quoteFunnel").insertAdjacentHTML("beforeend", `<p class="report-note">${escapeHtml(count(t.averageDaysToAccept, "rep.n.acceptedAfter"))}</p>`);
     }
-    bars($("rejectReasons"), q.rejectionReasons.map((r) => ({ label: r.reason, value: r.count })), "No quotation was rejected in this period.", "fa-circle-xmark");
+    bars($("rejectReasons"), q.rejectionReasons.map((r) => ({ label: r.reason, value: r.count })), crmI18n.t("rep.no-quotation-was-rejected-in-this"), "fa-circle-xmark");
     $("quoteOwnerTable").innerHTML = q.byOwner.length
-      ? table([["Owner"], ["Sent", 1], ["Opened", 1], ["Accepted", 1], ["Rejected", 1], ["Win rate", 1], ["Value accepted", 1]],
+      ? table([[crmI18n.t("leads.col.owner")], [crmI18n.t("rep.col.sent"), 1], [crmI18n.t("rep.opened"), 1], [crmI18n.t("rep.col.accepted"), 1], [crmI18n.t("rep.col.rejected"), 1], [crmI18n.t("rep.win-rate"), 1], [crmI18n.t("rep.value-accepted"), 1]],
         q.byOwner.map((r) => `<tr><td>${escapeHtml(r.name)}</td>${cell(r.sent)}${cell(r.viewed)}${cell(r.accepted)}${cell(r.rejected)}${cell(pctText(r.winRatePct))}${cell(rupees(r.acceptedValuePaise))}</tr>`))
-      : `<div class="empty-state"><i class="fa-solid fa-file-invoice"></i><p>No quotations in this period.</p></div>`;
+      : `<div class="empty-state"><i class="fa-solid fa-file-invoice"></i><p>${escapeHtml(crmI18n.t("rep.no-quotations-in-this-period"))}</p></div>`;
   }
 
   // --- Leads & Marketing ----------------------------------------------------------------------
@@ -309,10 +303,10 @@
     const s = got("sources");
     if (!s) return;
     $("sourceTable").innerHTML = s.items.length
-      ? table([["Source"], ["Enquiries", 1], ["Leads", 1], ["Contacted", 1], ["Quoted", 1], ["Won", 1], ["Lost", 1], ["Conversion", 1]],
+      ? table([[t("board.field.lead.source")], [t("rep.enquiries"), 1], [t("nav.leads"), 1], [crmLabel("stage", "Contacted"), 1], [t("rep.quoted"), 1], [crmLabel("stage", "Won"), 1], [crmLabel("stage", "Lost"), 1], [t("rep.at.conversion"), 1]],
         [...s.items.map((r) => `<tr><td><strong>${escapeHtml(r.source)}</strong></td>${cell(r.enquiries || "—", r.repeatEnquiries ? `${r.repeatEnquiries} repeat` : "")}${cell(r.leads)}${cell(r.funnel.contacted)}${cell(r.funnel.quoted)}${cell(r.funnel.won)}${cell(r.byStage.Lost)}${cell(pctText(r.conversionPct))}</tr>`),
-          `<tr><td><strong>Total</strong></td>${cell(s.totals.enquiries || "—")}${cell(s.totals.leads)}${cell("")}${cell("")}${cell(s.totals.won)}${cell("")}${cell(pctText(s.totals.conversionPct))}</tr>`])
-      : `<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>No new leads in this period.</p></div>`;
+          `<tr><td><strong>${escapeHtml(t("quotes.total"))}</strong></td>${cell(s.totals.enquiries || "—")}${cell(s.totals.leads)}${cell("")}${cell("")}${cell(s.totals.won)}${cell("")}${cell(pctText(s.totals.conversionPct))}</tr>`])
+      : `<div class="empty-state"><i class="fa-solid fa-bullseye"></i><p>${escapeHtml(t("rep.at.empty"))}</p></div>`;
 
     // Counted by the server over every lead of the period (Phase 3, D115).
     const range = { ...state.range };
@@ -320,37 +314,37 @@
       if (range.from !== state.range.from || range.to !== state.range.to) return; // another period since
       const names = new Map(getProducts().map((p) => [String(p.id), p.name]));
       const counted = summary.products.filter((row) => names.has(String(row.productId))).map((row) => ({ label: names.get(String(row.productId)), value: row.count })).sort((a, b) => b.value - a.value).slice(0, 8);
-      bars($("leadsByProduct"), counted, "No lead of this period names a product.", "fa-box-open");
-    }, () => bars($("leadsByProduct"), [], "No lead of this period names a product.", "fa-box-open"));
+      bars($("leadsByProduct"), counted, t("rep.no-lead-of-this-period-names"), "fa-box-open");
+    }, () => bars($("leadsByProduct"), [], t("rep.no-lead-of-this-period-names"), "fa-box-open"));
 
     const campaigns = getCampaigns().filter((c) => (!c.startDate || c.startDate <= state.range.to) && (!c.endDate || c.endDate >= state.range.from));
     $("campaignPerfTable").innerHTML = campaigns.length
-      ? table([["Campaign"], ["Status"], ["Budget", 1], ["Leads", 1], ["Cost / lead", 1]], campaigns.map((c) => {
+      ? table([[t("dash.campaign")], [t("board.field.task.status")], [t("wf.field.budget"), 1], ["Leads", 1], [t("rep.cost-lead"), 1]], campaigns.map((c) => {
         const budget = Number(c.budget || 0);
         const leadsGen = Number(c.leadsGenerated || 0);
         return `<tr><td><strong>${escapeHtml(c.name)}</strong><span class="sub">${escapeHtml(c.type || "")}</span></td><td>${escapeHtml(c.status || "—")}</td>${cell(`₹${budget.toLocaleString("en-IN")}`)}${cell(leadsGen)}${cell(leadsGen ? `₹${Math.round(budget / leadsGen).toLocaleString("en-IN")}` : "—")}</tr>`;
       }))
-      : `<div class="empty-state"><i class="fa-solid fa-bullhorn"></i><p>No campaign ran in this period.</p></div>`;
+      : `<div class="empty-state"><i class="fa-solid fa-bullhorn"></i><p>${escapeHtml(t("rep.no-campaign-ran-in-this-period"))}</p></div>`;
 
     $("broadcastPanel").hidden = !isOrgManager();
     const b = got("broadcasts");
     if (b) {
       $("broadcastTable").innerHTML = b.items.length
-        ? table([["Broadcast"], ["Recipients", 1], ["Sent", 1], ["Delivered", 1], ["Read", 1], ["Replied", 1], ["Failed", 1]],
+        ? table([[t("inbox.auto.broadcast")], [t("rep.recipients"), 1], [t("rep.col.sent"), 1], [t("rep.col.delivered"), 1], [t("inbox.tick.read"), 1], [t("rep.replied"), 1], [t("call.status.failed"), 1]],
           [...b.items.map((x) => `<tr><td><a href="Marketing.html?broadcast=${encodeURIComponent(x.id)}">${escapeHtml(x.name)}</a><span class="sub">${escapeHtml(x.templateName || "")}${x.startedAt ? ` · ${escapeHtml(niceDay(new Date(new Date(x.startedAt).getTime() + 330 * 60000).toISOString().slice(0, 10)))}` : ""}</span></td>${cell(x.total)}${cell(x.sent)}${cell(x.delivered, pctText(x.deliveredPct))}${cell(x.read, pctText(x.readPct))}${cell(x.replied, pctText(x.repliedPct))}${cell(x.failed)}</tr>`),
-            `<tr><td><strong>Total</strong></td>${cell(b.totals.total)}${cell(b.totals.sent)}${cell(b.totals.delivered, pctText(b.totals.deliveredPct))}${cell(b.totals.read, pctText(b.totals.readPct))}${cell(b.totals.replied, pctText(b.totals.repliedPct))}${cell(b.totals.failed)}</tr>`])
-        : `<div class="empty-state"><i class="fa-brands fa-whatsapp"></i><p>No broadcast started in this period.</p></div>`;
+            `<tr><td><strong>${escapeHtml(t("quotes.total"))}</strong></td>${cell(b.totals.total)}${cell(b.totals.sent)}${cell(b.totals.delivered, pctText(b.totals.deliveredPct))}${cell(b.totals.read, pctText(b.totals.readPct))}${cell(b.totals.replied, pctText(b.totals.repliedPct))}${cell(b.totals.failed)}</tr>`])
+        : `<div class="empty-state"><i class="fa-brands fa-whatsapp"></i><p>${escapeHtml(t("rep.no-broadcast-started-in-this-period"))}</p></div>`;
     }
   }
 
   // --- WhatsApp & Team ------------------------------------------------------------------------
   // D103: customers' answers to "How was our service?" (the share that said Good).
   function csatText(good, answers) {
-    return answers ? `${pctText(Math.round((good / answers) * 1000) / 10)} good` : "—";
+    return answers ? crmI18n.t("myperf.good", { v: pctText(Math.round((good / answers) * 1000) / 10) }) : "—";
   }
   function csatKpi(score) {
     const { good = 0, answers = 0, bad = 0 } = score || {};
-    return `<div class="stat-card"><div class="label">Customer feedback</div><div class="value">${escapeHtml(csatText(good, answers))}</div><div class="report-note">${escapeHtml(answers ? `${answers} answer${answers === 1 ? "" : "s"} · ${bad} bad` : "no answers yet (Settings → WhatsApp)")}</div></div>`;
+    return `<div class="stat-card"><div class="label">${escapeHtml(t("wa.csat.label"))}</div><div class="value">${escapeHtml(csatText(good, answers))}</div><div class="report-note">${escapeHtml(answers ? crmI18n.t(answers === 1 ? "teamlive.answer-bad-one" : "teamlive.answer-bad-many", { n: answers, bad }) : t("rep.no-answers-yet-settings-whatsapp"))}</div></div>`;
   }
   function renderTeam() {
     const a = got("agents");
@@ -358,29 +352,29 @@
     const t = a.team;
     const kpi = (label, value, sub) => `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(String(value))}</div><div class="report-note">${escapeHtml(sub)}</div></div>`;
     $("teamKpis").innerHTML = [
-      kpi("First reply", duration(t.firstResponseMedianSeconds), "median, new chats"),
-      kpi("Reply time", duration(t.responseMedianSeconds), `median · average ${duration(t.responseAverageSeconds)}`),
-      kpi("Chats answered", t.chatsHandled, `${t.replies} replies`),
-      kpi("Chats resolved", t.chatsResolved || 0, t.resolutionMedianSeconds != null ? `median ${duration(t.resolutionMedianSeconds)} to resolve` : "closed by the team"),
-      kpi("Collected", rupees(t.collectedPaise), `${t.won} won`),
+      kpi(crmI18n.t("sla.box.reply"), duration(t.firstResponseMedianSeconds), crmI18n.t("rep.median-new-chats")),
+      kpi(crmI18n.t("rep.reply-time"), duration(t.responseMedianSeconds), crmI18n.t("rep.median-average", { v: duration(t.responseAverageSeconds) })),
+      kpi(crmI18n.t("rep.chats-answered"), t.chatsHandled, count(t.replies, "rep.n.reply")),
+      kpi(crmI18n.t("rep.chats-resolved"), t.chatsResolved || 0, t.resolutionMedianSeconds != null ? crmI18n.t("rep.median-to-resolve", { v: duration(t.resolutionMedianSeconds) }) : crmI18n.t("rep.closed-by-the-team")),
+      kpi(crmI18n.t("reports.collected"), rupees(t.collectedPaise), crmI18n.t("rep.nWon", { n: t.won })),
       csatKpi(t.csat),
     ].join("");
     $("agentTable").innerHTML = a.items.length
-      ? table([["#"], ["Agent"], ["Chats", 1], ["First reply", 1], ["Reply time", 1], ["Resolved", 1], ["Feedback", 1], ["Open leads", 1], ["New leads", 1], ["Won", 1], ["Quotes", 1], ["Orders", 1], ["Collected", 1], ["Tasks", 1], ["Tickets", 1]],
+      ? table([["#"], [crmLabel("role", "Agent")], [crmI18n.t("inbox.chats"), 1], [crmI18n.t("sla.box.reply"), 1], [crmI18n.t("rep.reply-time"), 1], [crmI18n.t("rep.col.resolved"), 1], [crmI18n.t("rep.feedback"), 1], [crmI18n.t("rep.open-leads"), 1], [crmI18n.t("gs.kind.leads"), 1], [crmLabel("stage", "Won"), 1], [crmI18n.t("rep.quotes"), 1], [crmI18n.t("nav.orders"), 1], [crmI18n.t("reports.collected"), 1], [crmI18n.t("nav.tasks"), 1], [crmI18n.t("rep.tickets"), 1]],
         a.items.map((r, i) => {
           const open = ["New", "Contacted", "Quote Sent", "Negotiation"].reduce((s, stage) => s + (r.leadsByStage[stage] || 0), 0);
           return `<tr>
             <td><span class="rank-badge ${i === 0 && (r.collectedPaise || r.won) ? "top" : ""}">${i + 1}</span></td>
-            <td><div class="leaderboard-agent"><span class="avatar">${escapeHtml(initials(r.name))}</span><div>${escapeHtml(r.name)}<span class="sub">${escapeHtml(r.role || "")}${r.active ? "" : " · no longer in the team"}</span></div></div></td>
+            <td><div class="leaderboard-agent"><span class="avatar">${escapeHtml(initials(r.name))}</span><div>${escapeHtml(r.name)}<span class="sub">${escapeHtml(r.role || "")}${r.active ? "" : crmI18n.t("rep.no-longer-in-the-team")}</span></div></div></td>
             ${cell(r.chatsHandled, `${r.messagesSent} messages`)}${cell(duration(r.firstResponseMedianSeconds))}${cell(duration(r.responseMedianSeconds), r.replies ? `avg ${duration(r.responseAverageSeconds)}` : "")}
             ${cell(r.chatsResolved || 0, r.chatsResolved ? `${pctText(r.resolutionRatePct)} · ${duration(r.resolutionMedianSeconds)}` : "")}
-            ${cell(csatText(r.csatGood || 0, r.csatAnswers || 0), r.csatAnswers ? `${r.csatAnswers} answer${r.csatAnswers === 1 ? "" : "s"}` : "")}
+            ${cell(csatText(r.csatGood || 0, r.csatAnswers || 0), r.csatAnswers ? count(r.csatAnswers, "rep.n.answer") : "")}
             ${cell(open, Object.entries(r.leadsByStage).filter(([stage, n]) => n && stage !== "Won" && stage !== "Lost").map(([stage, n]) => `${n} ${stage}`).join(", "))}
-            ${cell(r.leadsCreated)}${cell(r.won, r.won || r.lost ? `win rate ${pctText(r.winRatePct)}` : "")}${cell(`${r.quotationsAccepted}/${r.quotationsSent}`, "won / sent")}
-            ${cell(rupees(r.orderValuePaise), `${r.orders} order${r.orders === 1 ? "" : "s"}`)}${cell(rupees(r.collectedPaise))}${cell(r.tasksDone)}${cell(r.ticketsResolved)}
+            ${cell(r.leadsCreated)}${cell(r.won, r.won || r.lost ? crmI18n.t("rep.win-rate-2", { v: pctText(r.winRatePct) }) : "")}${cell(`${r.quotationsAccepted}/${r.quotationsSent}`, crmI18n.t("rep.won-sent"))}
+            ${cell(rupees(r.orderValuePaise), count(r.orders, "rep.n.order"))}${cell(rupees(r.collectedPaise))}${cell(r.tasksDone)}${cell(r.ticketsResolved)}
           </tr>`;
         }))
-      : `<div class="empty-state"><i class="fa-solid fa-user-group"></i><p>No team members yet.</p></div>`;
+      : `<div class="empty-state"><i class="fa-solid fa-user-group"></i><p>${escapeHtml(crmI18n.t("rep.no-team-members-yet"))}</p></div>`;
     if (a.truncated) $("agentTable").insertAdjacentHTML("beforeend", '<p class="report-note" style="padding:0 16px 12px">Very many messages in this period: reply times use the first 100,000.</p>');
   }
 
@@ -389,33 +383,32 @@
     const p = got("payments");
     if (!p) return;
     const row = (icon, cls, name, sub, value) => `<div class="mini-row"><span class="mini-icon ${cls}"><i class="fa-solid ${icon}"></i></span><div class="info"><div class="name">${escapeHtml(name)}</div><div class="sub">${escapeHtml(sub)}</div></div><div class="mini-right">${escapeHtml(String(value))}</div></div>`;
-    $("payTrendNote").textContent = `${rupees(p.collected.amountPaise)} in ${p.collected.count} payment${p.collected.count === 1 ? "" : "s"}`;
+    $("payTrendNote").textContent = `${rupees(p.collected.amountPaise)} · ${count(p.collected.count, "rep.n.payment")}`;
     if (!p.collected.count) {
       $("payTrend").classList.remove("dense");
-      $("payTrend").innerHTML = empty("fa-indian-rupee-sign", "No payment came in during this period.");
+      $("payTrend").innerHTML = empty("fa-indian-rupee-sign", t("rep.no-payment-came-in-during-this"));
     } else {
       barChart($("payTrend"), p.trend, (r) => r.amountPaise, (r) => bucketLabel(r.bucket, p.range.unit), rupees);
     }
     const inv = p.invoiced;
     if (!inv.invoices && !inv.creditNotes && !p.collected.count) {
       $("payInvoicedChart").classList.remove("dense");
-      $("payInvoicedChart").innerHTML = empty("fa-file-invoice", "No tax invoice was made and no payment came in during this period.");
+      $("payInvoicedChart").innerHTML = empty("fa-file-invoice", t("rep.no-tax-invoice-was-made-and"));
     } else {
       pairChart($("payInvoicedChart"), p.trend, (r) => bucketLabel(r.bucket, p.range.unit), rupees);
     }
     const gap = inv.amountPaise - p.collected.amountPaise;
-    const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
     $("payInvoiced").innerHTML = [
-      row("fa-file-invoice", "info", "Invoiced", `${plural(inv.invoices, "tax invoice")}${inv.creditNotes ? `, less ${plural(inv.creditNotes, "credit note")} (${rupees(inv.creditedPaise)})` : ""}`, rupees(inv.amountPaise)),
-      row("fa-indian-rupee-sign", "success", "Collected", plural(p.collected.count, "payment"), rupees(p.collected.amountPaise)),
-      row("fa-scale-balanced", gap > 0 ? "warning" : "", "Difference", gap > 0 ? "invoiced, not collected in this period" : gap < 0 ? "collected more than was invoiced (advances, older invoices)" : "invoiced and collected match", rupees(Math.abs(gap))),
-      row("fa-building-columns", "", "GST on the invoices", "CGST + SGST + IGST, less credit notes", rupees(inv.taxPaise)),
+      row("fa-file-invoice", "info", t("reports.invoiced"), `${count(inv.invoices, "rep.n.taxInvoice")}${inv.creditNotes ? crmI18n.t("rep.lessCredit", { notes: count(inv.creditNotes, "rep.n.creditNote"), amount: rupees(inv.creditedPaise) }) : ""}`, rupees(inv.amountPaise)),
+      row("fa-indian-rupee-sign", "success", t("reports.collected"), count(p.collected.count, "rep.n.payment"), rupees(p.collected.amountPaise)),
+      row("fa-scale-balanced", gap > 0 ? "warning" : "", t("rep.difference"), gap > 0 ? t("rep.invoiced-not-collected-in-this-period") : gap < 0 ? t("rep.collected-more-than-was-invoiced-advances") : t("rep.invoiced-and-collected-match"), rupees(Math.abs(gap))),
+      row("fa-building-columns", "", t("rep.gst-on-the-invoices"), t("rep.cgst-sgst-igst-less-credit-notes"), rupees(inv.taxPaise)),
     ].join("");
-    bars($("payByWay"), p.byWay.map((r) => ({ label: r.name, value: r.amountPaise, meta: rupees(r.amountPaise), metaWidth: 96 })), "No payments in this period.", "fa-wallet");
+    bars($("payByWay"), p.byWay.map((r) => ({ label: r.name, value: r.amountPaise, meta: rupees(r.amountPaise), metaWidth: 96 })), t("rep.no-payments-in-this-period"), "fa-wallet");
     $("payStats").innerHTML = [
-      row("fa-link", "info", "Payment links made", "in this period", p.links.made),
-      row("fa-circle-check", "success", "Payment links paid", p.links.averageHoursToPay != null ? `paid on average ${p.links.averageHoursToPay} h after they were made` : "in this period", p.links.paid),
-      row("fa-truck-fast", "", "Orders paid in full", p.averageDaysToCollect != null ? `on average ${p.averageDaysToCollect} days after the order` : "in this period", p.ordersPaidInFull),
+      row("fa-link", "info", t("rep.payment-links-made"), t("rep.in-this-period"), p.links.made),
+      row("fa-circle-check", "success", t("rep.payment-links-paid"), p.links.averageHoursToPay != null ? t("rep.paid-on-average-h-after-they", { averageHoursToPay: p.links.averageHoursToPay }) : t("rep.in-this-period"), p.links.paid),
+      row("fa-truck-fast", "", t("rep.orders-paid-in-full"), p.averageDaysToCollect != null ? t("rep.on-average-days-after-the-order", { averageDaysToCollect: p.averageDaysToCollect }) : t("rep.in-this-period"), p.ordersPaidInFull),
     ].join("");
     const buckets = Object.entries(p.dues.buckets);
     const max = Math.max(...buckets.map(([, b]) => b.duePaise), 1);
@@ -424,19 +417,19 @@
         <div class="pipeline-row">
           <div class="stage-label">${escapeHtml(name)} days</div>
           <div class="stage-track"><div class="stage-fill" style="width:${b.duePaise ? Math.max(4, Math.round((b.duePaise / max) * 100)) : 0}%;background:${name === "0-7" ? "var(--info)" : name === "8-30" ? "var(--warning)" : "var(--danger)"}"></div></div>
-          <div class="stage-meta"><strong>${rupees(b.duePaise)}</strong> · ${b.count} order${b.count === 1 ? "" : "s"}</div>
-        </div>`).join("") + `<p class="report-note">Total due ${rupees(p.dues.duePaise)}. <a href="Orders.html?tab=dues">Open the list</a></p>`
-      : empty("fa-circle-check", "Nothing is due: every order is paid.");
+          <div class="stage-meta"><strong>${rupees(b.duePaise)}</strong> · ${escapeHtml(count(b.count, "rep.n.order"))}</div>
+        </div>`).join("") + `<p class="report-note">${escapeHtml(crmI18n.t("rep.totalDue", { amount: rupees(p.dues.duePaise) }))} <a href="Orders.html?tab=dues">${escapeHtml(t("rep.open-the-list"))}</a></p>`
+      : empty("fa-circle-check", t("orders.dues.none"));
   }
 
   // --- Support (from the loaded tickets) --------------------------------------------------
   function renderSupport() {
     const tickets = getTickets();
     const opened = tickets.filter((t) => inPeriod(t.createdAt));
-    if (!donut($("ticketStatusDonut"), TICKET_STATUSES.map((status) => ({ label: status, count: opened.filter((t) => t.status === status).length, color: TICKET_COLOR[status] })), opened.length, "Tickets")) {
-      $("ticketStatusDonut").innerHTML = empty("fa-headset", "No ticket was opened in this period.");
+    if (!donut($("ticketStatusDonut"), TICKET_STATUSES.map((status) => ({ label: crmLabel("ticketStatus", status), count: opened.filter((t) => t.status === status).length, color: TICKET_COLOR[status] })), opened.length, t("rep.tickets"))) {
+      $("ticketStatusDonut").innerHTML = empty("fa-headset", t("rep.no-ticket-was-opened-in-this"));
     }
-    bars($("ticketPriorityBars"), TICKET_PRIORITIES.map((priority) => ({ label: priority, value: opened.filter((t) => t.priority === priority).length })).filter((r) => r.value), "No ticket was opened in this period.", "fa-headset");
+    bars($("ticketPriorityBars"), TICKET_PRIORITIES.map((priority) => ({ label: crmLabel("priority", priority), value: opened.filter((t) => t.priority === priority).length })).filter((r) => r.value), t("rep.no-ticket-was-opened-in-this"), "fa-headset");
     const today = indiaToday();
     const isClosed = (t) => t.status === "Resolved" || t.status === "Closed";
     // Open and past the SLA's first reply, or resolution unless it waits on the customer (D107).
@@ -447,11 +440,11 @@
     };
     const o = got("overview");
     const rows = [
-      ["fa-inbox", "info", "Open tickets", "across the team", tickets.filter((t) => !isClosed(t)).length],
-      ["fa-triangle-exclamation", "warning", "Overdue", "past their due date, not resolved", tickets.filter((t) => t.dueDate && t.dueDate < today && !isClosed(t)).length],
-      ["fa-bolt", "warning", "Urgent and open", "need attention now", tickets.filter((t) => t.priority === "Urgent" && !isClosed(t)).length],
-      ["fa-circle-check", "success", "Resolved in the period", "", o ? o.tickets.resolved : "—"],
-      ...(got("sla")?.enabled ? [["fa-stopwatch", "warning", "SLA missed", "open, past the first reply or resolve time", tickets.filter(slaMissed).length]] : []),
+      ["fa-inbox", "info", t("rep.open-tickets"), t("rep.across-the-team"), tickets.filter((t) => !isClosed(t)).length],
+      ["fa-triangle-exclamation", "warning", t("dash.overdue"), t("rep.past-their-due-date-not-resolved"), tickets.filter((t) => t.dueDate && t.dueDate < today && !isClosed(t)).length],
+      ["fa-bolt", "warning", t("rep.urgent-and-open"), t("rep.need-attention-now"), tickets.filter((t) => t.priority === "Urgent" && !isClosed(t)).length],
+      ["fa-circle-check", "success", t("rep.resolved-in-the-period"), "", o ? o.tickets.resolved : "—"],
+      ...(got("sla")?.enabled ? [["fa-stopwatch", "warning", t("sla.chip.missed"), t("rep.open-past-the-first-reply-or"), tickets.filter(slaMissed).length]] : []),
     ];
     $("supportSnapshot").innerHTML = rows.map(([icon, cls, name, sub, value]) => `<div class="mini-row"><span class="mini-icon ${cls}"><i class="fa-solid ${icon}"></i></span><div class="info"><div class="name">${escapeHtml(name)}</div><div class="sub">${escapeHtml(sub)}</div></div><div class="mini-right">${escapeHtml(String(value))}</div></div>`).join("");
     renderSla();
@@ -465,28 +458,28 @@
     const inTime = (part) => (part.metPct == null ? "—" : pctText(part.metPct));
     const decided = (part) => part.met + part.late + part.breached;
     const missedOpen = (b) => b.reply.breached + b.resolve.breached;
-    const medianText = (minutes) => (minutes == null ? "—" : minutes < 1 ? "< 1 min" : duration(minutes * 60));
+    const medianText = (minutes) => (minutes == null ? "—" : minutes < 1 ? crmI18n.t("rep.1-min") : duration(minutes * 60));
     $("slaNote").textContent = !s.enabled
-      ? "switched off for new tickets (Support → SLA)"
-      : `tickets opened in the period · ${s.workingHoursOnly ? "working hours" : "every hour counts"}`;
+      ? crmI18n.t("rep.switched-off-for-new-tickets-support")
+      : crmI18n.t("rep.tickets-opened-in-the-period", { v: s.workingHoursOnly ? crmI18n.t("rep.working-hours") : crmI18n.t("sla.box.allHours") });
     $("slaPeoplePanel").hidden = !s.total.tickets;
     if (!s.total.tickets) {
       $("slaKpis").innerHTML = "";
-      $("slaPriorityTable").innerHTML = empty("fa-stopwatch", "No ticket with an SLA was opened in this period.");
+      $("slaPriorityTable").innerHTML = empty("fa-stopwatch", crmI18n.t("rep.no-ticket-with-an-sla-was"));
       return;
     }
     const kpi = (label, value, sub) => `<div class="stat-card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(String(value))}</div><div class="report-note">${escapeHtml(sub)}</div></div>`;
     const t = s.total;
     $("slaKpis").innerHTML = [
-      kpi("First reply in time", inTime(t.reply), `${t.reply.met} of ${decided(t.reply)}`),
-      kpi("Resolved in time", inTime(t.resolve), `${t.resolve.met} of ${decided(t.resolve)}`),
-      kpi("SLA missed, still open", missedOpen(t), "first replies and resolutions"),
-      kpi("First reply", medianText(t.firstReplyMedianMinutes), s.workingHoursOnly ? "median, in working time" : "median"),
+      kpi(crmI18n.t("rep.first-reply-in-time"), inTime(t.reply), `${t.reply.met} of ${decided(t.reply)}`),
+      kpi(crmI18n.t("rep.resolved-in-time"), inTime(t.resolve), `${t.resolve.met} of ${decided(t.resolve)}`),
+      kpi(crmI18n.t("rep.sla-missed-still-open"), missedOpen(t), crmI18n.t("rep.first-replies-and-resolutions")),
+      kpi(crmI18n.t("sla.box.reply"), medianText(t.firstReplyMedianMinutes), s.workingHoursOnly ? crmI18n.t("rep.median-in-working-time") : "median"),
     ].join("");
-    const head = (first) => [[first], ["Tickets", 1], ["First reply in time", 1], ["Resolved in time", 1], ["Missed, open", 1], ["First reply", 1]];
+    const head = (first) => [[first], [crmI18n.t("rep.tickets"), 1], [crmI18n.t("rep.first-reply-in-time"), 1], [crmI18n.t("rep.resolved-in-time"), 1], [crmI18n.t("rep.missed-open"), 1], [crmI18n.t("sla.box.reply"), 1]];
     const row = (name, b) => `<tr><td>${name}</td>${cell(b.tickets)}${cell(inTime(b.reply), `${b.reply.met} of ${decided(b.reply)}`)}${cell(inTime(b.resolve), `${b.resolve.met} of ${decided(b.resolve)}`)}${cell(missedOpen(b))}${cell(medianText(b.firstReplyMedianMinutes))}</tr>`;
-    $("slaPriorityTable").innerHTML = table(head("Priority"), s.byPriority.filter((p) => p.tickets).map((p) => row(escapeHtml(p.priority), p)));
-    $("slaPeopleTable").innerHTML = table(head("Agent"), s.byMember.map((m) => row(m.memberId ? escapeHtml(m.name) : "Not assigned", m)));
+    $("slaPriorityTable").innerHTML = table(head(crmI18n.t("board.field.task.priority")), s.byPriority.filter((p) => p.tickets).map((p) => row(escapeHtml(p.priority), p)));
+    $("slaPeopleTable").innerHTML = table(head("Agent"), s.byMember.map((m) => row(m.memberId ? escapeHtml(m.name) : crmI18n.t("rep.not-assigned"), m)));
   }
 
   function render() {
@@ -528,9 +521,9 @@
     const type = EXPORT_TYPE[state.tab];
     try {
       await crmDownload(`/reports/export?type=${type}&format=${format}&${query()}`, `report-${type}-${state.range.from}-to-${state.range.to}.${format}`);
-      showToast("Report downloaded.", "success");
+      showToast(t("rep.report-downloaded"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't export the report."), "error");
+      showToast(apiErrorMessage(error, t("rep.couldn-t-export-the-report")), "error");
     }
   }
   $("exportBtn").addEventListener("click", () => exportReport("csv"));

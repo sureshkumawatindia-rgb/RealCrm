@@ -30,10 +30,10 @@
   }
 
   function render(billing) {
-    const from = billing.stateFrom === "gstin" ? `from your GSTIN ${billing.gstin}` : "from your company address";
+    const from = billing.stateFrom === "gstin" ? t("setbill.from-your-gstin", { gstin: billing.gstin }) : t("setbill.from-your-company-address");
     $("billGstState").innerHTML = billing.stateCode
-      ? `Your state for GST is <strong>${escapeHtml(billing.state)} (${escapeHtml(billing.stateCode)})</strong>, ${escapeHtml(from)}. Customers in ${escapeHtml(billing.state)} pay CGST + SGST; customers elsewhere pay IGST. <a href="Settings.html?tab=company">Change it in Company</a>.`
-      : 'Add your <strong>GSTIN</strong> (or at least your state) in <a href="Settings.html?tab=company">Company</a>, so quotations charge the right GST.';
+      ? t("setbill.gstState", { state: escapeHtml(billing.state), code: escapeHtml(billing.stateCode), from: escapeHtml(from) })
+      : t("setbill.addGstin");
     $("billAccName").value = billing.bank.accountName || "";
     $("billAccNo").value = billing.bank.accountNumber || "";
     $("billIfsc").value = billing.bank.ifsc || "";
@@ -55,7 +55,7 @@
     try {
       render(await crmApi("/organization/billing"));
     } catch (error) {
-      $("billGstState").textContent = apiErrorMessage(error, "Couldn't load the billing settings.");
+      $("billGstState").textContent = apiErrorMessage(error, t("setbill.couldn-t-load-the-billing-settings"));
     }
   }
 
@@ -76,9 +76,9 @@
     };
     try {
       render(await crmApi("/organization/billing", jsonRequest("PUT", body)));
-      showToast("Billing settings saved. New quotations and invoices use them.", "success");
+      showToast(t("setbill.billing-settings-saved-new-quotations-and"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't save the billing settings."), "error");
+      showToast(apiErrorMessage(error, t("setbill.couldn-t-save-the-billing-settings")), "error");
     }
   });
 

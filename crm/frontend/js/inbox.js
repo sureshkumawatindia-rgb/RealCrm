@@ -1254,7 +1254,7 @@ crmI18n.ready.then(function inbox() {
     pickedProducts.clear();
     $("productsSearch").value = "";
     $("productsText").value = "";
-    $("productsHeader").value = "Our products";
+    $("productsHeader").value = t("inbox.our-products");
     $("productsHeaderField").hidden = true;
     $("productsSend").disabled = true;
     $("productsList").innerHTML = `<p class="text-muted template-empty">${escapeHtml(t("inbox.prod.loading"))}</p>`;
@@ -2196,7 +2196,7 @@ crmI18n.ready.then(function inbox() {
       const script = document.createElement("script");
       script.src = `${origin}/socket.io/socket.io.min.js`;
       script.onload = resolve;
-      script.onerror = () => reject(new Error("Socket.IO client not available"));
+      script.onerror = () => reject(new Error("Socket.IO client not available")); // i18n-ok: for the console, never shown
       document.head.appendChild(script);
     });
   }
