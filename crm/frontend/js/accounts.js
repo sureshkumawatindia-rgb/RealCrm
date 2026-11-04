@@ -57,7 +57,7 @@ async function reloadTeam() {
 
 // Agents always create and edit on their pages, so Create/Edit make an agent and View alone a
 // viewer. Delete and "See all records" become per-page grants ("leads:delete", "leads:view_all").
-const PERMISSION_LABELS = { View: "View", Create: "Create", Edit: "Edit", Delete: "Delete", ViewAll: "See all records" };
+const PERMISSION_LABELS = { View: "acct.perm.view", Create: "acct.perm.create", Edit: "acct.perm.edit", Delete: "acct.perm.delete", ViewAll: "acct.perm.viewAll" }; // the keys of their texts
 
 function accessFromWizard(modules, perms) {
   const role = perms.includes("Create") || perms.includes("Edit") ? "agent" : "viewer";
@@ -69,10 +69,10 @@ function accessFromWizard(modules, perms) {
 
 function wizardPermissions(person) {
   if (isManagerRole(person.role)) return Object.keys(PERMISSION_LABELS);
-  const perms = ["View"];
-  if (person.role === "agent") perms.push("Create", "Edit");
+  const perms = ["View"]; // i18n-ok: permission values (PERMISSION_LABELS has their texts)
+  if (person.role === "agent") perms.push("Create", "Edit"); // i18n-ok: permission values
   const grants = person.permissions || [];
-  if (grants.some((p) => p.endsWith(":delete"))) perms.push("Delete");
+  if (grants.some((p) => p.endsWith(":delete"))) perms.push("Delete"); // i18n-ok: permission values
   if (grants.some((p) => p.endsWith(":view_all"))) perms.push("ViewAll");
   return perms;
 }
@@ -81,25 +81,25 @@ function wizardPermissions(person) {
    ADD NEW CHAMPION — multi-step wizard
    ============================================================ */
 
-// key: the server's module name; label: what the page shows.
+// key: the server's module name; label: the key of what the page shows (the menu's names).
 const MODULES = [
-  { key: "dashboard", label: "Dashboard", icon: "fa-chart-pie" },
-  { key: "inbox", label: "Inbox", icon: "fa-comments" },
-  { key: "customers", label: "Customers", icon: "fa-users" },
-  { key: "leads", label: "Leads", icon: "fa-bullseye" },
-  { key: "accounts", label: "Accounts", icon: "fa-building" },
-  { key: "deals", label: "Deals", icon: "fa-handshake" },
-  { key: "tasks", label: "Tasks", icon: "fa-list-check" },
-  { key: "projects", label: "Projects", icon: "fa-briefcase" },
-  { key: "calendar", label: "Calendar", icon: "fa-calendar-days" },
-  { key: "marketing", label: "Marketing", icon: "fa-bullhorn" },
-  { key: "automation", label: "Sales Automation", icon: "fa-robot" },
-  { key: "support", label: "Support", icon: "fa-headset" },
-  { key: "reports", label: "Reports & Analytics", icon: "fa-chart-line" },
-  { key: "insights", label: "AI Insights", icon: "fa-brain" },
-  { key: "documents", label: "Documents", icon: "fa-file-lines" },
-  { key: "products", label: "Products", icon: "fa-box" },
-  { key: "settings", label: "Settings", icon: "fa-gear" },
+  { key: "dashboard", label: "nav.dashboard", icon: "fa-chart-pie" },
+  { key: "inbox", label: "nav.inbox", icon: "fa-comments" },
+  { key: "customers", label: "nav.customers", icon: "fa-users" },
+  { key: "leads", label: "nav.leads", icon: "fa-bullseye" },
+  { key: "accounts", label: "nav.accounts", icon: "fa-building" },
+  { key: "deals", label: "nav.deals", icon: "fa-handshake" },
+  { key: "tasks", label: "nav.tasks", icon: "fa-list-check" },
+  { key: "projects", label: "nav.projects", icon: "fa-briefcase" },
+  { key: "calendar", label: "nav.calendar", icon: "fa-calendar-days" },
+  { key: "marketing", label: "nav.marketing", icon: "fa-bullhorn" },
+  { key: "automation", label: "nav.automation", icon: "fa-robot" },
+  { key: "support", label: "nav.support", icon: "fa-headset" },
+  { key: "reports", label: "nav.reports", icon: "fa-chart-line" },
+  { key: "insights", label: "nav.aiInsights", icon: "fa-brain" },
+  { key: "documents", label: "nav.documents", icon: "fa-file-lines" },
+  { key: "products", label: "nav.products", icon: "fa-box" },
+  { key: "settings", label: "nav.settings", icon: "fa-gear" },
 ];
 const MODULE_LABEL = Object.fromEntries(MODULES.map((m) => [m.key, m.label]));
 // A new agent starts with the everyday sales and service pages.
@@ -108,11 +108,11 @@ const DEFAULT_AGENT_MODULES = ["dashboard", "inbox", "customers", "leads", "deal
 const agentModalOverlay = document.getElementById("agentModalOverlay");
 const agentForm = document.getElementById("agentForm");
 const STEP_LABELS = {
-  1: "Welcome",
-  2: "About Them",
-  3: "Role",
-  4: "Access",
-  5: "Powers",
+  1: "acct.step.welcome", // the keys of their texts
+  2: "acct.step.about",
+  3: "acct.step.role",
+  4: "acct.step.access",
+  5: "acct.step.powers",
 };
 let agentStep = 1;
 const TOTAL_STEPS = 5;
@@ -126,11 +126,11 @@ function buildModuleGrid() {
     <label class="module-item">
       <input type="checkbox" class="module-checkbox" value="${m.key}" />
       <i class="fa-solid ${m.icon}"></i>
-      <span>${escapeHtml(m.label)}</span>
+      <span>${escapeHtml(t(m.label))}</span>
     </label>`,
   ).join("");
 }
-buildModuleGrid();
+crmI18n.ready.then(buildModuleGrid); // its labels are texts
 
 document.getElementById("selectAllModules").addEventListener("click", () => {
   document
@@ -173,7 +173,7 @@ function goToStep(step) {
   updateStepperTicks(step);
 
   document.getElementById("agentStepCurrent").textContent = step;
-  document.getElementById("agentStepLabel").textContent = STEP_LABELS[step];
+  document.getElementById("agentStepLabel").textContent = t(STEP_LABELS[step]);
 
   document.getElementById("agentBackBtn").style.visibility =
     step === 1 ? "hidden" : "visible";
@@ -196,12 +196,12 @@ function validateStep(step) {
   if (step === 2) {
     const name = document.getElementById("agName").value.trim();
     if (!name) {
-      showToast("Give your Champion a name to continue.", "error");
+      showToast(t("acct.give-your-champion-a-name-to"), "error");
       return false;
     }
     const email = document.getElementById("agEmail").value.trim();
     if (!editing && !EMAIL_PATTERN.test(email)) {
-      showToast("Add the email of their Google account — that is how they sign in.", "error");
+      showToast(t("acct.add-the-email-of-their-google"), "error");
       return false;
     }
   }
@@ -211,7 +211,7 @@ function validateStep(step) {
     ).length;
     if (anyModule === 0) {
       showToast(
-        "Unlock at least one page for this Champion to continue.",
+        t("acct.unlock-at-least-one-page-for"),
         "error",
       );
       return false;
@@ -240,12 +240,12 @@ function populateReview() {
   const { role } = accessFromWizard(modules, perms);
 
   document.getElementById("agentReviewBox").innerHTML = `
-    <div>🎯 <strong>${escapeHtml(name)}</strong> will join as <strong>${escapeHtml(title)}</strong> (${escapeHtml(ROLE_LABELS[role])}).</div>
-    <div style="margin-top:8px;">They can open <strong>${modules.length}</strong> page${modules.length === 1 ? "" : "s"}:</div>
-    <div>${modules.map((m) => `<span class="review-tag">${escapeHtml(MODULE_LABEL[m] || m)}</span>`).join("")}</div>
-    <div style="margin-top:8px;">They're allowed to:</div>
-    <div>${perms.map((p) => `<span class="review-tag">${escapeHtml(PERMISSION_LABELS[p] || p)}</span>`).join("") || '<span class="review-tag">Nothing yet</span>'}</div>
-    ${role === "viewer" ? '<div style="margin-top:8px;">Without Create or Edit they can only look (Viewer).</div>' : ""}
+    <div>🎯 ${t("acct.review.joinAs", { name: `<strong>${escapeHtml(name)}</strong>`, title: `<strong>${escapeHtml(title)}</strong>`, role: escapeHtml(ROLE_LABELS[role]) })}</div>
+    <div style="margin-top:8px;">${t(modules.length === 1 ? "acct.review.pages.one" : "acct.review.pages.many", { n: `<strong>${modules.length}</strong>` })}</div>
+    <div>${modules.map((m) => `<span class="review-tag">${escapeHtml(MODULE_LABEL[m] ? t(MODULE_LABEL[m]) : m)}</span>`).join("")}</div>
+    <div style="margin-top:8px;">${escapeHtml(t("acct.review.allowed"))}</div>
+    <div>${perms.map((p) => `<span class="review-tag">${escapeHtml(PERMISSION_LABELS[p] ? t(PERMISSION_LABELS[p]) : p)}</span>`).join("") || `<span class="review-tag">${escapeHtml(t("acct.review.nothing"))}</span>`}</div>
+    ${role === "viewer" ? `<div style="margin-top:8px;">${escapeHtml(t("acct.review.viewerOnly", { viewer: ROLE_LABELS.viewer }))}</div>` : ""}
   `;
 }
 
@@ -255,11 +255,11 @@ function openAgentModal(person = null) {
   agentForm.reset();
   document.getElementById("agentEditId").value = person ? person.id : "";
   document.getElementById("agentModalTitle").textContent = person
-    ? "✏️ Edit Champion"
-    : "🏆 Add a New Champion";
+    ? t("acct.edit-champion")
+    : t("acct.add-a-new-champion");
   document.getElementById("agentCreateBtn").innerHTML = person
-    ? '<i class="fa-solid fa-check"></i> Save Changes'
-    : '<i class="fa-solid fa-paper-plane"></i> Create Invite';
+    ? `<i class="fa-solid fa-check"></i> ${escapeHtml(t("acct.saveChanges"))}`
+    : `<i class="fa-solid fa-paper-plane"></i> ${escapeHtml(t("acct.createInvite"))}`;
 
   const emailInput = document.getElementById("agEmail");
   emailInput.disabled = Boolean(person);
@@ -281,7 +281,7 @@ function openAgentModal(person = null) {
       cb.checked = DEFAULT_AGENT_MODULES.includes(cb.value);
     });
     document.querySelectorAll("#permissionGrid input").forEach((cb) => {
-      cb.checked = ["View", "Create", "Edit"].includes(cb.value);
+      cb.checked = ["View", "Create", "Edit"].includes(cb.value); // i18n-ok: permission values
     });
   }
 
@@ -311,20 +311,20 @@ agentModalOverlay.addEventListener("click", (e) => {
 
 function showInviteLink(email, serverLink) {
   const link = inviteLinkHere(serverLink);
-  const companyName = getCompanyInfo()?.name || "our company";
+  const companyName = getCompanyInfo()?.name || t("invite.our-company");
   document.getElementById("inviteLinkEmail").textContent = email;
   document.getElementById("inviteLinkText").textContent = link;
   document.getElementById("whatsappInviteLink").href =
-    `https://wa.me/?text=${encodeURIComponent(`Join ${companyName} on YELLOW CRM: ${link}`)}`;
+    `https://wa.me/?text=${encodeURIComponent(t("acct.join-on-yellow-crm", { companyName, link }))}`;
   document.getElementById("inviteLinkBox").hidden = false;
 }
 
 document.getElementById("copyInviteBtn").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(document.getElementById("inviteLinkText").textContent);
-    showToast("Invite link copied.", "success");
+    showToast(t("acct.invite-link-copied"), "success");
   } catch {
-    showToast("Copy failed — select the link and copy it by hand.", "error");
+    showToast(t("wa.link.copyFailed"), "error");
   }
 });
 document.getElementById("inviteLinkClose").addEventListener("click", () => {
@@ -343,7 +343,7 @@ agentForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = document.getElementById("agName").value.trim();
   if (!name) {
-    showToast("Give your Champion a name to continue.", "error");
+    showToast(t("acct.give-your-champion-a-name-to"), "error");
     goToStep(2);
     return;
   }
@@ -360,16 +360,16 @@ agentForm.addEventListener("submit", async (e) => {
   try {
     if (editing?.kind === "member") {
       await crmApi(`/members/${editing.id}`, jsonRequest("PATCH", body));
-      showToast(`✅ ${name} updated.`, "success");
+      showToast(t("acct.updated", { name }), "success");
     } else {
       // A new invite, or a pending one sent again with the new access (its old link stops working).
       const email = editing ? editing.email : document.getElementById("agEmail").value.trim();
       const result = await sendInvite(email, body);
       showInviteLink(email, result.link);
-      showToast(editing ? `✅ Invite for ${name} updated — share the new link.` : `🎉 ${name} is invited! Share the link, or ask them to sign in with Google.`, "success");
+      showToast(editing ? t("acct.invite-for-updated-share-the-new", { name }) : t("acct.is-invited-share-the-link-or", { name }), "success");
     }
   } catch (error) {
-    showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+    showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
     return;
   } finally {
     createBtn.disabled = false;
@@ -382,11 +382,11 @@ agentForm.addEventListener("submit", async (e) => {
    TEAM PROGRESS / LEVEL — the "game" layer on the main page
    ============================================================ */
 
-const LEVELS = [
-  { min: 0, emoji: "🌱", label: "Getting Started" },
-  { min: 1, emoji: "🥉", label: "Bronze Team" },
-  { min: 3, emoji: "🥈", label: "Silver Squad" },
-  { min: 6, emoji: "🥇", label: "Gold Team — Full Power!" },
+const LEVELS = [ // label: the key of its text
+  { min: 0, emoji: "🌱", label: "acct.level.start" },
+  { min: 1, emoji: "🥉", label: "acct.level.bronze" },
+  { min: 3, emoji: "🥈", label: "acct.level.silver" },
+  { min: 6, emoji: "🥇", label: "acct.level.gold" },
 ];
 const THRESHOLDS = [1, 3, 6];
 
@@ -406,9 +406,9 @@ function renderTeamProgress() {
   const level = currentLevel(count);
 
   document.getElementById("champLevelEmoji").textContent = level.emoji;
-  document.getElementById("champLevelLabel").textContent = level.label;
+  document.getElementById("champLevelLabel").textContent = t(level.label);
   document.getElementById("champCountSub").textContent =
-    `${count} Champion${count === 1 ? "" : "s"} on your team`;
+    t(count === 1 ? "acct.champions.one" : "acct.champions.many", { n: count });
 
   const nextThreshold = THRESHOLDS.find((t) => t > count) || THRESHOLDS[THRESHOLDS.length - 1];
   const pct = Math.min(100, Math.round((count / nextThreshold) * 100));
@@ -417,10 +417,10 @@ function renderTeamProgress() {
   const hasFullPower = people.some((p) => wizardPermissions(p).includes("Delete"));
 
   const milestones = [
-    { done: count >= 1, label: "Add your first Champion" },
-    { done: count >= 3, label: "Build a squad (3 Champions)" },
-    { done: count >= 6, label: "Go for gold (6 Champions)" },
-    { done: hasFullPower, label: "Trust someone with full power (Create + Edit + Delete)" },
+    { done: count >= 1, label: t("acct.add-your-first-champion") },
+    { done: count >= 3, label: t("acct.build-a-squad-3-champions") },
+    { done: count >= 6, label: t("acct.go-for-gold-6-champions") },
+    { done: hasFullPower, label: t("acct.trust-someone-with-full-power-create") },
   ];
 
   document.getElementById("champMilestones").innerHTML = milestones
@@ -440,13 +440,13 @@ function renderTeamProgress() {
 
 function statusBadges(person) {
   const badges = [];
-  if (String(person.id) === String(getCurrentMember()?.id) && person.kind === "member") badges.push('<span class="badge badge-neutral">You</span>');
+  if (String(person.id) === String(getCurrentMember()?.id) && person.kind === "member") badges.push(`<span class="badge badge-neutral">${escapeHtml(t("set2.you"))}</span>`);
   if (person.kind === "invite") {
     badges.push(person.status === "expired"
-      ? '<span class="badge badge-danger">Invite expired</span>'
-      : '<span class="badge badge-warning">Invited</span>');
+      ? `<span class="badge badge-danger">${escapeHtml(t("acct.inviteExpired"))}</span>`
+      : `<span class="badge badge-warning">${escapeHtml(t("acct.invited"))}</span>`);
   }
-  if (person.status === "disabled") badges.push('<span class="badge badge-danger">Disabled</span>');
+  if (person.status === "disabled") badges.push(`<span class="badge badge-danger">${escapeHtml(t("set2.disabled"))}</span>`);
   return badges.join(" ");
 }
 
@@ -455,20 +455,20 @@ function cardActions(person) {
   const id = escapeHtml(person.id);
   if (person.kind === "invite") {
     return `
-      <button class="icon-btn edit-agent-btn" data-kind="invite" data-id="${id}" title="Change access"><i class="fa-solid fa-pen"></i></button>
-      <button class="icon-btn resend-invite-btn" data-id="${id}" title="New invite link"><i class="fa-solid fa-link"></i></button>
-      <button class="icon-btn danger delete-agent-btn" data-kind="invite" data-id="${id}" title="Cancel invite"><i class="fa-solid fa-xmark"></i></button>`;
+      <button class="icon-btn edit-agent-btn" data-kind="invite" data-id="${id}" title="${escapeHtml(t("acct.changeAccess"))}"><i class="fa-solid fa-pen"></i></button>
+      <button class="icon-btn resend-invite-btn" data-id="${id}" title="${escapeHtml(t("acct.newInviteLink"))}"><i class="fa-solid fa-link"></i></button>
+      <button class="icon-btn danger delete-agent-btn" data-kind="invite" data-id="${id}" title="${escapeHtml(t("set2.cancelInvite"))}"><i class="fa-solid fa-xmark"></i></button>`;
   }
   return `
-      <button class="icon-btn edit-agent-btn" data-kind="member" data-id="${id}" title="Edit"><i class="fa-solid fa-pen"></i></button>
-      <button class="icon-btn danger delete-agent-btn" data-kind="member" data-id="${id}" title="Remove from team"><i class="fa-solid fa-trash"></i></button>`;
+      <button class="icon-btn edit-agent-btn" data-kind="member" data-id="${id}" title="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+      <button class="icon-btn danger delete-agent-btn" data-kind="member" data-id="${id}" title="${escapeHtml(t("set2.removeFromTeam"))}"><i class="fa-solid fa-trash"></i></button>`;
 }
 
 function agentCardHtml(p) {
   const modules = p.modules || [];
   const pages = isManagerRole(p.role)
-    ? "All pages"
-    : `${modules.length} page${modules.length === 1 ? "" : "s"} unlocked`;
+    ? t("acct.all-pages")
+    : t(modules.length === 1 ? "acct.pages.one" : "acct.pages.many", { n: modules.length });
   const perms = wizardPermissions(p);
   return `
       <div class="agent-card">
@@ -476,7 +476,7 @@ function agentCardHtml(p) {
           <div class="agent-card__avatar">${escapeHtml(initials(p.name))}</div>
           <div style="min-width:0">
             <div class="agent-card__name">${escapeHtml(p.name)} ${statusBadges(p)}</div>
-            <div class="agent-card__role">${escapeHtml(p.title || "Team member")} · ${escapeHtml(ROLE_LABELS[p.role] || p.role)}</div>
+            <div class="agent-card__role">${escapeHtml(p.title || t("acct.team-member"))} · ${escapeHtml(ROLE_LABELS[p.role] || p.role)}</div>
           </div>
         </div>
         <div class="agent-card__meta">
@@ -485,7 +485,7 @@ function agentCardHtml(p) {
         </div>
         <span class="agent-card__modules">${pages}</span>
         <div class="agent-card__perms">
-          ${perms.map((key) => `<span class="badge badge-brand">${escapeHtml(PERMISSION_LABELS[key])}</span>`).join("")}
+          ${perms.map((key) => `<span class="badge badge-brand">${escapeHtml(t(PERMISSION_LABELS[key]))}</span>`).join("")}
         </div>
         <div class="agent-card__actions">${cardActions(p)}</div>
       </div>`;
@@ -495,12 +495,12 @@ function renderAgents() {
   const people = teamPeople();
   const invited = people.filter((p) => p.kind === "invite").length;
   document.getElementById("agentCount").textContent =
-    `${people.length - invited} member${people.length - invited === 1 ? "" : "s"}${invited ? ` · ${invited} invited` : ""}`;
+    t(people.length - invited === 1 ? "acct.members.one" : "acct.members.many", { n: people.length - invited }) + (invited ? t("acct.invitedCount", { n: invited }) : "");
   document.getElementById("addAgentBtn").style.display = isOrgManager() ? "" : "none";
   const grid = document.getElementById("agentsGrid");
 
   if (people.length === 0) {
-    grid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-user-plus"></i><p>No Champions yet. Click "Add Agent" above to bring your first teammate onboard.</p></div>`;
+    grid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-user-plus"></i><p>${escapeHtml(t("acct.no-champions-yet-click-add-agent"))}</p></div>`;
   } else {
     grid.className = "agents-grid";
     grid.innerHTML = people.map(agentCardHtml).join("");
@@ -522,24 +522,24 @@ document.getElementById("agentsGrid").addEventListener("click", async (e) => {
       const person = findPerson("invite", resend.dataset.id);
       const result = await crmApi(`/invites/${resend.dataset.id}/resend`, { method: "POST" });
       showInviteLink(person?.email || "", result.link);
-      showToast("New invite link created. The old link no longer works.", "success");
+      showToast(t("acct.new-invite-link-created-the-old"), "success");
     } else if (remove) {
       const person = findPerson(remove.dataset.kind, remove.dataset.id);
       if (!person) return;
       if (person.kind === "invite") {
-        if (!confirm(`Cancel the invite for ${person.name}? The link will stop working.`)) return;
+        if (!confirm(t("acct.cancel-the-invite-for-the-link", { name: person.name }))) return;
         await crmApi(`/invites/${person.id}`, { method: "DELETE" });
-        showToast("Invite cancelled.", "success");
+        showToast(t("acct.invite-cancelled"), "success");
       } else {
-        if (!confirm(`Remove ${person.name} from your team? They will lose access right away.`)) return;
+        if (!confirm(t("acct.remove-from-your-team-they-will", { name: person.name }))) return;
         await crmApi(`/members/${person.id}`, { method: "DELETE" });
-        showToast(`${person.name} was removed.`, "success");
+        showToast(t("acct.was-removed", { name: person.name }), "success");
       }
     } else {
       return;
     }
   } catch (error) {
-    showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+    showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
   }
   await reloadTeam();
 });

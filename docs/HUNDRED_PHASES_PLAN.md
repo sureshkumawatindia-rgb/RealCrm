@@ -41,7 +41,7 @@ JustDial and their website, and run on GST quotations, orders and Tally.
    Inbox, lists, search and reports answer within a second (indexes, paging, lighter queries).
    — done 2026-11-03 (D115, `docs/SPEED_AT_SCALE.md`)
 4. **Hindi everywhere.** Every remaining page in Hindi, and a test that stops English-only text
-   from coming back.
+   from coming back. — done 2026-11-04 (D116, `docs/HINDI_GUIDE.md`)
 5. **The first day.** A "Getting started" checklist (connect WhatsApp, add products, import leads,
    invite the team, send the first quotation) and ready settings for traders and manufacturers
    (stages, quick replies, quotation terms).

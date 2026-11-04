@@ -56,7 +56,7 @@
             ${isOwner ? `<option value="admin">${escapeHtml(t("role.Admin"))}</option>` : ""}
           </select>
         </div>
-        <button type="button" class="icon-btn invite-remove" aria-label="Remove this person" title="Remove this person"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="icon-btn invite-remove" aria-label="${escapeHtml(t("invite.removePerson"))}" title="${escapeHtml(t("invite.removePerson"))}"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <details class="invite-pages">
         <summary>${escapeHtml(t("invite.pages-they-can-open"))}</summary>
@@ -179,5 +179,5 @@
     next();
   });
   $("continueBtn").addEventListener("click", next);
-  addRow();
+  crmI18n.ready.then(addRow); // its labels are texts
 })();

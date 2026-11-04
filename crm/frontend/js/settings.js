@@ -119,7 +119,7 @@ function saveCurrentUser(data) {
 
 function renderProfilePreview(user) {
   document.getElementById("profileNamePreview").textContent =
-    user?.name || "Unnamed User";
+    user?.name || t("set2.unnamed-user");
   document.getElementById("profileEmailPreview").textContent =
     user?.email || "";
   // The Google photo, else the name's initials (also when the photo does not load).
@@ -154,18 +154,18 @@ function renderLogoUpload(source) {
     zone.innerHTML = `
       <div class="logo-upload-content">
         <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
-        <strong>Upload your logo</strong>
-        <span>Drag &amp; drop your logo here or <span class="logo-browse">Browse</span></span>
-        <span>PNG, JPG, JPEG, SVG, WebP · Max 2 MB</span>
+        <strong>${escapeHtml(t("set.upload-your-logo"))}</strong>
+        <span>${escapeHtml(t("set2.drag-drop-your-logo-here-or"))} <span class="logo-browse">${escapeHtml(t("set2.browse"))}</span></span>
+        <span>${escapeHtml(t("set2.png-jpg-jpeg-svg-webp-max"))}</span>
       </div>`;
     return;
   }
   zone.innerHTML = `
     <div class="logo-preview">
-      <img alt="CRM logo preview" />
+      <img alt="${escapeHtml(t("set2.logoPreview"))}" />
       <div class="logo-preview-actions">
-        <button class="logo-action" type="button" data-logo-action="change">Change Logo</button>
-        <button class="logo-action" type="button" data-logo-action="remove">Remove Logo</button>
+        <button class="logo-action" type="button" data-logo-action="change">${escapeHtml(t("set2.change-logo"))}</button>
+        <button class="logo-action" type="button" data-logo-action="remove">${escapeHtml(t("set2.remove-logo"))}</button>
       </div>
     </div>`;
   const preview = zone.querySelector("img");
@@ -186,11 +186,11 @@ function readLogoFile(file) {
   const extension = file.name.toLowerCase().split(".").pop();
   const allowedExtensions = new Set(["png", "jpg", "jpeg", "svg", "webp"]);
   if (!LOGO_TYPES.has(file.type) || !allowedExtensions.has(extension)) {
-    setLogoUploadError("Invalid file type. Choose a PNG, JPG, JPEG, SVG, or WebP image.");
+    setLogoUploadError(t("set2.invalid-file-type-choose-a-png"));
     return;
   }
   if (file.size > LOGO_MAX_SIZE) {
-    setLogoUploadError("File size must be less than 2 MB.");
+    setLogoUploadError(t("set2.file-size-must-be-less-than"));
     return;
   }
   setLogoUploadError();
@@ -199,7 +199,7 @@ function readLogoFile(file) {
   reader.onload = () => renderLogoUpload(reader.result);
   reader.onerror = () => {
     selectedLogo = null;
-    setLogoUploadError("Logo upload failed. Please try again.");
+    setLogoUploadError(t("set2.logo-upload-failed-please-try-again"));
     renderLogoUpload("");
   };
   reader.readAsDataURL(file);
@@ -252,7 +252,7 @@ async function loadProfileForm() {
     organization = await crmApi("/organization");
     renderLogoUpload(organization.logoUrl || "");
   } catch (error) {
-    setLogoUploadError(error.message || "Couldn't load company profile.");
+    setLogoUploadError(error.message || t("set2.couldn-t-load-company-profile"));
     renderLogoUpload("");
   }
   renderProfilePreview(user);
@@ -265,9 +265,9 @@ async function removeLogo() {
     selectedLogo = null;
     document.getElementById("uLogo").value = "";
     renderLogoUpload("");
-    showToast("Logo removed.", "success");
+    showToast(t("set2.logo-removed"), "success");
   } catch (error) {
-    showToast(error.message || "Logo removal failed.", "error");
+    showToast(error.message || t("set2.logo-removal-failed"), "error");
   }
 }
 
@@ -284,7 +284,7 @@ document.getElementById("profileForm").addEventListener("submit", async (e) => {
   const name = document.getElementById("uName").value.trim();
   const email = document.getElementById("uEmail").value.trim();
   if (!name || !email) {
-    showToast("Name and email are required.", "error");
+    showToast(t("customers.nameEmailRequired"), "error");
     return;
   }
   const existing = getCurrentUser() || {};
@@ -299,9 +299,9 @@ document.getElementById("profileForm").addEventListener("submit", async (e) => {
     saveCurrentUser(updated);
     renderSidebarUser();
     renderProfilePreview(updated);
-    showToast(selectedLogo ? "Profile updated." : "Profile updated.", "success");
+    showToast(selectedLogo ? t("set2.profile-updated") : t("set2.profile-updated"), "success");
   } catch (error) {
-    showToast(error.message || "Logo upload failed. Please try again.", "error");
+    showToast(error.message || t("set2.logo-upload-failed-please-try-again"), "error");
   }
 });
 
@@ -316,23 +316,23 @@ function setCompanyNote(message) {
 
 async function loadCompanyForm() {
   const savedLabel = document.getElementById("companyLastSaved");
-  savedLabel.textContent = "Loading…";
+  savedLabel.textContent = t("bulkbar.loading");
   try {
     const { company, localOnly } = await loadCompanyProfile();
     fillCompanyForm(company);
     renderWorkspaceCode(company?.slug);
-    savedLabel.textContent = localOnly ? "Only in this browser" : companyHasDetails(company) ? "Saved" : "Not set up yet";
-    if (localOnly) setCompanyNote("These details are only saved in this browser. Click Save Company Profile to share them with your team.");
+    savedLabel.textContent = localOnly ? t("set2.only-in-this-browser") : companyHasDetails(company) ? t("proj.settingsSaved") : t("set2.not-set-up-yet");
+    if (localOnly) setCompanyNote(t("set2.these-details-are-only-saved-in"));
   } catch (error) {
     fillCompanyForm(getCompanyInfo());
     renderWorkspaceCode(getCompanyInfo()?.slug);
     savedLabel.textContent = "";
-    setCompanyNote(apiErrorMessage(error, "Couldn't load the company profile."));
+    setCompanyNote(apiErrorMessage(error, t("set2.couldn-t-load-the-company-profile")));
   }
   if (!isOrgManager()) {
     document.querySelectorAll("#companyForm input, #companyForm select, #companyForm textarea, #companyForm button")
       .forEach((input) => { input.disabled = true; });
-    setCompanyNote("Only an owner or admin can edit the company profile.");
+    setCompanyNote(t("set2.only-an-owner-or-admin-can"));
   }
 }
 
@@ -340,18 +340,18 @@ document.getElementById("companyForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const data = readCompanyForm();
   if (!data.name) {
-    showToast("Company name is required.", "error");
+    showToast(t("set2.company-name-is-required"), "error");
     return;
   }
   try {
     const organization = await saveCompanyProfile(data);
     renderWorkspaceCode(organization.slug); // a code made from the name follows a new name
-    document.getElementById("companyLastSaved").textContent = "Saved";
+    document.getElementById("companyLastSaved").textContent = t("proj.settingsSaved");
     setCompanyNote("");
     renderCompanyDashboardCard(); // no-op unless this ran on dashboard.html
-    showToast("Company profile saved.", "success");
+    showToast(t("set2.company-profile-saved"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't save the company profile."), "error");
+    showToast(apiErrorMessage(error, t("set2.couldn-t-save-the-company-profile")), "error");
   }
 });
 
@@ -376,9 +376,9 @@ function closeWorkspaceCodeForm() {
 document.getElementById("copyLoginLinkBtn").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(document.getElementById("loginLinkText").textContent);
-    showToast("Login link copied.", "success");
+    showToast(t("set2.login-link-copied"), "success");
   } catch {
-    showToast("Copy failed — select the link and copy it by hand.", "error");
+    showToast(t("wa.link.copyFailed"), "error");
   }
 });
 
@@ -407,9 +407,9 @@ document.getElementById("workspaceCodeForm").addEventListener("submit", async (e
     const organization = await saveCompanyProfile({ slug });
     renderWorkspaceCode(organization.slug);
     closeWorkspaceCodeForm();
-    showToast("Workspace code saved. Tell your team the new code.", "success");
+    showToast(t("set2.workspace-code-saved-tell-your-team"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't save the workspace code."), "error");
+    showToast(apiErrorMessage(error, t("set2.couldn-t-save-the-workspace-code")), "error");
     document.getElementById("workspaceCodeInput").focus();
   } finally {
     button.disabled = false;
@@ -438,29 +438,29 @@ function roleOptions(current) {
 function renderMembers(members) {
   const me = getCurrentMember();
   const el = document.getElementById("teamMemberList");
-  document.getElementById("teamCount").textContent = `${members.length} member${members.length === 1 ? "" : "s"}`;
+  document.getElementById("teamCount").textContent = t(members.length === 1 ? "set2.members.one" : "set2.members.many", { n: members.length });
 
   el.innerHTML = members
     .map((m) => {
       const isSelf = String(m.id) === String(me?.id);
       const editable = isOrgManager() && !isSelf && (me.role === "owner" || !["owner", "admin"].includes(m.role));
       const access = ["owner", "admin"].includes(m.role)
-        ? "All modules"
-        : `${m.modules.length} module${m.modules.length === 1 ? "" : "s"}`;
+        ? t("set2.all-modules")
+        : t(m.modules.length === 1 ? "set2.modules.one" : "set2.modules.many", { n: m.modules.length });
       return `
       <div class="settings-summary-row">
         <div style="display:flex; align-items:center; gap:12px; min-width:0;">
           <div class="team-avatar" style="width:38px;height:38px;flex-shrink:0;border-radius:50%;background:var(--brand-light,#eef2ff);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:var(--brand-darker,#4338ca);">${escapeHtml(initials(m.name || m.email))}</div>
           <div class="info" style="min-width:0;">
-            <div class="name">${escapeHtml(m.name || m.email)}${isSelf ? ' <span class="badge badge-neutral">You</span>' : ""}${m.status === "disabled" ? ' <span class="badge badge-danger">Disabled</span>' : ""}</div>
+            <div class="name">${escapeHtml(m.name || m.email)}${isSelf ? ` <span class="badge badge-neutral">${escapeHtml(t("set2.you"))}</span>` : ""}${m.status === "disabled" ? ` <span class="badge badge-danger">${escapeHtml(t("set2.disabled"))}</span>` : ""}</div>
             <div class="sub">${escapeHtml(m.email)} · ${access}</div>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           ${editable
-            ? `<select data-member-role="${escapeHtml(m.id)}" aria-label="Role">${roleOptions(m.role)}</select>
-               ${m.totpEnabled ? `<button class="icon-btn" type="button" data-reset-totp="${escapeHtml(m.id)}" data-member-name="${escapeHtml(m.name || m.email)}" title="Turn off their 2-step login (lost phone)"><i class="fa-solid fa-shield-halved"></i></button>` : ""}
-               <button class="icon-btn danger" type="button" data-remove-member="${escapeHtml(m.id)}" data-member-name="${escapeHtml(m.name || m.email)}" title="Remove from team"><i class="fa-solid fa-user-minus"></i></button>`
+            ? `<select data-member-role="${escapeHtml(m.id)}" aria-label="${escapeHtml(t("set.role"))}">${roleOptions(m.role)}</select>
+               ${m.totpEnabled ? `<button class="icon-btn" type="button" data-reset-totp="${escapeHtml(m.id)}" data-member-name="${escapeHtml(m.name || m.email)}" title="${escapeHtml(t("set2.resetTotp"))}"><i class="fa-solid fa-shield-halved"></i></button>` : ""}
+               <button class="icon-btn danger" type="button" data-remove-member="${escapeHtml(m.id)}" data-member-name="${escapeHtml(m.name || m.email)}" title="${escapeHtml(t("set2.removeFromTeam"))}"><i class="fa-solid fa-user-minus"></i></button>`
             : `<span class="badge badge-brand">${ROLE_LABELS[m.role] || escapeHtml(m.role)}</span>`}
         </div>
       </div>`;
@@ -470,11 +470,11 @@ function renderMembers(members) {
 
 async function loadTeam() {
   const el = document.getElementById("teamMemberList");
-  el.innerHTML = `<p class="settings-hint">Loading team…</p>`;
+  el.innerHTML = `<p class="settings-hint">${escapeHtml(t("set2.loading-team"))}</p>`;
   try {
     renderMembers(await crmApi("/members?limit=100"));
   } catch (error) {
-    el.innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, "Couldn't load the team."))}</p>`;
+    el.innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, t("set2.couldn-t-load-the-team")))}</p>`;
   }
   document.getElementById("inviteSection").hidden = !isOrgManager();
   if (isOrgManager()) loadInvites();
@@ -505,10 +505,10 @@ document.getElementById("hidePhonesToggle").addEventListener("change", async (ev
       body: JSON.stringify({ hidePhonesFromAgents: toggle.checked }),
     });
     toggle.checked = hidePhonesFromAgents;
-    showToast(hidePhonesFromAgents ? "Agents now see customers' numbers masked." : "Agents now see customers' full numbers.", "success");
+    showToast(hidePhonesFromAgents ? t("set2.agents-now-see-customers-numbers-masked") : t("set2.agents-now-see-customers-full-numbers"), "success");
   } catch (error) {
     toggle.checked = !toggle.checked;
-    showToast(apiErrorMessage(error, "Couldn't save the setting."), "error");
+    showToast(apiErrorMessage(error, t("wa.receipts.failed")), "error");
   } finally {
     toggle.disabled = false;
   }
@@ -523,9 +523,9 @@ document.getElementById("teamMemberList").addEventListener("change", async (e) =
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: select.value }),
     });
-    showToast(`Role changed to ${ROLE_LABELS[select.value]}.`, "success");
+    showToast(t("set2.role-changed-to", { v: ROLE_LABELS[select.value] }), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't change the role."), "error");
+    showToast(apiErrorMessage(error, t("set2.couldn-t-change-the-role")), "error");
   }
   loadTeam();
 });
@@ -534,35 +534,35 @@ document.getElementById("teamMemberList").addEventListener("click", async (e) =>
   // A teammate lost the phone with their authenticator app (F7).
   const reset = e.target.closest("[data-reset-totp]");
   if (reset) {
-    if (!confirm(`Turn off 2-step login for ${reset.dataset.memberName}? Do it only when you are sure it is them who lost their phone. They can log in with Google alone until they set it up again.`)) return;
+    if (!confirm(t("set2.turn-off-2-step-login-for", { memberName: reset.dataset.memberName }))) return;
     try {
       await crmApi(`/members/${reset.dataset.resetTotp}/totp-reset`, { method: "POST" });
-      showToast("2-step login turned off. They have been told.", "success");
+      showToast(t("set2.2-step-login-turned-off-they"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't turn it off."), "error");
+      showToast(apiErrorMessage(error, t("set2.couldn-t-turn-it-off")), "error");
     }
     loadTeam();
     return;
   }
   const button = e.target.closest("[data-remove-member]");
   if (!button) return;
-  if (!confirm(`Remove ${button.dataset.memberName} from the team? They will lose access right away.`)) return;
+  if (!confirm(t("set2.remove-from-the-team-they-will", { memberName: button.dataset.memberName }))) return;
   try {
     await crmApi(`/members/${button.dataset.removeMember}`, { method: "DELETE" });
-    showToast("Member removed.", "success");
+    showToast(t("set2.member-removed"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't remove the member."), "error");
+    showToast(apiErrorMessage(error, t("set2.couldn-t-remove-the-member")), "error");
   }
   loadTeam();
 });
 
 function showInviteLink(email, serverLink) {
   const link = inviteLinkHere(serverLink);
-  const companyName = getCompanyInfo()?.name || "our company";
+  const companyName = getCompanyInfo()?.name || t("set2.our-company");
   document.getElementById("inviteLinkEmail").textContent = email;
   document.getElementById("inviteLinkText").textContent = link;
   document.getElementById("whatsappInviteLink").href =
-    `https://wa.me/?text=${encodeURIComponent(`Join ${companyName} on YELLOW CRM: ${link}`)}`;
+    `https://wa.me/?text=${encodeURIComponent(t("set2.join-on-yellow-crm", { companyName, link }))}`;
   document.getElementById("inviteLinkBox").hidden = false;
 }
 
@@ -570,16 +570,16 @@ document.getElementById("copyInviteBtn").addEventListener("click", async () => {
   const link = document.getElementById("inviteLinkText").textContent;
   try {
     await navigator.clipboard.writeText(link);
-    showToast("Invite link copied.", "success");
+    showToast(t("set2.invite-link-copied"), "success");
   } catch {
-    showToast("Copy failed — select the link and copy it by hand.", "error");
+    showToast(t("wa.link.copyFailed"), "error");
   }
 });
 
 function renderInvites(invites) {
   const el = document.getElementById("pendingInviteList");
   if (!invites.length) {
-    el.innerHTML = `<p class="settings-hint" style="margin:0">No pending invites.</p>`;
+    el.innerHTML = `<p class="settings-hint" style="margin:0">${escapeHtml(t("set2.no-pending-invites"))}</p>`;
     return;
   }
   el.innerHTML = invites
@@ -590,13 +590,13 @@ function renderInvites(invites) {
       <div class="settings-summary-row">
         <div class="info" style="min-width:0;">
           <div class="name">${escapeHtml(invite.email)}</div>
-          <div class="sub">${ROLE_LABELS[invite.role] || escapeHtml(invite.role)} · ${expired ? "Expired" : `Link valid until ${escapeHtml(when)}`}</div>
+          <div class="sub">${ROLE_LABELS[invite.role] || escapeHtml(invite.role)} · ${expired ? escapeHtml(t("set2.expired")) : escapeHtml(t("set2.linkValidUntil", { when }))}</div>
         </div>
         <div style="display:flex; gap:8px;">
           <button class="btn btn-outline" type="button" data-resend-invite="${escapeHtml(invite.id)}" data-invite-email="${escapeHtml(invite.email)}">
-            <i class="fa-solid fa-link"></i> New Link
+            <i class="fa-solid fa-link"></i> ${escapeHtml(t("set2.new-link"))}
           </button>
-          <button class="icon-btn danger" type="button" data-revoke-invite="${escapeHtml(invite.id)}" title="Cancel invite"><i class="fa-solid fa-xmark"></i></button>
+          <button class="icon-btn danger" type="button" data-revoke-invite="${escapeHtml(invite.id)}" title="${escapeHtml(t("set2.cancelInvite"))}"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>`;
     })
@@ -608,7 +608,7 @@ async function loadInvites() {
   try {
     renderInvites(await crmApi("/invites?status=pending&limit=100"));
   } catch (error) {
-    el.innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, "Couldn't load invites."))}</p>`;
+    el.innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, t("set2.couldn-t-load-invites")))}</p>`;
   }
 }
 
@@ -619,16 +619,16 @@ document.getElementById("pendingInviteList").addEventListener("click", async (e)
     if (resend) {
       const result = await crmApi(`/invites/${resend.dataset.resendInvite}/resend`, { method: "POST" });
       showInviteLink(resend.dataset.inviteEmail, result.link);
-      showToast(result.emailed ? "New invite link emailed to them. The old link no longer works." : "New invite link created. The old link no longer works.", "success");
+      showToast(result.emailed ? t("set2.new-invite-link-emailed-to-them") : t("set2.new-invite-link-created-the-old"), "success");
     } else if (revoke) {
-      if (!confirm("Cancel this invite? The link will stop working.")) return;
+      if (!confirm(t("set2.cancel-this-invite-the-link-will"))) return;
       await crmApi(`/invites/${revoke.dataset.revokeInvite}`, { method: "DELETE" });
-      showToast("Invite cancelled.", "success");
+      showToast(t("set2.invite-cancelled"), "success");
     } else {
       return;
     }
   } catch (error) {
-    showToast(apiErrorMessage(error, "That didn't work. Please try again."), "error");
+    showToast(apiErrorMessage(error, t("common.tryAgain")), "error");
   }
   loadInvites();
 });
@@ -648,10 +648,10 @@ document.getElementById("inviteForm").addEventListener("submit", async (e) => {
     showInviteLink(email, result.link);
     document.getElementById("inviteForm").reset();
     // D104: emailed too when the platform sends emails.
-    showToast(result.emailed ? `Invite emailed to ${email}. You can also share the link.` : "Invite created. Share the link with them.", "success");
+    showToast(result.emailed ? t("set2.invite-emailed-to-you-can-also", { email }) : t("set2.invite-created-share-the-link-with"), "success");
     loadInvites();
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't create the invite."), "error");
+    showToast(apiErrorMessage(error, t("set2.couldn-t-create-the-invite")), "error");
   } finally {
     button.disabled = false;
   }
@@ -677,8 +677,8 @@ function renderCompanySwitcher(me) {
           <div class="sub">${ROLE_LABELS[m.role] || escapeHtml(m.role)}</div>
         </div>
         ${active
-          ? '<span class="badge badge-success">Current</span>'
-          : `<button class="btn btn-outline" type="button" data-switch-org="${escapeHtml(m.organizationId)}">Switch</button>`}
+          ? `<span class="badge badge-success">${escapeHtml(t("set2.current"))}</span>`
+          : `<button class="btn btn-outline" type="button" data-switch-org="${escapeHtml(m.organizationId)}">${escapeHtml(t("set2.switch"))}</button>`}
       </div>`;
     })
     .join("");
@@ -698,7 +698,7 @@ document.getElementById("companySwitchList").addEventListener("click", async (e)
     localStorage.removeItem("crm_company");
     window.location.href = "dashboard.html";
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't switch company."), "error");
+    showToast(apiErrorMessage(error, t("set2.couldn-t-switch-company")), "error");
   }
 });
 
@@ -728,18 +728,19 @@ function safeParseCount(raw) {
 }
 
 const STORAGE_LABELS = {
-  crm_customers: "Customers",
-  crm_leads: "Leads",
-  crm_accounts: "Accounts",
-  crm_agents: "Agents",
-  crm_products: "Products",
-  crm_deals: "Deals",
-  crm_deal_tasks: "Deal Follow-up Tasks",
-  crm_tasks: "Tasks",
-  crm_calendar_events: "Calendar Events",
-  crm_campaigns: "Campaigns",
-  crm_workflows: "Workflows",
-  crm_sequences: "Sequences",
+  // The texts' keys (D116), looked up when the list is drawn.
+  crm_customers: "nav.customers",
+  crm_leads: "nav.leads",
+  crm_accounts: "set2.store.accounts",
+  crm_agents: "set2.store.agents",
+  crm_products: "nav.products",
+  crm_deals: "nav.deals",
+  crm_deal_tasks: "set2.store.dealTasks",
+  crm_tasks: "nav.tasks",
+  crm_calendar_events: "set2.store.events",
+  crm_campaigns: "set2.store.campaigns",
+  crm_workflows: "set2.store.workflows",
+  crm_sequences: "set2.store.sequences",
 };
 
 function renderStorageSummary() {
@@ -748,12 +749,12 @@ function renderStorageSummary() {
     .map((key) => {
       const raw = localStorage.getItem(key);
       const count = raw ? safeParseCount(raw) : 0;
-      return { key, label: STORAGE_LABELS[key], count: count ?? 0 };
+      return { key, label: t(STORAGE_LABELS[key]), count: count ?? 0 };
     })
     .filter((r) => r.count > 0 || localStorage.getItem(r.key));
 
   if (!rows.length) {
-    el.innerHTML = `<p class="settings-hint">No data stored yet — start adding customers, leads, or deals and they'll show up here.</p>`;
+    el.innerHTML = `<p class="settings-hint">${escapeHtml(t("set2.no-data-stored-yet-start-adding"))}</p>`;
     return;
   }
 
@@ -774,25 +775,26 @@ function renderStorageSummary() {
 // Move my browser data to server (owners/admins)
 // ---------------------------------------------------------------
 const IMPORT_SECTION_LABELS = {
-  products: "Products",
-  customers: "Customers",
-  accounts: "Accounts",
-  leads: "Leads",
-  deals: "Deals",
-  leadActivities: "Lead activity",
-  quotations: "Quotations",
-  tasks: "Tasks",
-  dealFollowUps: "Deal follow-ups",
-  events: "Calendar events",
-  tickets: "Support tickets",
-  ticketNotes: "Ticket replies",
-  customerNotes: "Customer notes",
-  documents: "Documents",
-  campaigns: "Campaigns",
-  campaignNotes: "Campaign notes",
-  workflows: "Workflows",
-  sequences: "Sequences",
-  teamInvites: "Team invites (they join when they sign in with Google)",
+  // The texts' keys (D116), looked up when the report is drawn.
+  products: "nav.products",
+  customers: "nav.customers",
+  accounts: "set2.store.accounts",
+  leads: "nav.leads",
+  deals: "nav.deals",
+  leadActivities: "set2.imp.leadActivity",
+  quotations: "nav.quotations",
+  tasks: "nav.tasks",
+  dealFollowUps: "set2.imp.dealFollowUps",
+  events: "set2.store.events",
+  tickets: "set2.imp.tickets",
+  ticketNotes: "set2.imp.ticketNotes",
+  customerNotes: "set2.imp.customerNotes",
+  documents: "nav.documents",
+  campaigns: "set2.store.campaigns",
+  campaignNotes: "set2.imp.campaignNotes",
+  workflows: "set2.store.workflows",
+  sequences: "set2.store.sequences",
+  teamInvites: "set2.imp.teamInvites",
 };
 // Browser keys that move in a later update (none left since Account Champions moved).
 const LATER_LABELS = {};
@@ -812,19 +814,19 @@ function renderImportReport(report, { preview }) {
     .filter(([, section]) => section.found)
     .map(([name, section]) => {
       const parts = [
-        `${section.created} ${preview ? "to add" : "added"}`,
-        section.alreadyImported ? `${section.alreadyImported} moved before` : "",
-        section.merged ? `${section.merged} matched an existing contact` : "",
-        section.rejected ? `${section.rejected} skipped` : "",
+        t(preview ? "set2.imp.toAdd" : "set2.imp.added", { n: section.created }),
+        section.alreadyImported ? t("set2.moved-before", { alreadyImported: section.alreadyImported }) : "",
+        section.merged ? t("set2.matched-an-existing-contact", { merged: section.merged }) : "",
+        section.rejected ? t("set2.imp.skipped", { n: section.rejected }) : "",
       ].filter(Boolean);
       // Why records were skipped (a few distinct reasons), e.g. "Rohan has no valid email".
       const reasons = [...new Set((section.rejectedRows || []).map((row) => row.reason))].slice(0, 3);
       return `
         <div class="settings-summary-row">
           <div class="info">
-            <div class="name">${escapeHtml(IMPORT_SECTION_LABELS[name] || name)}</div>
+            <div class="name">${escapeHtml(IMPORT_SECTION_LABELS[name] ? t(IMPORT_SECTION_LABELS[name]) : name)}</div>
             <div class="sub">${escapeHtml(parts.join(" · "))}</div>
-            ${reasons.length ? `<div class="sub">Skipped: ${escapeHtml(reasons.join("; "))}</div>` : ""}
+            ${reasons.length ? `<div class="sub">${escapeHtml(t("set2.imp.skippedWhy", { why: reasons.join("; ") }))}</div>` : ""}
           </div>
           <span class="badge badge-info">${section.found}</span>
         </div>`;
@@ -835,17 +837,17 @@ function renderImportReport(report, { preview }) {
     .join(", ");
   const notes = [...(report.unresolved || []), ...(report.problems || []).map((p) => `${p.key}: ${p.reason}`)].slice(0, 10);
   document.getElementById("serverImportReport").innerHTML = `
-    <p class="settings-hint" style="margin:0 0 10px">${preview ? "Preview — nothing has been saved yet." : "Done. Your team now sees these records."}</p>
-    ${rows || '<p class="settings-hint">No customers, leads, deals, products or quotations found in this browser.</p>'}
-    ${later ? `<p class="settings-hint" style="margin-top:10px">Moves in a later update (still safe in this browser): ${escapeHtml(later)}.</p>` : ""}
-    ${notes.length ? `<p class="settings-hint" style="margin-top:10px"><strong>Please check:</strong><br>${notes.map(escapeHtml).join("<br>")}</p>` : ""}`;
+    <p class="settings-hint" style="margin:0 0 10px">${preview ? t("set2.preview-nothing-has-been-saved-yet") : t("set2.done-your-team-now-sees-these")}</p>
+    ${rows || `<p class="settings-hint">${escapeHtml(t("set2.imp.nothingFound"))}</p>`}
+    ${later ? `<p class="settings-hint" style="margin-top:10px">${escapeHtml(t("set2.imp.later", { list: later }))}</p>` : ""}
+    ${notes.length ? `<p class="settings-hint" style="margin-top:10px"><strong>${escapeHtml(t("set2.please-check"))}</strong><br>${notes.map(escapeHtml).join("<br>")}</p>` : ""}`;
 }
 
 async function moveBrowserDataToServer() {
   const button = document.getElementById("serverImportBtn");
   const data = browserDataForImport();
   if (!Object.keys(data).length) {
-    showToast("There is no CRM data in this browser.", "info");
+    showToast(t("set2.there-is-no-crm-data-in"), "info");
     return;
   }
   button.disabled = true;
@@ -854,15 +856,15 @@ async function moveBrowserDataToServer() {
     renderImportReport(preview.report, { preview: true });
     const toAdd = Object.values(preview.report.sections || {}).reduce((sum, section) => sum + section.created, 0);
     if (!toAdd) {
-      showToast("Everything in this browser is already on the server.", "success");
+      showToast(t("set2.everything-in-this-browser-is-already"), "success");
       return;
     }
-    if (!confirm(`Move ${toAdd} record${toAdd === 1 ? "" : "s"} to the server now? Nothing in this browser is deleted.`)) return;
+    if (!confirm(t(toAdd === 1 ? "set2.moveConfirm.one" : "set2.moveConfirm.many", { n: toAdd }))) return;
     const result = await crmApi("/imports/localstorage", jsonRequest("POST", { data, dryRun: false }));
     renderImportReport(result.report, { preview: false });
-    showToast("Your browser data is now on the server.", "success");
+    showToast(t("set2.your-browser-data-is-now-on"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't move the data."), "error");
+    showToast(apiErrorMessage(error, t("set2.couldn-t-move-the-data")), "error");
   } finally {
     button.disabled = false;
   }
@@ -889,7 +891,7 @@ function exportAllData() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  showToast("Backup downloaded.", "success");
+  showToast(t("set2.backup-downloaded"), "success");
 }
 
 // Import — restores raw string values for any crm_* key found in the
@@ -901,19 +903,19 @@ function importAllData(file) {
     try {
       parsed = JSON.parse(reader.result);
     } catch {
-      showToast("That file isn't valid JSON.", "error");
+      showToast(t("set2.that-file-isn-t-valid-json"), "error");
       return;
     }
     const keys = Object.keys(parsed).filter(
       (k) => k.startsWith("crm_") && !PROTECTED_KEYS.has(k),
     );
     if (!keys.length) {
-      showToast("No recognizable CRM data found in that file.", "error");
+      showToast(t("set2.no-recognizable-crm-data-found-in"), "error");
       return;
     }
     if (
       !confirm(
-        `This will overwrite ${keys.length} data set${keys.length === 1 ? "" : "s"} with the contents of the file. Continue?`,
+        t(keys.length === 1 ? "set2.overwriteConfirm.one" : "set2.overwriteConfirm.many", { n: keys.length }),
       )
     ) {
       return;
@@ -925,10 +927,10 @@ function importAllData(file) {
         typeof value === "string" ? value : JSON.stringify(value),
       );
     });
-    showToast("Data imported. Reloading...", "success");
+    showToast(t("set2.data-imported-reloading"), "success");
     setTimeout(() => window.location.reload(), 900);
   };
-  reader.onerror = () => showToast("Couldn't read that file.", "error");
+  reader.onerror = () => showToast(t("set2.couldn-t-read-that-file"), "error");
   reader.readAsText(file);
 }
 
@@ -937,16 +939,16 @@ function resetAllData() {
     (k) => !PROTECTED_KEYS.has(k) && k !== USER_KEY,
   );
   if (!keys.length) {
-    showToast("There's nothing to reset.", "info");
+    showToast(t("set2.there-s-nothing-to-reset"), "info");
     return;
   }
   const confirmed = confirm(
-    `Delete all CRM data (${keys.length} data set${keys.length === 1 ? "" : "s"})? This can't be undone. You'll stay signed in.`,
+    t(keys.length === 1 ? "set2.clearConfirm.one" : "set2.clearConfirm.many", { n: keys.length }),
   );
   if (!confirmed) return;
 
   keys.forEach((key) => localStorage.removeItem(key));
-  showToast("All CRM data cleared. Reloading...", "success");
+  showToast(t("set2.all-crm-data-cleared-reloading"), "success");
   setTimeout(() => window.location.reload(), 900);
 }
 
@@ -957,7 +959,7 @@ initTabs();
 activateRequestedTab();
 loadProfileForm();
 loadMembershipSections();
-renderStorageSummary();
+crmI18n.ready.then(renderStorageSummary); // its labels are texts
 
 document.getElementById("serverImportSection").hidden = !isOrgManager();
 document.getElementById("serverExportSection").hidden = !isOrgManager();
@@ -966,9 +968,9 @@ document.getElementById("serverExportBtn").addEventListener("click", async (e) =
   button.disabled = true;
   try {
     await crmDownload("/exports/crm", `crm-export-${new Date().toISOString().slice(0, 10)}.json`);
-    showToast("CRM data downloaded.", "success");
+    showToast(t("set2.crm-data-downloaded"), "success");
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't download the CRM data."), "error");
+    showToast(apiErrorMessage(error, t("set2.couldn-t-download-the-crm-data")), "error");
   } finally {
     button.disabled = false;
   }

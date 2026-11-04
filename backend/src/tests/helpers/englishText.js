@@ -10,8 +10,10 @@ const parser = require('@babel/parser');
 //   is; data-hi gives a page without scripts (404, offline) its Hindi. The menu is translated by
 //   app.js (NAV_KEYS), so the sidebar is skipped here and checked on its own.
 //   Scripts: string and template texts that read as words on the screen and are not passed
-//   through t(). The server's own values (stages, statuses, sources, roles …) stay English and are
-//   shown with crmLabel(). A line that keeps English on purpose says why with "i18n-ok: <why>".
+//   through t() (or tr(key, English), t() with a fallback). The server's own values (stages,
+//   statuses, sources, roles …) stay English and are shown with crmLabel(). Tooltips and
+//   placeholders in a script's markup count too. A line that keeps English on purpose says why
+//   with "i18n-ok: <why>".
 
 const FRONTEND = path.resolve(__dirname, '..', '..', '..', '..', 'crm', 'frontend');
 const CONSTANTS = path.resolve(__dirname, '..', '..', 'constants');
@@ -82,7 +84,7 @@ const CODE_CALLS = new Set([
   'querySelector', 'querySelectorAll', 'getElementById', 'closest', 'matches', 'addEventListener', 'removeEventListener', 'setAttribute',
   'getAttribute', 'removeAttribute', 'hasAttribute', 'toggleAttribute', 'add', 'remove', 'toggle', 'contains', 'replace', 'replaceAll',
   'createElement', 'dispatchEvent', 'getItem', 'setItem', 'removeItem', 'getPreference', 'setPreference', 'crmApi', 'crmRequest',
-  'crmFetchAll', 'crmFetchPages', 'crmDownload', 'fetch', 'log', 'warn', 'error', 'info', 'debug', 't', 'lt', 'btr', 'has', 'crmLabel',
+  'crmFetchAll', 'crmFetchPages', 'crmDownload', 'fetch', 'log', 'warn', 'error', 'info', 'debug', 't', 'lt', 'tr', 'btr', 'has', 'crmLabel',
   'postMessage', 'Event', 'CustomEvent', 'URL', 'URLSearchParams', 'RegExp', 'get', 'set', 'append', 'delete', 'includes',
   'startsWith', 'endsWith', 'split', 'join', 'indexOf', 'padStart', 'toLocaleString', 'toLocaleDateString', 'toLocaleTimeString',
   'DateTimeFormat', 'NumberFormat', 'insertAdjacentHTML', 'cfFields', 'crmLoad', 'crmReady', 'jsonRequest', 'on', 'off', 'emit',
@@ -93,7 +95,7 @@ function looksLikeCode(text) {
   const s = text.trim();
   if (!s) return true;
   if (/^[\w.-]+$/.test(s) && !/^[A-Z][a-z]+[.!?]?$/.test(s)) return true; // identifiers, keys, class names, lowercase words
-  if (/^[#.[:]/.test(s) || /^(?:https?:|mailto:|tel:|data:|\/)/.test(s)) return true; // selectors, links, paths
+  if (/^[#.[:]/.test(s) || /^(?:https?:|mailto:|tel:|data:)/.test(s) || /^\/\S*$/.test(s)) return true; // selectors, links, paths ("/month + GST" is words)
   if (/\.html?(?:[?#]|$)/.test(s)) return true; // page names ("Reports & Analytics.html")
   if (/^[a-z]+(?:\s*,\s*[a-z]+)+$/.test(s)) return true; // selector lists ("input, textarea, select")
   if (/^(?:checked|disabled|selected|hidden|readonly|required|multiple)(?:\s+(?:checked|disabled|selected|hidden|readonly|required|multiple))*$/.test(s)) return true; // attributes
@@ -104,6 +106,11 @@ function looksLikeCode(text) {
   return false;
 }
 const visible = (raw) => raw.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;|&#\d+;/gi, ' ').replace(/\s+/g, ' ').trim();
+// The words markup in a script shows in its own attributes (a tooltip, a placeholder); the parts
+// around a ${…} value one by one.
+const attributeTexts = (markup) => [...markup.matchAll(/\s(?:placeholder|title|aria-label|alt)="([^"]*)"/g)].flatMap((m) => m[1].split('\u0000'));
+// One such text is code when it is a single token (a unit, a code, an example address) or a link.
+const attributeIsCode = (s) => (/^\S+$/.test(s) && !/^[A-Z][a-z]+[.!?]?$/.test(s)) || /^(?:https?:|mailto:|tel:|\/)/.test(s);
 function scanJs(code) {
   const ast = parser.parse(code, { sourceType: 'script', errorRecovery: true, allowReturnOutsideFunction: true });
   const lines = code.split('\n');
@@ -111,19 +118,27 @@ function scanJs(code) {
   const visit = (node, parent, key) => {
     if (!node || typeof node.type !== 'string') return;
     let pieces = null;
-    if (node.type === 'StringLiteral') pieces = DOMAIN.has(node.value) ? [] : [node.value];
+    let attributes = [];
+    if (node.type === 'StringLiteral') {
+      pieces = DOMAIN.has(node.value) ? [] : [node.value];
+      attributes = attributeTexts(node.value);
+    }
     // A template: its tags may span ${…} parts, so they are taken out of the whole first. One that
     // starts like a selector (".a[data-x=…]") is code; keys (<kbd>) and elements marked
     // translate="no" keep their own words.
     if (node.type === 'TemplateLiteral') {
-      pieces = /^[.#[]/.test((node.quasis[0].value.cooked || '').trim()) ? [] : node.quasis.map((q) => q.value.cooked || '').join('\u0000')
-        .replace(/<kbd>[^<]*<\/kbd>/g, ' ').replace(/<(\w+)\b[^>]*\btranslate="no"[^>]*>[^<]*<\/\1>/g, ' ')
+      const whole = node.quasis.map((q) => q.value.cooked || '').join('\u0000');
+      const selector = /^[.#[]/.test((node.quasis[0].value.cooked || '').trim());
+      pieces = selector ? [] : whole.replace(/<kbd>[^<]*<\/kbd>/g, ' ').replace(/<(\w+)\b[^>]*\btranslate="no"[^>]*>[^<]*<\/\1>/g, ' ')
         .replace(/<[^>]*>/g, ' ').split('\u0000');
+      attributes = selector ? [] : attributeTexts(whole);
     }
     if (pieces) {
       const callee = parent && /^(?:Optional)?CallExpression$/.test(parent.type) && key === 'arguments' ? parent.callee : null;
       const calleeName = callee ? (callee.type === 'Identifier' ? callee.name : callee.property && callee.property.name) : '';
-      const skip = CODE_CALLS.has(calleeName)
+      // setAttribute("title", "…") shows its second argument.
+      const shown = calleeName === 'setAttribute' && parent.arguments[1] === node && ATTRIBUTES.includes(parent.arguments[0]?.value);
+      const skip = (CODE_CALLS.has(calleeName) && !shown)
         || (parent && parent.type === 'ObjectProperty' && key === 'key')
         || (parent && parent.type === 'BinaryExpression' && /^(?:[!=]==?|in)$/.test(parent.operator))
         || (parent && parent.type === 'SwitchCase')
@@ -132,6 +147,10 @@ function scanJs(code) {
         for (const piece of pieces) {
           const text = visible(piece);
           if (text && !looksLikeCode(piece) && englishWords(text).length) found.push({ kind: 'js', line: node.loc.start.line, text: text.slice(0, 120) });
+        }
+        for (const value of attributes) {
+          const text = value.replace(/\s+/g, ' ').trim();
+          if (text && !attributeIsCode(text) && englishWords(text).length) found.push({ kind: 'js', line: node.loc.start.line, text: text.slice(0, 120) });
         }
       }
     }

@@ -21,6 +21,10 @@ builds on the one before:
 
 A script error on any page also fails the flow it happened in.
 
+Next to the flows, `backend/e2e/texts.spec.js` (Phase 4, D116, `HINDI_GUIDE.md`) opens 20 pages
+and the 19 Settings tabs in Hindi with the texts held back 1.5 seconds: a page that shows a
+text's key (such as `setls.none`) instead of its words fails. It adds about two minutes.
+
 ## Where it runs
 
 - **On GitHub, on every push**, as the job "The ten flows in a browser"

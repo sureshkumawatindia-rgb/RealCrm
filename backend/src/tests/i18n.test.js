@@ -40,6 +40,7 @@ describe('Texts in English and Hindi', () => {
       ...[...code.matchAll(/(?<![\w.$])t\(\s*"([\w.]+)"/g)].map((m) => m[1]),
       ...[...code.matchAll(/crmI18n\.t\(\s*"([\w.]+)"/g)].map((m) => m[1]),
       ...[...code.matchAll(/(?<![\w.$])lt\(\s*"([\w.]+)"/g)].map((m) => `login.${m[1]}`), // login.js
+      ...[...code.matchAll(/(?<![\w.$])tr\(\s*"([\w.]+)"/g)].map((m) => m[1]), // t() with an English fallback
     ];
     expect(keys.filter((key) => !(key in en))).toEqual([]);
   });

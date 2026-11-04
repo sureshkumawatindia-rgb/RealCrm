@@ -17,33 +17,35 @@
   const count = (n) => Number(n).toLocaleString("en-IN");
   const day = (iso) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "");
   const STATUS = {
-    trialing: ["Free trial", "badge-info"],
-    active: ["Active", "badge-success"],
-    past_due: ["Payment due", "badge-warning"],
-    halted: ["Payment failed", "badge-danger"],
-    cancelled: ["Cancelled", "badge-warning"],
-    expired: ["Ended", "badge-danger"],
-    comped: ["Complimentary", "badge-neutral"],
+    // [the text's key (D116), the badge]
+    trialing: ["setplan.st.trial", "badge-info"],
+    active: ["setplan.st.active", "badge-success"],
+    past_due: ["setplan.st.pastDue", "badge-warning"],
+    halted: ["setplan.st.halted", "badge-danger"],
+    cancelled: ["setplan.st.cancelled", "badge-warning"],
+    expired: ["setplan.st.ended", "badge-danger"],
+    comped: ["setplan.st.comped", "badge-neutral"],
   };
   // How a limit reads on a plan card.
   // Users are the whole team (admins, agents, viewers); agents are a limit within it (D68).
   const LIMIT_TEXT = {
-    users: (n) => `${count(n)} user${n === 1 ? "" : "s"} (admins, agents, viewers)`,
-    agents: (n) => `Up to ${count(n)} agent${n === 1 ? "" : "s"}`,
-    whatsappNumbers: (n) => `${count(n)} WhatsApp number${n === 1 ? "" : "s"}${n >= 20 ? " (Meta's maximum)" : ""}`,
-    contacts: (n) => `${count(n)} contacts`,
-    broadcastsPerMonth: (n) => `${count(n)} broadcasts a month`,
-    quotesPerMonth: (n) => `${count(n)} quotations a month`,
-    templates: (n) => `${count(n)} message templates`,
+    users: (n) => t(n === 1 ? "setplan.lim.users.one" : "setplan.lim.users.many", { n: count(n) }),
+    agents: (n) => t(n === 1 ? "setplan.lim.agents.one" : "setplan.lim.agents.many", { n: count(n) }),
+    whatsappNumbers: (n) => `${t(n === 1 ? "setplan.lim.numbers.one" : "setplan.lim.numbers.many", { n: count(n) })}${n >= 20 ? t("setplan.lim.metaMax") : ""}`,
+    contacts: (n) => t("setplan.lim.contacts", { n: count(n) }),
+    broadcastsPerMonth: (n) => t("setplan.lim.broadcasts", { n: count(n) }),
+    quotesPerMonth: (n) => t("setplan.lim.quotations", { n: count(n) }),
+    templates: (n) => t("setplan.lim.templates", { n: count(n) }),
   };
   const UNLIMITED_TEXT = {
-    users: "Unlimited users",
-    agents: "Unlimited agents",
-    whatsappNumbers: "Unlimited WhatsApp numbers",
-    contacts: "Unlimited contacts",
-    broadcastsPerMonth: "Unlimited broadcasts",
-    quotesPerMonth: "Unlimited quotations",
-    templates: "Unlimited message templates",
+    // The texts' keys (D116).
+    users: "setplan.unl.users",
+    agents: "setplan.unl.agents",
+    whatsappNumbers: "setplan.unl.numbers",
+    contacts: "setplan.unl.contacts",
+    broadcastsPerMonth: "setplan.unl.broadcasts",
+    quotesPerMonth: "setplan.unl.quotations",
+    templates: "setplan.unl.templates",
   };
   let catalog = null;
   let current = null;
@@ -55,40 +57,41 @@
 
   function statusLine({ plan, subscription: s }) {
     switch (s.status) {
-      case "trialing": return `Free ${plan.name} trial until ${day(s.trialEndsAt)} (${s.daysLeft} day${s.daysLeft === 1 ? "" : "s"} left). Choose a plan before then to keep everything running; the rest of the trial stays free.`;
+      case "trialing": return t(s.daysLeft === 1 ? "setplan.trial.one" : "setplan.trial.many", { plan: plan.name, until: day(s.trialEndsAt), n: s.daysLeft });
       case "active":
-        if (s.firstChargeAt) return `Active. The first payment is on ${day(s.firstChargeAt)}, when the free trial ends.`;
-        if (s.cancelAtPeriodEnd) return `Cancelled: it works until ${day(s.currentPeriodEnd)} and is not charged again.`;
-        return s.currentPeriodEnd ? `Renews on ${day(s.currentPeriodEnd)}.` : "Active.";
-      case "past_due": return "The last payment did not go through; Razorpay will try again. Check your card or UPI mandate.";
-      case "halted": return "The payments for this plan failed. Your data is safe and chats keep working; choose a plan again to add things.";
-      case "cancelled": return `Cancelled; it works until ${day(s.currentPeriodEnd)}.`;
+        if (s.firstChargeAt) return t("setplan.active-the-first-payment-is-on", { v: day(s.firstChargeAt) });
+        if (s.cancelAtPeriodEnd) return t("setplan.cancelled-it-works-until-and-is", { v: day(s.currentPeriodEnd) });
+        return s.currentPeriodEnd ? t("setplan.renews-on", { v: day(s.currentPeriodEnd) }) : t("setplan.active");
+      case "past_due": return t("setplan.the-last-payment-did-not-go");
+      case "halted": return t("setplan.the-payments-for-this-plan-failed");
+      case "cancelled": return t("setplan.cancelled-it-works-until", { v: day(s.currentPeriodEnd) });
       case "expired": return s.wasTrial && s.trialEndsAt
-        ? `The free trial ended on ${day(s.trialEndsAt)}. Your data is safe and chats keep working; choose a plan to add contacts, quotations, broadcasts and teammates again.`
-        : "This plan has ended. Your data is safe and chats keep working; choose a plan to add things again.";
-      default: return "Complimentary: this company uses the CRM without a subscription.";
+        ? t("setplan.the-free-trial-ended-on-your", { v: day(s.trialEndsAt) })
+        : t("setplan.this-plan-has-ended-your-data");
+      default: return t("setplan.complimentary-this-company-uses-the-crm");
     }
   }
 
   function renderCurrent() {
     const s = current.subscription;
-    const [label, badge] = STATUS[s.status] || [s.status, "badge-neutral"];
+    const [labelKey, badge] = STATUS[s.status] || [null, "badge-neutral"];
+    const label = labelKey ? t(labelKey) : s.status;
     const lines = [statusLine(current)];
-    if (s.pendingPlan && paying()) lines.push(`Changes to ${planName(s.pendingPlan)} on ${day(s.currentPeriodEnd)}.`);
-    if (s.checkoutUrl && s.pendingPlan) lines.push(`Waiting for the payment for ${planName(s.pendingPlan)}.`);
+    if (s.pendingPlan && paying()) lines.push(t("setplan.changes-to-on", { v: planName(s.pendingPlan), v2: day(s.currentPeriodEnd) }));
+    if (s.checkoutUrl && s.pendingPlan) lines.push(t("setplan.waiting-for-the-payment-for", { v: planName(s.pendingPlan) }));
     const buttons = [
-      s.checkoutUrl ? `<a class="btn btn-primary" href="${escapeHtml(s.checkoutUrl)}" target="_blank" rel="noopener">Finish paying</a>` : "",
-      s.provider ? '<button class="btn btn-outline" type="button" data-act="refresh"><i class="fa-solid fa-rotate"></i> Check now</button>' : "",
-      paying() && !s.cancelAtPeriodEnd ? '<button class="btn btn-danger-outline" type="button" data-act="cancel">Cancel plan</button>' : "",
+      s.checkoutUrl ? `<a class="btn btn-primary" href="${escapeHtml(s.checkoutUrl)}" target="_blank" rel="noopener">${escapeHtml(t("setplan.finish-paying"))}</a>` : "",
+      s.provider ? `<button class="btn btn-outline" type="button" data-act="refresh"><i class="fa-solid fa-rotate"></i> ${escapeHtml(t("setplan.checkNow"))}</button>` : "",
+      paying() && !s.cancelAtPeriodEnd ? `<button class="btn btn-danger-outline" type="button" data-act="cancel">${escapeHtml(t("setplan.cancelPlan"))}</button>` : "",
     ].filter(Boolean);
     $("planCurrent").innerHTML = `
       <div class="plan-current">
         <div>
-          <h4>${escapeHtml(current.plan.name)} <span class="badge ${badge}">${escapeHtml(label)}</span>${current.billing?.test && s.provider ? ' <span class="badge badge-neutral">Test payments</span>' : ""}</h4>
+          <h4>${escapeHtml(current.plan.name)} <span class="badge ${badge}">${escapeHtml(label)}</span>${current.billing?.test && s.provider ? ` <span class="badge badge-neutral">${escapeHtml(t("setplan.testPayments"))}</span>` : ""}</h4>
           ${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
           ${buttons.length ? `<div class="pl-buttons" style="margin-top: 10px">${buttons.join("")}</div>` : ""}
         </div>
-        <div class="plan-price">${rupees(current.plan.pricePaise)}<small> /month + GST</small></div>
+        <div class="plan-price">${rupees(current.plan.pricePaise)}<small> ${escapeHtml(t("setplan.perMonth"))} + GST</small></div>
       </div>`;
   }
 
@@ -201,25 +204,25 @@
 
   function buttonFor(p) {
     const isCurrent = p.key === current.plan.key;
-    if (isCurrent && paying() && !current.subscription.pendingPlan) return '<button class="btn btn-outline" type="button" disabled>Current plan</button>';
+    if (isCurrent && paying() && !current.subscription.pendingPlan) return `<button class="btn btn-outline" type="button" disabled>${escapeHtml(t("setplan.currentPlan"))}</button>`;
     if (!current.billing?.enabled) return "";
-    const verb = paying() ? (p.totalPaise > current.plan.totalPaise ? "Upgrade to" : "Switch to") : "Choose";
-    return `<button class="btn btn-primary" type="button" data-plan="${escapeHtml(p.key)}">${verb} ${escapeHtml(p.name)}</button>`;
+    const action = paying() ? (p.totalPaise > current.plan.totalPaise ? "setplan.upgradeTo" : "setplan.switchTo") : "setplan.choose";
+    return `<button class="btn btn-primary" type="button" data-plan="${escapeHtml(p.key)}">${escapeHtml(t(action, { name: p.name }))}</button>`;
   }
 
   function planCard(p) {
     const isCurrent = p.key === current.plan.key;
-    const limits = catalog.limits.map(({ metric }) => (p.limits[metric] === null ? UNLIMITED_TEXT[metric] : LIMIT_TEXT[metric](p.limits[metric]))).filter(Boolean);
+    const limits = catalog.limits.map(({ metric }) => (p.limits[metric] === null ? t(UNLIMITED_TEXT[metric]) : LIMIT_TEXT[metric](p.limits[metric]))).filter(Boolean);
     const features = catalog.features.map(({ feature, label }) => `<li class="${p.features[feature] ? "" : "no"}">${p.features[feature] ? '<i class="fa-solid fa-check"></i> ' : ""}${escapeHtml(label)}</li>`);
     // Above the new plan's limits: nothing is removed, but no more can be added.
     const over = (current.usage || []).filter((m) => p.limits[m.metric] !== null && m.used > p.limits[m.metric]).map((m) => m.label.toLowerCase());
     return `
       <div class="plan-card${isCurrent ? " current" : ""}">
-        <h4>${escapeHtml(p.name)} ${isCurrent ? '<span class="badge badge-brand">Your plan</span>' : ""}</h4>
-        <div class="plan-price">${rupees(p.pricePaise)}<small> /month</small></div>
-        <div class="settings-hint" style="margin: 0">${rupees(p.totalPaise)} with GST</div>
+        <h4>${escapeHtml(p.name)} ${isCurrent ? `<span class="badge badge-brand">${escapeHtml(t("setplan.yourPlan"))}</span>` : ""}</h4>
+        <div class="plan-price">${rupees(p.pricePaise)}<small> ${escapeHtml(t("setplan.perMonth"))}</small></div>
+        <div class="settings-hint" style="margin: 0">${escapeHtml(t("setplan.withGst", { amount: rupees(p.totalPaise) }))}</div>
         <ul>${limits.map((text) => `<li>${escapeHtml(text)}</li>`).join("")}${features.join("")}</ul>
-        ${over.length && !isCurrent ? `<div class="settings-hint" style="margin: 0">You have more ${escapeHtml(over.join(", "))} than this plan allows: they stay, but you cannot add more.</div>` : ""}
+        ${over.length && !isCurrent ? `<div class="settings-hint" style="margin: 0">${escapeHtml(t("setplan.over", { what: over.join(", ") }))}</div>` : ""}
         ${buttonFor(p)}
       </div>`;
   }
@@ -231,8 +234,8 @@
     $("planIncludedList").innerHTML = included.map((text) => `<li><i class="fa-solid fa-check"></i><span>${escapeHtml(text)}</span></li>`).join("");
     const billing = current.billing || {};
     $("planGridHint").textContent = billing.enabled
-      ? `Prices are per month, plus 18% GST. You pay on Razorpay's secure page (card, UPI or netbanking); it charges each month until you cancel, and a GST invoice appears below.${paying() ? " An upgrade starts now; a smaller plan starts with the next month." : ""}`
-      : `Prices are per month, plus 18% GST. Paying online is not switched on yet: ${billing.contactEmail ? `write to ${billing.contactEmail}` : "contact support"} to change your plan.`;
+      ? t("setplan.prices-are-per-month-plus-18", { v: paying() ? t("setplan.an-upgrade-starts-now-a-smaller") : "" })
+      : t("setplan.prices-are-per-month-plus-18-2", { v: billing.contactEmail ? t("setplan.write-to", { contactEmail: billing.contactEmail }) : t("setplan.contact-support") });
   }
 
   async function renderInvoices() {
@@ -245,11 +248,11 @@
     $("planInvoicesSection").hidden = !invoices.length;
     $("planInvoices").innerHTML = invoices.length ? `
       <div style="overflow-x: auto"><table>
-        <thead><tr><th>Invoice</th><th>Date</th><th>Plan</th><th>Period</th><th style="text-align: right">Amount</th><th></th></tr></thead>
+        <thead><tr><th>${escapeHtml(t("docCategory.Invoice"))}</th><th>${escapeHtml(t("board.dateLabel"))}</th><th>${escapeHtml(t("padmin.plan"))}</th><th>${escapeHtml(t("myperf.period"))}</th><th style="text-align: right">${escapeHtml(t("quotes.col.amount"))}</th><th></th></tr></thead>
         <tbody>${invoices.map((i) => `<tr>
           <td>${escapeHtml(i.number)}</td><td>${escapeHtml(day(i.issuedAt))}</td><td>${escapeHtml(i.planName)}</td>
           <td>${i.periodStart ? `${escapeHtml(day(i.periodStart))} – ${escapeHtml(day(i.periodEnd))}` : ""}</td>
-          <td style="text-align: right">${rupees(i.totalPaise)}<div class="settings-hint" style="margin: 0">incl. GST ${rupees(i.gstPaise)}</div></td>
+          <td style="text-align: right">${rupees(i.totalPaise)}<div class="settings-hint" style="margin: 0">${escapeHtml(t("setplan.inclGst", { amount: rupees(i.gstPaise) }))}</div></td>
           <td><button class="btn btn-outline" type="button" data-invoice="${escapeHtml(i.id)}" data-number="${escapeHtml(i.number)}"><i class="fa-solid fa-file-pdf"></i> PDF</button></td>
         </tr>`).join("")}</tbody>
       </table></div>` : "";
@@ -267,7 +270,7 @@
       render();
       renderInvoices();
     } catch (error) {
-      $("planCurrent").innerHTML = `<p class="settings-hint">${escapeHtml(apiErrorMessage(error, "Could not load the plan."))}</p>`;
+      $("planCurrent").innerHTML = `<p class="settings-hint">${escapeHtml(apiErrorMessage(error, t("setplan.could-not-load-the-plan")))}</p>`;
     }
   }
 
@@ -283,7 +286,7 @@
         current = await crmApi("/billing/subscription/refresh", { method: "POST" });
         if (before && !current.subscription.checkoutUrl) {
           clearInterval(watching);
-          showToast(`Thank you! You are on the ${current.plan.name} plan.`, "success");
+          showToast(t("setplan.thank-you-you-are-on-the", { name: current.plan.name }), "success");
           crmPlan.forget();
           load();
           crmPlan.mountBanner();
@@ -297,7 +300,7 @@
   async function choose(button) {
     const key = button.dataset.plan;
     const changing = paying();
-    if (changing && !confirm(`${button.textContent.trim()}? ${catalog.plans.find((p) => p.key === key).totalPaise > current.plan.totalPaise ? "It starts now." : "It starts with the next month."}`)) return;
+    if (changing && !confirm(`${button.textContent.trim()}? ${catalog.plans.find((p) => p.key === key).totalPaise > current.plan.totalPaise ? t("setplan.it-starts-now") : t("setplan.it-starts-with-the-next-month")}`)) return;
     // The tab opens on the click itself (pop-up blockers allow that), then gets the address.
     const tab = changing ? null : window.open("", "_blank");
     button.disabled = true;
@@ -310,17 +313,17 @@
         } else {
           window.location.href = result.checkoutUrl;
         }
-        showToast("Pay on the page that opened. This page updates when the payment arrives.", "info");
+        showToast(t("setplan.pay-on-the-page-that-opened"), "info");
         await load();
         watchForPayment();
       } else {
-        showToast(result.when === "now" ? `You are on the ${planName(key)} plan now.` : `The ${planName(key)} plan starts with the next month.`, "success");
+        showToast(result.when === "now" ? t("setplan.you-are-on-the-plan-now", { v: planName(key) }) : t("setplan.the-plan-starts-with-the-next", { v: planName(key) }), "success");
         crmPlan.forget();
         await load();
       }
     } catch (error) {
       tab?.close();
-      showToast(apiErrorMessage(error, "Could not start the payment."), "error");
+      showToast(apiErrorMessage(error, t("setplan.could-not-start-the-payment")), "error");
     } finally {
       button.disabled = false;
     }
@@ -334,16 +337,16 @@
   $("planCurrent").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-act]");
     if (!button) return;
-    if (button.dataset.act === "cancel" && !confirm(`Cancel the ${current.plan.name} plan? It works until the paid month ends and is not charged again. Your data stays.`)) return;
+    if (button.dataset.act === "cancel" && !confirm(t("setplan.cancel-the-plan-it-works-until", { name: current.plan.name }))) return;
     button.disabled = true;
     try {
       const path = button.dataset.act === "cancel" ? "/billing/subscription/cancel" : "/billing/subscription/refresh";
       await crmApi(path, { method: "POST" });
-      showToast(button.dataset.act === "cancel" ? "Plan cancelled. It works until the paid month ends." : "Checked with Razorpay.", "success");
+      showToast(button.dataset.act === "cancel" ? t("setplan.plan-cancelled-it-works-until-the") : t("setplan.checked-with-razorpay"), "success");
       crmPlan.forget();
       await load();
     } catch (error) {
-      showToast(apiErrorMessage(error, "That did not work."), "error");
+      showToast(apiErrorMessage(error, t("dialer.failed")), "error");
     } finally {
       button.disabled = false;
     }
@@ -353,7 +356,7 @@
     const button = event.target.closest("[data-invoice]");
     if (!button) return;
     crmDownload(`/billing/invoices/${encodeURIComponent(button.dataset.invoice)}/pdf`, `${button.dataset.number.replace(/\//g, "-")}.pdf`)
-      .catch((error) => showToast(apiErrorMessage(error, "Could not download the invoice."), "error"));
+      .catch((error) => showToast(apiErrorMessage(error, t("setplan.could-not-download-the-invoice")), "error"));
   });
 
   function loadOnce() {

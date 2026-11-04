@@ -24,7 +24,7 @@
 
   // A value shown once (a new key or secret), with Copy.
   function reveal(box, label, value) {
-    box.innerHTML = `<input type="text" readonly value="${escapeHtml(value)}" aria-label="${escapeHtml(label)}" /><button class="btn btn-primary" type="button" data-copy="${escapeHtml(value)}"><i class="fa-regular fa-copy"></i> Copy</button>`;
+    box.innerHTML = `<input type="text" readonly value="${escapeHtml(value)}" aria-label="${escapeHtml(label)}" /><button class="btn btn-primary" type="button" data-copy="${escapeHtml(value)}"><i class="fa-regular fa-copy"></i> ${escapeHtml(t("app.icon.copy"))}</button>`;
     box.hidden = false;
     box.insertAdjacentHTML("beforeend", `<p class="settings-hint" style="flex-basis: 100%; margin: 6px 0 0">Copy the ${escapeHtml(label)} now and keep it safe: it is not shown again.</p>`);
     box.style.flexWrap = "wrap";
@@ -36,7 +36,7 @@
     if (!button) return false;
     try {
       await navigator.clipboard.writeText(button.dataset.copy);
-      showToast("Copied.", "success");
+      showToast(t("wa.copied"), "success");
     } catch {
       button.previousElementSibling?.select();
     }
@@ -48,15 +48,15 @@
     const active = items.filter((k) => !k.revokedAt);
     $("intKeys").innerHTML = items.length ? `
       <div style="overflow-x: auto"><table>
-        <thead><tr><th>Name</th><th>Key</th><th>Permissions</th><th>Last used</th><th></th></tr></thead>
+        <thead><tr><th>${escapeHtml(t("ap.name"))}</th><th>${escapeHtml(t("setint.key"))}</th><th>${escapeHtml(t("setint.permissions"))}</th><th>${escapeHtml(t("setint.last-used"))}</th><th></th></tr></thead>
         <tbody>${items.map((k) => `<tr${k.revokedAt ? ' style="opacity: 0.55"' : ""}>
           <td>${escapeHtml(k.name)}<div class="settings-hint" style="margin: 0">by ${escapeHtml(k.createdBy || "—")}, ${escapeHtml(when(k.createdAt))}</div></td>
           <td><code>${escapeHtml(k.preview)}</code></td>
           <td>${k.scopes.map((s) => `<span class="badge badge-neutral" style="margin: 1px">${escapeHtml(s)}</span>`).join(" ")}</td>
-          <td>${k.revokedAt ? `Revoked ${escapeHtml(when(k.revokedAt))}` : escapeHtml(when(k.lastUsedAt) || "Never")}</td>
-          <td>${k.revokedAt ? "" : `<button class="btn btn-danger-outline" type="button" data-revoke="${escapeHtml(k.id)}" data-name="${escapeHtml(k.name)}">Revoke</button>`}</td>
+          <td>${k.revokedAt ? t("setint.revoked", { v: escapeHtml(when(k.revokedAt)) }) : escapeHtml(when(k.lastUsedAt) || t("setint.never"))}</td>
+          <td>${k.revokedAt ? "" : `<button class="btn btn-danger-outline" type="button" data-revoke="${escapeHtml(k.id)}" data-name="${escapeHtml(k.name)}">${escapeHtml(t("setint.revoke"))}</button>`}</td>
         </tr>`).join("")}</tbody>
-      </table></div>` : '<p class="settings-hint">No API keys yet.</p>';
+      </table></div>` : `<p class="settings-hint">${escapeHtml(t("setint.noKeys"))}</p>`;
     if (!active.length && items.length) $("intKeys").insertAdjacentHTML("beforeend", '<p class="settings-hint">All keys are revoked.</p>');
   }
 
@@ -70,8 +70,8 @@
   // --- webhooks ---------------------------------------------------------------------------------
   function hookCard(h) {
     const status = h.active
-      ? (h.lastStatus === "failed" ? '<span class="badge badge-warning">Failing</span>' : '<span class="badge badge-success">On</span>')
-      : '<span class="badge badge-danger">Off</span>';
+      ? (h.lastStatus === "failed" ? `<span class="badge badge-warning">${escapeHtml(t("setint.failing"))}</span>` : `<span class="badge badge-success">${escapeHtml(t("setroute.on"))}</span>`)
+      : `<span class="badge badge-danger">${escapeHtml(t("setint.off"))}</span>`;
     return `
       <div class="pay-gateway" data-hook="${escapeHtml(h.id)}">
         <div class="pay-gateway-top"><strong style="word-break: break-all">${escapeHtml(h.url)}</strong><span>${status}</span></div>
@@ -79,14 +79,14 @@
         <div class="pay-gateway-meta">${h.events.map((e) => `<span class="badge badge-neutral" style="margin: 1px">${escapeHtml(e)}</span>`).join(" ")}</div>
         ${h.disabledReason ? `<div class="pay-gateway-meta">${escapeHtml(h.disabledReason)}</div>` : ""}
         ${h.overlapUntil ? `<div class="pay-gateway-meta int-overlap"><i class="fa-solid fa-key" aria-hidden="true"></i> ${escapeHtml(t("int.overlap", { time: when(h.overlapUntil) }))} <button class="btn btn-outline" type="button" data-act="endOverlap">${escapeHtml(t("int.endOverlap"))}</button></div>` : ""}
-        <div class="pay-gateway-meta">${h.lastDeliveryAt ? `Last call ${escapeHtml(when(h.lastDeliveryAt))}: ${h.lastStatus === "delivered" ? "delivered" : "failed"}${h.lastResponseCode ? ` (${h.lastResponseCode})` : ""}` : "Nothing sent yet."}</div>
+        <div class="pay-gateway-meta">${h.lastDeliveryAt ? t("setint.last-call", { v: escapeHtml(when(h.lastDeliveryAt)), v2: h.lastStatus === "delivered" ? "delivered" : "failed", v3: h.lastResponseCode ? ` (${h.lastResponseCode})` : "" }) : t("setint.nothing-sent-yet")}</div>
         <div class="pl-buttons">
-          <button class="btn btn-outline" type="button" data-act="test"><i class="fa-solid fa-paper-plane"></i> Send a test</button>
-          <button class="btn btn-outline" type="button" data-act="log">Delivery log</button>
-          <button class="btn btn-outline" type="button" data-act="edit">Change</button>
-          <button class="btn btn-outline" type="button" data-act="secret">New secret</button>
-          <button class="btn btn-outline" type="button" data-act="toggle">${h.active ? "Switch off" : "Switch on"}</button>
-          <button class="btn btn-danger-outline" type="button" data-act="remove">Remove</button>
+          <button class="btn btn-outline" type="button" data-act="test"><i class="fa-solid fa-paper-plane"></i> ${escapeHtml(t("teams.test"))}</button>
+          <button class="btn btn-outline" type="button" data-act="log">${escapeHtml(t("setint.delivery-log"))}</button>
+          <button class="btn btn-outline" type="button" data-act="edit">${escapeHtml(t("inbox.tpl.change"))}</button>
+          <button class="btn btn-outline" type="button" data-act="secret">${escapeHtml(t("setint.new-secret"))}</button>
+          <button class="btn btn-outline" type="button" data-act="toggle">${h.active ? t("teams.switchOff") : t("teams.switchOn")}</button>
+          <button class="btn btn-danger-outline" type="button" data-act="remove">${escapeHtml(t("app.icon.remove"))}</button>
         </div>
         <div data-log hidden></div>
       </div>`;
@@ -96,7 +96,7 @@
     const data = await crmApi("/outbound-webhooks");
     hooks = data.items;
     events = data.events;
-    $("intHooks").innerHTML = hooks.length ? hooks.map(hookCard).join("") : '<p class="settings-hint">No webhooks yet.</p>';
+    $("intHooks").innerHTML = hooks.length ? hooks.map(hookCard).join("") : `<p class="settings-hint">${escapeHtml(t("setint.noHooks"))}</p>`;
     renderExamples();
   }
 
@@ -120,7 +120,7 @@
 
   function openHookForm(hook) {
     editing = hook || null;
-    $("intHookFormTitle").textContent = hook ? "Change the webhook" : "Add a webhook";
+    $("intHookFormTitle").textContent = hook ? t("setint.change-the-webhook") : t("set.add-a-webhook");
     $("intHookUrl").value = hook?.url || "";
     $("intHookDesc").value = hook?.description || "";
     eventBoxes(hook?.events || ["lead.created"]);
@@ -142,13 +142,13 @@
     }
     const items = await crmApi(`/outbound-webhooks/${encodeURIComponent(hook.id)}/deliveries?limit=20`);
     box.innerHTML = items.length ? `<div style="overflow-x: auto; margin-top: 10px"><table>
-        <thead><tr><th>When</th><th>Event</th><th>Result</th><th>Tries</th><th></th></tr></thead>
+        <thead><tr><th>${escapeHtml(t("inbox.later.when"))}</th><th>${escapeHtml(t("dash.add.event"))}</th><th>${escapeHtml(t("setint.result"))}</th><th>${escapeHtml(t("setint.tries"))}</th><th></th></tr></thead>
         <tbody>${items.map((d) => `<tr>
           <td>${escapeHtml(when(d.createdAt))}</td><td>${escapeHtml(d.event)}</td>
-          <td>${d.status === "delivered" ? `<span class="badge badge-success">Delivered</span> ${d.responseCode || ""}` : d.status === "pending" ? `<span class="badge badge-info">Trying again ${escapeHtml(when(d.nextAttemptAt))}</span>` : `<span class="badge badge-danger">${escapeHtml(d.status === "cancelled" ? "Cancelled" : "Failed")}</span> ${escapeHtml(d.error || d.responseCode || "")}`}</td>
+          <td>${d.status === "delivered" ? `<span class="badge badge-success">${escapeHtml(t("inbox.tick.delivered"))}</span> ${d.responseCode || ""}` : d.status === "pending" ? `<span class="badge badge-info">${escapeHtml(t("setint.tryingAgain", { when: when(d.nextAttemptAt) }))}</span>` : `<span class="badge badge-danger">${escapeHtml(t(d.status === "cancelled" ? "setplan.st.cancelled" : "call.status.failed"))}</span> ${escapeHtml(d.error || d.responseCode || "")}`}</td>
           <td>${d.attempts}</td>
-          <td>${["failed", "cancelled"].includes(d.status) ? `<button class="btn btn-outline" type="button" data-retry="${escapeHtml(d.id)}">Send again</button>` : ""}</td>
-        </tr>`).join("")}</tbody></table></div>` : '<p class="settings-hint" style="margin-top: 10px">Nothing sent in the last 30 days.</p>';
+          <td>${["failed", "cancelled"].includes(d.status) ? `<button class="btn btn-outline" type="button" data-retry="${escapeHtml(d.id)}">${escapeHtml(t("setint.send-again"))}</button>` : ""}</td>
+        </tr>`).join("")}</tbody></table></div>` : `<p class="settings-hint" style="margin-top: 10px">${escapeHtml(t("setint.nothingSent"))}</p>`;
     box.hidden = false;
   }
 
@@ -157,10 +157,10 @@
     const c = capi;
     const off = !c.available;
     $("intCapiForm").querySelectorAll("input, button[type=submit]").forEach((el) => { el.disabled = off; });
-    $("intCapiStages").innerHTML = c.stagesAvailable.map((stage) => `<label class="ls-check"><input type="checkbox" value="${escapeHtml(stage)}" ${(c.stages || c.stagesAvailable).includes(stage) ? "checked" : ""} ${off ? "disabled" : ""} /> ${escapeHtml(stage)}</label>`).join("");
+    $("intCapiStages").innerHTML = c.stagesAvailable.map((stage) => `<label class="ls-check"><input type="checkbox" value="${escapeHtml(stage)}" ${(c.stages || c.stagesAvailable).includes(stage) ? "checked" : ""} ${off ? "disabled" : ""} /> ${escapeHtml(crmLabel("stage", stage))}</label>`).join("");
     $("intCapiDataset").value = c.datasetId || "";
     $("intCapiToken").value = "";
-    $("intCapiToken").placeholder = c.connected ? `•••• ${c.accessToken.last4} (leave empty to keep)` : "";
+    $("intCapiToken").placeholder = c.connected ? t("setint.leave-empty-to-keep", { last4: c.accessToken.last4 }) : "";
     $("intCapiTest").value = c.testEventCode || "";
     $("intCapiEnabled").checked = c.connected ? c.enabled : true;
     $("intCapiAll").checked = Boolean(c.allSources);
@@ -174,8 +174,8 @@
     $("intCapiStatus").innerHTML = off
       ? 'The Conversions API comes with the Pro plan and above. <a href="Settings.html?tab=plan">See plans</a>'
       : c.connected
-        ? `<span class="badge ${c.enabled ? "badge-success" : "badge-neutral"}">${c.enabled ? "On" : "Off"}</span> ${escapeHtml(c.datasetName || c.datasetId)}${c.testEventCode ? ' · <span class="badge badge-warning">Test mode: events go to Test events only</span>' : ""}<br>Sent ${s.sent}, skipped ${s.skipped}, failed ${s.failed}${s.lastSentAt ? ` · last sent ${escapeHtml(when(s.lastSentAt))}` : ""}${s.lastError ? `<br>Last problem (${escapeHtml(when(s.lastErrorAt))}): ${escapeHtml(s.lastError)}` : ""}`
-        : "Not connected.";
+        ? `<span class="badge ${c.enabled ? "badge-success" : "badge-neutral"}">${escapeHtml(t(c.enabled ? "setroute.on" : "setint.off"))}</span> ${escapeHtml(c.datasetName || c.datasetId)}${c.testEventCode ? ` · <span class="badge badge-warning">${escapeHtml(t("setint.testMode"))}</span>` : ""}<br>${escapeHtml(t("setint.capiStats", { sent: s.sent, skipped: s.skipped, failed: s.failed }))}${s.lastSentAt ? escapeHtml(t("setint.lastSent", { when: when(s.lastSentAt) })) : ""}${s.lastError ? `<br>${escapeHtml(t("setint.lastProblem", { when: when(s.lastErrorAt), error: s.lastError }))}` : ""}`
+        : t("smsset.notConnected");
   }
 
   async function loadCapi() {
@@ -196,7 +196,7 @@
       }).join("")}
       <div class="int-feed-steps">
         <div><strong>Excel</strong><ol>${steps("excel")}</ol></div>
-        <div><strong>Power BI</strong><ol>${steps("pbi")}</ol></div>
+        <div><strong translate="no">Power BI</strong><ol>${steps("pbi")}</ol></div>
       </div>
       <p class="settings-hint">${escapeHtml(t("xl.feed.more"))}</p>`;
   }
@@ -209,16 +209,16 @@
       const { plan, subscription } = await crmPlan.state();
       const note = $("intPlanNote");
       if (!plan.features.api || subscription.locked) {
-        note.innerHTML = `${subscription.locked ? "Your plan is not active, so API keys and webhooks are paused." : `API keys and webhooks come with the Growth plan and above (you are on ${escapeHtml(plan.name)}).`} <a href="Settings.html?tab=plan">See plans</a>`;
+        note.innerHTML = `${escapeHtml(subscription.locked ? t("setint.planLocked") : t("setint.needsGrowth", { name: plan.name }))} <a href="Settings.html?tab=plan">${escapeHtml(t("setint.seePlans"))}</a>`;
         note.hidden = false;
       }
     } catch {
       /* the server still checks */
     }
     await Promise.all([
-      loadKeys().catch((error) => { $("intKeys").innerHTML = `<p class="settings-hint">${escapeHtml(apiErrorMessage(error, "Could not load the keys."))}</p>`; }),
-      loadHooks().catch((error) => { $("intHooks").innerHTML = `<p class="settings-hint">${escapeHtml(apiErrorMessage(error, "Could not load the webhooks."))}</p>`; }),
-      loadCapi().catch((error) => { $("intCapiStatus").textContent = apiErrorMessage(error, "Could not load the Conversions API."); }),
+      loadKeys().catch((error) => { $("intKeys").innerHTML = `<p class="settings-hint">${escapeHtml(apiErrorMessage(error, t("setint.could-not-load-the-keys")))}</p>`; }),
+      loadHooks().catch((error) => { $("intHooks").innerHTML = `<p class="settings-hint">${escapeHtml(apiErrorMessage(error, t("setint.could-not-load-the-webhooks")))}</p>`; }),
+      loadCapi().catch((error) => { $("intCapiStatus").textContent = apiErrorMessage(error, t("setint.could-not-load-the-conversions-api")); }),
     ]);
   }
 
@@ -237,24 +237,24 @@
     const picked = [...$("intKeyScopes").querySelectorAll("input:checked")].map((input) => input.value);
     try {
       const made = await crmApi("/api-keys", json("POST", { name: $("intKeyName").value.trim(), scopes: picked }));
-      reveal($("intNewKey"), "API key", made.key);
+      reveal($("intNewKey"), t("tel.key"), made.key);
       $("intKeyForm").hidden = true;
       $("intKeyAddBtn").hidden = false;
       $("intKeyName").value = "";
       await loadKeys();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not make the key."), "error");
+      showToast(apiErrorMessage(error, t("setint.could-not-make-the-key")), "error");
     }
   });
   $("intKeys").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-revoke]");
-    if (!button || !confirm(`Revoke the key "${button.dataset.name}"? Anything using it stops working at once.`)) return;
+    if (!button || !confirm(t("setint.revoke-the-key-anything-using-it", { name: button.dataset.name }))) return;
     try {
       await crmApi(`/api-keys/${encodeURIComponent(button.dataset.revoke)}`, { method: "DELETE" });
-      showToast("Key revoked.", "success");
+      showToast(t("setint.key-revoked"), "success");
       await loadKeys();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not revoke the key."), "error");
+      showToast(apiErrorMessage(error, t("setint.could-not-revoke-the-key")), "error");
     }
   });
   [$("intNewKey"), $("intNewSecret"), $("intHookExampleList"), $("intFeeds")].forEach((box) => box.addEventListener("click", copyFrom));
@@ -268,15 +268,15 @@
     try {
       if (editing) {
         await crmApi(`/outbound-webhooks/${encodeURIComponent(editing.id)}`, json("PATCH", body));
-        showToast("Webhook saved.", "success");
+        showToast(t("setint.webhook-saved"), "success");
       } else {
         const made = await crmApi("/outbound-webhooks", json("POST", body));
-        reveal($("intNewSecret"), "webhook secret", made.secret);
+        reveal($("intNewSecret"), t("setint.webhook-secret"), made.secret);
       }
       closeHookForm();
       await loadHooks();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not save the webhook."), "error");
+      showToast(apiErrorMessage(error, t("setint.could-not-save-the-webhook")), "error");
     } finally {
       $("intHookSave").disabled = false;
     }
@@ -290,11 +290,11 @@
       retry.disabled = true;
       try {
         await crmApi(`/outbound-webhooks/deliveries/${encodeURIComponent(retry.dataset.retry)}/retry`, { method: "POST" });
-        showToast("Sending again.", "success");
+        showToast(t("setint.sending-again"), "success");
         card.querySelector("[data-log]").hidden = true;
         setTimeout(() => showLog(card, hook).catch(() => {}), 1500);
       } catch (error) {
-        showToast(apiErrorMessage(error, "Could not send it again."), "error");
+        showToast(apiErrorMessage(error, t("setint.could-not-send-it-again")), "error");
       }
       return;
     }
@@ -306,7 +306,7 @@
         case "test": {
           button.disabled = true;
           const result = await crmApi(`${path}/test`, { method: "POST" });
-          showToast(result.status === "delivered" ? `Delivered (${result.responseCode}).` : `Not delivered: ${result.error || result.responseCode}.`, result.status === "delivered" ? "success" : "error");
+          showToast(result.status === "delivered" ? t("setint.delivered", { responseCode: result.responseCode }) : t("setint.not-delivered", { v: result.error || result.responseCode }), result.status === "delivered" ? "success" : "error");
           await loadHooks();
           break;
         }
@@ -320,7 +320,7 @@
           // D78: the old secret keeps working for 24 hours, so nothing is lost while you update.
           if (!confirm(t("int.secret.confirm"))) return;
           const made = await crmApi(`${path}/rotate-secret`, json("POST", { overlapHours: 24 }));
-          reveal($("intNewSecret"), "webhook secret", made.secret);
+          reveal($("intNewSecret"), t("setint.webhook-secret"), made.secret);
           await loadHooks();
           break;
         }
@@ -335,15 +335,15 @@
           await loadHooks();
           break;
         case "remove":
-          if (!confirm(`Remove the webhook to ${hook.url}?`)) return;
+          if (!confirm(t("setint.remove-the-webhook-to", { url: hook.url }))) return;
           await crmApi(path, { method: "DELETE" });
-          showToast("Webhook removed.", "success");
+          showToast(t("setint.webhook-removed"), "success");
           await loadHooks();
           break;
         default:
       }
     } catch (error) {
-      showToast(apiErrorMessage(error, "That did not work."), "error");
+      showToast(apiErrorMessage(error, t("dialer.failed")), "error");
     } finally {
       button.disabled = false;
     }
@@ -365,9 +365,9 @@
     try {
       capi = await crmApi("/meta-conversions", json("PUT", body));
       renderCapi();
-      showToast("Conversions API saved.", "success");
+      showToast(t("setint.conversions-api-saved"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not save."), "error");
+      showToast(apiErrorMessage(error, t("setai.could-not-save")), "error");
     }
   });
   // D102: the dataset of the WhatsApp Business Account, read from Meta.
@@ -376,9 +376,9 @@
     try {
       const found = await crmApi("/meta-conversions/ctwa-dataset", { method: "POST" });
       $("intCapiCtwaDataset").value = found.datasetId;
-      showToast(`Found dataset ${found.datasetId}. Press "Check and save" to keep it.`, "success");
+      showToast(t("setint.found-dataset-press-check-and-save", { datasetId: found.datasetId }), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Meta did not give the dataset. Copy its ID from Events Manager."), "error");
+      showToast(apiErrorMessage(error, t("setint.meta-did-not-give-the-dataset")), "error");
     } finally {
       $("intCapiCtwaFind").disabled = false;
     }
@@ -388,16 +388,16 @@
       const result = await crmApi("/meta-conversions/test", { method: "POST" });
       showToast(result.message, "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "The test did not go through."), "error");
+      showToast(apiErrorMessage(error, t("setint.the-test-did-not-go-through")), "error");
     }
   });
   $("intCapiRemove").addEventListener("click", async () => {
-    if (!confirm("Remove the Conversions API? Lead stages stop going to Meta.")) return;
+    if (!confirm(t("setint.remove-the-conversions-api-lead-stages"))) return;
     try {
       await crmApi("/meta-conversions", { method: "DELETE" });
       await loadCapi();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Could not remove it."), "error");
+      showToast(apiErrorMessage(error, t("setint.could-not-remove-it")), "error");
     }
   });
 

@@ -33,7 +33,7 @@ const STEP_ICONS = {
 const CONDITION_DEFAULTS = { source: ["IndiaMART"], stage: ["New"], tag: "", owner: "", businessHours: undefined };
 
 const tr = (key, fallback, vars) => (crmI18n.has(key) ? t(key, vars) : fallback);
-const blankDraft = () => ({ id: null, name: "", status: "Draft", trigger: { type: "lead.created", params: {} }, conditions: [], steps: [{ type: "task.create", params: { ...STEP_DEFAULTS["task.create"], title: "Call {{contact.name}}" } }] });
+const blankDraft = () => ({ id: null, name: "", status: "Draft", trigger: { type: "lead.created", params: {} }, conditions: [], steps: [{ type: "task.create", params: { ...STEP_DEFAULTS["task.create"], title: tr("wfb.defaultTask", "Call {{contact.name}}") } }] });
 const payloadOf = (d) => ({ name: d.name, trigger: d.trigger, conditions: d.conditions, steps: d.steps });
 const attr = (value) => escapeHtml(String(value ?? ""));
 
@@ -130,13 +130,14 @@ function insertDetail(select) {
 }
 const memberOptions = (current, extra = []) => `<option value="">${escapeHtml(tr("wfb.chooseOne", "Choose…"))}</option>${extra.map(([v, label]) => `<option value="${v}" ${v === current ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}${wfb.members.filter((m) => m.status === "active").map((m) => `<option value="${attr(m.id)}" ${String(m.id) === String(current) ? "selected" : ""}>${escapeHtml(m.name || m.email)}</option>`).join("")}`;
 const stageLabel = (s) => tr(`stage.${s}`, s);
+const sourceLabel = (s) => tr(`source.${s}`, s);
 
 function triggerFields(trigger) {
   const p = trigger.params || {};
   const base = "trigger.params";
   return (TRIGGER_FIELDS[trigger.type] || []).map((key) => {
-    if (key === "sources") return field(`${base}.sources`, "sources", chips(`${base}.sources`, wfb.meta.sources, p.sources));
-    if (key === "keywords") return field(`${base}.keywords`, "keywords", `<input type="text" data-path="${base}.keywords" data-kind="list" value="${attr((p.keywords || []).join(", "))}" placeholder="price, rate, catalogue" />`);
+    if (key === "sources") return field(`${base}.sources`, "sources", chips(`${base}.sources`, wfb.meta.sources, p.sources, sourceLabel));
+    if (key === "keywords") return field(`${base}.keywords`, "keywords", `<input type="text" data-path="${base}.keywords" data-kind="list" value="${attr((p.keywords || []).join(", "))}" placeholder="${attr(tr("wfb.keywordsPh", "price, rate, catalogue"))}" />`);
     if (key === "toStages" || key === "fromStages") return field(`${base}.${key}`, key, chips(`${base}.${key}`, wfb.meta.leadStages, p[key], stageLabel));
     if (key === "orderStages") return field(`${base}.toStages`, "toStages", chips(`${base}.toStages`, wfb.meta.orderStages, p.toStages));
     return field(`${base}.${key}`, key, `<input type="number" min="1" data-path="${base}.${key}" data-kind="number" value="${attr(p[key] ?? (key === "hours" ? 24 : 3))}" />`);
@@ -220,7 +221,7 @@ function conditionRow(condition, index) {
   const spec = kept ? { field: condition.field, ops: [condition.op] } : fields.find((f) => f.field === condition.field) || fields[0];
   const choices = [...(kept ? [condition.field] : []), ...fields.map((f) => f.field)];
   let value = "";
-  if (condition.field === "source") value = chips(`${base}.value`, wfb.meta.sources, condition.value);
+  if (condition.field === "source") value = chips(`${base}.value`, wfb.meta.sources, condition.value, sourceLabel);
   else if (condition.field === "stage") value = chips(`${base}.value`, wfb.meta.leadStages, condition.value, stageLabel);
   else if (condition.field === "tag") value = `<input type="text" data-path="${base}.value" value="${attr(condition.value)}" />`;
   else if (condition.field === "owner" && ["is", "isNot"].includes(condition.op)) value = `<select data-path="${base}.value">${memberOptions(condition.value)}</select>`;

@@ -10,12 +10,6 @@ const LEGAL = new Set(['privacy.html', 'terms.html']);
 // The FAQ bot tab belongs to the owner's Sales Automation page, which the owner is putting into
 // Hindi (round 3): left to the owner as well.
 const OWNER_ROUND = new Set(['js/automation-bot.js']);
-// Scripts whose texts are still to be put into Hindi (Phase 4 part B). A file comes off this list
-// once it is done, and the test below makes sure a finished file is not left on it.
-const NOT_YET = new Set([
-  'js/accounts.js', 'js/ai-insights.js', 'js/platform-admin.js', 'js/settings-integrations.js',
-  'js/settings-leadsources.js', 'js/settings-plan.js', 'js/settings-routing.js', 'js/settings.js', 'js/workflow-builder.js',
-]);
 
 const read = (file) => fs.readFileSync(path.join(FRONTEND, file), 'utf8');
 const pages = fs.readdirSync(FRONTEND).filter((f) => f.endsWith('.html') && !OWNER_FILES.has(f) && !LEGAL.has(f));
@@ -52,6 +46,18 @@ describe('The English-text guard itself', () => {
     expect(jsTexts('const stage = "Won";')).toEqual([]);
     expect(jsTexts('const keys = "Esc to close"; // i18n-ok: the keyboard\'s own key names')).toEqual([]);
     expect(jsTexts('el.className = "badge badge-neutral";')).toEqual([]);
+    expect(jsTexts('showToast(tr("wfb.saved", "Workflow saved."), "success");')).toEqual([]);
+    expect(jsTexts('el.innerHTML = `<small> /month + GST</small>`;')).toEqual(['/month + GST']);
+    expect(jsTexts('crmGo("/leads/" + id);')).toEqual([]);
+  });
+
+  it('finds English in a script\'s tooltips, placeholders and labels', () => {
+    expect(jsTexts('el.innerHTML = `<button title="Copy the code">${icon}</button>`;')).toEqual(['Copy the code']);
+    expect(jsTexts('el.innerHTML = \'<input placeholder="Your name" />\';')).toEqual(['Your name']);
+    expect(jsTexts('el.innerHTML = `<button title="${escapeHtml(t("x.copy"))}" aria-label="Remove ${name}">x</button>`;')).toEqual(['Remove']);
+    expect(jsTexts('el.innerHTML = `<input placeholder="https://www.yourshop.in" />`;')).toEqual([]);
+    expect(jsTexts('btn.setAttribute("aria-label", "Menu");')).toEqual(['Menu']);
+    expect(jsTexts('btn.setAttribute("data-state", "Open now");')).toEqual([]);
   });
 });
 
@@ -60,12 +66,8 @@ describe('No English-only text (Phase 4, D116)', () => {
     expect(scanHtml(read(page))).toEqual([]);
   });
 
-  it.each(scripts.filter((f) => !NOT_YET.has(f)))('%s', (script) => {
+  it.each(scripts)('%s', (script) => {
     expect(scanJs(read(script))).toEqual([]);
-  });
-
-  it.each([...NOT_YET])('%s is still to do (take it off NOT_YET once it is in Hindi)', (script) => {
-    expect(scanJs(read(script)).length).toBeGreaterThan(0);
   });
 
   it('names every page and group of the menu in the texts', () => {

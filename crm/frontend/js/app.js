@@ -108,6 +108,8 @@ async function crmRequest(path, options = {}, { retried = false, blob = false } 
   }
   if (blob && response.ok) return response.blob();
   const body = await response.json().catch(() => ({}));
+  // What a page draws from the answer needs its texts: t() only knows them once they are in (D116).
+  await crmI18n.ready.catch(() => {});
   // A wrong sign-in code (OTP_…, or the authenticator app's TOTP_…) is a 401 too, but not an ended session.
   if (response.status === 401 && !retried && !sessionEnded && !NO_REFRESH_PATHS.has(path) && !/^T?OTP_/.test(body.code || "")) {
     if (await refreshAccessToken(session)) return crmRequest(path, options, { retried: true, blob });
@@ -781,7 +783,9 @@ const dateOnly = (value) => (value ? String(value).slice(0, 10) : "");
 // Pipeline stages (one pipeline for leads and deals).
 const LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation", "Won", "Lost"];
 const OPEN_LEAD_STAGES = ["New", "Contacted", "Quote Sent", "Negotiation"];
-const ROLE_LABELS = { owner: "Owner", admin: "Admin", agent: "Agent", viewer: "Viewer" };
+// A role's name in the person's language (D116), looked up each time it is shown.
+const ROLE_NAMES = { owner: "Owner", admin: "Admin", agent: "Agent", viewer: "Viewer" };
+const ROLE_LABELS = new Proxy(ROLE_NAMES, { get: (names, role) => (Object.hasOwn(names, role) ? crmLabel("role", names[role]) : undefined) });
 
 // A length of time for people — "45 s", "12 min", "3 h 5 min", "4 days" — in their language (D116).
 function crmDuration(seconds, empty = "—") {
@@ -2203,7 +2207,7 @@ function initSidebarToggle() {
     }
   }
   if (!btn) return;
-  btn.setAttribute("aria-label", "Menu");
+  crmI18n.ready.then(() => btn.setAttribute("aria-label", t("lp.nav.menu")));
   btn.setAttribute("aria-expanded", "false");
 
   const backdrop = document.createElement("div");
