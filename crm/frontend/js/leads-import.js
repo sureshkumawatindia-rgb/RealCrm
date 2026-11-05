@@ -144,4 +144,6 @@ crmI18n.ready.then(function leadsImport() {
   });
   $("leadImportCheck").addEventListener("click", () => send(true));
   $("leadImportRun").addEventListener("click", () => send(false));
+  // The dashboard's "Get your CRM ready" list (D117) opens this box: leads.html?import=1.
+  if (new URLSearchParams(window.location.search).get("import") === "1") $("leadImportBtn").click();
 });

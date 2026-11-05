@@ -44,7 +44,7 @@ JustDial and their website, and run on GST quotations, orders and Tally.
    from coming back. — done 2026-11-04 (D116, `docs/HINDI_GUIDE.md`)
 5. **The first day.** A "Getting started" checklist (connect WhatsApp, add products, import leads,
    invite the team, send the first quotation) and ready settings for traders and manufacturers
-   (stages, quick replies, quotation terms).
+   (stages, quick replies, quotation terms). — done 2026-11-05 (D117, `docs/FIRST_DAY.md`)
 6. **Help inside the CRM.** Short Hindi and English help on each page, a help centre, and a
    WhatsApp button to the platform's support number.
 7. **Phone app, part 1.** Installable, opens without the network, replies wait and go when the

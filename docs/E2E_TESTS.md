@@ -25,6 +25,11 @@ Next to the flows, `backend/e2e/texts.spec.js` (Phase 4, D116, `HINDI_GUIDE.md`)
 and the 19 Settings tabs in Hindi with the texts held back 1.5 seconds: a page that shows a
 text's key (such as `setls.none`) instead of its words fails. It adds about two minutes.
 
+`backend/e2e/firstday.spec.js` (Phase 5, D117, `FIRST_DAY.md`) is a new owner's first day: the
+"Get your CRM ready" list with its seven steps, a manufacturer's ready settings in one click (and
+a trader's in Hindi), the leads step opening the import box, and the list hidden and brought back
+from Settings → Your Profile.
+
 ## Where it runs
 
 - **On GitHub, on every push**, as the job "The ten flows in a browser"

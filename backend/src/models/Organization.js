@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { PLAN_KEYS, TRIAL_PLAN, SUBSCRIPTION_STATUSES } = require('../constants/plans');
 const { codeFromName, uniqueCode } = require('../utils/workspaceCode');
+const { KIT_IDS } = require('../constants/businessKits');
 
 const organizationSchema = new mongoose.Schema(
   {
@@ -121,8 +122,11 @@ const organizationSchema = new mongoose.Schema(
       sampleDataAt: { type: Date },
     },
     // First steps after sign-up (D64): when an owner or admin finished or skipped "Invite your team".
+    // D117: the ready settings the company chose (constants/businessKits.js) and when.
     onboarding: {
       teamStepAt: Date,
+      kit: { type: String, enum: KIT_IDS },
+      kitAt: Date,
     },
     deletion: {
       requestedAt: Date,

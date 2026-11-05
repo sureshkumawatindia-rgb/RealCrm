@@ -10,6 +10,8 @@ const assignment = require('../services/assignmentService');
 const organizationService = require('../services/organizationService');
 const deletion = require('../services/organizationDeletionService');
 const teamSettings = require('../services/teamSettingsService');
+const gettingStarted = require('../services/gettingStartedService');
+const { KIT_IDS, KIT_LANGUAGES } = require('../constants/businessKits');
 const Organization = require('../models/Organization');
 const Joi = require('joi');
 const { HIDEABLE_MODULES } = require('../constants/permissions');
@@ -74,6 +76,19 @@ router.get('/onboarding', requireRole('owner', 'admin'), async (req, res) => {
 });
 router.post('/onboarding/team', requireRole('owner', 'admin'), validate({ body: Joi.object({ skipped: Joi.boolean().default(false) }) }), async (req, res) => {
   res.json({ success: true, data: await teamSettings.finishTeamStep(req, req.body) });
+});
+// The first day (D117): the "Getting started" list, and ready settings for the business.
+router.get('/getting-started', requireRole('owner', 'admin'), async (req, res) => {
+  res.json({ success: true, data: await gettingStarted.status(req) });
+});
+router.patch('/getting-started', requireRole('owner', 'admin'), validate({ body: Joi.object({ hidden: Joi.boolean().required() }) }), async (req, res) => {
+  res.json({ success: true, data: await gettingStarted.setHidden(req, req.body) });
+});
+router.get('/business-kits', requireRole('owner', 'admin'), validate({ query: Joi.object({ language: Joi.string().valid(...KIT_LANGUAGES) }) }), async (req, res) => {
+  res.json({ success: true, data: await gettingStarted.kits(req, req.valid.query) });
+});
+router.post('/business-kit', requireRole('owner', 'admin'), validate({ body: Joi.object({ kit: Joi.string().valid(...KIT_IDS).required(), language: Joi.string().valid(...KIT_LANGUAGES) }) }), async (req, res) => {
+  res.json({ success: true, data: await gettingStarted.applyKit(req, req.body), message: 'Ready settings added' });
 });
 router.post('/logo', requireRole('owner', 'admin'), uploadLogo, controller.uploadLogo);
 router.delete('/logo', requireRole('owner', 'admin'), controller.deleteLogo);

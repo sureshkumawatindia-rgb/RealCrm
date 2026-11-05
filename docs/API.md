@@ -75,6 +75,10 @@ Rate limit for `/auth/google`, `/auth/refresh`, `/auth/logout`, `/auth/login/*`,
 | `PATCH` | `/organization/settings` | owner, admin | `{ hidePhonesFromAgents?: boolean, sendReadReceipts?: boolean, csat?: { enabled?: boolean, question?: string (up to 500) } }` (at least one) → the settings; audit `organization.settings_updated`; open Inbox pages get `inbox:refresh`. |
 | `GET` | `/organization/onboarding` | owner, admin | `{ teamStep }` (D64): true while "Invite your team" should still come after sign-in — never done or skipped, and nobody else in the company and no invite yet. |
 | `POST` | `/organization/onboarding/team` | owner, admin | `{ skipped?: boolean }` → `{ teamStep: false }`, for good; audit `onboarding.team_done` or `onboarding.team_skipped` (once). |
+| `GET` | `/organization/getting-started` | owner, admin | The dashboard's "Get your CRM ready" list (D117, `docs/FIRST_DAY.md`): `{ steps: [{ key: business \| kit \| whatsapp \| products \| leads \| team \| quote, done }], done, total, kit, hidden }`, each step worked out from the company's data; `hidden` is this person's. |
+| `PATCH` | `/organization/getting-started` | owner, admin | `{ hidden: boolean }` → the list; hidden for this person on every device. |
+| `GET` | `/organization/business-kits` | owner, admin | `?language=en\|hi` (default: the person's) → `{ language, current, keeps: { stages, terms }, kits: [{ id, name, about, stages: [name], quickReplies: [{ shortcut, title, body, exists }], terms, validityDays }] }`: the ready settings in that language, and what the company keeps because it set it itself. |
+| `POST` | `/organization/business-kit` | owner, admin | `{ kit: trader \| manufacturer, language?: en \| hi }` → `{ kit, language, stages: set \| kept, quickReplies: { added, kept }, terms: set \| kept }`. Renames the default pipeline's stages only while they are the starting ones (ids kept), adds only free shortcuts, sets terms and validity only when there are none; audit `onboarding.kit_applied`. |
 
 Uploaded files are served from `/uploads/` with `Content-Security-Policy: sandbox`.
 

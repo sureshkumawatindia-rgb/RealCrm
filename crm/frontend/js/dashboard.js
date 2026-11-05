@@ -515,44 +515,81 @@ function attachNav(container) {
 }
 
 // ---------------------------------------------------------------
-// "Get your CRM ready" (owners and admins): the first steps for a new company. Each step
-// ticks itself from the company's real data; the card goes once every step is done, or
-// when hidden in this browser.
+// "Get your CRM ready" (owners and admins, D117): the first steps for a new company. The server
+// ticks each step from the company's real data (GET /organization/getting-started). Hidden for
+// this person on every device; Settings → Your profile brings it back (dashboard.html?setup=1).
+// Once every step is done it says so, until closed.
 // ---------------------------------------------------------------
-async function renderSetupChecklist() {
-  if (!isOrgManager() || getPreference("setupChecklistHidden", false)) return;
-  const has = async (path) => {
-    try {
-      const data = await crmApi(path);
-      return Array.isArray(data) ? data.length > 0 : Boolean(data);
-    } catch {
-      return false;
-    }
-  };
-  const [whatsapp, organization, leadSources, quotation, invited] = await Promise.all([
-    has("/whatsapp/accounts"),
-    crmApi("/organization").catch(() => ({})),
-    has("/lead-sources"),
-    has("/quotations?limit=1"),
-    getAgents().length > 1 ? true : has("/invites?status=pending&limit=1"),
-  ]);
-  const steps = [
-    { done: whatsapp, key: "whatsapp", href: "connect-whatsapp.html?add=1" },
-    { done: Boolean(organization.gstin || organization.address), key: "business", href: "Settings.html?tab=company" },
-    { done: getProducts().length > 0, key: "products", href: "Products.html" },
-    { done: invited, key: "team", href: "invite-team.html" },
-    { done: leadSources, key: "leads", href: "Settings.html?tab=leadsources" },
-    { done: quotation, key: "quote", href: "Quotations.html?new=1" },
-  ].map((step) => ({ ...step, title: t(`dash.setup.${step.key}.title`), text: t(`dash.setup.${step.key}.text`), action: t(`dash.setup.${step.key}.action`) }));
-  const doneCount = steps.filter((step) => step.done).length;
-  if (doneCount === steps.length) return;
-  // On phones only the next step shows, with "Show all steps" (dashboard.css, R3).
-  const next = steps.find((step) => !step.done);
+const SETUP_LINKS = {
+  business: "Settings.html?tab=company",
+  whatsapp: "connect-whatsapp.html?add=1",
+  products: "Products.html",
+  leads: "leads.html?import=1",
+  team: "invite-team.html",
+  quote: "Quotations.html?new=1",
+};
+const setGettingStartedHidden = (hidden) => crmApi("/organization/getting-started", jsonRequest("PATCH", { hidden }));
 
+async function gettingStartedState() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("setup") === "1") {
+    params.delete("setup");
+    const rest = params.toString();
+    history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}`);
+    return setGettingStartedHidden(false);
+  }
+  // Hidden in this browser before D117: hidden on the account from now on.
+  if (getPreference("setupChecklistHidden", false)) {
+    setPreference("setupChecklistHidden", false);
+    return setGettingStartedHidden(true);
+  }
+  return crmApi("/organization/getting-started");
+}
+
+async function renderSetupChecklist() {
+  if (!isOrgManager()) return;
+  let state;
+  try {
+    state = await gettingStartedState();
+  } catch {
+    return; // the list is never in the way of the dashboard
+  }
   document.getElementById("setupCard")?.remove();
+  if (state.hidden) return;
   const card = document.createElement("section");
   card.className = "panel setup-card";
   card.id = "setupCard";
+  const close = async (message) => {
+    card.remove();
+    try {
+      await setGettingStartedHidden(true);
+      if (message) showToast(message, "info");
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("gs.failed")), "error");
+    }
+  };
+  if (state.done === state.total) {
+    card.classList.add("setup-card--done");
+    card.innerHTML = `
+      <div class="setup-head">
+        <div>
+          <h3>${escapeHtml(t("dash.setup.allDone.title"))}</h3>
+          <p>${escapeHtml(t("dash.setup.allDone.text"))}</p>
+        </div>
+        <button class="btn btn-outline" type="button" id="setupHide">${escapeHtml(t("common.close"))}</button>
+      </div>`;
+    card.querySelector("#setupHide").addEventListener("click", () => close());
+    document.querySelector(".page")?.prepend(card);
+    return;
+  }
+  const steps = state.steps.map((step) => ({ ...step, title: t(`dash.setup.${step.key}.title`), text: t(`dash.setup.${step.key}.text`), action: t(`dash.setup.${step.key}.action`) }));
+  const doneCount = state.done;
+  // On phones only the next step shows, with "Show all steps" (dashboard.css, R3).
+  const next = steps.find((step) => !step.done);
+  // The ready settings open their box here; every other step goes to its page.
+  const actionOf = (step) => (step.key === "kit"
+    ? `<button class="btn btn-outline" type="button" data-kit-open>${escapeHtml(step.action)}</button>`
+    : `<a class="btn btn-outline" href="${escapeHtml(SETUP_LINKS[step.key])}">${escapeHtml(step.action)}</a>`);
   card.innerHTML = `
     <div class="setup-head">
       <div>
@@ -572,7 +609,7 @@ async function renderSetupChecklist() {
             <strong>${escapeHtml(step.title)}</strong>
             <span>${escapeHtml(step.text)}</span>
           </div>
-          ${step.done ? `<span class="setup-done">${escapeHtml(t("dash.setup.done"))}</span>` : `<a class="btn btn-outline" href="${escapeHtml(step.href)}">${escapeHtml(step.action)}</a>`}
+          ${step.done ? `<span class="setup-done">${escapeHtml(t("dash.setup.done"))}</span>` : actionOf(step)}
         </li>`,
         )
         .join("")}
@@ -583,13 +620,118 @@ async function renderSetupChecklist() {
     event.currentTarget.setAttribute("aria-expanded", String(all));
     event.currentTarget.textContent = all ? t("dash.setup.showNext") : t("dash.setup.showAll", { n: steps.length });
   });
-  card.querySelector("#setupHide").addEventListener("click", () => {
-    setPreference("setupChecklistHidden", true);
-    card.remove();
-    showToast(t("dash.setup.hidden"), "info");
-  });
+  card.querySelector("#setupHide").addEventListener("click", () => close(t("dash.setup.hidden")));
+  card.querySelector("[data-kit-open]")?.addEventListener("click", (event) => kitBox.open(event.currentTarget));
   document.querySelector(".page")?.prepend(card);
 }
+
+// ---------------------------------------------------------------
+// Ready settings for the business (D117): a trader's or a manufacturer's sales stages, quick
+// replies and quotation terms, in the person's language. The server fills only what the company
+// has not set itself; the box shows what stays.
+// ---------------------------------------------------------------
+const kitBox = (() => {
+  const $ = (id) => document.getElementById(id);
+  const ICONS = { trader: "fa-store", manufacturer: "fa-industry" };
+  let data = null;
+  let chosen = null;
+  let opener = null; // focus goes back to it when the box closes
+
+  function preview() {
+    const kit = data.kits.find((one) => one.id === chosen);
+    $("kitApply").disabled = !kit;
+    if (!kit) {
+      $("kitPreview").innerHTML = "";
+      return;
+    }
+    const stays = (part) => (data.keeps[part] ? ` <span class="badge badge-neutral">${escapeHtml(t("kit.yoursStay"))}</span>` : "");
+    $("kitPreview").innerHTML = `
+      <section class="kit-part">
+        <h4>${escapeHtml(t("kit.stages"))}${stays("stages")}</h4>
+        ${data.keeps.stages ? `<p class="sub">${escapeHtml(t("kit.stagesKept"))}</p>` : ""}
+        <ol class="kit-stages">${kit.stages.map((name) => `<li>${escapeHtml(name)}</li>`).join("")}<li class="kit-stage-end">${escapeHtml(crmLabel("stage", "Won"))} / ${escapeHtml(crmLabel("stage", "Lost"))}</li></ol>
+      </section>
+      <section class="kit-part">
+        <h4>${escapeHtml(t("kit.replies"))}</h4>
+        <ul class="kit-replies">${kit.quickReplies.map((reply) => `<li><code translate="no">/${escapeHtml(reply.shortcut)}</code> <span>${escapeHtml(reply.title)}</span>${reply.exists ? ` <span class="badge badge-neutral">${escapeHtml(t("kit.haveIt"))}</span>` : ""}</li>`).join("")}</ul>
+        <p class="sub">${escapeHtml(t("kit.repliesHint"))}</p>
+      </section>
+      <section class="kit-part">
+        <h4>${escapeHtml(t("kit.terms"))}${stays("terms")}</h4>
+        ${data.keeps.terms ? `<p class="sub">${escapeHtml(t("kit.termsKept"))}</p>` : `<pre class="kit-terms">${escapeHtml(kit.terms)}</pre><p class="sub">${escapeHtml(t("kit.validity", { n: kit.validityDays }))}</p>`}
+      </section>`;
+  }
+
+  function render() {
+    $("kitChoices").innerHTML = data.kits.map((kit) => `
+      <label class="kit-choice">
+        <input type="radio" name="kitChoice" value="${escapeHtml(kit.id)}" ${kit.id === chosen ? "checked" : ""} />
+        <i class="fa-solid ${ICONS[kit.id] || "fa-briefcase"}" aria-hidden="true"></i>
+        <span><strong>${escapeHtml(kit.name)}</strong><small>${escapeHtml(kit.about)}</small></span>
+      </label>`).join("");
+    preview();
+  }
+
+  async function open(from) {
+    opener = from || null;
+    $("kitOverlay").classList.add("open");
+    $("kitApply").disabled = true;
+    $("kitPreview").innerHTML = "";
+    $("kitChoices").innerHTML = `<p class="sub">${escapeHtml(t("bulkbar.loading"))}</p>`;
+    try {
+      data = await crmApi(`/organization/business-kits?language=${encodeURIComponent(crmI18n.language())}`);
+      chosen = data.current;
+      render();
+      ($("kitChoices").querySelector("input:checked") || $("kitChoices").querySelector("input"))?.focus();
+    } catch (error) {
+      $("kitChoices").innerHTML = `<p class="logo-upload-error">${escapeHtml(apiErrorMessage(error, t("kit.loadFailed")))}</p>`;
+    }
+  }
+  const close = () => {
+    $("kitOverlay").classList.remove("open");
+    if (opener?.isConnected) opener.focus();
+  };
+
+  // "Ready settings added: sales stages set, 6 quick replies added, quotation terms set."
+  function summary(result) {
+    const parts = [
+      t(result.stages === "set" ? "kit.done.stagesSet" : "kit.done.stagesKept"),
+      t(result.quickReplies.added === 1 ? "kit.done.replies.one" : "kit.done.replies.many", { n: result.quickReplies.added }),
+      t(result.terms === "set" ? "kit.done.termsSet" : "kit.done.termsKept"),
+    ];
+    return t("kit.done", { list: parts.join(", ") });
+  }
+
+  async function apply() {
+    $("kitApply").disabled = true;
+    try {
+      const result = await crmApi("/organization/business-kit", jsonRequest("POST", { kit: chosen, language: data.language }));
+      close();
+      showToast(summary(result), "success");
+      // The step is done now: the keyboard goes on to the next one.
+      await renderSetupChecklist();
+      document.querySelector("#setupCard li.next .btn, #setupCard #setupHide")?.focus();
+    } catch (error) {
+      showToast(apiErrorMessage(error, t("kit.applyFailed")), "error");
+      $("kitApply").disabled = false;
+    }
+  }
+
+  if ($("kitOverlay")) {
+    $("kitChoices").addEventListener("change", (event) => {
+      if (event.target.name !== "kitChoice") return;
+      chosen = event.target.value;
+      preview();
+    });
+    $("kitApply").addEventListener("click", apply);
+    $("kitClose").addEventListener("click", close);
+    $("kitCancel").addEventListener("click", close);
+    $("kitOverlay").addEventListener("click", (event) => {
+      if (event.target.id === "kitOverlay") close();
+    });
+  }
+  return { open };
+})();
 
 // ---------------------------------------------------------------
 // Full render

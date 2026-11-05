@@ -962,6 +962,7 @@ loadMembershipSections();
 crmI18n.ready.then(renderStorageSummary); // its labels are texts
 
 document.getElementById("serverImportSection").hidden = !isOrgManager();
+document.getElementById("gettingStartedSection").hidden = !isOrgManager(); // D117
 document.getElementById("serverExportSection").hidden = !isOrgManager();
 document.getElementById("serverExportBtn").addEventListener("click", async (e) => {
   const button = e.currentTarget;

@@ -431,3 +431,125 @@
     margin-left: 30px;
   }
 }
+
+/* ---------- The list done, and ready settings for the business (dashboard.js, D117) ---------- */
+.setup-card--done {
+  padding-bottom: 18px;
+  border-color: var(--success);
+}
+.setup-card--done .setup-head .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.kit-intro {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.kit-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.kit-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.kit-choice:has(input:checked) {
+  border-color: var(--brand-dark);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.kit-choice input {
+  margin-top: 3px;
+  accent-color: var(--brand-darker);
+}
+.kit-choice > i {
+  margin-top: 1px;
+  font-size: 18px;
+  color: var(--brand-darker);
+}
+.kit-choice span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.kit-choice strong {
+  font-size: 13.5px;
+}
+.kit-choice small,
+.kit-part .sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.kit-part {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.kit-part:last-child {
+  border-bottom: none;
+}
+.kit-part h4 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.kit-part .sub {
+  margin: 6px 0 0;
+}
+.kit-stages,
+.kit-replies {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kit-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.kit-stages li {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 12.5px;
+}
+.kit-stages .kit-stage-end {
+  color: var(--text-muted);
+}
+.kit-replies {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+}
+.kit-replies code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 12px;
+}
+.kit-terms {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .kit-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

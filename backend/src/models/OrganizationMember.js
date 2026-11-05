@@ -19,6 +19,8 @@ const organizationMemberSchema = new mongoose.Schema(
     assignable: { type: Boolean, default: true },
     invitedById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     lastAssignedAt: { type: Date },
+    // When this owner or admin hid the dashboard's "Getting started" list (D117), on every device.
+    checklistHiddenAt: { type: Date },
   },
   { timestamps: true },
 );
