@@ -32,6 +32,8 @@ const fromBackend = (file) => require(path.join(BACKEND, file)); // eslint-disab
     // The browser tests click quickly and from one address: the per-minute limits stay out of the way.
     RATE_LIMIT_API_PER_MINUTE: '100000',
     RATE_LIMIT_AUTH_PER_MINUTE: '100000',
+    // The platform admin page's own admin in the help test (e2e/help.spec.js, D118).
+    PLATFORM_ADMIN_EMAILS: 'admin@help.test',
   });
   const idToken = require.resolve(path.join(BACKEND, 'src/integrations/google/idToken'));
   require.cache[idToken] = { id: idToken, filename: idToken, loaded: true, exports: fromBackend('src/tests/helpers/fakeGoogle') };

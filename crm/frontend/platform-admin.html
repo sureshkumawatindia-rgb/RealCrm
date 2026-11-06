@@ -113,6 +113,7 @@
                 <button class="report-tab" data-tab="companies" type="button" role="tab"><i class="fa-solid fa-building"></i> <span data-i18n="padmin.companies">Companies</span></button>
                 <button class="report-tab" data-tab="emails" type="button" role="tab"><i class="fa-solid fa-envelope"></i> <span data-i18n="padmin.emails">Emails</span></button>
                 <button class="report-tab" data-tab="checklist" type="button" role="tab"><i class="fa-solid fa-list-check"></i> <span data-i18n="padmin.go-live-checklist">Go-live checklist</span></button>
+                <button class="report-tab" data-tab="support" type="button" role="tab"><i class="fa-solid fa-headset"></i> <span data-i18n="padmin.support">Support</span></button>
               </div>
             </div>
 
@@ -165,6 +166,31 @@
               <p class="pa-note" id="paChecklistNote"></p>
               <div class="pa-warnings" id="paWarnings" hidden></div>
               <ul class="pa-checklist" id="paChecklist"></ul>
+            </section>
+
+            <!-- D118: the support contact every company's help shows (docs/HELP.md) -->
+            <section class="report-panel" id="paPanel-support">
+              <div class="panel pa-support">
+                <h3 data-i18n="padmin.support.title">Support in every company's help</h3>
+                <p class="pa-note" data-i18n="padmin.support.text">Shown to everyone in every company, in the ? box on each page and in the help centre. Leave the WhatsApp number empty to hide the button.</p>
+                <form id="paSupportForm" class="pa-support-form" novalidate>
+                  <div class="field">
+                    <label for="paSupportWhatsapp" data-i18n="conn.kind.whatsapp">WhatsApp number</label>
+                    <input type="tel" id="paSupportWhatsapp" maxlength="20" autocomplete="off" placeholder="98290 12345" />
+                  </div>
+                  <div class="field">
+                    <label for="paSupportEmail" data-i18n="padmin.support.email">Email (optional)</label>
+                    <input type="email" id="paSupportEmail" maxlength="200" autocomplete="off" placeholder="support@yourdomain.in" />
+                  </div>
+                  <div class="field">
+                    <label for="paSupportHours" data-i18n="padmin.support.hours">Hours (optional)</label>
+                    <input type="text" id="paSupportHours" maxlength="120" placeholder="Mon–Sat, 10 am – 7 pm" data-i18n-placeholder="padmin.support.hoursPh" />
+                  </div>
+                  <div class="data-actions">
+                    <button class="btn btn-primary" type="submit" id="paSupportSave" data-i18n="common.save">Save</button>
+                  </div>
+                </form>
+              </div>
             </section>
           </div>
         </div>

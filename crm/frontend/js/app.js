@@ -1290,6 +1290,45 @@ function crmWirePreferenceChoices(root) {
   return render;
 }
 
+// Help inside the CRM (D118, docs/HELP.md): "?" next to the language and theme button opens this
+// page's short help. Its words and the help centre are in js/help.js, loaded the first time.
+const crmHelp = (() => {
+  let loading = null;
+  const load = () => loading || (loading = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "js/help.js";
+    script.onload = resolve;
+    script.onerror = () => {
+      loading = null;
+      reject();
+    };
+    document.head.appendChild(script);
+  }));
+
+  function mount() {
+    const next = document.getElementById("crmPrefs") || document.getElementById("crmBell");
+    if (!next || document.getElementById("crmHelpBtn") || currentPageName() === "help.html") return;
+    const button = document.createElement("button");
+    button.className = "icon-btn crm-help-btn";
+    button.id = "crmHelpBtn";
+    button.type = "button";
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-label", t("help.button"));
+    button.title = t("help.button");
+    button.innerHTML = '<i class="fa-regular fa-circle-question"></i>';
+    button.addEventListener("click", async () => {
+      try {
+        await load();
+        window.crmHelpPanel.open(button);
+      } catch {
+        window.location.href = "help.html"; // the file did not load: the help centre itself
+      }
+    });
+    next.parentElement.insertBefore(button, next);
+  }
+  return { mount };
+})();
+
 const crmPrefsMenu = (() => {
   const byId = (id) => document.getElementById(id);
   const THEME_ICONS = { system: "fa-desktop", light: "fa-sun", dark: "fa-moon" };
@@ -2646,6 +2685,7 @@ const NAV_KEYS = {
   "products.html": "nav.products",
   "settings.html": "nav.settings",
   "platform-admin.html": "nav.platformAdmin",
+  "help.html": "nav.help",
 };
 function translateSidebar() {
   if (crmI18n.language() === "en") return;
@@ -2748,6 +2788,13 @@ function injectGlobalNavItems() {
       afterHref: "Settings.html",
       platformOnly: true,
     },
+    // The help centre (D118), for everyone, right after Settings.
+    {
+      href: "help.html",
+      icon: "fa-circle-question",
+      label: "Help", // i18n-ok: the menu is translated by translateSidebar (NAV_KEYS)
+      afterHref: "Settings.html",
+    },
   ];
   // Pages write the same link as "Deals.html" or "./Deals.html".
   const findLink = (href) => [...navGroup.querySelectorAll(".nav-item[href]")].find((link) => link.getAttribute("href").replace(/^\.\//, "") === href);
@@ -2842,6 +2889,7 @@ document.addEventListener("DOMContentLoaded", () => {
     crmBell.mount();
     crmSearch.mount();
     crmPrefsMenu.mount();
+    crmHelp.mount();
     translateSidebar();
     document.querySelectorAll("[data-prefs-choices]").forEach(crmWirePreferenceChoices); // Settings → Your Profile
   });

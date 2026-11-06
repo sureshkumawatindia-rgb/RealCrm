@@ -122,6 +122,7 @@
     if (state.tab === "companies") loadCompanies();
     if (state.tab === "emails") loadEmails();
     if (state.tab === "checklist") loadChecklist();
+    if (state.tab === "support") loadSupport();
   }
 
   // --- overview ------------------------------------------------------------------------------
@@ -329,6 +330,34 @@
       handle(error, t("padm.couldn-t-load-the-checklist"));
     }
   }
+
+  // --- the support contact in every company's help (D118) ----------------------------------------
+  async function loadSupport() {
+    try {
+      const data = await crmApi("/platform/support");
+      $("paSupportWhatsapp").value = data.whatsapp;
+      $("paSupportEmail").value = data.email;
+      $("paSupportHours").value = data.hours;
+    } catch (error) {
+      handle(error, t("padmin.support.loadFailed"));
+    }
+  }
+  $("paSupportForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    $("paSupportSave").disabled = true;
+    try {
+      const data = await crmApi("/platform/support", jsonRequest("PUT", { whatsapp: $("paSupportWhatsapp").value.trim(), email: $("paSupportEmail").value.trim(), hours: $("paSupportHours").value.trim() }));
+      $("paSupportWhatsapp").value = data.whatsapp; // as it is kept: +91 …
+      showToast(t("padmin.support.saved"), "success");
+    } catch (error) {
+      // A wrong number or email in the person's language; anything else as the server says.
+      const field = error.code === "VALIDATION_ERROR" ? error.errors?.[0]?.field : "";
+      if (field === "whatsapp" || field === "email") showToast(t(field === "whatsapp" ? "padmin.support.badNumber" : "padmin.support.badEmail"), "error");
+      else handle(error, t("padmin.support.failed"));
+    } finally {
+      $("paSupportSave").disabled = false;
+    }
+  });
 
   start();
 })();

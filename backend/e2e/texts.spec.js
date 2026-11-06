@@ -13,7 +13,7 @@ const SETTINGS_TABS = ['profile', 'company', 'team', 'whatsapp', 'leadsources', 
 const PAGES = [
   'invite-team.html', 'company.html', 'dashboard.html', 'Inbox.html', 'customers.html', 'leads.html', 'Deals.html', 'Quotations.html', 'Orders.html',
   'Products.html', 'Tasks.html', 'projects.html', 'Support.html', 'Reports & Analytics.html', 'my-performance.html', 'team-live.html',
-  'accounts.html', 'workflow-builder.html', 'Al Insights.html', 'platform-admin.html',
+  'accounts.html', 'workflow-builder.html', 'Al Insights.html', 'platform-admin.html', 'help.html',
   ...SETTINGS_TABS.map((tab) => `Settings.html?tab=${tab}`),
 ];
 

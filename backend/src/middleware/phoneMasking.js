@@ -2,8 +2,9 @@ const { maskPhonesIn, stripMaskedPhones } = require('../utils/phoneMask');
 
 // Customers' numbers for agents and viewers (D65). authenticate sets req.maskPhones; every JSON
 // answer to such a member is masked here, whichever route sent it. The member's own sign-in and
-// the company's own details (its phone, its WhatsApp numbers, the team) are not customer data.
-const COMPANY_PATHS = ['/auth', '/organization', '/members', '/invites', '/billing', '/push', '/site', '/health', '/whatsapp/accounts', '/whatsapp/connect'];
+// the company's own details (its phone, its WhatsApp numbers, the team) are not customer data, nor
+// is the platform's support contact in Help (D118).
+const COMPANY_PATHS = ['/auth', '/organization', '/members', '/invites', '/billing', '/push', '/site', '/health', '/whatsapp/accounts', '/whatsapp/connect', '/help'];
 
 function phoneMasking(req, res, next) {
   // A masked number coming back from a form is dropped, whoever sends it: the real one stays.

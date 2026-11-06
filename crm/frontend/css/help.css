@@ -1,0 +1,94 @@
+/* The help centre (D118, help.html, js/help.js): common questions and each page's help. */
+.help-page {
+  max-width: 880px;
+}
+.help-hero {
+  margin-bottom: 18px;
+}
+.help-hero .help-intro {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+}
+.help-search {
+  max-width: 480px;
+}
+.help-contact-card,
+.help-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+}
+.help-contact-card h3,
+.help-start h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.help-contact-card p,
+.help-start p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.help-contact-card .help-contact {
+  margin-top: 6px;
+}
+.help-section {
+  margin: 22px 0;
+}
+.help-section > h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.help-list {
+  display: grid;
+  gap: 8px;
+}
+.help-item {
+  /* help.html#topic-… lands below the top bar, not under it */
+  scroll-margin-top: 84px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.help-item > summary {
+  padding: 12px 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.help-item > summary i {
+  width: 20px;
+  color: var(--brand-darker);
+}
+.help-item[open] > summary {
+  border-bottom: 1px solid var(--border-soft);
+}
+.help-item > p {
+  margin: 10px 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.help-open-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.help-no-match {
+  color: var(--text-muted);
+}
+@media (max-width: 600px) {
+  .help-contact-card .help-actions,
+  .help-contact-card .btn,
+  .help-start .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -46,7 +46,7 @@ JustDial and their website, and run on GST quotations, orders and Tally.
    invite the team, send the first quotation) and ready settings for traders and manufacturers
    (stages, quick replies, quotation terms). — done 2026-11-05 (D117, `docs/FIRST_DAY.md`)
 6. **Help inside the CRM.** Short Hindi and English help on each page, a help centre, and a
-   WhatsApp button to the platform's support number.
+   WhatsApp button to the platform's support number. — done 2026-11-05 (D118, `docs/HELP.md`)
 7. **Phone app, part 1.** Installable, opens without the network, replies wait and go when the
    network is back, a faster Inbox on 4G.
 8. **Data trust.** A customer's data exported or deleted on request (DPDP Act), the company's

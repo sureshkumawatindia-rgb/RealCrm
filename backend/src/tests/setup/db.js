@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 
 // Each test file gets its own database on the shared in-memory replica set. Building every model's
 // indexes there takes a while when several files start at once on a slower machine, so this setup
-// (and its clean-up) gets two minutes; each test keeps jest.config's 30 seconds.
+// (and its clean-up) gets two minutes; each test has jest.config's testTimeout.
 const SETUP_MS = 2 * 60 * 1000;
 
 beforeAll(async () => {

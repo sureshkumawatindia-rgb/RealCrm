@@ -21,7 +21,7 @@ builds on the one before:
 
 A script error on any page also fails the flow it happened in.
 
-Next to the flows, `backend/e2e/texts.spec.js` (Phase 4, D116, `HINDI_GUIDE.md`) opens 20 pages
+Next to the flows, `backend/e2e/texts.spec.js` (Phase 4, D116, `HINDI_GUIDE.md`) opens 21 pages
 and the 19 Settings tabs in Hindi with the texts held back 1.5 seconds: a page that shows a
 text's key (such as `setls.none`) instead of its words fails. It adds about two minutes.
 
@@ -29,6 +29,10 @@ text's key (such as `setls.none`) instead of its words fails. It adds about two 
 "Get your CRM ready" list with its seven steps, a manufacturer's ready settings in one click (and
 a trader's in Hindi), the leads step opening the import box, and the list hidden and brought back
 from Settings → Your Profile.
+
+`backend/e2e/help.spec.js` (Phase 6, D118, `HELP.md`): a page's "?" box and its topic in the help
+centre, the help centre's search, and a support number set on the platform admin page (unlocked
+with a backup code) becoming a WhatsApp button in another company's help.
 
 ## Where it runs
 

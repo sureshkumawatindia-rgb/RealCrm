@@ -16,6 +16,12 @@ module.exports = {
     days: Joi.when('action', { is: 'trial', then: Joi.number().integer().min(1).max(365).required(), otherwise: Joi.forbidden() }),
     plan: Joi.when('action', { is: 'plan', then: Joi.string().valid(...PLAN_KEYS).required(), otherwise: Joi.forbidden() }),
   }),
+  // D118: the support contact in every company's help; '' clears a field.
+  support: Joi.object({
+    whatsapp: Joi.string().trim().max(20).allow('').default(''),
+    email: Joi.string().trim().lowercase().email().max(200).allow('').default(''),
+    hours: Joi.string().trim().max(120).allow('').default(''),
+  }),
   emails: Joi.object({
     status: Joi.string().valid('queued', 'sent', 'failed', 'skipped'),
     limit: Joi.number().integer().min(1).max(200).default(50),

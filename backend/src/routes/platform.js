@@ -1,6 +1,7 @@
 const express = require('express');
 const platformService = require('../services/platformService');
 const emailService = require('../services/emailService');
+const helpService = require('../services/helpService');
 const { authenticate } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimit');
 const validate = require('../middleware/validate');
@@ -37,6 +38,13 @@ router.get('/emails', validate({ query: schemas.emails }), async (req, res) => {
 });
 router.get('/checklist', async (req, res) => {
   res.json({ success: true, data: platformService.checklist() });
+});
+// D118: the support contact every company's help shows.
+router.get('/support', async (req, res) => {
+  res.json({ success: true, data: await helpService.getSupport() });
+});
+router.put('/support', validate({ body: schemas.support }), async (req, res) => {
+  res.json({ success: true, data: await helpService.setSupport(req, req.body), message: 'Support contact saved' });
 });
 
 module.exports = router;

@@ -77,7 +77,7 @@ Left alone on purpose:
 `crmI18n.t`, `lt` and `tr`), both files have the same keys and placeholders, and Hindi is written
 in Devanagari.
 
-`backend/e2e/texts.spec.js` (with `npm run e2e`) opens 20 pages and every Settings tab in Hindi
+`backend/e2e/texts.spec.js` (with `npm run e2e`) opens 21 pages and every Settings tab in Hindi
 with the texts held back 1.5 seconds: no page may show a key such as `setls.none`.
 
 ## Status

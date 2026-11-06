@@ -813,6 +813,13 @@ The platform's own admins: the Google emails in `PLATFORM_ADMIN_EMAILS`, with 2-
 | `POST` | `/platform/companies/:id/actions` | `{ action: "comp" }` (complimentary, no end; a Razorpay subscription is not touched), `{ action: "trial", days (1–365) }` (a trial ending that many days from now; the reminders start again) or `{ action: "plan", plan }` (another plan by hand) → the company's row. Audit `platform.comp` / `platform.trial` / `platform.plan` in **that company's** log, with `before` and the admin's email. The same actions as `scripts/plan.js`. |
 | `GET` | `/platform/emails?status=&limit=` | The platform's emails: `{ enabled, totals { queued, sent, failed, skipped } (30 days), kinds { <kind>: { <status>: n } }, recent [{ id, kind, to, language, status, attempts, error, subject, sentAt, createdAt, organizationId }] }`. |
 | `GET` | `/platform/checklist` | The go-live tasks (docs/GO_LIVE_CHECKLIST.md): `{ items [{ key, title, done (true / false / null = not visible from here), guide, without }], done, total, warnings }` — whether this server has each key, never a value; `warnings` are the server's own start-up warnings (key names only). |
+| `GET/PUT` | `/platform/support` | D118 (`docs/HELP.md`): the support contact every company's help shows, `{ whatsapp, email, hours }`. PUT takes the same; '' clears a field; a 10-digit number is Indian and is kept as `+91…` (not a phone: 400 `INVALID_PHONE` on `whatsapp`); email lower-cased; hours up to 120 characters; audit `platform.support_updated` in the admin's company. |
+
+## Help (D118)
+
+| Method | Path | Who | Notes |
+| --- | --- | --- | --- |
+| `GET` | `/help/support` | any member | The platform's support contact for the "?" box and the help centre, and the company it is asked from: `{ whatsapp, email, hours, company: { name, code } }`. Never masked for agents: it is not a customer's number. |
 
 **Emails** (docs/EMAIL_SETUP.md): with `RESEND_API_KEY` and `EMAIL_FROM` set, the CRM emails team invites (to the invited address), trial reminders (7, 3, 1 days and the end), failed payments (Razorpay retrying, and the plan stopped), each plan invoice with its PDF, the deletion warnings, and new logins (unless switched off), each in the person's language (en/hi) with HTML and plain text. Each email is an `email.send` job: `POST https://api.resend.com/emails` with `Idempotency-Key: crm-email-<id>`, tried again up to 6 times on 429, 409, 5xx and timeouts, not on other refusals. Without the keys nothing is sent (`skipped`), and nothing else changes.
 
