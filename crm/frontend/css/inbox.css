@@ -513,7 +513,7 @@
 }
 .msg-error {
   font-size: 11.5px;
-  color: var(--danger);
+  color: var(--danger-text); /* Phase 7: easy to read on the red bubble (was --danger, about 3:1) */
   margin-top: 3px;
   white-space: normal;
 }
@@ -1763,4 +1763,46 @@ a.ctx-link:hover {
 .inbox-filters select {
   flex: 1 1 0;
   min-width: 0;
+}
+
+/* Phase 7 (D119): a reply waiting for the network on this phone (js/app.js crmOutbox), and
+   when the chat shown was saved, with no network. */
+.msg.pending .bubble {
+  opacity: 0.92;
+}
+.msg-wait {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--text); /* readable on the green bubble in both themes */
+  white-space: normal;
+}
+.msg-wait-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.msg-wait-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  min-height: 0;
+}
+.copy-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px auto 10px;
+  padding: 6px 12px;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 12px;
+  text-align: center;
 }

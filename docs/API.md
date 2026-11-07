@@ -765,7 +765,7 @@ Guide: [AI_ASSISTANT.md](AI_ASSISTANT.md). 409 `AI_UNAVAILABLE` (no platform key
 
 ## Mobile app, web push and phone sign-in (Phase 10E)
 
-The pages are an installable app (`crm/frontend/manifest.webmanifest`, service worker `sw.js`: offline page, push notifications; the API is never cached).
+The pages are an installable app (`crm/frontend/manifest.webmanifest`, in Hindi `manifest-hi.webmanifest`; service worker `sw.js`: push notifications, and since Phase 7 (D119, `PHONE_APP.md`) the CRM's own files kept on the phone; the API is never the service worker's). `GET /crm/frontend/sw.js` is written by the server: the service worker with every file of `crm/frontend` and its revision (`Cache-Control: no-cache`). Pages, texts and API answers over 1 KB travel compressed (Brotli or gzip), except `/auth/*` answers (they carry tokens).
 
 | Method | Route | Purpose |
 | --- | --- | --- |

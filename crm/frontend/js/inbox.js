@@ -69,6 +69,11 @@ crmI18n.ready.then(function inbox() {
     reactingTo: null, // the message whose reaction bar is open
     channel: "", // G8 (D112): one channel's chats (whatsapp, instagram, messenger), or all
     hasSocial: false, // an Instagram or Messenger chat was seen: the channel filter shows
+    waiting: [], // Phase 7 (D119): this chat's replies waiting for the network (crmOutbox)
+    copyAt: null, // when this phone saved the chat now shown with no network
+    fromCopy: false, // something shown came from this phone's copy: reloaded once online
+    listLoaded: false, // the list's answer is in (a saved list no longer replaces it)
+    summaryLoaded: false,
   };
   // G8 (D112): Instagram and Messenger chats (text only from the CRM; 7 days for a person to answer).
   const SOCIAL = {
@@ -106,7 +111,9 @@ crmI18n.ready.then(function inbox() {
   }
   // Links in customers' text become clickable (the text itself is escaped first).
   const linkify = (html) => html.replace(/https?:\/\/[^\s<]+/g, (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
-  const memberNameOf = (id) => (id ? memberName(id) || t("inbox.teammate") : "");
+  // Phase 7: the team's names this phone saved stand in until the network's list is in.
+  const savedNames = new Map();
+  const memberNameOf = (id) => (id ? memberName(id) || savedNames.get(String(id)) || t("inbox.teammate") : "");
   const visibleToMe = (c) => seesAll || !c.assigneeId || String(c.assigneeId) === String(me.id);
   function windowLeft(win) {
     if (!win || !win.open || !win.expiresAt) return null;
@@ -212,22 +219,64 @@ crmI18n.ready.then(function inbox() {
     $("conversationMore").hidden = !state.hasMore;
   }
 
-  async function loadConversations({ append = false } = {}) {
-    if (!append) state.page = 1;
-    const params = new URLSearchParams({ view: state.view, page: state.page, limit: PAGE_SIZE });
+  // The list's address on the API (also the name of this phone's copy of it, Phase 7).
+  function listPath(page = 1) {
+    const params = new URLSearchParams({ view: state.view, page, limit: PAGE_SIZE });
     if (state.status) params.set("status", state.status);
     else if (state.view === "blocked") params.set("status", "any"); // D103: every blocked chat
     if (state.q) params.set("q", state.q);
     if (state.channel) params.set("channel", state.channel);
+    return `/conversations?${params}`;
+  }
+
+  async function loadConversations({ append = false } = {}) {
+    if (!append) state.page = 1;
     try {
-      const body = await crmRequest(`/conversations?${params}`);
+      const body = await crmRequest(listPath(state.page));
+      state.listLoaded = true;
       state.conversations = append ? [...state.conversations, ...body.data] : body.data;
       state.hasMore = Boolean(body.pagination?.hasNextPage);
       noteChannels(body.data);
       renderList();
+      if (!body.offlineCopy && !append) keepNewestChats();
     } catch (error) {
       $("conversationList").innerHTML = `<div class="inbox-list-empty">${escapeHtml(apiErrorMessage(error, t("inbox.err.loadChats")))}</div>`;
     }
+  }
+
+  // Phase 7 (D119): the chats this phone saved show at once — with a slow network or none — and
+  // the network's answer replaces them.
+  async function showSaved() {
+    const [list, summary, members] = await Promise.all([listPath(1), "/conversations/summary", "/members?page=1&limit=100"].map((path) => crmDevice.copy(path)));
+    (members?.body.data || []).forEach((member) => savedNames.set(String(member.id), member.name || member.email));
+    if (summary && !state.summaryLoaded) applySummary(summary.body.data);
+    if (!list || state.listLoaded) return;
+    state.conversations = list.body.data || [];
+    state.hasMore = Boolean(list.body.pagination?.hasNextPage);
+    noteChannels(state.conversations);
+    renderList();
+  }
+
+  // Phase 7: the newest chats' messages are kept on the phone as well (opened at once, read with no
+  // network): only those whose copy is older than their last message, a few seconds after the list,
+  // and never when the phone saves data (Data Saver).
+  let keptNewest = false;
+  function keepNewestChats() {
+    if (keptNewest || navigator.connection?.saveData) return;
+    keptNewest = true;
+    setTimeout(async () => {
+      for (const c of state.conversations.slice(0, 8)) {
+        if (crmNetwork.isOffline()) return;
+        const path = `/conversations/${c.id}/messages?limit=50`;
+        const saved = await crmDevice.copy(path);
+        if (saved && saved.savedAt >= new Date(c.lastMessageAt || 0).getTime()) continue;
+        try {
+          await crmRequest(path);
+        } catch {
+          return;
+        }
+      }
+    }, 3000);
   }
 
   // Pinned chats first (each member's own), then the newest.
@@ -250,15 +299,18 @@ crmI18n.ready.then(function inbox() {
     clearTimeout(summaryTimer);
     summaryTimer = setTimeout(loadSummary, 400);
   }
+  function applySummary(summary) {
+    $("countMine").textContent = summary.mine;
+    $("countUnassigned").textContent = summary.unassigned;
+    $("countAll").textContent = summary.all;
+    state.unread = summary.unread;
+    document.title = `${summary.unread ? `(${summary.unread}) ` : ""}${t("nav.inbox")} | YELLOW CRM`;
+    if (typeof setInboxNavBadge === "function") setInboxNavBadge(summary.unread);
+  }
   async function loadSummary() {
     try {
-      const summary = await crmApi("/conversations/summary");
-      $("countMine").textContent = summary.mine;
-      $("countUnassigned").textContent = summary.unassigned;
-      $("countAll").textContent = summary.all;
-      state.unread = summary.unread;
-      document.title = `${summary.unread ? `(${summary.unread}) ` : ""}${t("nav.inbox")} | YELLOW CRM`;
-      if (typeof setInboxNavBadge === "function") setInboxNavBadge(summary.unread);
+      applySummary(await crmApi("/conversations/summary"));
+      state.summaryLoaded = true;
     } catch {
       /* the counts are a convenience */
     }
@@ -388,6 +440,30 @@ crmI18n.ready.then(function inbox() {
       </div>`;
   }
 
+  // Phase 7 (D119): a reply waiting for the network (or refused by the server after waiting), with
+  // "Cancel", or "Try again" and "Delete".
+  function waitingHtml(item) {
+    const failed = item.status === "failed";
+    const id = escapeHtml(item.id);
+    const fileName = item.voice ? t("inbox.voiceMessage") : item.fileName || t("inbox.media.document");
+    const file = item.file || item.quickReplyId ? `<div class="attachment doc"><i class="fa-solid ${item.voice ? "fa-microphone" : "fa-file-lines"}" aria-hidden="true"></i><span class="doc-name">${escapeHtml(fileName)}</span></div>` : "";
+    const text = item.text ? (file ? `<div class="caption">${linkify(escapeHtml(item.text))}</div>` : linkify(escapeHtml(item.text))) : "";
+    const time = new Date(item.createdAt).toLocaleTimeString(crmI18n.locale(), { hour: "numeric", minute: "2-digit" });
+    const tick = failed ? TICKS.failed : `<i class="fa-regular fa-clock tick" title="${escapeHtml(t("outbox.waiting"))}"></i>`;
+    const status = failed
+      ? `<div class="msg-error">${escapeHtml(t("outbox.notSent", { reason: item.error?.message || t("inbox.unknownReason") }))}</div>
+         <div class="msg-wait-actions"><button type="button" class="btn btn-outline msg-wait-btn" data-wait-retry="${id}"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> ${escapeHtml(t("outbox.retry"))}</button><button type="button" class="btn btn-outline msg-wait-btn" data-wait-delete="${id}"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> ${escapeHtml(t("outbox.delete"))}</button></div>`
+      : `<div class="msg-wait"><span>${escapeHtml(t("outbox.waiting"))}</span><button type="button" class="btn btn-outline msg-wait-btn" data-wait-delete="${id}">${escapeHtml(t("outbox.cancel"))}</button></div>`;
+    return `
+      <div class="msg out pending ${failed ? "failed" : ""}" data-local="${id}">
+        <div class="bubble">
+          <div class="bubble-body">${file}${text}</div>
+          <div class="bubble-meta">${escapeHtml(time)} ${tick}</div>
+          ${status}
+        </div>
+      </div>`;
+  }
+
   function renderMessages({ stickToBottom = true } = {}) {
     const box = $("threadMessages");
     const previousHeight = box.scrollHeight;
@@ -398,7 +474,11 @@ crmI18n.ready.then(function inbox() {
       .map((slot) => [slot.dataset.player, slot.querySelector("audio, video")])
       .filter(([, player]) => player)
       .map(([id, player]) => ({ id, player, playing: !player.paused }));
-    $("messageList").innerHTML = state.messages
+    // Phase 7: with no network, when this phone saved the chat; its replies waiting at the end.
+    const copyNote = state.copyAt
+      ? `<div class="copy-note" role="status"><i class="fa-solid fa-plug-circle-xmark" aria-hidden="true"></i> ${escapeHtml(t("inbox.copy.note", { time: new Date(state.copyAt).toLocaleString(crmI18n.locale(), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) }))}</div>`
+      : "";
+    $("messageList").innerHTML = copyNote + state.messages
       .filter((m) => m.type !== "reaction") // shown on the message it is for (CP3)
       .map((m) => {
         const day = dayLabel(new Date(m.at));
@@ -406,9 +486,9 @@ crmI18n.ready.then(function inbox() {
         lastDay = day;
         return separator + messageHtml(m);
       })
-      .join("");
-    if (!state.messages.length) {
-      $("messageList").innerHTML = `<div class="inbox-list-empty">${escapeHtml(t("inbox.empty.messages"))}</div>`;
+      .join("") + state.waiting.map(waitingHtml).join("");
+    if (!state.messages.length && !state.waiting.length) {
+      $("messageList").innerHTML = `${copyNote}<div class="inbox-list-empty">${escapeHtml(t("inbox.empty.messages"))}</div>`;
     }
     players.forEach(({ id, player, playing }) => {
       const slot = document.querySelector(`#messageList [data-player="${CSS.escape(id)}"]`);
@@ -617,10 +697,17 @@ crmI18n.ready.then(function inbox() {
     try {
       if (!c || !fromList) c = await crmApi(`/conversations/${id}`);
     } catch (error) {
-      showToast(apiErrorMessage(error, t("inbox.err.open")), "error");
-      return;
+      // Phase 7: with no network, the chat as the list (this phone's copy) has it.
+      const listed = state.conversations.find((item) => String(item.id) === String(id));
+      if (!error.offline || !listed) {
+        showToast(apiErrorMessage(error, t("inbox.err.open")), "error");
+        return;
+      }
+      c = listed;
     }
     if (!state.current || String(state.current.id) !== String(c.id)) {
+      state.messages = []; // never the last chat's messages under this one's name
+      state.nextBefore = null;
       forgetMedia();
       clearFile();
       hideAiSuggest();
@@ -643,12 +730,34 @@ crmI18n.ready.then(function inbox() {
     const history = new URL(window.location.href);
     history.searchParams.set("c", c.id);
     window.history.replaceState(null, "", history);
+    // Phase 7 (D119): this chat's replies waiting for the network, and what this phone saved of
+    // it — shown at once; the network's answer replaces it.
+    const opening = (state.opening || 0) + 1;
+    state.opening = opening;
+    const stillOpen = () => state.opening === opening && state.current && String(state.current.id) === String(c.id);
+    state.waiting = [];
+    state.copyAt = null;
+    const messagesPath = `/conversations/${c.id}/messages?limit=50`;
+    let fromNetwork = false;
+    crmOutbox.list().then((items) => {
+      if (!stillOpen()) return;
+      state.waiting = items.filter((item) => String(item.conversationId) === String(c.id));
+      if (state.waiting.length || fromNetwork) renderMessages();
+    });
+    crmDevice.copy(messagesPath).then((saved) => {
+      if (!saved || fromNetwork || !stillOpen()) return;
+      state.messages = saved.body.data || [];
+      state.nextBefore = saved.body.nextBefore || null;
+      renderMessages();
+    });
     try {
       const [page, notes] = await Promise.all([
-        crmRequest(`/conversations/${c.id}/messages?limit=50`),
-        crmApi(`/conversations/${c.id}/notes`),
+        crmRequest(messagesPath),
+        crmApi(`/conversations/${c.id}/notes`).catch(() => []),
       ]);
-      if (!state.current || String(state.current.id) !== String(c.id)) return; // another chat was opened meanwhile
+      if (!stillOpen()) return; // another chat was opened meanwhile
+      fromNetwork = true;
+      state.copyAt = page.offlineCopy?.savedAt || null;
       state.messages = page.data;
       state.nextBefore = page.nextBefore;
       state.notes = notes;
@@ -660,7 +769,17 @@ crmI18n.ready.then(function inbox() {
       if (c.unreadCount) markRead();
       if (!$("composerText").disabled) $("composerText").focus();
     } catch (error) {
-      $("messageList").innerHTML = `<div class="inbox-list-empty">${escapeHtml(apiErrorMessage(error, t("inbox.err.loadMessages")))}</div>`;
+      if (!stillOpen() || (error.offline && state.messages.length)) return; // the same chat, already shown
+      // No network and nothing saved of this chat: it says so (its replies waiting still show).
+      const note = `<div class="inbox-list-empty">${escapeHtml(error.offline ? t("inbox.copy.none") : apiErrorMessage(error, t("inbox.err.loadMessages")))}</div>`;
+      state.messages = [];
+      state.nextBefore = null;
+      if (state.waiting.length) {
+        renderMessages();
+        $("messageList").insertAdjacentHTML("afterbegin", note);
+      } else {
+        $("messageList").innerHTML = note;
+      }
     }
   }
 
@@ -762,8 +881,8 @@ crmI18n.ready.then(function inbox() {
   });
   $("fileCancel").addEventListener("click", clearFile);
 
-  function sendRequest(conversation, text) {
-    const headers = { "Idempotency-Key": newIdempotencyKey() };
+  function sendRequest(conversation, text, key) {
+    const headers = { "Idempotency-Key": key };
     // D103: a quick reply's file (from Documents), its text as the caption.
     if (state.file?.quickReplyId) {
       return crmApi(`/conversations/${conversation.id}/messages/quick-reply-file`, {
@@ -787,14 +906,43 @@ crmI18n.ready.then(function inbox() {
     });
   }
 
+  // Phase 7 (D119): with no network — or when it went while sending — the reply waits on the phone
+  // (crmOutbox) under the same Idempotency-Key, and goes once the network is back: a reply that
+  // reached the server but whose answer was lost is never sent twice.
+  async function keepForLater({ key, conversation, text, file, voice, replyTo }) {
+    const entry = { key, conversationId: String(conversation.id), text, ...(replyTo && { replyToMessageId: replyTo.id }) };
+    if (file?.quickReplyId) Object.assign(entry, { quickReplyId: file.quickReplyId, fileName: file.name });
+    else if (file) Object.assign(entry, { file, fileName: file.name, voice: Boolean(voice) });
+    try {
+      await crmOutbox.add(entry);
+    } catch (error) {
+      showToast(t(error.code === "TOO_BIG" ? "outbox.tooBig" : "outbox.notKept"), "error");
+      return;
+    }
+    if (state.current && String(state.current.id) === String(conversation.id)) {
+      composer.value = "";
+      clearFile();
+      autoSize();
+      state.replyTo = null;
+      $("replyBar").hidden = true;
+      syncSendButton();
+    }
+    showToast(t("outbox.kept"), "info");
+  }
+
   async function sendMessage() {
     const text = composer.value.trim();
     if ((!text && !state.file) || !state.current) return;
     const conversation = state.current;
+    const draft = { key: newIdempotencyKey(), conversation, text, file: state.file, voice: state.voice, replyTo: state.replyTo };
+    if (crmNetwork.isOffline()) {
+      await keepForLater(draft);
+      return;
+    }
     const sendButton = $("composerSend");
     sendButton.disabled = true;
     try {
-      const message = await sendRequest(conversation, text);
+      const message = await sendRequest(conversation, text, draft.key);
       composer.value = "";
       clearFile();
       autoSize();
@@ -806,6 +954,10 @@ crmI18n.ready.then(function inbox() {
       }
       if (message.status === "failed") showToast(t("inbox.notSent", { reason: message.error?.message || t("inbox.unknownReason") }), "error");
     } catch (error) {
+      if (error.offline) {
+        await keepForLater(draft);
+        return;
+      }
       if (error.code === "WINDOW_CLOSED" && state.current) {
         state.current.window = { open: false, expiresAt: state.current.window?.expiresAt || null };
         renderThreadHead();
@@ -1025,6 +1177,11 @@ crmI18n.ready.then(function inbox() {
     sendMessage();
   });
   $("messageList").addEventListener("click", async (e) => {
+    // Phase 7: a reply waiting for the network — tried again (a refused one) or not sent at all.
+    const retry = e.target.closest("[data-wait-retry]");
+    if (retry) return crmOutbox.retry(retry.dataset.waitRetry);
+    const drop = e.target.closest("[data-wait-delete]");
+    if (drop) return crmOutbox.remove(drop.dataset.waitDelete);
     const photo = e.target.closest("[data-photo]");
     if (photo) {
       const url = mediaUrls.get(photo.dataset.photo);
@@ -2184,11 +2341,53 @@ crmI18n.ready.then(function inbox() {
     }
   }
 
-  // After a reconnect the page reloads what it may have missed.
-  async function resync() {
-    await Promise.all([loadConversations(), loadSummary()]);
-    if (state.current) openConversation(state.current.id, { fromList: false });
+  // After a reconnect the page reloads what it may have missed (once at a time).
+  let resyncing = null;
+  function resync() {
+    resyncing = resyncing || (async () => {
+      state.fromCopy = false;
+      await Promise.all([loadConversations(), loadSummary()]);
+      if (state.current) await openConversation(state.current.id, { fromList: false });
+    })().finally(() => {
+      resyncing = null;
+    });
+    return resyncing;
   }
+
+  // Phase 7 (D119): this chat's replies waiting for the network, kept up to date. The thread is
+  // drawn again only when they changed, and stays where it was unless it was at the end.
+  const nearEnd = () => {
+    const box = $("threadMessages");
+    return box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  };
+  async function refreshWaiting({ force = false } = {}) {
+    const id = state.current?.id;
+    if (!id) return;
+    const items = (await crmOutbox.list()).filter((item) => String(item.conversationId) === String(id));
+    if (!state.current || String(state.current.id) !== String(id)) return;
+    const signature = (list) => list.map((item) => `${item.id}:${item.status}`).join(",");
+    if (!force && signature(items) === signature(state.waiting)) return;
+    const added = items.some((item) => !state.waiting.some((known) => known.id === item.id));
+    const stick = added || nearEnd();
+    state.waiting = items;
+    renderMessages({ stickToBottom: stick });
+  }
+  document.addEventListener("crm:outbox", () => refreshWaiting());
+  document.addEventListener("crm:outbox-sent", ({ detail }) => {
+    const here = detail.message?.id && state.current && String(state.current.id) === String(detail.item.conversationId);
+    if (here) addOrReplaceMessage(detail.message);
+    refreshWaiting({ force: Boolean(here) });
+  });
+  document.addEventListener("crm:outbox-failed", ({ detail }) => {
+    showToast(t("outbox.notSent", { reason: detail.item.error?.message || t("inbox.unknownReason") }), "error");
+  });
+  // Something shown came from this phone's copy: the newest from the server once the network is back.
+  document.addEventListener("crm:copy", () => {
+    state.fromCopy = true;
+  });
+  document.addEventListener("crm:online", () => {
+    if (state.fromCopy) resync();
+  });
 
   function loadSocketClient(origin) {
     if (window.io) return Promise.resolve();
@@ -2207,6 +2406,8 @@ crmI18n.ready.then(function inbox() {
       await loadSocketClient(origin);
     } catch {
       setLive("offline", t("inbox.live.unavailable"));
+      // Phase 7: opened with no network (and no copy of the script): tried again once it is back.
+      document.addEventListener("crm:online", connectLive, { once: true });
       return;
     }
     let authFailures = 0;
@@ -2218,7 +2419,7 @@ crmI18n.ready.then(function inbox() {
     socket.on("connect", () => {
       authFailures = 0;
       setLive("online");
-      if (hadConnection) resync();
+      if (hadConnection || state.fromCopy) resync(); // Phase 7: also after opening with no network
       hadConnection = true;
     });
     socket.on("disconnect", (reason) => {
@@ -2283,6 +2484,10 @@ crmI18n.ready.then(function inbox() {
   $("threadCall").addEventListener("click", () => crmWhatsAppCalls.start(state.current));
   $("threadBot").addEventListener("click", toggleBot);
   $("aiSuggestBtn").addEventListener("click", suggestReplies);
+  // Phase 7 (D119): the chats this phone saved at once, and the network's list asked for now, not
+  // after the team's names (one round trip less on a phone's 4G).
+  showSaved();
+  const firstLoad = Promise.all([loadConversations(), loadSummary(), loadQuickReplies()]);
   crmReady(["members"], async () => {
     updateNotifyButton();
     crmApi("/bot/status").then((status) => {
@@ -2301,7 +2506,8 @@ crmI18n.ready.then(function inbox() {
         renderList();
       }).catch(() => {});
     }
-    await Promise.all([loadConversations(), loadSummary(), loadQuickReplies()]);
+    await firstLoad;
+    renderList(); // with the team's names
     const deepLink = new URLSearchParams(window.location.search).get("c");
     if (deepLink) {
       const opening = openConversation(deepLink, { fromList: false });

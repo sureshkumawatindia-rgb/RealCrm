@@ -6,6 +6,9 @@ const path = require('path');
 // in localStorage (app.js KEYS), plus three sessionStorage flags around sign-in. Settings → Data &
 // Privacy is the one screen that still reads the old browser keys, to move them to the server
 // (and to export or clear them).
+// The phone app (Phase 7, D119) is the one other place: js/app.js keeps a copy of the Inbox's last
+// answers and the replies waiting for the network in IndexedDB (crmDevice), for the signed-in
+// member, for when the network is gone — never instead of the server, deleted at sign-out.
 const FRONTEND = path.resolve(__dirname, '..', '..', '..', 'crm', 'frontend');
 const SIGN_IN_KEYS = new Set(['crm_session', 'crm_user', 'crm_member', 'crm_company', 'crm_prefs', 'crm_pending_invite', 'crm_session_expired', 'crm_pending_link']);
 const MIGRATION_SCREEN = 'js/settings.js';

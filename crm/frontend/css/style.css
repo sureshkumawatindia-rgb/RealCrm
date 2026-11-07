@@ -2633,10 +2633,15 @@ body.crm-loading::before {
   gap: 12px;
   padding: 10px 16px;
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-text); /* Phase 7: easy to read in both themes (it shows with no network) */
   font-size: 13px;
   font-weight: 600;
   border-bottom: 1px solid rgba(220, 38, 38, 0.25);
+}
+/* Its "Try again" stays on one line on a phone. */
+.crm-load-error .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* A page that holds only the newest records of a long list says so (D115, app.js
@@ -5964,4 +5969,137 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   background: #054c44;
   border-color: #054c44;
   color: #fff;
+}
+
+/* ============================================================
+   THE PHONE APP (Phase 7, D119, docs/PHONE_APP.md): "Offline" in the
+   top bar (app.js crmNetwork), the note at the bottom ("The CRM was
+   updated — Refresh", app.js crmBottomNote) and "Install the app" in
+   the language and theme menu.
+   ============================================================ */
+.crm-net[hidden] {
+  display: none;
+}
+.crm-net {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-left: 8px;
+  padding: 0 12px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 159, 10, 0.45);
+  border-radius: var(--radius-pill);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.crm-net.is-back {
+  border-color: rgba(31, 169, 113, 0.4);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.crm-net.is-back i::before {
+  content: "\f00c"; /* a tick: back online */
+}
+.crm-net__count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--warning-text);
+  color: var(--surface);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+.crm-net__count[hidden] {
+  display: none;
+}
+/* First of the top bar's buttons when shown; hidden, the buttons sit as before. */
+.topbar > .crm-net {
+  margin-left: auto;
+}
+.topbar > .topbar-search + .crm-net,
+.topbar > .crm-net + .crm-help-btn,
+.topbar > .crm-net + .crm-prefs {
+  margin-left: 4px;
+}
+.topbar > .crm-net[hidden] + .crm-help-btn,
+.topbar > .crm-net[hidden] + .crm-prefs {
+  margin-left: auto;
+}
+.topbar > .topbar-search + .crm-net[hidden] + .crm-help-btn,
+.topbar > .topbar-search + .crm-net[hidden] + .crm-prefs {
+  margin-left: 4px;
+}
+@media (max-width: 520px) {
+  .crm-net {
+    padding: 0 10px;
+  }
+  .crm-net__text {
+    display: none;
+  }
+}
+.crm-bottom-note {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 10px 10px 10px 16px;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--pop-6);
+  font-size: 13.5px;
+  color: var(--text);
+}
+.crm-bottom-note > i {
+  color: var(--text-muted);
+}
+.crm-bottom-note__text {
+  min-width: 0;
+  line-height: 1.4;
+}
+.crm-bottom-note .btn {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  font-size: 13px;
+}
+.crm-bottom-note .icon-btn {
+  flex-shrink: 0;
+}
+.crm-prefs__install[hidden] {
+  display: none;
+}
+.crm-prefs__install {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  margin-top: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--brand-dark);
+  border-radius: var(--radius-sm);
+  background: var(--brand-light);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.crm-prefs__install:hover {
+  box-shadow: 0 0 0 3px var(--brand-ring);
 }

@@ -127,6 +127,8 @@ npx pm2 install pm2-logrotate        # log rotation (10 MB × 10 files by defaul
 
 Data migrations run by themselves at start. Each runs once and is safe to repeat. New indexes are built by MongoDB. Take a backup first (section 7).
 
+The phone app (Phase 7, `PHONE_APP.md`) notices an update by itself: the server writes the list of the CRM's files into `/crm/frontend/sw.js`, and phones download only the files that changed. A CDN or proxy in front must not cache `sw.js` (it is sent with `Cache-Control: no-cache`) and should pass `Content-Encoding` through (the server already compresses).
+
 ## 6. After the first start: webhooks and keys
 
 Register these addresses, all on the new domain:

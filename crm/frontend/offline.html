@@ -42,15 +42,29 @@
         color: var(--muted);
         max-width: 340px;
       }
-      button {
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+      button,
+      .actions a {
         border: 0;
         border-radius: 999px;
         padding: 10px 20px;
+        font: inherit;
         font-size: 15px;
         font-weight: 600;
         background: var(--brand);
         color: #1d1d1f;
         cursor: pointer;
+        text-decoration: none;
+      }
+      .actions a {
+        background: transparent;
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px var(--muted);
       }
     </style>
   </head>
@@ -58,8 +72,12 @@
     <main>
       <img src="./img/icons/icon-192.png" alt="YELLOW CRM" />
       <h1 data-hi="आप ऑफ़लाइन हैं">You are offline</h1>
-      <p data-hi="आपकी चैट, लीड और ऑर्डर दिखाने के लिए CRM को इंटरनेट चाहिए। इंटरनेट आते ही यह फिर खुल जाएगा।">The CRM needs the internet to show your chats, leads and orders. It opens again as soon as you are back online.</p>
-      <button type="button" onclick="location.reload()" data-hi="फिर कोशिश करें">Try again</button>
+      <!-- Phase 7 (D119): pages opened before, and the Inbox, open with no network. -->
+      <p data-hi="इस फ़ोन पर यह पेज पहली बार खोलने के लिए इंटरनेट चाहिए। पहले खोले गए पेज और आपका इनबॉक्स बिना इंटरनेट के भी खुलते हैं।">This page needs the internet the first time it opens on this phone. Pages you opened before, and your Inbox, open without it.</p>
+      <div class="actions">
+        <button type="button" onclick="location.reload()" data-hi="फिर कोशिश करें">Try again</button>
+        <a href="Inbox.html" data-hi="इनबॉक्स खोलें">Open the Inbox</a>
+      </div>
     </main>
     <script>
       // No other script loads on this page (D116): its Hindi (data-hi) when the person chose

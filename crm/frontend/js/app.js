@@ -93,21 +93,473 @@ function refreshAccessToken(staleToken) {
   return refreshInFlight;
 }
 
+// ---------------------------------------------------------------
+// The phone app with no network (Phase 7, D119; docs/PHONE_APP.md).
+// crmDevice: this browser's own store (IndexedDB "ycrm-device"), per signed-in member (their
+//   membership in this company): the Inbox's last answers ("copies", shown when the network is
+//   gone) and the replies waiting for it ("outbox"). The server stays the one true record; copies
+//   go at sign-out and when the session ends, the outbox at sign-out (asked first). Customers'
+//   numbers are kept as the member sees them (masked for agents, D65).
+// crmNetwork: online or not, the top bar's "Offline" chip, and "crm:online" once it is back.
+// crmOutbox: replies written with no network, sent in order once it is back, each with its own
+//   Idempotency-Key: a reply whose answer was lost on the way is sent once, never twice.
+// ---------------------------------------------------------------
+const crmDevice = (() => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const COPY_LIMIT = 300; // answers kept per member, the oldest go first
+  const COPY_DAYS = 14;
+  const COPY_MAX_CHARS = 600 * 1024; // a larger answer is not kept
+  const ID = "[0-9a-f]{24}";
+  // The Inbox's answers: the chat lists (not a search), the counts, a chat, its newest messages,
+  // notes, texts waiting, blocking, the customer's details beside it; quick replies, approved
+  // templates and the team's names.
+  const KEEP = [
+    /^\/conversations\?(?!(.*&)?q=)[^?]*$/,
+    /^\/conversations\/summary$/,
+    new RegExp(`^/conversations/${ID}$`),
+    new RegExp(`^/conversations/${ID}/messages\\?limit=\\d+$`),
+    new RegExp(`^/conversations/${ID}/(notes|scheduled|block)$`),
+    new RegExp(`^/(leads|quotations|orders)\\?contactId=${ID}&limit=\\d+$`),
+    new RegExp(`^/tasks\\?relatedType=Customer&relatedId=${ID}&limit=\\d+$`),
+    new RegExp(`^/contacts/${ID}$`),
+    /^\/quick-replies$/,
+    /^\/templates\?status=APPROVED$/,
+    /^\/members\?page=\d+&limit=100$/,
+  ];
+  let opening = null;
+  let writes = 0;
+
+  function open() {
+    if (!window.indexedDB) return Promise.reject(new Error("no IndexedDB")); // i18n-ok: never shown
+    if (!opening) {
+      opening = new Promise((resolve, reject) => {
+        const request = indexedDB.open("ycrm-device", 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          db.createObjectStore("copies", { keyPath: "key" }).createIndex("byMemberTime", ["scope", "savedAt"]);
+          db.createObjectStore("outbox", { keyPath: "id" }).createIndex("byMember", "scope");
+        };
+        request.onsuccess = () => {
+          request.result.onversionchange = () => {
+            request.result.close();
+            opening = null;
+          };
+          resolve(request.result);
+        };
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => reject(new Error("blocked")); // i18n-ok: never shown
+      });
+      opening.catch(() => {
+        opening = null;
+      });
+    }
+    return opening;
+  }
+  // One request in its own transaction → its result, once the transaction is done.
+  async function run(storeName, mode, make) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, mode);
+      const request = make(tx.objectStore(storeName));
+      tx.oncomplete = () => resolve(request?.result);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+  // The signed-in member (a membership is one person in one company).
+  const scope = () => {
+    const member = getCurrentMember();
+    return member?.id ? String(member.id) : null;
+  };
+
+  const keeps = (path) => KEEP.some((pattern) => pattern.test(path));
+  async function saveCopy(path, body, size) {
+    const who = scope();
+    if (!who || size > COPY_MAX_CHARS) return;
+    try {
+      await run("copies", "readwrite", (store) => store.put({ key: `${who}|${path}`, scope: who, path, body, savedAt: Date.now() }));
+      writes += 1;
+      if (writes % 25 === 1) await prune(who);
+    } catch {
+      /* not kept (storage blocked or full): the network's answer was shown anyway */
+    }
+  }
+  // { body, savedAt } kept for this member, or null.
+  async function copy(path) {
+    const who = scope();
+    if (!who) return null;
+    try {
+      const found = await run("copies", "readonly", (store) => store.get(`${who}|${path}`));
+      return found && Date.now() - found.savedAt < COPY_DAYS * DAY ? found : null;
+    } catch {
+      return null;
+    }
+  }
+  // Over the limit, or older than COPY_DAYS: the oldest go.
+  async function prune(who) {
+    const db = await open();
+    await new Promise((resolve) => {
+      const tx = db.transaction("copies", "readwrite");
+      const store = tx.objectStore("copies");
+      const range = IDBKeyRange.bound([who, 0], [who, Infinity]);
+      const counting = store.index("byMemberTime").count(range);
+      counting.onsuccess = () => {
+        let extra = counting.result - COPY_LIMIT;
+        const cutoff = Date.now() - COPY_DAYS * DAY;
+        store.index("byMemberTime").openKeyCursor(range).onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (!cursor || (extra <= 0 && cursor.key[1] >= cutoff)) return;
+          store.delete(cursor.primaryKey);
+          extra -= 1;
+          cursor.continue();
+        };
+      };
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
+      tx.onabort = resolve;
+    });
+  }
+  // A copy answering for the network: the page's answer, marked with when it was saved.
+  let shownCopyAt = 0;
+  function fromCopy(saved) {
+    shownCopyAt = Math.max(shownCopyAt, saved.savedAt);
+    document.dispatchEvent(new CustomEvent("crm:copy", { detail: { savedAt: saved.savedAt } }));
+    return { ...saved.body, offlineCopy: { savedAt: saved.savedAt } };
+  }
+
+  const outbox = {
+    put: (item) => run("outbox", "readwrite", (store) => store.put(item)),
+    remove: (id) => run("outbox", "readwrite", (store) => store.delete(id)),
+    get: (id) => run("outbox", "readonly", (store) => store.get(id)),
+    // This member's, oldest first.
+    async list() {
+      const who = scope();
+      if (!who) return [];
+      try {
+        const items = await run("outbox", "readonly", (store) => store.index("byMember").getAll(who));
+        return (items || []).sort((a, b) => a.createdAt - b.createdAt);
+      } catch {
+        return [];
+      }
+    },
+  };
+
+  const clear = (names) => Promise.all(names.map((name) => run(name, "readwrite", (store) => store.clear())));
+  return {
+    scope,
+    keeps,
+    saveCopy,
+    copy,
+    fromCopy,
+    shownCopyAt: () => shownCopyAt,
+    outbox,
+    // When the session ends: the copies (the replies waiting stay for the same member's next sign-in).
+    forgetCopies: () => clear(["copies"]).catch(() => {}),
+    // A page with nobody signed in: copies a closed tab may have left, and replies left waiting for a
+    // week by someone who never signed in here again (only if the store exists).
+    async forgetLeftovers() {
+      try {
+        if (!(await indexedDB.databases?.())?.some((db) => db.name === "ycrm-device")) return;
+        await clear(["copies"]);
+        const week = Date.now() - 7 * DAY;
+        const items = (await run("outbox", "readonly", (store) => store.getAll())) || [];
+        await Promise.all(items.filter((item) => item.createdAt < week).map((item) => run("outbox", "readwrite", (store) => store.delete(item.id))));
+      } catch {
+        /* nothing to clear */
+      }
+    },
+    // Sign-out: everything this browser kept.
+    forgetAll: () => clear(["copies", "outbox"]).catch(() => {}),
+  };
+})();
+
+const crmNetwork = (() => {
+  let offline = navigator.onLine === false;
+  let timer = null;
+  let delay = 5000;
+  let back = false; // "Back online", for 4 seconds after the network returns
+  let backTimer = null;
+  let summary = ""; // what the chip says, for the note a tap shows
+  const byId = (id) => document.getElementById(id);
+
+  function set(next) {
+    if (offline === next) return;
+    offline = next;
+    clearTimeout(timer);
+    clearTimeout(backTimer);
+    back = !offline;
+    if (offline) {
+      delay = 5000;
+      timer = setTimeout(check, delay);
+    } else {
+      backTimer = setTimeout(() => {
+        back = false;
+        render();
+      }, 4000);
+    }
+    render();
+    document.dispatchEvent(new CustomEvent("crm:network", { detail: { offline } }));
+    if (!offline) {
+      document.dispatchEvent(new CustomEvent("crm:online"));
+      crmOutbox.flush();
+    }
+  }
+  // Is the CRM reachable? Tried again after 5, 10, 20 … up to 60 seconds while it is not.
+  async function check() {
+    clearTimeout(timer);
+    try {
+      const response = await fetch(`${CRM_API_BASE}/health`, { cache: "no-store" });
+      if (response.status < 500) {
+        set(false);
+        return;
+      }
+    } catch {
+      /* still no network */
+    }
+    if (!offline) {
+      set(true);
+      return;
+    }
+    delay = Math.min(delay * 2, 60000);
+    timer = setTimeout(check, delay);
+    render();
+  }
+  window.addEventListener("online", () => {
+    delay = 2500;
+    check();
+  });
+  window.addEventListener("offline", () => set(true));
+
+  // The top bar's chip: shown with no network (with the replies waiting), "Back online" a moment after.
+  async function render() {
+    const chip = byId("crmNet");
+    if (!chip) return;
+    const waiting = (await crmOutbox.list()).filter((item) => item.status === "waiting").length;
+    chip.classList.toggle("is-back", back && !offline);
+    chip.hidden = !offline && !back;
+    const text = offline ? t(navigator.onLine === false ? "net.offline" : "net.unreachable") : t("net.back");
+    chip.querySelector(".crm-net__text").textContent = text;
+    chip.querySelector(".crm-net__count").textContent = waiting ? String(waiting) : "";
+    chip.querySelector(".crm-net__count").hidden = !waiting;
+    const saved = crmDevice.shownCopyAt();
+    const when = saved ? new Date(saved).toLocaleTimeString(crmI18n.locale(), { hour: "numeric", minute: "2-digit" }) : "";
+    const details = [text];
+    if (offline && when) details.push(t("net.savedAt", { time: when }));
+    if (waiting) details.push(t(waiting === 1 ? "net.waiting.one" : "net.waiting.many", { n: waiting }));
+    summary = details.join(" · ");
+    chip.title = offline ? `${summary} · ${t("net.tapToCheck")}` : summary;
+    chip.setAttribute("aria-label", chip.title);
+  }
+  function mount() {
+    const next = byId("crmHelpBtn") || byId("crmPrefs") || byId("crmBell");
+    if (!next || byId("crmNet")) return;
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.id = "crmNet";
+    chip.className = "crm-net";
+    chip.hidden = true;
+    chip.innerHTML = '<i class="fa-solid fa-plug-circle-xmark" aria-hidden="true"></i><span class="crm-net__text"></span><span class="crm-net__count" hidden></span>';
+    chip.addEventListener("click", () => {
+      if (offline) {
+        delay = 2500;
+        check();
+      }
+      showToast(summary, offline ? "error" : "info");
+    });
+    next.parentElement.insertBefore(chip, next);
+    render();
+  }
+  document.addEventListener("crm:outbox", () => render());
+  document.addEventListener("crm:copy", () => render());
+  if (offline) timer = setTimeout(check, delay);
+  return {
+    isOffline: () => offline,
+    failed: () => set(true),
+    reached: () => set(false),
+    check,
+    mount,
+  };
+})();
+
+const crmOutbox = (() => {
+  const MAX_FILE = 25 * 1024 * 1024; // larger files are not kept for later
+  // A reply that waited longer is not sent by itself: it may no longer fit the chat (and the server
+  // remembers a reply's Idempotency-Key for a day). The person sends it again, or deletes it.
+  const TOO_OLD_MS = 24 * 60 * 60 * 1000;
+  let flushing = null;
+  const changed = () => document.dispatchEvent(new CustomEvent("crm:outbox"));
+
+  // { key (Idempotency-Key), conversationId, text, replyToMessageId, file (File/Blob), fileName,
+  //   voice, quickReplyId } → kept, waiting.
+  async function add(entry) {
+    const scope = crmDevice.scope();
+    if (!scope) throw new Error("not signed in"); // i18n-ok: never shown
+    if (entry.file && entry.file.size > MAX_FILE) {
+      const error = new Error("too big"); // i18n-ok: never shown
+      error.code = "TOO_BIG";
+      throw error;
+    }
+    const now = Date.now();
+    const item = { ...entry, id: entry.key, scope, status: "waiting", attempts: 0, createdAt: now, queuedAt: now };
+    await crmDevice.outbox.put(item);
+    changed();
+    // The network may be back already.
+    crmNetwork.check().then(() => {
+      if (!crmNetwork.isOffline()) flush();
+    });
+    return item;
+  }
+
+  function requestOf(item) {
+    const headers = { "Idempotency-Key": item.key };
+    const base = `/conversations/${encodeURIComponent(item.conversationId)}/messages`;
+    const reply = item.replyToMessageId ? { replyToMessageId: item.replyToMessageId } : {};
+    if (item.quickReplyId) {
+      return [`${base}/quick-reply-file`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ quickReplyId: item.quickReplyId, caption: item.text || "", ...reply }) }];
+    }
+    if (item.file) {
+      const form = new FormData();
+      form.append("file", item.file, item.fileName || "file");
+      if (item.text) form.append("caption", item.text);
+      if (item.voice) form.append("voice", "true");
+      if (item.replyToMessageId) form.append("replyToMessageId", item.replyToMessageId);
+      return [`${base}/media`, { method: "POST", headers, body: form }];
+    }
+    return [base, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ text: item.text, ...reply }) }];
+  }
+
+  // Not sent: it stays in its chat with the reason, Try again and Delete.
+  async function refuse(item, error) {
+    item.status = "failed";
+    item.error = error;
+    await crmDevice.outbox.put(item).catch(() => {});
+    document.dispatchEvent(new CustomEvent("crm:outbox-failed", { detail: { item } }));
+  }
+
+  // true: go on with the next one; false: stop (no network again).
+  async function sendOne(item) {
+    if (Date.now() - (item.queuedAt || item.createdAt) > TOO_OLD_MS) {
+      await refuse(item, { code: "TOO_OLD", message: t("outbox.tooOld") });
+      return true;
+    }
+    try {
+      const message = await crmApi(...requestOf(item));
+      await crmDevice.outbox.remove(item.id);
+      document.dispatchEvent(new CustomEvent("crm:outbox-sent", { detail: { item, message } }));
+      return true;
+    } catch (error) {
+      item.attempts += 1;
+      // No network, signed out meanwhile, too many at once, the server busy, or this very reply
+      // still being sent: later, with the same key.
+      const later = error.offline || [401, 429].includes(error.status) || error.code === "IDEMPOTENCY_IN_PROGRESS" || (error.status >= 500 && item.attempts < 5);
+      // The server said no (e.g. the 24-hour window closed while it waited): the person decides.
+      if (later) await crmDevice.outbox.put(item).catch(() => {});
+      else await refuse(item, { code: error.code || "", message: apiErrorMessage(error, t("outbox.failed")) });
+      return !later || !(error.offline || error.status === 401);
+    }
+  }
+
+  // Sends what is waiting, oldest first; one tab at a time (Web Locks). What could not go yet
+  // (the server busy, or the same reply still being sent) is tried again in 10 seconds.
+  let again = null;
+  function flush() {
+    if (flushing) return flushing;
+    clearTimeout(again);
+    flushing = (async () => {
+      let left = 0;
+      const send = async () => {
+        left = 0;
+        for (const item of await crmDevice.outbox.list()) {
+          if (item.status !== "waiting") continue;
+          if (crmNetwork.isOffline() || !(await sendOne(item))) {
+            left += 1;
+            break;
+          }
+          if ((await crmDevice.outbox.get(item.id).catch(() => null))?.status === "waiting") left += 1;
+        }
+      };
+      try {
+        await (navigator.locks?.request ? navigator.locks.request("crm-outbox", send) : send());
+      } catch {
+        /* storage blocked: nothing was kept */
+      }
+      if (left && !crmNetwork.isOffline()) again = setTimeout(flush, 10000);
+    })().finally(() => {
+      flushing = null;
+      changed();
+    });
+    return flushing;
+  }
+
+  // A reply the server refused, tried again: a new key (the old one's answer was the refusal).
+  async function retry(id) {
+    const item = await crmDevice.outbox.get(id);
+    if (!item) return;
+    await crmDevice.outbox.put({ ...item, key: newIdempotencyKey(), status: "waiting", error: null, attempts: 0, queuedAt: Date.now() });
+    changed();
+    flush();
+  }
+  async function remove(id) {
+    await crmDevice.outbox.remove(id);
+    changed();
+  }
+  return { add, list: () => crmDevice.outbox.list(), flush, retry, remove, MAX_FILE };
+})();
+
+// The error a page shows when the CRM cannot be reached (no network, or the server is down).
+async function crmOfflineError() {
+  await crmI18n.ready.catch(() => {});
+  const developer = !/^https?:$/.test(window.location.protocol) || ["5500", "5501"].includes(window.location.port);
+  const key = navigator.onLine === false ? "net.error.offline" : "net.error.unreachable";
+  const error = new Error(developer
+    ? `CRM API is unreachable at ${CRM_API_BASE}. Start the backend and verify its port.` // i18n-ok: for the developer (VS Code's Live Server)
+    : crmI18n.has(key) ? t(key) : "No connection to the CRM. Check the internet and try again."); // i18n-ok: only when the texts could not load
+  error.offline = true;
+  error.code = "OFFLINE";
+  return error;
+}
+
 // Returns the whole response body ({ data, pagination, ... }), or a Blob for { blob: true }
-// (file downloads); throws with status/code/errors.
+// (file downloads); throws with status/code/errors. Phase 7: the Inbox's answers are kept on the
+// phone (crmDevice) and stand in for the network when it is gone.
 async function crmRequest(path, options = {}, { retried = false, blob = false } = {}) {
   if (leavingPage) return new Promise(() => {}); // the browser is already on its way elsewhere
   const headers = new Headers(options.headers || {});
   const session = localStorage.getItem(KEYS.SESSION);
   if (session) headers.set("Authorization", `Bearer ${session}`);
+  const keep = !blob && String(options.method || "GET").toUpperCase() === "GET" && crmDevice.keeps(path);
   let response;
   try {
     response = await fetch(`${CRM_API_BASE}${path}`, { credentials: "include", ...options, headers });
-  } catch (error) {
-    throw new Error(`CRM API is unreachable at ${CRM_API_BASE}. Start the backend and verify its port.`); // i18n-ok: for the developer, may come before the texts
+  } catch {
+    crmNetwork.failed();
+    const saved = keep ? await crmDevice.copy(path) : null;
+    if (saved) {
+      await crmI18n.ready.catch(() => {});
+      return crmDevice.fromCopy(saved);
+    }
+    throw await crmOfflineError();
+  }
+  // The server is down behind its proxy: as with no network.
+  if ([502, 503, 504].includes(response.status)) {
+    crmNetwork.failed();
+    const saved = keep ? await crmDevice.copy(path) : null;
+    if (saved) {
+      await crmI18n.ready.catch(() => {});
+      return crmDevice.fromCopy(saved);
+    }
+  } else {
+    crmNetwork.reached();
   }
   if (blob && response.ok) return response.blob();
-  const body = await response.json().catch(() => ({}));
+  const text = await response.text().catch(() => "");
+  let body = {};
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    body = {};
+  }
+  if (keep && response.ok) crmDevice.saveCopy(path, body, text.length);
   // What a page draws from the answer needs its texts: t() only knows them once they are in (D116).
   await crmI18n.ready.catch(() => {});
   // A wrong sign-in code (OTP_…, or the authenticator app's TOTP_…) is a 401 too, but not an ended session.
@@ -231,11 +683,13 @@ function crmPreferences() {
 const crmI18n = (() => {
   let language = crmPreferences().language;
   const texts = {};
+  // Phase 7 (D119): js/boot.js has usually started these downloads already, in the page's <head>,
+  // with the page's own files (on a phone's 4G a whole step sooner than from here).
+  const early = window.crmTextsEarly || {};
   const load = (code) =>
     texts[code]
       ? Promise.resolve(texts[code])
-      : fetch(`i18n/${code}.json`)
-          .then((response) => (response.ok ? response.json() : {}))
+      : (early[code] || fetch(`i18n/${code}.json`).then((response) => (response.ok ? response.json() : {})))
           .catch(() => ({}))
           .then((data) => {
             texts[code] = data;
@@ -339,6 +793,9 @@ function requireAuth() {
   }
 }
 
+// Nobody signed in on this browser: nothing of a member's stays on it (Phase 7).
+if (!isAuthenticated()) crmDevice.forgetLeftovers();
+
 // Shared guard: every page except login/index needs a session.
 if (!PUBLIC_PAGES.has(currentPageName()) && !isAuthenticated()) {
   // A phone that scanned a computer's QR code before signing in comes back to it afterwards.
@@ -353,6 +810,7 @@ function clearSession() {
   localStorage.removeItem(KEYS.USER);
   localStorage.removeItem(KEYS.MEMBER);
   localStorage.removeItem(KEYS.COMPANY);
+  crmDevice.forgetCopies(); // Phase 7: the Inbox's copies on this phone
 }
 
 // The session can no longer be refreshed (expired, signed out elsewhere, removed from the team).
@@ -363,12 +821,16 @@ function endSession() {
 }
 
 async function logout() {
+  // Phase 7: replies still waiting for the network would be lost — asked first.
+  const waiting = (await crmOutbox.list()).length;
+  if (waiting && !window.confirm(t(waiting === 1 ? "outbox.signOut.one" : "outbox.signOut.many", { n: waiting }))) return;
   try {
     await fetch(`${CRM_API_BASE}/auth/logout`, { method: "POST", credentials: "include" });
   } catch {
     // Offline: the refresh token expires on its own; still sign out locally.
   }
   clearSession();
+  await crmDevice.forgetAll(); // everything this browser kept for the member
   window.location.href = "login.html";
 }
 
@@ -669,6 +1131,12 @@ async function crmReady(names, onReady) {
     banner.querySelector("span").textContent = t("common.loadFailed", { reason: error.message || t("common.unknownError") });
     banner.querySelector("button").addEventListener("click", () => crmReady(names, onReady));
     document.body.prepend(banner);
+    // Phase 7: with no network, the page loads by itself once it is back.
+    if (error.offline) {
+      document.addEventListener("crm:online", () => {
+        if (banner.isConnected) crmReady(names, onReady);
+      }, { once: true });
+    }
   }
 }
 
@@ -1361,8 +1829,20 @@ const crmPrefsMenu = (() => {
           ${CRM_THEMES.map((theme) => `<button type="button" role="radio" data-theme-choice="${theme}"><i class="fa-solid ${THEME_ICONS[theme]}"></i> ${escapeHtml(t(`prefs.${theme}`))}</button>`).join("")}
         </div>
         <p class="crm-prefs__hint">${escapeHtml(t("prefs.hint"))}</p>
+        <button type="button" class="crm-prefs__install" id="crmInstallBtn" hidden><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> ${escapeHtml(t("install.button"))}</button>
       </div>`;
     bell.parentElement.insertBefore(box, bell);
+    // Phase 7: "Install the app" where the browser offers it (or on an iPhone, its steps).
+    const installButton = byId("crmInstallBtn");
+    const syncInstall = () => {
+      installButton.hidden = !crmInstall.available();
+    };
+    syncInstall();
+    document.addEventListener("crm:install", syncInstall);
+    installButton.addEventListener("click", () => {
+      setOpen(false);
+      crmInstall.install();
+    });
 
     byId("crmPrefsBtn").addEventListener("click", (event) => {
       event.stopPropagation();
@@ -2132,8 +2612,8 @@ function fillSearchFromAddress() {
 
 // ---------------------------------------------------------------
 // Installable app and web push (Phase 10E): every page links the manifest and registers the
-// service worker (sw.js: offline notice, push notifications). Browsers allow both only on
-// https or this computer (127.0.0.1 / localhost).
+// service worker (sw.js: push notifications; Phase 7, D119: the CRM's files kept on the phone).
+// Browsers allow both only on https or this computer (127.0.0.1 / localhost).
 // ---------------------------------------------------------------
 (function installableApp() {
   const head = document.head;
@@ -2144,15 +2624,90 @@ function fillSearchFromAddress() {
     Object.entries(attributes).forEach(([key, value]) => el.setAttribute(key, value));
     head.appendChild(el);
   };
-  add("link", { rel: "manifest", href: "manifest.webmanifest" });
+  // The app's names and shortcuts in the person's language (installed from a Hindi page: Hindi).
+  add("link", { rel: "manifest", href: crmPreferences().language === "hi" ? "manifest-hi.webmanifest" : "manifest.webmanifest" });
   add("link", { rel: "icon", type: "image/png", href: "img/icons/icon-192.png" });
   add("link", { rel: "apple-touch-icon", href: "img/icons/icon-192.png" });
   add("meta", { rel: "theme-color", name: "theme-color", content: "#ffde59" });
-  if ("serviceWorker" in navigator && window.isSecureContext) {
-    navigator.serviceWorker.register("sw.js").catch(() => {
-      /* the app works without it */
+  add("meta", { name: "mobile-web-app-capable", content: "yes" });
+  add("meta", { name: "apple-mobile-web-app-capable", content: "yes" });
+  add("meta", { name: "apple-mobile-web-app-title", content: "YELLOW CRM" });
+  add("meta", { name: "apple-mobile-web-app-status-bar-style", content: "default" });
+  if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+  const sw = navigator.serviceWorker;
+  // The files are on the phone once a service worker with the file list runs this page:
+  // data-app-ready="1" (the end-to-end tests wait for it).
+  sw.addEventListener("message", (event) => {
+    if (event.data?.type === "ycrm:state" && event.data.kept && sw.controller) document.documentElement.dataset.appReady = "1";
+  });
+  const askState = () => sw.controller?.postMessage({ type: "ycrm:state" });
+  // A new version of the CRM's files took over this open page: "Refresh" shows it.
+  let hadController = Boolean(sw.controller);
+  sw.addEventListener("controllerchange", () => {
+    if (hadController) {
+      crmBottomNote.show({ id: "crmUpdateNote", icon: "fa-rotate", text: "app.updated.text", button: "app.updated.refresh", onButton: () => window.location.reload() });
+    }
+    hadController = true;
+    askState();
+  });
+  // Registered once the page has loaded, so its first download never waits for the app's files.
+  const register = () => sw.register("sw.js").then(askState).catch(() => {
+    /* the app works without it */
+  });
+  if (document.readyState === "complete") setTimeout(register, 1000);
+  else window.addEventListener("load", () => setTimeout(register, 1000), { once: true });
+})();
+
+// A note at the bottom of the page that stays until it is used or closed (Phase 7): "The CRM was
+// updated — Refresh", or how to install the app on an iPhone. text and button are text keys.
+const crmBottomNote = (() => {
+  function show({ id, icon, text, button, onButton }) {
+    if (document.getElementById(id) || !document.body) return;
+    const note = document.createElement("div");
+    note.id = id;
+    note.className = "crm-bottom-note";
+    note.setAttribute("role", "status");
+    note.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i><span class="crm-bottom-note__text"></span>${button ? '<button type="button" class="btn btn-primary btn-sm" data-note-button></button>' : ""}<button type="button" class="icon-btn" data-note-close><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>`;
+    crmI18n.ready.then(() => {
+      note.querySelector(".crm-bottom-note__text").textContent = t(text);
+      if (button) note.querySelector("[data-note-button]").textContent = t(button);
+      note.querySelector("[data-note-close]").setAttribute("aria-label", t("common.close"));
     });
+    note.querySelector("[data-note-button]")?.addEventListener("click", onButton);
+    note.querySelector("[data-note-close]").addEventListener("click", () => note.remove());
+    document.body.appendChild(note);
   }
+  return { show };
+})();
+
+// "Install the app" (Phase 7): the browser's own offer where it has one (Android's Chrome,
+// computers' Chrome and Edge), the steps on an iPhone or iPad (Safari has no offer).
+const crmInstall = (() => {
+  let offer = null;
+  const installed = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const apple = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const changed = () => document.dispatchEvent(new CustomEvent("crm:install"));
+  window.addEventListener("beforeinstallprompt", (event) => {
+    offer = event; // the browser may still show its own bar too
+    changed();
+  });
+  window.addEventListener("appinstalled", () => {
+    offer = null;
+    changed();
+    crmI18n.ready.then(() => showToast(t("install.done"), "success"));
+  });
+  const available = () => !installed() && Boolean(offer || apple());
+  async function install() {
+    if (offer) {
+      const chosen = offer;
+      offer = null;
+      await chosen.prompt();
+      changed();
+      return;
+    }
+    if (apple()) crmBottomNote.show({ id: "crmInstallSteps", icon: "fa-mobile-screen-button", text: "install.appleSteps" });
+  }
+  return { available, install };
 })();
 
 const crmPush = (() => {
@@ -2890,6 +3445,7 @@ document.addEventListener("DOMContentLoaded", () => {
     crmSearch.mount();
     crmPrefsMenu.mount();
     crmHelp.mount();
+    crmNetwork.mount(); // Phase 7: "Offline" in the top bar when the network is gone
     translateSidebar();
     document.querySelectorAll("[data-prefs-choices]").forEach(crmWirePreferenceChoices); // Settings → Your Profile
   });
@@ -2899,6 +3455,8 @@ document.addEventListener("DOMContentLoaded", () => {
   mountStagingBand();
   // The Inbox page keeps its own count up to date live.
   if (moduleForPage(currentPageName()) !== "inbox") refreshInboxNavBadge();
+  // Phase 7: replies written with no network on an earlier page go now, if the network is here.
+  if (isAuthenticated() && !crmNetwork.isOffline()) crmOutbox.flush();
 
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) logoutBtn.addEventListener("click", logout);

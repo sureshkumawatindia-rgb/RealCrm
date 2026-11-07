@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "test": "jest",
     "e2e": "playwright test",
-    "bench:scale": "node scripts/scale-benchmark.js"
+    "bench:scale": "node scripts/scale-benchmark.js",
+    "bench:phone": "node scripts/phone-benchmark.js"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +17,7 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "compression": "^1.8.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

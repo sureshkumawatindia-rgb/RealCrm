@@ -90,7 +90,9 @@ describe('Phase 3 acceptance: a WhatsApp customer, handled by the team', () => {
     socket.on('connect', () => resolve(socket));
     socket.on('connect_error', reject);
   });
-  const next = (socket, event, match = () => true, ms = 2000) => new Promise((resolve) => {
+  // The next matching event, or null after 5 seconds (was 2: on a busy machine running every test
+  // file at once, the request that sends the event alone took longer).
+  const next = (socket, event, match = () => true, ms = 5000) => new Promise((resolve) => {
     const timer = setTimeout(() => { socket.off(event, handler); resolve(null); }, ms);
     function handler(payload) {
       if (!match(payload)) return;

@@ -92,6 +92,11 @@ numbers and tables, every Settings tab (lead sources, lead rules, plan, integrat
 Platform admin, and AI Insights, whose "Ask" box also understands Hindi and Hinglish questions
 ("kitna paisa baki hai"). 1,413 new texts in all: 386 for the pages, 1,027 for the scripts.
 
+**The phone app (Phase 7, D119):** the Offline chip, replies waiting for the network, the update
+note and "Install the app" are in Hindi (`net.*`, `outbox.*`, `app.updated.*`, `install.*`); the
+app installed from a Hindi page has Hindi shortcut names (`manifest-hi.webmanifest`); the
+no-network page (`offline.html`) carries its Hindi in `data-hi`, as it loads no other script.
+
 Still in English, on purpose or for later:
 
 - what the server writes itself: plan features and usage names, audit actions, the go-live

@@ -34,6 +34,15 @@ from Settings → Your Profile.
 centre, the help centre's search, and a support number set on the platform admin page (unlocked
 with a backup code) becoming a WhatsApp button in another company's help.
 
+`backend/e2e/phone.spec.js` (Phase 7, D119, `PHONE_APP.md`), on a Pixel 7 in Hindi with the
+service worker on: installable with the files kept on the phone; the Inbox with no network (the
+saved list, a chat read before, one of the newest); a reply written offline goes once the network
+is back (and the live updates reconnect); a reply whose answer was lost on the way goes once (the
+server's copy checked); a reply that waited more than a day waits for the person; signing out asks
+about a waiting reply, then leaves nothing on the phone.
+Every other spec runs with the service worker off (`serviceWorkers: 'block'` in
+`playwright.config.js`): they test the pages as the server sends them.
+
 ## Where it runs
 
 - **On GitHub, on every push**, as the job "The ten flows in a browser"

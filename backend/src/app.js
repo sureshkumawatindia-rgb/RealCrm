@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -17,6 +18,7 @@ const path = require('path');
 const env = require('./config/env');
 const { logoStorage } = require('./storage');
 const { NAME_PATTERN } = require('./storage/localDisk');
+const appFiles = require('./services/appFilesService');
 
 const app = express();
 const frontendDir = path.resolve(__dirname, '..', '..', 'crm', 'frontend');
@@ -24,6 +26,12 @@ const frontendDir = path.resolve(__dirname, '..', '..', 'crm', 'frontend');
 if (env.trustProxy) app.set('trust proxy', env.trustProxy);
 
 app.use(requestId);
+// Pages, scripts, texts and the API's answers travel compressed (Phase 7, D119): on a phone's 4G
+// the Hindi texts are 110 KB instead of 500. Files and photos already compressed are left as they
+// are (only text types are), and nothing under 1 KB. Sign-in answers carry tokens and secrets:
+// never compressed (so their size can never give one away, "BREACH"). The filter runs when the
+// answer is written, inside the API's router: originalUrl, not path (which has lost "/api/v1").
+app.use(compression({ filter: (req, res) => !req.originalUrl.startsWith('/api/v1/auth/') && compression.filter(req, res) }));
 // Staging (F2) is never shown by search engines.
 if (env.isStaging) {
   app.use((req, res, next) => {
@@ -48,6 +56,13 @@ function pageHeaders(req, res, next) {
 app.get('/', (req, res) => res.redirect('/crm/frontend/index.html'));
 // Browsers ask for /favicon.ico on every page that names no icon: the app's own icon.
 app.get('/favicon.ico', pageHeaders, (req, res) => res.sendFile(path.join(frontendDir, 'img', 'icons', 'icon-192.png'), { maxAge: '7d' }));
+// The phone app's service worker, with the list of the CRM's files and their revisions written in
+// (Phase 7, D119): any changed file makes a new one, which the browser checks on every page opened.
+app.get('/crm/frontend/sw.js', pageHeaders, (req, res) => {
+  res.type('application/javascript');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.send(appFiles.serviceWorker(frontendDir));
+});
 app.use('/crm/frontend', pageHeaders, express.static(frontendDir));
 // An address under the CRM with no page: a page that says so (not the API's JSON answer).
 app.use('/crm/frontend', (req, res, next) => {

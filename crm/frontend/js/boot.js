@@ -30,4 +30,11 @@
     root.classList.add("i18n-pending");
     setTimeout(() => root.classList.remove("i18n-pending"), 2000);
   }
+  // The page's texts start downloading now, with its styles and scripts (Phase 7, D119): app.js
+  // takes them from here instead of asking only once it has loaded.
+  if (window.fetch && /^https?:$/.test(window.location.protocol)) {
+    const get = (code) => fetch(`i18n/${code}.json`).then((response) => (response.ok ? response.json() : {}));
+    window.crmTextsEarly = { en: get("en"), ...(language !== "en" && { [language]: get(language) }) };
+    Object.values(window.crmTextsEarly).forEach((loading) => loading.catch(() => {}));
+  }
 })();

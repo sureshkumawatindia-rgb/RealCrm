@@ -24,6 +24,9 @@ module.exports = defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // The phone app's service worker keeps the pages on the phone (Phase 7, D119): the flows test
+    // the pages themselves, from the server; e2e/phone.spec.js turns it on and tests it.
+    serviceWorkers: 'block',
   },
   webServer: {
     command: 'node e2e/server.js',

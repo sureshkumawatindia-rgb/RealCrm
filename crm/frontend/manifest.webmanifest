@@ -1,16 +1,27 @@
 {
   "name": "YELLOW CRM",
   "short_name": "YELLOW CRM",
-  "description": "WhatsApp-first CRM: leads, chats, quotations, orders and payments.",
+  "description": "WhatsApp-first CRM: chats, leads, quotations, orders and payments. Opens without the network too.",
   "id": "/crm/frontend/",
   "start_url": "Inbox.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
   "background_color": "#fbfbfd",
   "theme_color": "#ffde59",
   "icons": [
     { "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "img/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "img/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "img/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Inbox", "description": "Your WhatsApp chats", "url": "Inbox.html", "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "New quotation", "description": "Make a quotation", "url": "Quotations.html?new=1", "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Leads", "description": "Your leads", "url": "leads.html", "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Orders", "description": "Your orders", "url": "Orders.html", "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
   ]
 }

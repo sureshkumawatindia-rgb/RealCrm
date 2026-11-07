@@ -1,0 +1,27 @@
+{
+  "name": "YELLOW CRM",
+  "short_name": "YELLOW CRM",
+  "description": "WhatsApp वाला CRM: चैट, लीड, कोटेशन, ऑर्डर और पेमेंट। बिना इंटरनेट के भी खुलता है।",
+  "id": "/crm/frontend/",
+  "start_url": "Inbox.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "hi-IN",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
+  "background_color": "#fbfbfd",
+  "theme_color": "#ffde59",
+  "icons": [
+    { "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "img/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "इनबॉक्स", "description": "आपकी WhatsApp चैट", "url": "Inbox.html", "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "नया कोटेशन", "description": "कोटेशन बनाएँ", "url": "Quotations.html?new=1", "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "लीड", "description": "आपकी लीड", "url": "leads.html", "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "ऑर्डर", "description": "आपके ऑर्डर", "url": "Orders.html", "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}

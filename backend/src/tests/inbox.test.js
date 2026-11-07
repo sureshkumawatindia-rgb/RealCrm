@@ -264,8 +264,9 @@ describe('Live updates (Socket.IO)', () => {
     socket.on('connect', () => resolve(socket));
     socket.on('connect_error', (error) => reject(error));
   });
-  // Resolves with the next matching event, or null after a short wait.
-  const next = (socket, event, match = () => true, ms = 1500) => new Promise((resolve) => {
+  // Resolves with the next matching event, or null after a wait. 5 seconds (was 1.5): on a busy
+  // machine running every test file at once, the request that sends the event alone took longer.
+  const next = (socket, event, match = () => true, ms = 5000) => new Promise((resolve) => {
     const timer = setTimeout(() => { socket.off(event, handler); resolve(null); }, ms);
     function handler(payload) {
       if (!match(payload)) return;

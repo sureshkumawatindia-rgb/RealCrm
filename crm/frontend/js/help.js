@@ -34,7 +34,7 @@
     ["accounts.html", "accounts", "fa-building", 1],
     ["Settings.html", "settings", "fa-gear", 3],
   ];
-  const FAQ = ["whatsapp", "import", "quotation", "payment", "leadSources", "team", "hindi", "phone", "plan", "data"];
+  const FAQ = ["whatsapp", "import", "quotation", "payment", "leadSources", "team", "hindi", "phone", "offline", "plan", "data"];
 
   const topicOf = (page) => TOPICS.find(([file]) => file.toLowerCase() === page);
   const titleOf = ([file]) => t(NAV_KEYS[file.toLowerCase()]);
