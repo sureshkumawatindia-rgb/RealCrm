@@ -120,6 +120,21 @@ const organizationSchema = new mongoose.Schema(
       projectsOnWon: { enabled: { type: Boolean, default: false }, templateId: { type: mongoose.Schema.Types.ObjectId } },
       // F2: when made-up data was added on staging (once per company).
       sampleDataAt: { type: Date },
+      // Phase 8 (D120): the company's privacy settings (Settings → Data & Privacy). The person
+      // customers can ask about their data (DPDP Act s. 8(9)) and the company's privacy notice,
+      // shown on its website form, quotation pages and every customer data file; whether the
+      // team's phones keep copies of chats for working without internet (Phase 7, on unless
+      // turned off); who may give or erase a customer's data ("managers": owners and admins).
+      privacy: {
+        contactName: { type: String, trim: true, default: '' },
+        contactEmail: { type: String, trim: true, lowercase: true, default: '' },
+        contactPhone: { type: String, trim: true, default: '' },
+        noticeUrl: { type: String, trim: true, default: '' },
+        deviceCopies: { type: Boolean, default: true },
+        requestsBy: { type: String, enum: ['managers', 'owners'], default: 'managers' },
+        // The last erasure: every phone drops its copies of the Inbox on its next page (/auth/me).
+        lastErasureAt: { type: Date },
+      },
     },
     // First steps after sign-up (D64): when an owner or admin finished or skipped "Invite your team".
     // D117: the ready settings the company chose (constants/businessKits.js) and when.

@@ -541,6 +541,8 @@ async function openShared(token, { count = true } = {}) {
   if (!id) return null;
   const quotation = await Quotation.findById(id);
   if (!quotation) return null;
+  // D120: the link stops once the customer's data was erased.
+  if (quotation.contactId && await Contact.collection.countDocuments({ _id: quotation.contactId, 'erasure.at': { $type: 'date' } }, { limit: 1 })) return null;
   if (count && quotation.status !== 'Draft') {
     await recordView(quotation);
     return { quotation: await Quotation.findById(id), organization: await Organization.findById(quotation.organizationId) };

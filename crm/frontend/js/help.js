@@ -11,7 +11,7 @@
     ["dashboard.html", "dashboard", "fa-chart-pie", 3],
     ["Inbox.html", "inbox", "fa-comments", 4],
     ["customers.html", "customers", "fa-users", 3],
-    ["customer-360.html", "customer360", "fa-address-card", 2],
+    ["customer-360.html", "customer360", "fa-address-card", 3],
     ["leads.html", "leads", "fa-bullseye", 4],
     ["Deals.html", "deals", "fa-handshake", 2],
     ["Quotations.html", "quotations", "fa-file-invoice", 3],
@@ -34,7 +34,7 @@
     ["accounts.html", "accounts", "fa-building", 1],
     ["Settings.html", "settings", "fa-gear", 3],
   ];
-  const FAQ = ["whatsapp", "import", "quotation", "payment", "leadSources", "team", "hindi", "phone", "offline", "plan", "data"];
+  const FAQ = ["whatsapp", "import", "quotation", "payment", "leadSources", "team", "hindi", "phone", "offline", "plan", "data", "customerData"];
 
   const topicOf = (page) => TOPICS.find(([file]) => file.toLowerCase() === page);
   const titleOf = ([file]) => t(NAV_KEYS[file.toLowerCase()]);

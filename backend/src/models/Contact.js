@@ -55,11 +55,23 @@ const contactSchema = new mongoose.Schema(
       whatsappNote: { type: String },
     },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // Phase 8 (D120): the customer's data was erased on request (DPDP Act s. 12). The record stays
+    // only as "an erased customer" (deleted, no name, number or details) so the orders and
+    // invoices kept for the law still point somewhere. keptUntil: the tax invoices and receipts
+    // the law asks the company to keep are made anonymous after this day (finishedAt).
+    erasure: {
+      at: { type: Date },
+      byMemberId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrganizationMember' },
+      keptUntil: { type: Date },
+      finishedAt: { type: Date },
+    },
   },
   { timestamps: true },
 );
 
 contactSchema.plugin(softDelete);
+// The daily job that finishes erasures once the tax records' years are over.
+contactSchema.index({ 'erasure.keptUntil': 1 }, { partialFilterExpression: { 'erasure.keptUntil': { $type: 'date' } } });
 // Deleting a contact clears phoneE164 (see contactService), so the number can be used again.
 contactSchema.index(
   { organizationId: 1, phoneE164: 1 },

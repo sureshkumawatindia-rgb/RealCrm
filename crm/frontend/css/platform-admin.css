@@ -185,3 +185,18 @@
   color: var(--text-muted);
   line-height: 1.5;
 }
+
+/* D120: the restore drill */
+.pa-drill-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pa-drill-text {
+  margin: 0 16px 12px;
+}
+/* On a phone the top bar has no room for "Open until …" (the Lock button stays). */
+@media (max-width: 480px) {
+  .pa-until {
+    display: none;
+  }
+}

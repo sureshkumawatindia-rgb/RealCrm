@@ -15,6 +15,8 @@ const fromBackend = (file) => require(path.join(BACKEND, file)); // eslint-disab
   const { MongoMemoryReplSet } = fromBackend('node_modules/mongodb-memory-server');
   const replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   const files = fs.mkdtempSync(path.join(os.tmpdir(), 'crm-e2e-'));
+  // A stand-in Cloudflare R2 for the weekly backups and the restore drill (D120, e2e/privacy.spec.js).
+  const s3 = await fromBackend('src/tests/helpers/fakeS3').startFakeS3();
   Object.assign(process.env, {
     NODE_ENV: 'test',
     PORT,
@@ -32,13 +34,18 @@ const fromBackend = (file) => require(path.join(BACKEND, file)); // eslint-disab
     // The browser tests click quickly and from one address: the per-minute limits stay out of the way.
     RATE_LIMIT_API_PER_MINUTE: '100000',
     RATE_LIMIT_AUTH_PER_MINUTE: '100000',
-    // The platform admin page's own admin in the help test (e2e/help.spec.js, D118).
-    PLATFORM_ADMIN_EMAILS: 'admin@help.test',
+    // The platform admin page's own admins in the help and data trust tests (D118, D120).
+    PLATFORM_ADMIN_EMAILS: 'admin@help.test,admin@trust.test',
+    R2_ENDPOINT: s3.endpoint,
+    R2_ACCESS_KEY_ID: s3.accessKeyId,
+    R2_SECRET_ACCESS_KEY: s3.secretAccessKey,
+    R2_BACKUP_BUCKET: 'crm-e2e-backups',
   });
   const idToken = require.resolve(path.join(BACKEND, 'src/integrations/google/idToken'));
   require.cache[idToken] = { id: idToken, filename: idToken, loaded: true, exports: fromBackend('src/tests/helpers/fakeGoogle') };
   fromBackend('src/server.js');
   const stop = async () => {
+    await s3.close();
     await replSet.stop();
     fs.rmSync(files, { recursive: true, force: true });
     process.exit(0);

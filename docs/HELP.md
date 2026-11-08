@@ -22,9 +22,10 @@ In the menu as "Help", right after Settings, for everyone. It has:
 - **Talk to us:** the WhatsApp button, the support email and hours (only when the platform has
   them);
 - **Get your CRM ready** (owners and admins): back to the dashboard's first-day list;
-- **Common questions:** eleven answers — connecting WhatsApp, importing old customers and leads,
+- **Common questions:** twelve answers — connecting WhatsApp, importing old customers and leads,
   sending a quotation, getting paid, IndiaMART and website enquiries, adding staff, Hindi, the
-  phone (and installing the app), working without internet (Phase 7), the plan, and data safety;
+  phone (and installing the app), working without internet (Phase 7), the plan, data safety, and
+  a customer asking for their data or its erasure (Phase 8, D120);
 - **Help for each page:** the 25 pages' help, each with a link to open the page.
 
 The search keeps a question or a page only if every word typed is in it (its answer and points

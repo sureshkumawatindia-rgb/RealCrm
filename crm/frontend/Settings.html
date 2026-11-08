@@ -2491,6 +2491,67 @@
                 <h3 data-i18n="set.tab.data">Data & Privacy</h3>
               </div>
               <div style="padding: 20px">
+                <!-- Phase 8 (D120): the company's privacy settings, and its customers' data requests
+                     (owners and admins; js/settings-privacy.js, js/customer-privacy.js) -->
+                <div class="settings-section" id="privacySettingsSection" hidden>
+                  <div class="settings-section-label" data-i18n="priv.set.title">Privacy settings</div>
+                  <p class="settings-hint" data-i18n="priv.set.intro">Under India's DPDP Act your company decides how its customers' data is used and answers their requests about it. These settings help.</p>
+                  <form id="privacyForm" novalidate>
+                    <div class="priv-settings-grid">
+                      <div class="field">
+                        <label for="privContactName" data-i18n="priv.set.contactName">Who answers questions about data</label>
+                        <input type="text" id="privContactName" maxlength="100" autocomplete="off" />
+                      </div>
+                      <div class="field">
+                        <label for="privContactEmail" data-i18n="priv.set.contactEmail">Their email</label>
+                        <input type="email" id="privContactEmail" maxlength="200" autocomplete="off" />
+                      </div>
+                      <div class="field">
+                        <label for="privContactPhone" data-i18n="priv.set.contactPhone">Their phone</label>
+                        <input type="tel" id="privContactPhone" maxlength="30" autocomplete="off" />
+                      </div>
+                    </div>
+                    <p class="settings-hint" data-i18n="priv.set.contactHint">Shown on quotation pages and in every customer data file. Left empty, your company's email and phone are shown.</p>
+                    <div class="field">
+                      <label for="privNoticeUrl" data-i18n="priv.set.notice">Your privacy notice (link)</label>
+                      <input type="url" id="privNoticeUrl" maxlength="500" autocomplete="off" placeholder="e.g. https://yourwebsite.in/privacy" data-i18n-placeholder="priv.set.noticePh" />
+                    </div>
+                    <p class="settings-hint" data-i18n="priv.set.noticeHint">Linked under your website form, on quotation pages and in customer data files.</p>
+                    <label class="two-step-row priv-switch">
+                      <input type="checkbox" id="privDeviceCopies" />
+                      <span><strong data-i18n="priv.set.copies">Keep chats on team phones for working without internet</strong><br /><span class="settings-hint" data-i18n="priv.set.copiesHint">When off, phones keep no copies of chats, and the copies already kept are deleted the next time each phone opens the CRM.</span></span>
+                    </label>
+                    <div class="field">
+                      <label for="privRequestsBy" data-i18n="priv.set.who">Who can download or erase a customer's data</label>
+                      <select id="privRequestsBy">
+                        <option value="managers" data-i18n="priv.set.who.managers">Owners and admins</option>
+                        <option value="owners" data-i18n="priv.set.who.owners">Only owners</option>
+                      </select>
+                    </div>
+                    <p class="settings-hint" id="privWhoHint" hidden data-i18n="priv.set.whoHint">Only an owner can change who may do this.</p>
+                    <p class="priv-error" id="privSettingsError" role="alert" hidden></p>
+                    <div class="data-actions">
+                      <button class="btn btn-primary" type="submit" id="privSave" data-i18n="common.save">Save</button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="settings-section" id="privacyRequestsSection" hidden>
+                  <div class="settings-section-label" data-i18n="priv.req.title">A customer asked about their data</div>
+                  <p class="settings-hint" data-i18n="priv.req.intro">Find the customer (deleted customers too), then give them a copy of their data or erase it. Answer within 90 days.</p>
+                  <form class="priv-find" id="privFindForm" role="search" novalidate>
+                    <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="privFindInput" maxlength="100" placeholder="Name, mobile number or email" aria-label="Find a customer" data-i18n-placeholder="priv.req.findPh" data-i18n-aria-label="priv.req.findLabel" /></div>
+                    <button class="btn btn-outline" type="submit" data-i18n="priv.req.find">Find</button>
+                  </form>
+                  <p class="settings-hint" id="privFindNote" hidden></p>
+                  <ul class="priv-results" id="privResults"></ul>
+                  <div class="settings-section-label" data-i18n="priv.req.register">Requests answered</div>
+                  <div class="priv-register-wrap" id="privRegister"></div>
+                  <div class="data-actions">
+                    <button class="btn btn-outline" type="button" id="privMore" hidden data-i18n="priv.req.more">Show more</button>
+                  </div>
+                </div>
+
                 <div class="settings-section">
                   <div data-i18n="set.storage" class="settings-section-label">Storage</div>
                   <p data-i18n="set.your-account-company-profile-team-customers" class="settings-hint">
@@ -2613,6 +2674,8 @@
     <script src="./js/settings-forms.js"></script>
     <script src="./js/settings-social.js"></script>
     <script src="./js/settings-deletion.js"></script>
+    <script src="./js/customer-privacy.js"></script>
+    <script src="./js/settings-privacy.js"></script>
     <script src="./js/settings-totp.js"></script>
   </body>
 </html>

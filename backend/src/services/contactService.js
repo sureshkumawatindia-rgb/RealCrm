@@ -129,7 +129,12 @@ async function matchingIds(req, query) {
 
 async function findVisible(req, id, session) {
   const contact = await repo(req).findOne({ _id: id, ...visibilityFilter(req, MODULE), ...privacyFilter(req) }).session(session || null);
-  if (!contact) throw httpError(404, 'NOT_FOUND', 'Contact not found');
+  if (!contact) {
+    // Phase 8 (D120): an erased customer says so (e.g. an old link), instead of "not found".
+    const erased = await Contact.findOne({ _id: id, organizationId: req.tenant.organizationId, deletedAt: { $ne: null }, 'erasure.at': { $type: 'date' } }).select('erasure').lean().catch(() => null);
+    if (erased) throw require('./customerDataService').erasedError(erased); // eslint-disable-line global-require
+    throw httpError(404, 'NOT_FOUND', 'Contact not found');
+  }
   return contact;
 }
 

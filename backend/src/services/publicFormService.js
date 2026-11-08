@@ -78,7 +78,8 @@ async function submit(form, body, { origin, userAgent } = {}) {
 
 // The script a website includes: it draws the form (no innerHTML, so nothing in the settings
 // can inject markup) and posts it as JSON.
-function embedScript(form) {
+// privacyUrl (D120): the company's privacy notice, linked under the form.
+function embedScript(form, { privacyUrl = '' } = {}) {
   const settings = websiteSettings(form.settings);
   const config = {
     key: form.publicKey,
@@ -87,6 +88,7 @@ function embedScript(form) {
     button: settings.buttonText || 'Send',
     askFor: settings.askFor,
     consentText: settings.consentText,
+    privacyUrl: /^https?:\/\//.test(privacyUrl) ? privacyUrl : '',
   };
   // "<" as < keeps the JSON from ever closing a <script> tag.
   const json = JSON.stringify(config).replace(/</g, '\\u003c');
@@ -161,6 +163,10 @@ function embedScript(form) {
   note.setAttribute('aria-live', 'polite');
   form.appendChild(button);
   form.appendChild(note);
+  if (cfg.privacyUrl) {
+    var privacy = el('a', { href: cfg.privacyUrl, target: '_blank', rel: 'noopener', textContent: 'Privacy notice' }, 'display:inline-block;margin-top:8px;font-size:13px;color:inherit;');
+    form.appendChild(privacy);
+  }
   form.addEventListener('submit', function (event) {
     event.preventDefault();
     var data = { submissionId: submissionId };

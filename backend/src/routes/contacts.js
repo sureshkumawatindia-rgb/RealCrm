@@ -20,6 +20,9 @@ const attribution = require('../services/attributionService');
 const consentHistory = require('../services/consentService');
 const contactMerge = require('../services/contactMergeService');
 const idempotency = require('../middleware/idempotency');
+const customerData = require('../services/customerDataService');
+const erasure = require('../services/erasureService');
+const privacySchemas = require('../validators/privacy');
 
 const router = express.Router();
 const controller = crudController(contactService, 'Contact');
@@ -117,6 +120,23 @@ router.post('/:id/sms-consent', can('edit'), validate({ params: idParams, body: 
 router.post('/:id/notes', can('edit'), validate({ params: idParams, body: schemas.noteCreate }), async (req, res) => {
   const contact = await contactService.findVisible(req, req.valid.params.id);
   res.status(201).json({ success: true, data: await noteService.add(req, 'contact', contact._id, req.body), message: 'Note added' });
+});
+
+// Phase 8 (D120): the customer's own data on their request (DPDP Act) — a copy to give them, or
+// erased. Owners and admins, or owners only as the company chose (checked in the services); a
+// deleted customer too (their data is still kept).
+router.post('/:id/privacy/export', validate({ params: idParams, body: privacySchemas.exportFile }), async (req, res) => {
+  const file = await customerData.exportFile(req, req.valid.params.id, req.body);
+  res.attachment(file.fileName);
+  res.type(file.type);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.send(file.body);
+});
+router.get('/:id/privacy/erase-preview', validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await erasure.preview(req, req.valid.params.id) });
+});
+router.post('/:id/privacy/erase', validate({ params: idParams, body: privacySchemas.erase }), async (req, res) => {
+  res.json({ success: true, data: await erasure.erase(req, req.valid.params.id, req.body), message: "The customer's data was erased" });
 });
 
 module.exports = router;

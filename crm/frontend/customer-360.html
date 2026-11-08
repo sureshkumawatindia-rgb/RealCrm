@@ -523,6 +523,15 @@
                   <div class="panel-head"><h3 data-i18n="c360.origin.title">How they found you</h3></div>
                   <div style="padding:4px 16px 12px" id="c360Origin"></div>
                 </div>
+                <!-- Phase 8 (D120): the customer's own data on their request (owners and admins) -->
+                <div class="panel" id="c360PrivacyPanel" hidden>
+                  <div class="panel-head"><h3 data-i18n="priv.panel.title">Customer's data</h3></div>
+                  <div class="c360-privacy">
+                    <p data-i18n="priv.panel.text">If the customer asks for a copy of their data, or to erase it (India's DPDP Act).</p>
+                    <button class="btn btn-outline" id="c360DataBtn" type="button"><i class="fa-solid fa-file-arrow-down"></i> <span data-i18n="priv.panel.download">Download their data</span></button>
+                    <button class="btn btn-danger-outline" id="c360EraseBtn" type="button"><i class="fa-solid fa-user-slash"></i> <span data-i18n="priv.panel.erase">Erase their data</span></button>
+                  </div>
+                </div>
               </aside>
 
               <div class="c360-main">
@@ -575,6 +584,7 @@
 
     <script src="./js/app.js"></script>
     <script src="./js/custom-fields.js"></script>
+    <script src="./js/customer-privacy.js"></script>
     <script src="./js/customer-360.js"></script>
   </body>
 </html>

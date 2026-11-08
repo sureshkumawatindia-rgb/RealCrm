@@ -22,6 +22,8 @@ const WEBHOOK_EVENTS = Object.freeze({
   'lead.stage_changed': 'A lead moves to another stage',
   'contact.created': 'A customer is added',
   'contact.updated': "A customer's details or fields change",
+  // D120: erase your copies too (only the customer's id is sent).
+  'contact.erased': "A customer's data is erased on their request",
   'message.received': 'A customer writes on WhatsApp',
   'quotation.status_changed': 'A quotation is sent, viewed, accepted, rejected or expires',
   'quotation.approval_requested': 'A quotation is sent for approval',

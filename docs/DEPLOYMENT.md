@@ -146,6 +146,7 @@ Then switch the optional features on: AI (docs/AI_ASSISTANT.md), phone sign-in (
 - **Files:** copy `UPLOAD_DIR` and `DOCUMENT_DIR` every night to another place, for example `rclone` or `aws s3 sync` to an S3 or R2 bucket. Keep 30 days.
 - **Settings:** keep a copy of `.env` in a password manager. Without `DATA_ENCRYPTION_KEY`, the stored tokens and keys cannot be read.
 - **Each company's own copy:** Settings → Data & Privacy → **Download CRM data** (one JSON file of everything except secrets).
+- **The restore drill (D120, `docs/DATA_TRUST.md`):** with `R2_BACKUP_BUCKET` set, every 4 weeks the newest weekly copy is put back into `<database>_drill` on the same cluster, counted and dropped; the platform admin page → **Backups** shows each result and runs one on demand. The Atlas user needs to create and drop that database, and the cluster needs room for a second copy for a few minutes. After a real restore, run `node scripts/backup.js reapply-erasures <day>` (customers erased since are erased again).
 
 ## 8. Logs and monitoring
 

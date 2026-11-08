@@ -5,6 +5,7 @@ const { amountInWords, formatRupees } = require('../utils/money');
 const { stateName } = require('../constants/gst');
 const { billingOf, fileNameFromUrl } = require('../services/organizationService');
 const { paymentFor } = require('../services/quotationPdf');
+const { publicContactOf } = require('../services/privacyService');
 
 // The page a customer sees at /q/<signed link> (Phase 5): the quotation on any phone, with a
 // UPI "pay" button and QR code, and the PDF. Plain HTML and inline CSS only: the route sends a
@@ -85,6 +86,17 @@ function draftPage(quotation, seller) {
   return page(`${quotation.type} ${quotation.number}`, `
     <div class="card"><h1>${esc(seller.name)}</h1>
     <p>This ${esc(quotation.type.toLowerCase())} is being updated. Please ask ${esc(seller.name || 'the sender')} for the latest copy${seller.phone ? ` (${esc(seller.phone)})` : ''}.</p></div>`);
+}
+
+// D120: who answers questions about the customer's data, and the company's privacy notice.
+function privacyLine(organization) {
+  const contact = publicContactOf(organization);
+  const reach = [contact.name, contact.email, contact.phone].filter(Boolean).join(' · ');
+  const parts = [
+    ...(reach ? [`Questions about your data: ${esc(reach)}`] : []),
+    ...(contact.noticeUrl ? [`<a href="${esc(contact.noticeUrl)}" rel="noopener">Privacy notice</a>`] : []),
+  ];
+  return parts.length ? `<br>${parts.join(' · ')}` : '';
 }
 
 async function quotationPage({ quotation: q, organization, token }) {
@@ -170,7 +182,7 @@ async function quotationPage({ quotation: q, organization, token }) {
     ${q.terms ? `<section class="card"><h2>Terms and conditions</h2><pre>${esc(q.terms)}</pre></section>` : ''}
     ${q.notes ? `<section class="card"><h2>Note</h2><pre>${esc(q.notes)}</pre></section>` : ''}
     <div><a class="btn" href="/q/${esc(token)}/pdf">Download PDF</a>${seller.phone ? `<a class="btn outline" href="tel:${esc(String(seller.phone).replace(/[^+\d]/g, ''))}">Call ${esc(seller.name || '')}</a>` : ''}</div>
-    <footer>${esc(seller.name)}${seller.email ? ` · ${esc(seller.email)}` : ''}</footer>`);
+    <footer>${esc(seller.name)}${seller.email ? ` · ${esc(seller.email)}` : ''}${privacyLine(organization)}</footer>`);
 }
 
 module.exports = { quotationPage, notFoundPage };

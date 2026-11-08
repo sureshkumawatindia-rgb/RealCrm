@@ -40,6 +40,13 @@ saved list, a chat read before, one of the newest); a reply written offline goes
 is back (and the live updates reconnect); a reply whose answer was lost on the way goes once (the
 server's copy checked); a reply that waited more than a day waits for the person; signing out asks
 about a waiting reply, then leaves nothing on the phone.
+`backend/e2e/privacy.spec.js` (Phase 8, D120, `DATA_TRUST.md`), in Hindi: Customer 360 gives a
+customer the file of their data (downloaded and read) and erases it once the name is typed (the
+page then says so, also on an old link); Settings → Data & Privacy saves the privacy settings
+(a wrong link refused in Hindi), lists the requests in the register without the erased name, and
+finds a customer deleted earlier by their number and erases them; the platform admin page runs the
+restore drill (`e2e/server.js` starts a stand-in R2 for the weekly copy; `POST /dev/backup-now`
+makes one) and shows it Passed.
 Every other spec runs with the service worker off (`serviceWorkers: 'block'` in
 `playwright.config.js`): they test the pages as the server sends them.
 

@@ -114,6 +114,7 @@
                 <button class="report-tab" data-tab="emails" type="button" role="tab"><i class="fa-solid fa-envelope"></i> <span data-i18n="padmin.emails">Emails</span></button>
                 <button class="report-tab" data-tab="checklist" type="button" role="tab"><i class="fa-solid fa-list-check"></i> <span data-i18n="padmin.go-live-checklist">Go-live checklist</span></button>
                 <button class="report-tab" data-tab="support" type="button" role="tab"><i class="fa-solid fa-headset"></i> <span data-i18n="padmin.support">Support</span></button>
+                <button class="report-tab" data-tab="backups" type="button" role="tab"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="padmin.bk.tab">Backups</span></button>
               </div>
             </div>
 
@@ -166,6 +167,25 @@
               <p class="pa-note" id="paChecklistNote"></p>
               <div class="pa-warnings" id="paWarnings" hidden></div>
               <ul class="pa-checklist" id="paChecklist"></ul>
+            </section>
+
+            <!-- D120: the weekly backups and the restore drill (docs/DATA_TRUST.md) -->
+            <section class="report-panel" id="paPanel-backups">
+              <div class="pa-warnings" id="paBackupWarnings" hidden></div>
+              <div class="stat-grid" id="paBackupKpis"></div>
+              <div class="panel pa-drill">
+                <div class="panel-head pa-drill-head">
+                  <h3 data-i18n="padmin.drill.title">Restore drill</h3>
+                  <button class="btn btn-primary" id="paDrillBtn" type="button" disabled><i class="fa-solid fa-rotate"></i> <span data-i18n="padmin.drill.run">Run the restore drill now</span></button>
+                </div>
+                <p class="pa-note pa-drill-text" data-i18n="padmin.drill.text">The newest backup is put back into a separate, empty database next to the CRM's own, every collection is counted against the backup's list, and that database is deleted. It also runs by itself every 4 weeks, on Sunday at 4:30 am.</p>
+                <p class="pa-note pa-drill-text" id="paDrillRunning" hidden></p>
+                <div class="report-table" id="paDrillTable"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-head"><h3 data-i18n="padmin.bk.list">Backups</h3></div>
+                <div class="report-table" id="paBackupTable"></div>
+              </div>
             </section>
 
             <!-- D118: the support contact every company's help shows (docs/HELP.md) -->

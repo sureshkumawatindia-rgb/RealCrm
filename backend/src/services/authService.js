@@ -223,11 +223,16 @@ async function switchOrganization(req, organizationId) {
 }
 
 async function me(req) {
-  const organization = await Organization.findById(req.tenant.organizationId).select('name logoUrl settings.hiddenModules');
+  const organization = await Organization.findById(req.tenant.organizationId).select('name logoUrl settings.hiddenModules settings.privacy.deviceCopies settings.privacy.lastErasureAt');
   return {
     user: userSummary(req.user),
     // hiddenModules (D76): every page leaves them out of the menu at once.
-    organization: { id: organization?._id, name: organization?.name || '', logoUrl: organization?.logoUrl || '', hiddenModules: hiddenModulesOf(organization) },
+    // D120: whether this phone may keep copies of the Inbox for working offline, and when a
+    // customer was last erased (the phone drops the copies it kept before then).
+    organization: {
+      id: organization?._id, name: organization?.name || '', logoUrl: organization?.logoUrl || '', hiddenModules: hiddenModulesOf(organization),
+      deviceCopies: organization?.settings?.privacy?.deviceCopies !== false, copiesClearedAt: organization?.settings?.privacy?.lastErasureAt || null,
+    },
     member: memberSummary(req.member),
     memberships: await describeMemberships(req.user._id),
     // 2-step login with the app (F7): on or off, and for owners and admins by when it is needed.

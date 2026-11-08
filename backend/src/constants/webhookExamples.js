@@ -39,6 +39,7 @@ const WEBHOOK_EXAMPLES = Object.freeze({
   'lead.stage_changed': { lead, from: 'Contacted', to: 'Quote Sent' },
   'contact.created': { contact },
   'contact.updated': { contact },
+  'contact.erased': { contact: { id: contact.id }, erasedAt: '2026-11-08T06:30:00.000Z' },
   'message.received': { message: { id: '6720a1b2c3d4e5f60123456c', type: 'text', text: 'Price for 20 pieces?', at: '2026-10-21T06:05:00.000Z' }, conversationId: '6720a1b2c3d4e5f60123456d', contact },
   'quotation.status_changed': { quotation: { ...quotation, status: 'Sent', sentAt: '2026-10-21T06:15:00.000Z' }, from: 'Draft', to: 'Sent' },
   'quotation.approval_requested': { quotation, approval },

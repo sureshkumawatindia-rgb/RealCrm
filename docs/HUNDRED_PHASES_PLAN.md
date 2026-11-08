@@ -50,7 +50,8 @@ JustDial and their website, and run on GST quotations, orders and Tally.
 7. **Phone app, part 1.** Installable, opens without the network, replies wait and go when the
    network is back, a faster Inbox on 4G. — done 2026-11-06 (D119, `docs/PHONE_APP.md`)
 8. **Data trust.** A customer's data exported or deleted on request (DPDP Act), the company's
-   privacy settings, and the backup restore drill shown on the platform admin page.
+   privacy settings, and the backup restore drill shown on the platform admin page. — done
+   2026-11-08 (D120, `docs/DATA_TRUST.md`)
 9. **Reliability.** A public status page, clear banners when Meta or a payment gateway is down,
    failed sends and webhooks visible and retried.
 10. **Launch rehearsal.** A full go-live run on staging with the owner's real test accounts, then

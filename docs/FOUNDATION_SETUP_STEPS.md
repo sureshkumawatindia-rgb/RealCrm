@@ -293,6 +293,11 @@ Tell me what you saw, and we go on to week 4 (2FA and the restore drill).
 
 This proves the weekly copy (section L) can really be put back. It never touches production's database.
 
+Since Phase 8 (D120) the CRM does it by itself every 4 weeks — into a separate database on the same
+cluster, counted and dropped — and the platform admin page → **Backups** shows each result and runs
+one on demand (docs/DATA_TRUST.md). The steps below are the full drill into another cluster, for a
+real disaster; after such a restore, also run `node scripts/backup.js reapply-erasures <day>`.
+
 1. **A temporary database:** Atlas → your staging project (or a new one) → **Create** a new **M0** cluster named `restore-drill` → a database user → **Network Access** as before → **Connect → Drivers** → copy its address.
 2. Render → **yellow-crm** → **Shell**. List the copies:
 

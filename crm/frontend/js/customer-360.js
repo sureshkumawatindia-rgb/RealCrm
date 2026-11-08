@@ -88,7 +88,13 @@ function getCustomerIdFromUrl() {
 // and its own leads come from the server (Phase 3, D115): the page does not load every contact
 // and lead, so a customer from years ago opens too.
 async function findCustomer(id) {
-  const contact = await crmRecord("contacts", id).catch(() => null);
+  let contact = null;
+  try {
+    contact = await crmRecord("contacts", id);
+  } catch (error) {
+    // Phase 8 (D120): the customer's data was erased on their request.
+    if (error.code === "ERASED") return { erased: true, erasedAt: error.errors?.[0]?.message || null };
+  }
   if (!contact) return null;
   try {
     const body = await crmRequest(`/leads?contactId=${encodeURIComponent(id)}&limit=100`);
@@ -304,6 +310,29 @@ async function renderOrigin(customer) {
   }
   panel.hidden = !parts.length;
   box.innerHTML = parts.join("");
+}
+
+// Phase 8 (D120): a copy of the customer's data, or erasing it, on their request (owners and
+// admins; js/customer-privacy.js). After the erasure the page says so.
+function renderPrivacy(customer) {
+  const panel = document.getElementById("c360PrivacyPanel");
+  if (!isOrgManager() || typeof crmCustomerPrivacy === "undefined") return;
+  panel.hidden = false;
+  document.getElementById("c360DataBtn").onclick = () => crmCustomerPrivacy.download({ id: customer.id, name: customer.name });
+  document.getElementById("c360EraseBtn").onclick = () => crmCustomerPrivacy.erase({ id: customer.id, name: customer.name }, { onErased: showErased });
+}
+function showErased(result) {
+  document.getElementById("pickerView").style.display = "none";
+  // The profile stays in the page (hidden): something still loading for it finds its places.
+  const view = document.getElementById("profileView");
+  view.style.display = "none";
+  let note = document.getElementById("c360Erased");
+  if (!note) {
+    note = document.createElement("div");
+    note.id = "c360Erased";
+    view.after(note);
+  }
+  note.innerHTML = crmCustomerPrivacy.erasedHtml(result || {});
 }
 
 function renderFields(customer) {
@@ -915,7 +944,9 @@ crmReady(["products", "members", "tasks", "events", "tickets", "documents"], asy
   const customerId = getCustomerIdFromUrl();
   const customer = customerId ? await findCustomer(customerId) : null;
 
-  if (!customer) {
+  if (customer?.erased) {
+    showErased(customer);
+  } else if (!customer) {
     renderPicker();
   } else {
     try {
@@ -931,6 +962,7 @@ crmReady(["products", "members", "tasks", "events", "tickets", "documents"], asy
     renderKpis(customer);
     renderFields(customer);
     renderOrigin(customer);
+    renderPrivacy(customer);
     renderTimelineTab(customer);
     renderDealsTab(customer);
     renderTasksTab(customer);

@@ -5,6 +5,10 @@
 //   node scripts/backup.js check [day]   download, decrypt and count one (default: the newest)
 //   node scripts/backup.js restore <day> <address of an EMPTY database>   the restore drill (F4b):
 //     everything back into a temporary database, counted against the manifest (never the CRM's own)
+//   node scripts/backup.js drill         the same drill with the newest backup, into <database>_drill,
+//     which is dropped after (D120: also every 4 weeks by itself, and from the platform admin page)
+//   node scripts/backup.js reapply-erasures <day>   after a real restore, with MONGO_URI pointing at
+//     the restored database: customers erased on that day or after are erased again (D120)
 // Backups are encrypted with a key made from DATA_ENCRYPTION_KEY: keep that key safe.
 const mongoose = require('mongoose');
 const env = require('../src/config/env');
@@ -38,8 +42,20 @@ const backups = require('../src/services/backupService');
     console.log(`Restore of ${result.day}: ${result.ok ? 'OK' : 'PROBLEMS'}, ${result.collections} collections, ${result.documents} documents in ${result.seconds} seconds`);
     result.problems.forEach((line) => console.log(`- ${line}`));
     process.exitCode = result.ok ? 0 : 1;
+  } else if (command === 'drill') {
+    await mongoose.connect(env.mongoUri);
+    const result = await backups.drill({ by: 'script' });
+    console.log(`Restore drill${result.day ? ` of ${result.day}` : ''}: ${result.ok ? 'OK' : 'PROBLEMS'}${result.collections ? `, ${result.collections} collections, ${result.documents} documents` : ''} in ${result.seconds} seconds`);
+    (result.problems || []).forEach((line) => console.log(`- ${line}`));
+    if (result.erasuresSince) console.log(`${result.erasuresSince} customers were erased since this backup: after a real restore, run reapply-erasures ${result.day}`);
+    process.exitCode = result.ok ? 0 : 1;
+  } else if (command === 'reapply-erasures') {
+    if (!day) throw new Error('Usage: node scripts/backup.js reapply-erasures <day of the backup restored>');
+    await mongoose.connect(env.mongoUri);
+    const erased = await backups.reapplyErasures(day);
+    console.log(`Erased again: ${erased} customers erased on ${day} or after.`);
   } else {
-    throw new Error(`Unknown command "${command}" (list, run, check or restore)`);
+    throw new Error(`Unknown command "${command}" (list, run, check, restore, drill or reapply-erasures)`);
   }
 })().catch((error) => {
   console.error(error.message);

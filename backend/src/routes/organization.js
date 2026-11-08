@@ -15,6 +15,8 @@ const { KIT_IDS, KIT_LANGUAGES } = require('../constants/businessKits');
 const Organization = require('../models/Organization');
 const Joi = require('joi');
 const { HIDEABLE_MODULES } = require('../constants/permissions');
+const privacy = require('../services/privacyService');
+const privacySchemas = require('../validators/privacy');
 
 const router = express.Router();
 // One logo file and nothing else (Phase 1 security review: no unlimited form fields).
@@ -92,6 +94,22 @@ router.post('/business-kit', requireRole('owner', 'admin'), validate({ body: Joi
 });
 router.post('/logo', requireRole('owner', 'admin'), uploadLogo, controller.uploadLogo);
 router.delete('/logo', requireRole('owner', 'admin'), controller.deleteLogo);
+
+// Phase 8 (D120): the company's privacy settings, its customers' data requests, and finding the
+// customer a request is about (deleted ones too).
+router.get('/privacy', requireRole('owner', 'admin'), async (req, res) => {
+  res.json({ success: true, data: await privacy.getSettings(req) });
+});
+router.put('/privacy', requireRole('owner', 'admin'), validate({ body: privacySchemas.settings }), async (req, res) => {
+  res.json({ success: true, data: await privacy.updateSettings(req, req.body), message: 'Privacy settings saved' });
+});
+router.get('/privacy/requests', requireRole('owner', 'admin'), validate({ query: privacySchemas.requests }), async (req, res) => {
+  const { items, pagination } = await privacy.requests(req, req.valid.query);
+  res.json({ success: true, data: items, pagination });
+});
+router.get('/privacy/customers', requireRole('owner', 'admin'), validate({ query: privacySchemas.find }), async (req, res) => {
+  res.json({ success: true, data: await privacy.findCustomers(req, req.valid.query) });
+});
 
 // Deleting the company (Phase 10F): owners ask (typing its name) and can cancel during the grace
 // period; everyone can see that it is coming.

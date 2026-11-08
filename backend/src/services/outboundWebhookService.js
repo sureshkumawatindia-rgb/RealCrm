@@ -259,6 +259,9 @@ async function dataOf(event) {
     case 'contact.created':
     case 'contact.updated':
       return { contact: await contact() };
+    // D120: only the id — the rest is gone, and the receiver erases its own copy.
+    case 'contact.erased':
+      return { contact: { id: String(event.contactId) }, erasedAt: event.erasedAt || null };
     // D78: records of the company's own objects, and quotation approvals.
     case 'record.created':
     case 'record.updated': {

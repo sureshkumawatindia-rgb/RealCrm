@@ -3,6 +3,7 @@ const forms = require('../services/publicFormService');
 const buttons = require('../services/whatsappButtonService');
 const { formLimiter } = require('../middleware/rateLimit');
 const schemas = require('../validators/leadSources');
+const Organization = require('../models/Organization');
 
 // Public endpoints for the organization's own websites (no sign-in): the enquiry form and the
 // script that draws it. Any site may call them (CORS without cookies); a form can still be
@@ -29,7 +30,9 @@ router.get('/forms/:publicKey/embed.js', async (req, res) => {
   res.type('application/javascript; charset=utf-8');
   if (!form) return res.status(404).send('/* This enquiry form does not exist any more. */\n');
   res.set('Cache-Control', 'public, max-age=300');
-  return res.send(forms.embedScript(form));
+  // D120: the company's privacy notice under the form.
+  const organization = await Organization.findById(form.organizationId).select('settings.privacy.noticeUrl').lean();
+  return res.send(forms.embedScript(form, { privacyUrl: organization?.settings?.privacy?.noticeUrl || '' }));
 });
 
 // D102: the website's WhatsApp button — its script, and the click it reports (a beacon; always 204).

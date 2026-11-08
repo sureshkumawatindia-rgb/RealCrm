@@ -5,7 +5,8 @@
  * WhatsApp health and the plan actions (comp, give a trial, change the plan: audited in that
  * company), the platform's emails, and the go-live checklist (which keys are set, never values).
  * GET /platform/status, POST /platform/unlock|lock, GET /platform/overview|companies|emails|checklist,
- * POST /platform/companies/:id/actions.
+ * POST /platform/companies/:id/actions. D120: the weekly backups and the restore drill
+ * (GET /platform/backups, POST /platform/backups/drill).
  */
 (function platformAdmin() {
   const $ = (id) => document.getElementById(id);
@@ -123,6 +124,7 @@
     if (state.tab === "emails") loadEmails();
     if (state.tab === "checklist") loadChecklist();
     if (state.tab === "support") loadSupport();
+    if (state.tab === "backups") loadBackups();
   }
 
   // --- overview ------------------------------------------------------------------------------
@@ -330,6 +332,70 @@
       handle(error, t("padm.couldn-t-load-the-checklist"));
     }
   }
+
+  // --- the backups and the restore drill (D120) ---------------------------------------------------
+  const BACKUP_WARNINGS = { // the keys of their texts
+    not_configured: "padmin.bk.w.notConfigured", unreachable: "padmin.bk.w.unreachable", no_backup: "padmin.bk.w.noBackup",
+    old_backup: "padmin.bk.w.old", drill_failed: "padmin.bk.w.drillFailed", no_drill: "padmin.bk.w.noDrill",
+  };
+  const size = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toLocaleString("en-IN", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round((bytes || 0) / 1024))} KB`);
+  const backupDay = (value) => dateText(`${value}T12:00:00+05:30`);
+  const drillBy = (by) => (by === "schedule" ? t("padmin.drill.bySchedule") : by === "script" ? t("padmin.drill.byScript") : by || "—");
+  let drillTimer = null;
+  async function loadBackups() {
+    clearTimeout(drillTimer);
+    let data;
+    try {
+      data = await crmApi("/platform/backups");
+    } catch (error) {
+      handle(error, t("padmin.bk.loadFailed"));
+      return;
+    }
+    $("paBackupWarnings").hidden = !data.warnings.length;
+    $("paBackupWarnings").innerHTML = data.warnings.map((w) => `<div><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(t(BACKUP_WARNINGS[w] || w))}</div>`).join("");
+    const newest = data.backups.find((b) => b.complete);
+    const last = data.last;
+    $("paBackupKpis").innerHTML = [
+      kpi(t("padmin.bk.last"), newest ? backupDay(newest.day) : "—", newest ? size(newest.bytes) : t(data.configured ? "padmin.bk.none" : "padmin.bk.off"), newest ? "" : "warning"),
+      kpi(t("padmin.bk.next"), data.nextBackupAt ? dateText(data.nextBackupAt) : "—", t("padmin.bk.keep", { n: data.keepWeeks })),
+      kpi(t("padmin.drill.last"), last ? t(last.ok ? "padmin.drill.passed" : "padmin.drill.failed") : "—", last ? `${dateText(last.at)} · ${ago(last.at)}` : t("padmin.drill.never"), last ? (last.ok ? "success" : "warning") : ""),
+      kpi(t("padmin.drill.next"), data.nextDrillAt ? dateText(data.nextDrillAt) : "—", t("padmin.drill.every")),
+    ].join("");
+    $("paDrillBtn").disabled = !data.configured || Boolean(data.running);
+    $("paDrillRunning").hidden = !data.running;
+    if (data.running) {
+      $("paDrillRunning").innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${escapeHtml(t("padmin.drill.running", { when: ago(data.running.startedAt) }))}`;
+      // The page follows the drill until it is done.
+      if (state.tab === "backups") drillTimer = setTimeout(loadBackups, 5000);
+    }
+    $("paDrillTable").innerHTML = data.history.length
+      ? `<table><thead><tr><th>${escapeHtml(t("padmin.drill.when"))}</th><th>${escapeHtml(t("padmin.drill.backup"))}</th><th>${escapeHtml(t("padmin.drill.result"))}</th><th>${escapeHtml(t("padmin.drill.counted"))}</th><th>${escapeHtml(t("padmin.drill.took"))}</th><th>${escapeHtml(t("padmin.drill.by"))}</th></tr></thead><tbody>${data.history.map((d) => `<tr>
+          <td>${escapeHtml(dateText(d.at))}<span class="pa-cell-sub">${escapeHtml(timeText(d.at))}</span></td>
+          <td>${escapeHtml(d.day ? backupDay(d.day) : "—")}</td>
+          <td><span class="badge ${d.ok ? "badge-success" : "badge-danger"}">${escapeHtml(t(d.ok ? "padmin.drill.passed" : "padmin.drill.failed"))}</span>${(d.problems || []).slice(0, 3).map((p) => `<span class="pa-cell-sub">${escapeHtml(p)}</span>`).join("")}${d.erasuresSince ? `<span class="pa-cell-sub">${escapeHtml(t("padmin.drill.erasures", { n: d.erasuresSince }))}</span>` : ""}</td>
+          <td>${d.collections ? escapeHtml(t("padmin.drill.countedValue", { collections: d.collections, documents: Number(d.documents || 0).toLocaleString("en-IN") })) : "—"}</td>
+          <td>${escapeHtml(t("padmin.drill.seconds", { n: d.seconds ?? 0 }))}</td>
+          <td>${escapeHtml(drillBy(d.by))}</td>
+        </tr>`).join("")}</tbody></table>`
+      : empty(t("padmin.drill.noneYet"));
+    $("paBackupTable").innerHTML = data.backups.length
+      ? `<table><thead><tr><th>${escapeHtml(t("padmin.bk.day"))}</th><th>${escapeHtml(t("padmin.bk.files"))}</th><th>${escapeHtml(t("padmin.bk.size"))}</th><th>${escapeHtml(t("padmin.drill.result"))}</th></tr></thead><tbody>${data.backups.map((b) => `<tr>
+          <td>${escapeHtml(backupDay(b.day))}</td><td>${escapeHtml(String(b.files))}</td><td>${escapeHtml(size(b.bytes))}</td>
+          <td><span class="badge ${b.complete ? "badge-success" : "badge-danger"}">${escapeHtml(t(b.complete ? "padmin.bk.complete" : "padmin.bk.incomplete"))}</span></td>
+        </tr>`).join("")}</tbody></table>`
+      : empty(t(data.configured ? "padmin.bk.none" : "padmin.bk.off"));
+  }
+  $("paDrillBtn").addEventListener("click", async () => {
+    if (!window.confirm(t("padmin.drill.confirm"))) return;
+    $("paDrillBtn").disabled = true;
+    try {
+      await crmApi("/platform/backups/drill", { method: "POST" });
+      showToast(t("padmin.drill.started"), "success");
+    } catch (error) {
+      handle(error, t("padmin.drill.startFailed"));
+    }
+    loadBackups();
+  });
 
   // --- the support contact in every company's help (D118) ----------------------------------------
   async function loadSupport() {

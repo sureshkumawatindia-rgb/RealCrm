@@ -134,6 +134,15 @@ On the live address (https), on an Android phone in Chrome:
 3. Turn on airplane mode and open the app again: the chats show, and the top bar says Offline.
 4. Write a reply: it shows "Waiting for the internet". Turn airplane mode off: it goes by itself.
 
+## The company's switch (Phase 8, D120)
+
+Settings → Data & Privacy → **Keep chats on team phones for working without internet** (on by
+default). Off: no phone keeps copies of chats (`crmDevice` saves none and reads none), and each
+phone deletes the copies it kept the next time it opens a page (`/auth/me` → `deviceCopies`).
+Replies written with no network still wait and go (they are the team's own words). After a
+customer's data is erased, every phone drops its copies the same way (`/auth/me` →
+`copiesClearedAt`), so nothing of that customer stays on a phone.
+
 ## Testing
 
 - `backend/src/tests/phoneApp.test.js`: the service worker's file list and revisions (a changed

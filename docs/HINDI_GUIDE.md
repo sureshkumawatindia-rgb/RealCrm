@@ -92,6 +92,12 @@ numbers and tables, every Settings tab (lead sources, lead rules, plan, integrat
 Platform admin, and AI Insights, whose "Ask" box also understands Hindi and Hinglish questions
 ("kitna paisa baki hai"). 1,413 new texts in all: 386 for the pages, 1,027 for the scripts.
 
+**Data trust (Phase 8, D120):** the customer data file the server writes is in the language of the
+person who makes it, from the same texts as the pages (`pdata.*` in `crm/frontend/i18n`, read by
+`services/frontendTexts.js`; statuses from `stage.*`, `orderStage.*`, `quoteStatus.*` …); the
+dialogs, settings and register are `priv.*`, the platform page's Backups tab `padmin.bk.*` and
+`padmin.drill.*`. "Erased customer" is stored in the language of whoever erased.
+
 **The phone app (Phase 7, D119):** the Offline chip, replies waiting for the network, the update
 note and "Install the app" are in Hindi (`net.*`, `outbox.*`, `app.updated.*`, `install.*`); the
 app installed from a Hindi page has Hindi shortcut names (`manifest-hi.webmanifest`); the

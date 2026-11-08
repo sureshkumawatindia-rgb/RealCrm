@@ -2,6 +2,9 @@ const express = require('express');
 const platformService = require('../services/platformService');
 const emailService = require('../services/emailService');
 const helpService = require('../services/helpService');
+const backups = require('../services/backupService');
+const httpError = require('../utils/httpError');
+const { audit } = require('../utils/audit');
 const { authenticate } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimit');
 const validate = require('../middleware/validate');
@@ -45,6 +48,17 @@ router.get('/support', async (req, res) => {
 });
 router.put('/support', validate({ body: schemas.support }), async (req, res) => {
   res.json({ success: true, data: await helpService.setSupport(req, req.body), message: 'Support contact saved' });
+});
+
+// D120: the backups and the restore drill (docs/DATA_TRUST.md).
+router.get('/backups', async (req, res) => {
+  res.json({ success: true, data: await backups.status() });
+});
+router.post('/backups/drill', async (req, res) => {
+  if (!backups.configured()) throw httpError(409, 'BACKUPS_NOT_SET_UP', 'Backups are not set up: R2_BACKUP_BUCKET and its keys are needed first.');
+  const { started } = await backups.startDrill(req.user.email);
+  if (started) await audit(req, { action: 'platform.restore_drill_started', entityType: 'PlatformSetting', entityId: 'backupDrill' });
+  res.status(202).json({ success: true, data: await backups.status(), message: started ? 'Restore drill started' : 'A restore drill is already running' });
 });
 
 module.exports = router;

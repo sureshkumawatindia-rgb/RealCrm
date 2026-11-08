@@ -172,7 +172,9 @@ const crmDevice = (() => {
     return member?.id ? String(member.id) : null;
   };
 
-  const keeps = (path) => KEEP.some((pattern) => pattern.test(path));
+  // Phase 8 (D120): the company may keep chats off its team's phones (Settings → Data & Privacy).
+  const allowed = () => getCompanyInfo()?.deviceCopies !== false;
+  const keeps = (path) => allowed() && KEEP.some((pattern) => pattern.test(path));
   async function saveCopy(path, body, size) {
     const who = scope();
     if (!who || size > COPY_MAX_CHARS) return;
@@ -187,7 +189,7 @@ const crmDevice = (() => {
   // { body, savedAt } kept for this member, or null.
   async function copy(path) {
     const who = scope();
-    if (!who) return null;
+    if (!who || !allowed()) return null;
     try {
       const found = await run("copies", "readonly", (store) => store.get(`${who}|${path}`));
       return found && Date.now() - found.savedAt < COPY_DAYS * DAY ? found : null;
@@ -902,6 +904,8 @@ function saveCompanyInfo(data) {
   const company = normalizeCompany(data);
   // The pages the company switched off (D76) come from /auth/me; a profile without them keeps them.
   if (company && !("hiddenModules" in company) && getCompanyInfo()?.hiddenModules) company.hiddenModules = getCompanyInfo().hiddenModules;
+  // So does the phones switch (D120).
+  if (company && !("deviceCopies" in company) && getCompanyInfo()?.deviceCopies === false) company.deviceCopies = false;
   // company.html's inline guard reads setupComplete before app.js loads.
   localStorage.setItem(KEYS.COMPANY, JSON.stringify({ ...company, setupComplete: companyHasDetails(company) }));
 }
@@ -3163,10 +3167,14 @@ async function syncMembership() {
     const me = await crmApi("/auth/me");
     if (!me?.member) return;
     const cached = getCompanyInfo() || {};
-    const { name = "", logoUrl = "", hiddenModules = [] } = me.organization || {};
+    const { name = "", logoUrl = "", hiddenModules = [], deviceCopies = true, copiesClearedAt = null } = me.organization || {};
     const pagesChanged = (cached.hiddenModules || []).join() !== hiddenModules.join();
-    if (cached.name !== name || (cached.logoUrl || "") !== logoUrl || pagesChanged) {
-      saveCompanyInfo({ ...cached, name, logoUrl, hiddenModules });
+    // D120: the company turned copies on phones off, or erased a customer's data — the copies this
+    // phone kept go now (the Inbox fills them again from the network).
+    const erasedSince = Boolean(copiesClearedAt) && copiesClearedAt !== (cached.copiesClearedAt || null);
+    if ((deviceCopies === false && cached.deviceCopies !== false) || erasedSince) crmDevice.forgetCopies();
+    if (cached.name !== name || (cached.logoUrl || "") !== logoUrl || pagesChanged || (cached.deviceCopies !== false) !== deviceCopies || erasedSince) {
+      saveCompanyInfo({ ...cached, name, logoUrl, hiddenModules, deviceCopies, copiesClearedAt });
       renderSidebarBrand();
       if (pagesChanged) hideUnavailableModules(); // an owner switched pages on or off (D76)
     }

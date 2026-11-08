@@ -233,6 +233,14 @@ router.post('/test-error', () => {
   throw new Error('Test error from the developer tools (F3)');
 });
 
+// D120: a weekly backup copy now, so the platform admin page's restore drill has one to restore
+// (the browser tests: e2e/privacy.spec.js, with a stand-in R2).
+router.post('/backup-now', async (req, res) => {
+  const backups = require('../services/backupService'); // eslint-disable-line global-require
+  if (!backups.configured()) throw httpError(409, 'BACKUPS_NOT_SET_UP', 'Backups are not set up here.');
+  res.status(201).json({ success: true, data: await backups.run() });
+});
+
 router.post('/simulate/gmail', validate({ body: mockMail }), async (req, res) => {
   if (google.mode() !== 'mock') throw httpError(409, 'GOOGLE_NOT_MOCK', 'Google is not the stand-in here.');
   const id = google.mock.addMessage(String(req.user.email).toLowerCase(), req.body);

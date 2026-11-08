@@ -149,6 +149,7 @@ curl -G -H "Authorization: Bearer ycrm_…" "https://crm.example.in/api/public/v
 | `lead.stage_changed` | A lead moves stage | `lead`, `from`, `to` |
 | `contact.created` | A customer is added (by hand, the API, WhatsApp, a lead source; not CSV imports) | `contact` |
 | `contact.updated` | A customer's details or fields change (in the customer's own form, Customer 360 or the API; only when something changed) | `contact` |
+| `contact.erased` | A customer's data is erased on their request (D120, `DATA_TRUST.md`): erase your copy too | `contact { id }`, `erasedAt` (nothing else is left) |
 | `message.received` | A customer writes on WhatsApp | `message { id, type, text, at }`, `conversationId`, `contact` |
 | `quotation.status_changed` | Sent, viewed, accepted, rejected or expired | `quotation`, `from`, `to` |
 | `quotation.approval_requested` | A salesperson asks for approval (D77) | `quotation`, `approval { state, reasons, requestedById, requestedAt, … }` as it was then |

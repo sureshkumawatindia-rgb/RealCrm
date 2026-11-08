@@ -46,7 +46,7 @@ test.describe.serial('Help inside the CRM', () => {
 
   test('the help centre finds a question by its words', async () => {
     await page.goto(at('help.html'));
-    await expect(page.locator('#helpFaq .help-item')).toHaveCount(11); // Phase 7 (D119): working without internet
+    await expect(page.locator('#helpFaq .help-item')).toHaveCount(12); // Phase 8 (D120): a customer's data on request
     await expect(page.locator('#helpTopics .help-item')).toHaveCount(25);
     await page.locator('#helpSearch').fill('quotation whatsapp');
     await expect(page.locator('#faq-quotation')).toBeVisible();
@@ -54,6 +54,8 @@ test.describe.serial('Help inside the CRM', () => {
     await page.locator('#helpSearch').fill('without internet');
     await expect(page.locator('#faq-offline')).toBeVisible();
     await expect(page.locator('#faq-quotation')).toBeHidden();
+    await page.locator('#helpSearch').fill('erase');
+    await expect(page.locator('#faq-customerData')).toBeVisible();
     await page.locator('#helpSearch').fill('zzzz');
     await expect(page.locator('#helpNoMatch')).toBeVisible();
     // The menu has Help, and the help centre has no "?" of its own.
