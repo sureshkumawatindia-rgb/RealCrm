@@ -30,7 +30,7 @@ const nextDay = (date) => new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).t
 function googleEventOf(event) {
   const timeZone = event.timezone || DEFAULT_ZONE;
   const timed = Boolean(event.startTime);
-  const lines = [event.description, event.relatedName && `About: ${event.relatedName}`, 'From YELLOW CRM'].filter(Boolean);
+  const lines = [event.description, event.relatedName && `About: ${event.relatedName}`, 'From AgreemCRM'].filter(Boolean);
   return {
     summary: event.title,
     description: lines.join('\n'),

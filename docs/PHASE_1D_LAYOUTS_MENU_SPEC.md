@@ -33,7 +33,7 @@ Where Zoho is limited:
 - **Field permissions are not per layout.** They apply to every layout of a module.
 - **Tab groups cannot be reordered.** Zoho staff said so in an older community thread, so this is UNVERIFIED for today.
 
-Where YELLOW CRM 1D will be better (each point can be checked):
+Where AgreemCRM 1D will be better (each point can be checked):
 - **Every plan** gets sections and two columns, the trial too.
 - **One screen:** sections are made on the same Settings screen as the fields; there is no separate layout editor.
 - **Hidden pages also leave global search,** not only the menu.

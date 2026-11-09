@@ -177,7 +177,7 @@ async function post(sub, delivery) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'YellowCRM-Webhooks/1',
+        'User-Agent': 'AgreemCRM-Webhooks/1',
         'X-CRM-Event': delivery.event,
         'X-CRM-Event-Id': delivery.eventId,
         'X-CRM-Delivery': String(delivery._id),
@@ -328,7 +328,7 @@ async function test(req, id) {
   const eventId = `evt_test_${crypto.randomBytes(8).toString('hex')}`;
   const delivery = await WebhookDelivery.create({
     organizationId: sub.organizationId, subscriptionId: sub._id, eventId, event: 'ping',
-    payload: { id: eventId, type: 'ping', createdAt: new Date().toISOString(), data: { message: 'A test from YELLOW CRM. Answer 2xx to confirm.' } },
+    payload: { id: eventId, type: 'ping', createdAt: new Date().toISOString(), data: { message: 'A test from AgreemCRM. Answer 2xx to confirm.' } },
   });
   const result = await post(sub, delivery);
   await recordResult(sub, delivery, result, null);

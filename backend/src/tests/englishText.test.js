@@ -33,7 +33,7 @@ describe('The English-text guard itself', () => {
     expect(htmlKinds('<code translate="no">Authorization: Bearer key</code>')).toEqual([]);
     expect(htmlKinds('<h1 data-hi="आप ऑफ़लाइन हैं">You are offline</h1>')).toEqual([]);
     expect(htmlKinds('<p>WhatsApp · GST · PDF · https://example.com · hello@example.com · order_update</p>')).toEqual([]);
-    expect(htmlKinds('<aside class="sidebar"><a class="nav-item" href="leads.html">Leads</a></aside><title>Leads | YELLOW CRM</title>')).toEqual([]);
+    expect(htmlKinds('<aside class="sidebar"><a class="nav-item" href="leads.html">Leads</a></aside><title>Leads | AgreemCRM</title>')).toEqual([]);
   });
 
   it('finds English in a script, and lets code, t() and the server\'s values through', () => {

@@ -76,7 +76,7 @@ function render(invoice) {
   y += 24;
   const period = invoice.periodStart && invoice.periodEnd ? `${day(invoice.periodStart)} – ${day(invoice.periodEnd)}` : 'one month';
   const values = [
-    `YELLOW CRM ${invoice.planName || ''} plan, subscription for ${period}`,
+    `AgreemCRM ${invoice.planName || ''} plan, subscription for ${period}`,
     invoice.sac || '',
     num(invoice.taxablePaise),
     ...(intra ? [num(invoice.cgstPaise), num(invoice.sgstPaise)] : [num(invoice.igstPaise)]),

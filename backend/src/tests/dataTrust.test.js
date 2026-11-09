@@ -132,7 +132,7 @@ describe('A customer\'s data on request (Phase 8, D120)', () => {
     expect(page).toContain('<html lang="hi">');
     expect(page).toContain('Meera Traders के पास आपका डेटा'); // the title, in Hindi
     expect(page).toContain('आपकी जानकारी'); // "Your details"
-    for (const piece of ['Kavya Textiles', '+919829071001', 'kavya@textiles.example', 'Cotton yarn 50 kg ka rate?', 'Wants samples before ordering', 'Pays on the 10th', 'Kavya — 50 kg yarn', 'Kavya GST certificate', 'Kavya wants 50 kg', 'WhatsApp (Meta)', 'YELLOW CRM', 'hello@meera.example']) {
+    for (const piece of ['Kavya Textiles', '+919829071001', 'kavya@textiles.example', 'Cotton yarn 50 kg ka rate?', 'Wants samples before ordering', 'Pays on the 10th', 'Kavya — 50 kg yarn', 'Kavya GST certificate', 'Kavya wants 50 kg', 'WhatsApp (Meta)', 'AgreemCRM', 'hello@meera.example']) {
       expect({ piece, found: page.includes(piece) }).toEqual({ piece, found: true });
     }
     const quotation = await Quotation.findById(ids.quotation);
@@ -160,7 +160,7 @@ describe('A customer\'s data on request (Phase 8, D120)', () => {
     expect(data.payments).toEqual([expect.objectContaining({ amountPaise: 500000, reference: 'UTR-KAVYA-1' })]);
     expect(data.supportRequests).toHaveLength(1);
     expect(data.meetings).toHaveLength(2);
-    expect(data.sharedWith.map((s) => s.name)).toEqual(expect.arrayContaining(['YELLOW CRM', 'WhatsApp (Meta)', 'hooks.example.com']));
+    expect(data.sharedWith.map((s) => s.name)).toEqual(expect.arrayContaining(['AgreemCRM', 'WhatsApp (Meta)', 'hooks.example.com']));
     expect(JSON.stringify(data)).not.toContain('Rohan'); // nobody else's data
     expect(JSON.stringify(data)).not.toMatch(/storageKey|organizationId/);
 

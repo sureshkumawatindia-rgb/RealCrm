@@ -266,7 +266,7 @@ button {
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   background: var(--bg);
 }
-/* The left half: what YELLOW CRM is */
+/* The left half: what AgreemCRM is */
 .auth-showcase {
   display: flex;
   flex-direction: column;
@@ -602,7 +602,7 @@ button {
   flex-shrink: 0;
   opacity: 0.38;
 }
-/* "New to Yellow CRM? Create your company" / "Already on Yellow CRM? Log in to your company":
+/* "New to AgreemCRM? Create your company" / "Already on AgreemCRM? Log in to your company":
    a soft box with the switch as a yellow pill and an arrow (the text comes from js/login.js). */
 .login-signup {
   flex-wrap: wrap;
@@ -1296,7 +1296,7 @@ button {
   letter-spacing: -0.3px;
   color: var(--text);
 }
-/* The company's own name over "YELLOW CRM" (app.js renderSidebarBrand) */
+/* The company's own name over "AgreemCRM" (app.js renderSidebarBrand) */
 .sidebar-brand .sidebar-brand__name {
   display: flex;
   flex-direction: column;

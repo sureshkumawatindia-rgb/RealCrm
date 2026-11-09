@@ -19,7 +19,7 @@ const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 // emails to the owners and admins, and the new-login email unless it is switched off.
 const DAY = 24 * 60 * 60 * 1000;
 const KEY = 're_test_platform_key_123';
-const FROM = 'YELLOW CRM <hello@mail.example.in>';
+const FROM = 'AgreemCRM <hello@mail.example.in>';
 
 describe('Platform emails through Resend (D104)', () => {
   let owner;
@@ -87,7 +87,7 @@ describe('Platform emails through Resend (D104)', () => {
     const [{ headers, body }] = sent;
     expect(headers).toEqual(expect.objectContaining({ Authorization: `Bearer ${KEY}`, 'Idempotency-Key': `crm-email-${delivery._id}` }));
     expect(body).toEqual(expect.objectContaining({ from: FROM, to: ['ravi@example.com'], tags: [{ name: 'kind', value: 'invite' }] }));
-    expect(body.subject).toBe('Asha ने आपको YELLOW CRM पर Yellow Traders में बुलाया है');
+    expect(body.subject).toBe('Asha ने आपको AgreemCRM पर Yellow Traders में बुलाया है');
     expect(body.html).toContain(token);
     expect(body.html).toContain('<html lang="hi">');
     expect(body.text).toContain(res.body.data.link);
@@ -194,7 +194,7 @@ describe('Platform emails through Resend (D104)', () => {
     sent = [];
     await runEmails();
     const mail = sent.find((s) => s.body.tags[0].value === 'login_alert');
-    expect(mail.body.subject).toBe('New login to YELLOW CRM: Chrome on Windows');
+    expect(mail.body.subject).toBe('New login to AgreemCRM: Chrome on Windows');
     expect(mail.body.text).toContain('Settings → Your profile');
     expect(adminMember.role).toBe('admin');
   });

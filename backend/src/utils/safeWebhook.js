@@ -55,7 +55,7 @@ async function callWebhook(rawUrl, payload, secret) {
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'YellowCRM-Automation/1', 'X-CRM-Signature': signature, 'X-CRM-Event': String(payload.event || '') },
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'AgreemCRM-Automation/1', 'X-CRM-Signature': signature, 'X-CRM-Event': String(payload.event || '') },
       body,
       redirect: 'manual',
       signal: AbortSignal.timeout(TIMEOUT_MS),

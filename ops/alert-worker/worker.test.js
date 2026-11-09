@@ -71,7 +71,7 @@ test('a run checks every site and remembers between runs', async () => {
   await runChecks(env, { fetchImpl, now: 0 });
   const [second] = await runChecks(env, { fetchImpl, now: 5 * MINUTE });
   assert.equal(second.message, 'Production is DOWN: answered 502');
-  assert.deepEqual(sent, ['YELLOW CRM: Production is DOWN: answered 502']);
+  assert.deepEqual(sent, ['AgreemCRM: Production is DOWN: answered 502']);
   assert.equal(JSON.parse(STATE.store.get('site:Production')).down, true);
 });
 

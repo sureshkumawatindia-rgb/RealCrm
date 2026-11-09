@@ -10,7 +10,7 @@ router.get('/', (req, res) => {
   const seller = env.billing.seller;
   res.json({
     success: true,
-    data: { name: seller.name || 'YELLOW CRM', email: seller.email || '', address: seller.address || '', publicUrl: env.publicUrl },
+    data: { name: seller.name || 'AgreemCRM', email: seller.email || '', address: seller.address || '', publicUrl: env.publicUrl },
   });
 });
 

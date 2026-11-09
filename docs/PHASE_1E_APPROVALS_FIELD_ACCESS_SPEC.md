@@ -45,7 +45,7 @@ Where Zoho is limited:
 - **Field permissions start at Professional,** according to the comparison page. The FAQ page itself does not name editions.
 - **Setup is spread out.** Approvals live under Process Management, field permissions under Modules and Fields, and profiles under Security Control.
 
-Where YELLOW CRM 1E will be better (each point can be checked):
+Where AgreemCRM 1E will be better (each point can be checked):
 - **Every plan,** the trial too, gets both.
 - **Built for the discount case.** A limit takes two numbers (discount %, total ₹), not a criteria builder. The salesperson sees "needs approval" while building the quotation, before saving.
 - **Approval from the bell, on the phone,** in 2 taps (open, Approve), and the salesperson is told live.

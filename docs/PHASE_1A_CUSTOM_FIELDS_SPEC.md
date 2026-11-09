@@ -32,7 +32,7 @@ Where Zoho is limited:
 
 UNVERIFIED: limits on pick-list options; whether mandatory fields block the API and imports; any Zoho pricing.
 
-Where YELLOW CRM 1A will be better (each point can be checked):
+Where AgreemCRM 1A will be better (each point can be checked):
 - Custom fields on every plan, including the trial. Zoho Free has none.
 - 50 active fields per object on every plan. Zoho Standard has 10 per module.
 - Archived fields do not count toward the 50.

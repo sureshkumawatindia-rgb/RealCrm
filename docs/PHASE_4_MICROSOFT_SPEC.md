@@ -53,7 +53,7 @@ Where Zoho is limited:
 - **Excel imports above 5,000 records** must be converted to CSV.
 - **Two-way calendar sync** uses a separate calendar in Microsoft, according to a community post (UNVERIFIED in the official help).
 
-Where YELLOW CRM Phase 4 will be better (each point can be checked):
+Where AgreemCRM Phase 4 will be better (each point can be checked):
 - **A live feed for Excel and Power BI** on every plan with the API:
   - one URL and one header per table (contacts, leads, quotations, orders, products);
   - flat rows in rupees;

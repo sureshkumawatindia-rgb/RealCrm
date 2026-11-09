@@ -46,7 +46,7 @@ Where Zoho is limited:
 
 UNVERIFIED: whether Zoho's global search covers custom fields (only community posts were found), Zoho pricing, and per-edition limits on views.
 
-Where YELLOW CRM 1B will be better (each point can be checked):
+Where AgreemCRM 1B will be better (each point can be checked):
 - **Indian formats on import.** Numbers like `1,25,000` or `₹ 2,500` and dates like `20/10/2026` are read without choosing a format per column. A dropdown matches its choice by name, ignoring capitals.
 - **No row is dropped for a required custom field** (D73); the report says what was left out and on which row.
 - **Webhooks carry every custom field** of the contact or lead, not a chosen 10.

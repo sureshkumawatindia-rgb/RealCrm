@@ -44,7 +44,7 @@ Where Zoho is limited:
 - **The timeline mixes system entries** (field updates, webhooks) with sales activity. Users have asked for years for "just tasks, events and emails". Received emails are said not to appear (community post: UNVERIFIED).
 - **Exotel**, common in India, has no Zoho CRM PhoneBridge page (UNVERIFIED; Zoho lists it for Bigin).
 
-Where YELLOW CRM Phase 6 will be better (each point can be checked):
+Where AgreemCRM Phase 6 will be better (each point can be checked):
 - **One customer history** with WhatsApp in and out, calls, emails from the viewer's own Gmail, notes, deal moves, quotations, orders and payments, tickets, tasks and meetings.
   - Filters: All, Talks (WhatsApp, calls, email), Sales, Service, Notes.
   - Cursor pages ("Load more"), so years of history stay fast.

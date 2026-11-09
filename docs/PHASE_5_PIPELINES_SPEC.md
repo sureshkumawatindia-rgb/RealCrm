@@ -50,7 +50,7 @@ Where Zoho is limited:
 - **The Kanban needs setup:** making a view ("Module Customization" permission), choosing "Aggregate by", and the pipeline dropdown appears only when grouped by stage.
 - **Which edition has multiple pipelines is not stated** on the pages read (a community post says Standard and above: UNVERIFIED).
 
-Where YELLOW CRM Phase 5 will be better (each point can be checked):
+Where AgreemCRM Phase 5 will be better (each point can be checked):
 - **The board shows by itself,** in every column: the count, the value, and the weighted value (by each stage's probability).
 - **Each card shows:**
   - the **next activity** (the nearest open task, meeting or follow-up);

@@ -1,4 +1,4 @@
-// YELLOW CRM alert watchdog (F3, docs/FOUNDATION_SETUP_STEPS.md). A Cloudflare Worker, outside the
+// AgreemCRM alert watchdog (F3, docs/FOUNDATION_SETUP_STEPS.md). A Cloudflare Worker, outside the
 // CRM, so it can still speak when the CRM is down. Every 2 minutes (a Cron Trigger) it asks each
 // site's /api/v1/health. After 2 failed checks in a row (so within about 5 minutes) it sends one
 // WhatsApp alert (the WhatsApp
@@ -94,7 +94,7 @@ export async function runChecks(env, { fetchImpl = fetch, now = Date.now() } = {
     const { state, message } = decide(JSON.parse(saved || 'null'), result, site, now);
     const next = JSON.stringify(state);
     if (env.STATE && next !== (saved ?? JSON.stringify(decide(null, { ok: true }, site, now).state))) await env.STATE.put(key, next);
-    const delivery = message ? await sendWhatsApp(env, `YELLOW CRM: ${message}`, fetchImpl) : null;
+    const delivery = message ? await sendWhatsApp(env, `AgreemCRM: ${message}`, fetchImpl) : null;
     results.push({ site: site.name, ok: result.ok, reason: result.reason || null, message, delivery });
   }
   return results;
@@ -108,13 +108,13 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/test') {
       if (!env.TEST_KEY || url.searchParams.get('key') !== env.TEST_KEY) return new Response('Not found', { status: 404 });
-      const delivery = await sendWhatsApp(env, 'YELLOW CRM: test alert from the watchdog. Alerts reach this number.');
+      const delivery = await sendWhatsApp(env, 'AgreemCRM: test alert from the watchdog. Alerts reach this number.');
       return Response.json(delivery, { status: delivery.sent ? 200 : 502 });
     }
     if (url.pathname === '/check') {
       if (!env.TEST_KEY || url.searchParams.get('key') !== env.TEST_KEY) return new Response('Not found', { status: 404 });
       return Response.json(await runChecks(env));
     }
-    return new Response('YELLOW CRM watchdog', { status: 200 });
+    return new Response('AgreemCRM watchdog', { status: 200 });
   },
 };

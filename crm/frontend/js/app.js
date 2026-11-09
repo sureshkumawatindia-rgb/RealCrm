@@ -2635,7 +2635,7 @@ function fillSearchFromAddress() {
   add("meta", { rel: "theme-color", name: "theme-color", content: "#ffde59" });
   add("meta", { name: "mobile-web-app-capable", content: "yes" });
   add("meta", { name: "apple-mobile-web-app-capable", content: "yes" });
-  add("meta", { name: "apple-mobile-web-app-title", content: "YELLOW CRM" });
+  add("meta", { name: "apple-mobile-web-app-title", content: "AgreemCRM" });
   add("meta", { name: "apple-mobile-web-app-status-bar-style", content: "default" });
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
   const sw = navigator.serviceWorker;
@@ -3138,7 +3138,7 @@ function hideUnavailableModules() {
 }
 
 // The top of the sidebar shows the company's own name and logo (Settings → Your Profile) with
-// "YELLOW CRM" under it; a company without a name yet keeps the YELLOW CRM brand.
+// "AgreemCRM" under it; a company without a name yet keeps the AgreemCRM brand.
 function renderSidebarBrand(company = getCompanyInfo()) {
   const brand = document.querySelector(".sidebar-brand");
   const img = brand?.querySelector(".mark img");
@@ -3153,7 +3153,7 @@ function renderSidebarBrand(company = getCompanyInfo()) {
   const name = document.createElement("strong");
   name.textContent = company.name;
   const product = document.createElement("small");
-  product.textContent = "YELLOW CRM";
+  product.textContent = "AgreemCRM";
   label.className = "sidebar-brand__name";
   label.title = company.name;
   label.replaceChildren(name, product);

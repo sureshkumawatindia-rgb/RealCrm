@@ -201,7 +201,7 @@ function testBillingPage(sub, note = '') {
   const body = !sub ? '<p>This test subscription does not exist (the server may have restarted).</p>'
     : `<p class="muted">Test subscription — no money moves</p>
       <h1>${esc(formatRupees(sub.amountPaise))}<small> /month</small></h1>
-      <p>YELLOW CRM ${esc(sub.planName)} plan (GST included)${sub.startAt && sub.status === 'created' ? `<br>First charge on ${esc(new Date(sub.startAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }))}, when the free trial ends` : ''}</p>
+      <p>AgreemCRM ${esc(sub.planName)} plan (GST included)${sub.startAt && sub.status === 'created' ? `<br>First charge on ${esc(new Date(sub.startAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }))}, when the free trial ends` : ''}</p>
       <p class="muted">Status: ${esc(sub.status)}${sub.paidCount ? ` · ${sub.paidCount} month${sub.paidCount === 1 ? '' : 's'} paid` : ''}</p>
       ${note ? `<p class="note">${esc(note)}</p>` : ''}
       ${actions.map((action) => `<form method="post"><input type="hidden" name="action" value="${action}"><button type="submit"${action === 'fail' ? ' class="secondary"' : ''}>${esc(TEST_ACTIONS[action])}</button></form>`).join('')}

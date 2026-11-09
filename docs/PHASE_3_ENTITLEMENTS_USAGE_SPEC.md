@@ -51,7 +51,7 @@ Where Zoho is limited:
 - **Alerts are vague:** Zoho says it will "inform you" near the limit, without saying when or how (UNVERIFIED in detail: the page gives no method or timing).
 - **Credits are a technical unit** (1 to 500 credits per call type) that an SMB owner cannot easily reason about.
 
-Where YELLOW CRM Phase 3A will be better (each point can be checked):
+Where AgreemCRM Phase 3A will be better (each point can be checked):
 - **One screen** with every meter: the 7 plan limits, the AI budget, and 6 counted meters (API calls, webhook sends, workflow runs, files, custom fields, custom objects), in plain units.
 - **Alerts at 80% and 100%**, by bell (and web push where switched on), to owners and admins, once per level per period, within an hour.
 - **30 days of history** for every meter, and **"full around <date>"** at the current pace. Daily snapshots are kept 400 days.

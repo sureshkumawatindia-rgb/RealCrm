@@ -31,7 +31,7 @@ Where Zoho is limited (as its own help page says):
 
 UNVERIFIED: which editions can build modules today (only an old community post was found), and single lookup fields in views.
 
-Where YELLOW CRM 1C will be better (each point can be checked):
+Where AgreemCRM 1C will be better (each point can be checked):
 - **Every plan has custom objects,** the trial too (Zoho Free has none). The default is 10 per company, the same number as Zoho Standard, not more.
 - **Faster setup:** one short form for an object, then the same field screen as 1A.
 - **Link fields work everywhere other fields do:** list filters (`is`, `empty`, `filled`), columns and Customer 360. They are never limited to "2 per module".

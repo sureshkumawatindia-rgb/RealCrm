@@ -304,7 +304,7 @@ crmI18n.ready.then(function inbox() {
     $("countUnassigned").textContent = summary.unassigned;
     $("countAll").textContent = summary.all;
     state.unread = summary.unread;
-    document.title = `${summary.unread ? `(${summary.unread}) ` : ""}${t("nav.inbox")} | YELLOW CRM`;
+    document.title = `${summary.unread ? `(${summary.unread}) ` : ""}${t("nav.inbox")} | AgreemCRM`;
     if (typeof setInboxNavBadge === "function") setInboxNavBadge(summary.unread);
   }
   async function loadSummary() {

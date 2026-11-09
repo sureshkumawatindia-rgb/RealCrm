@@ -106,7 +106,7 @@ async function sendToMember(memberId, payload) {
 
 // POST /push/test — a note to this member's devices now.
 async function test(req) {
-  const result = await sendToMember(req.member._id, { title: 'YELLOW CRM', body: 'Notifications work on this device.', url: 'Settings.html', tag: 'test' });
+  const result = await sendToMember(req.member._id, { title: 'AgreemCRM', body: 'Notifications work on this device.', url: 'Settings.html', tag: 'test' });
   if (!result.sent && !(await PushSubscription.exists({ memberId: req.member._id }))) throw httpError(409, 'NO_DEVICES', 'Switch on notifications on this device first.');
   return result;
 }

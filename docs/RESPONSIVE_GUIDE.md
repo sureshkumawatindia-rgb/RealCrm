@@ -1,6 +1,6 @@
 # Responsive guide
 
-How YELLOW CRM stays usable from a 320px phone to a 1440px screen, in English and Hindi, in
+How AgreemCRM stays usable from a 320px phone to a 1440px screen, in English and Hindi, in
 light and dark mode, with a mouse or a finger. Written for R4 of the responsive fix plan
 (D97–D98, 2026-10-27). The plan itself is `docs/RESPONSIVE_FIX_PROMPT.md`.
 

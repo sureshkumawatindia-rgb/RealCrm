@@ -53,7 +53,7 @@ Where Zoho is limited (per the webhooks page, UNVERIFIED for today):
 - **No built-in signature**: authentication is done by adding custom parameters such as tokens.
 - **One retry**, 15 minutes later, then nothing; there is a daily cap whose number is not given.
 
-Where YELLOW CRM 1F will be better (each point can be checked):
+Where AgreemCRM 1F will be better (each point can be checked):
 - **Every webhook is signed,** with the time in the signature (replay protection). A secret can be renewed with **24 hours** in which both work.
 - **The whole record,** with all its custom fields, in every webhook; **8 attempts** with a delivery log and "Send again".
 - **One screen** showing every connection's health, with what to fix.

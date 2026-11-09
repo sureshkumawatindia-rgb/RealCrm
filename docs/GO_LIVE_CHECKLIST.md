@@ -20,7 +20,8 @@ service's **Environment** on Render — never into a chat, an email or a documen
 ## 2. Your own domain with HTTPS
 
 - **Do:** point `crm.yourdomain.in` (or similar) at Render and set `PUBLIC_URL` to it.
-- **Guide:** `docs/RENDER_SETUP.md` step 6, `docs/DEPLOYMENT.md` §2.
+- **Guide:** `docs/DOMAIN_SETUP_AGREEMCRM.md` (agreemcrm.com / .in, step by step),
+  `docs/RENDER_SETUP.md` step 6, `docs/DEPLOYMENT.md` §2.
 - **Without it:** customers see an onrender.com address; "Connect WhatsApp" and Google need the
   final address in their settings.
 

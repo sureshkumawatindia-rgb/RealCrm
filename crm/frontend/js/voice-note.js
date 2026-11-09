@@ -101,7 +101,7 @@
   }
 
   function opusTags() {
-    const vendor = [...'YELLOW CRM'].map((c) => c.charCodeAt(0));
+    const vendor = [...'AgreemCRM'].map((c) => c.charCodeAt(0));
     const tags = new Uint8Array(8 + 4 + vendor.length + 4);
     tags.set([...'OpusTags'].map((c) => c.charCodeAt(0)), 0);
     new DataView(tags.buffer).setUint32(8, vendor.length, true);

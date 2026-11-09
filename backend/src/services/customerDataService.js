@@ -161,7 +161,7 @@ async function fieldTexts(req, object, docs) {
 // Who else handled the customer's data (s. 11(1)(b)): the services the company used for it.
 async function sharedWith(organizationId, g, t, company) {
   const O = { organizationId: toId(organizationId) };
-  const list = [{ name: 'YELLOW CRM', purpose: t('pdata.sh.crm', { company }) }];
+  const list = [{ name: 'AgreemCRM', purpose: t('pdata.sh.crm', { company }) }];
   const channels = new Set(g.conversations.map((c) => c.channel || 'whatsapp'));
   if (channels.has('whatsapp')) list.push({ name: 'WhatsApp (Meta)', purpose: t('pdata.sh.whatsapp') });
   if (channels.has('instagram')) list.push({ name: 'Instagram (Meta)', purpose: t('pdata.sh.instagram') });

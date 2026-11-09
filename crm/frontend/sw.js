@@ -177,7 +177,7 @@ self.addEventListener("push", (event) => {
   } catch {
     data = { body: event.data ? event.data.text() : "" };
   }
-  event.waitUntil(self.registration.showNotification(data.title || "YELLOW CRM", {
+  event.waitUntil(self.registration.showNotification(data.title || "AgreemCRM", {
     body: data.body || "",
     icon: "img/icons/icon-192.png",
     badge: "img/icons/icon-192.png",

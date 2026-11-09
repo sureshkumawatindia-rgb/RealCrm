@@ -92,7 +92,7 @@ function embedScript(form, { privacyUrl = '' } = {}) {
   };
   // "<" as < keeps the JSON from ever closing a <script> tag.
   const json = JSON.stringify(config).replace(/</g, '\\u003c');
-  return `/* YELLOW CRM enquiry form */
+  return `/* AgreemCRM enquiry form */
 (function () {
   var cfg = ${json};
   var here = document.currentScript;

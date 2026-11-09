@@ -78,7 +78,7 @@ async function* encryptedLines(collection, key, counter) {
 // (the restore of a big messages collection on a small server). The tag is checked at the end:
 // a changed file or a wrong key throws then (or earlier, when the gzip cannot be read).
 async function* fileLines(buffer, key) {
-  if (!buffer.subarray(0, MAGIC.length).equals(MAGIC)) throw new Error('Not a YELLOW CRM backup file');
+  if (!buffer.subarray(0, MAGIC.length).equals(MAGIC)) throw new Error('Not an AgreemCRM backup file');
   const iv = buffer.subarray(MAGIC.length, MAGIC.length + 12);
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
   decipher.setAuthTag(buffer.subarray(buffer.length - 16));
@@ -96,7 +96,7 @@ async function* fileLines(buffer, key) {
 
 // A backup file's documents (as EJSON lines); throws when the file was changed or the key is wrong.
 function decryptFile(buffer, key) {
-  if (!buffer.subarray(0, MAGIC.length).equals(MAGIC)) throw new Error('Not a YELLOW CRM backup file');
+  if (!buffer.subarray(0, MAGIC.length).equals(MAGIC)) throw new Error('Not an AgreemCRM backup file');
   const iv = buffer.subarray(MAGIC.length, MAGIC.length + 12);
   const tag = buffer.subarray(buffer.length - 16);
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);

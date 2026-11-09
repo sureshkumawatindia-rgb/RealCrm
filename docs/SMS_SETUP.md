@@ -9,7 +9,7 @@ In India every business SMS must use a **DLT**-registered sender and template (T
 1. Register your business as a **Principal Entity** on one operator's DLT portal (Jio, Airtel, Vi or BSNL; one is enough). You need the PAN, GST certificate or other proof and a letter of authorisation; there is a one-time fee. Note your **Entity ID**.
 2. Register a **Header** (the sender name people see, 6 letters, e.g. `YLWCRM`), category *Transactional / Service*.
 3. Register a **content template** of type *Service Implicit* (OTP), for example:
-   `{#var#} is your YELLOW CRM login code. It expires in 5 minutes. Do not share it. - YLWCRM`
+   `{#var#} is your AgreemCRM login code. It expires in 5 minutes. Do not share it. - YLWCRM`
    Wait for approval and note the **DLT template ID**.
 
 ## 2. MSG91

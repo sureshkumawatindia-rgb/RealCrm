@@ -346,7 +346,7 @@ async function cleanup(data, job) {
     try {
       const link = await PaymentLink.findOne({ _id: linkId, ...O });
       if (link && OPEN_LINK_STATUSES.includes(link.status) && !link.amountPaidPaise) {
-        const system = { tenant: { organizationId: link.organizationId }, member: { _id: undefined, role: 'owner', modules: [], permissions: [], status: 'active' }, user: { _id: undefined, name: 'YELLOW CRM' }, id: `erasure:${linkId}`, ip: '', get: () => '' };
+        const system = { tenant: { organizationId: link.organizationId }, member: { _id: undefined, role: 'owner', modules: [], permissions: [], status: 'active' }, user: { _id: undefined, name: 'AgreemCRM' }, id: `erasure:${linkId}`, ip: '', get: () => '' };
         await require('./paymentLinkService').cancel(system, link._id); // eslint-disable-line global-require
       }
     } catch (error) {

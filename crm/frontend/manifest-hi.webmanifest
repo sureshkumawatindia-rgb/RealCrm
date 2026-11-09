@@ -1,6 +1,6 @@
 {
-  "name": "YELLOW CRM",
-  "short_name": "YELLOW CRM",
+  "name": "AgreemCRM",
+  "short_name": "AgreemCRM",
   "description": "WhatsApp वाला CRM: चैट, लीड, कोटेशन, ऑर्डर और पेमेंट। बिना इंटरनेट के भी खुलता है।",
   "id": "/crm/frontend/",
   "start_url": "Inbox.html",

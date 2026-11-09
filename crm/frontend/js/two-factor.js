@@ -83,10 +83,10 @@
         showToast(t("tfa.copied"), "success");
       }
       if (action === "download") {
-        const text = `YELLOW CRM — ${t("tfa.title")}\n${getCurrentUser()?.email || ""}\n\n${card.dataset.codes}\n`;
+        const text = `AgreemCRM — ${t("tfa.title")}\n${getCurrentUser()?.email || ""}\n\n${card.dataset.codes}\n`;
         const link = document.createElement("a");
         link.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-        link.download = "yellow-crm-backup-codes.txt";
+        link.download = "agreemcrm-backup-codes.txt";
         link.click();
         URL.revokeObjectURL(link.href);
       }

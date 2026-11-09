@@ -8,7 +8,7 @@ weeks, with the result on the platform admin page.
 ## What India's DPDP Act asks (in short)
 
 Under the Digital Personal Data Protection Act, 2023 each company using the CRM is the **data
-fiduciary** for its customers' data, and YELLOW CRM is its **data processor**. The parts this phase
+fiduciary** for its customers' data, and AgreemCRM is its **data processor**. The parts this phase
 helps with:
 
 | The Act | What it asks | In the CRM |
@@ -38,7 +38,7 @@ advice**: confirm what applies to your business with your lawyer or CA.
   lead sources); enquiries; quotations; orders; tax invoices; payments and payment links; support
   requests; tasks and meetings about them; notes; calls; every chat message (photos, voice notes and
   files named); SMS; emails; files; broadcasts and follow-ups; linked projects and records; and
-  **who else handled the data**: YELLOW CRM, WhatsApp / Instagram / Messenger (Meta), the payment
+  **who else handled the data**: AgreemCRM, WhatsApp / Instagram / Messenger (Meta), the payment
   gateway, MSG91, Exotel, Gmail or Outlook, the AI assistant (Anthropic), Meta's Conversions API,
   Google Sheets, Calendar or Drive, and the company's own webhooks — only those used for this
   customer. Records the company deleted but still keeps are in it, marked "deleted". Nobody else's

@@ -249,7 +249,7 @@ The CRM tells Meta how your Facebook and Instagram **Lead Ads** leads move: New,
 - **Each event:**
   - `event_name` is the stage;
   - `action_source` is `system_generated`;
-  - `custom_data` is `{ event_source: "crm", lead_event_source: "YELLOW CRM" }`.
+  - `custom_data` is `{ event_source: "crm", lead_event_source: "AgreemCRM" }`.
 - **How Meta matches the lead:**
   - Meta's lead id, for leads from Lead Ads (Settings → Lead sources → Facebook);
   - the customer's phone and email, as SHA-256 hashes (never in plain text).

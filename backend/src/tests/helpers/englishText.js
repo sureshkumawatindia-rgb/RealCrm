@@ -21,7 +21,7 @@ const OK = /i18n-ok/;
 
 // Words that stay as they are in Hindi: names, formats, units, abbreviations.
 const KEEP = new Set([
-  'yellow', 'crm', 'whatsapp', 'gst', 'gstin', 'pan', 'pdf', 'csv', 'excel', 'upi', 'otp', 'qr', 'api', 'url', 'id', 'indiamart',
+  'yellow', 'agreem', 'agreemcrm', 'crm', 'whatsapp', 'gst', 'gstin', 'pan', 'pdf', 'csv', 'excel', 'upi', 'otp', 'qr', 'api', 'url', 'id', 'indiamart',
   'justdial', 'tradeindia', 'google', 'gmail', 'meta', 'facebook', 'instagram', 'messenger', 'razorpay', 'cashfree', 'phonepe',
   'paytm', 'tally', 'microsoft', 'outlook', 'teams', 'sms', 'ifsc', 'hsn', 'sac', 'moq', 'sku', 'kb', 'mb', 'gb', 'rs', 'inr', 'am',
   'pm', 'ok', 'ai', 'html', 'json', 'xml', 'ist', 'utc', 'lr', 'tds', 'tcs', 'neft', 'rtgs', 'imps', 'dnd', 'sla', 'csat', 'kpi', 'fy',

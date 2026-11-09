@@ -1,4 +1,4 @@
-# Render Blueprint for YELLOW CRM (D18). Step-by-step: docs/RENDER_SETUP.md and, for staging,
+# Render Blueprint for AgreemCRM (D18). Step-by-step: docs/RENDER_SETUP.md and, for staging,
 # Sentry and the deploy gate, docs/FOUNDATION_SETUP_STEPS.md.
 # One web service runs everything (pages, API, webhooks, live inbox, background jobs).
 # A disk keeps uploaded logos, documents and WhatsApp media across deploys (a disk needs a paid

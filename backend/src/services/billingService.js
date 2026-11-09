@@ -79,7 +79,7 @@ async function providerPlanFor(planKey) {
   if (known) return known.providerPlanId;
   const plan = PLANS[planKey];
   const made = await gateway().createPlan(keys(), {
-    name: `YELLOW CRM ${plan.name}`,
+    name: `AgreemCRM ${plan.name}`,
     amountPaise: filter.amountPaise,
     description: `${plan.name} plan: ${formatRupees(plan.pricePaise)} + ${PLAN_GST_PCT}% GST a month`,
     notes: { planKey },
@@ -236,7 +236,7 @@ async function applyPlan(organization, planKey) {
 function sellerParty() {
   const { name, gstin, address, email } = env.billing.seller;
   const stateCode = stateCodeFromGstin(gstin) || '';
-  return { name: name || 'YELLOW CRM', gstin, address, stateCode, state: stateName(stateCode), email };
+  return { name: name || 'AgreemCRM', gstin, address, stateCode, state: stateName(stateCode), email };
 }
 function buyerParty(organization) {
   const gstin = String(organization.gstin || organization.get('gst') || '').toUpperCase();

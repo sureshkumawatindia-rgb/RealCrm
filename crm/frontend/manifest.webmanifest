@@ -1,6 +1,6 @@
 {
-  "name": "YELLOW CRM",
-  "short_name": "YELLOW CRM",
+  "name": "AgreemCRM",
+  "short_name": "AgreemCRM",
   "description": "WhatsApp-first CRM: chats, leads, quotations, orders and payments. Opens without the network too.",
   "id": "/crm/frontend/",
   "start_url": "Inbox.html",

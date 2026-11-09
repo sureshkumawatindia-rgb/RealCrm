@@ -38,7 +38,7 @@ Where Zoho is limited:
 - Its workaround needs **six custom fields, a workflow rule and a Deluge function**, rated "High" complexity, for **"Enterprise and above"**.
 - UTM capture on forms needs Zoho Forms, a second product.
 
-Where YELLOW CRM Phase 2 will be better (each point can be checked):
+Where AgreemCRM Phase 2 will be better (each point can be checked):
 - **Zero setup:** the CRM's own website form captures the UTM tags, `gclid`/`fbclid`, the referrer and the landing page.
 - **Ad details from lead sources:** Facebook Lead Ads and Google Ads leads record their ad, form or campaign by themselves.
 - **Every plan** gets it, the trial too.

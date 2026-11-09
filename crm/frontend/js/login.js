@@ -451,7 +451,7 @@ const company = {
 const defaultMark = { title: $("loginTitle").textContent, mark: $("loginMark").innerHTML };
 const tidyCompany = (text) => String(text || "").trim().replace(/\s+/g, " ");
 
-// The found company's logo and name on the card; back to YELLOW CRM when it is cleared.
+// The found company's logo and name on the card; back to AgreemCRM when it is cleared.
 function setFound(found) {
   company.found = found;
   if (found) {

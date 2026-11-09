@@ -1,6 +1,6 @@
 # Production deployment (Phase 10F)
 
-How to run YELLOW CRM for real customers: on an HTTPS domain, with MongoDB Atlas, kept running, backed up and monitored. Hosting is still decision **D18**; this guide works for a small cloud server (a VPS) and for a platform such as Render, Railway or Fly.io.
+How to run AgreemCRM for real customers: on an HTTPS domain, with MongoDB Atlas, kept running, backed up and monitored. Hosting is still decision **D18**; this guide works for a small cloud server (a VPS) and for a platform such as Render, Railway or Fly.io.
 
 ## 1. What runs
 

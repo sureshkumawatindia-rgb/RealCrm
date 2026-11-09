@@ -22,7 +22,7 @@ From now on:
 ## B. Atlas: the staging database and production backups (F2, F4a)
 
 **Staging database (free):**
-1. Atlas → **New Project** → name it `YELLOW CRM staging`.
+1. Atlas → **New Project** → name it `AgreemCRM staging`.
 2. **Create** a cluster → **M0 (Free)** → provider AWS, region **Mumbai (ap-south-1)**.
 3. **Database Access** → **Add New Database User**. Choose a new user name and password, and keep them in your password manager.
 4. **Network Access** → **Add IP Address** → **Allow access from anywhere** (`0.0.0.0/0`), as for production.
@@ -37,7 +37,7 @@ This is staging's own database. **Never put the production connection string int
 
 ## C. Render: the deploy gate and the staging service (F1, F2)
 
-1. Render dashboard → **Blueprints** → the YELLOW CRM blueprint → **Manual Sync** (or wait for the sync after your push). Render reads the new `render.yaml`:
+1. Render dashboard → **Blueprints** → the AgreemCRM blueprint → **Manual Sync** (or wait for the sync after your push). Render reads the new `render.yaml`:
    - **yellow-crm** (production) now deploys only after the checks pass;
    - a new service **yellow-crm-staging** appears.
 2. Open **yellow-crm-staging** → **Environment**. Set these three (Render does not ask for them when an existing Blueprint is synced):
@@ -86,7 +86,7 @@ A small Cloudflare Worker checks both sites every 2 minutes. After 2 failed chec
 
 **1. The WhatsApp template (Meta):**
 1. WhatsApp Manager → **Message templates** → **Create template** → category **Utility** → name `crm_alert` → language **English**.
-2. Body: `YELLOW CRM alert: {{1}}. Please check the CRM.`
+2. Body: `AgreemCRM alert: {{1}}. Please check the CRM.`
 3. Sample for `{{1}}`: `Production is DOWN: answered 503` → **Submit**. Wait for **Active** (approval).
 4. The sender is the platform's own WhatsApp number: its **phone number ID** and a permanent access token. If you set up the login-code number (`WHATSAPP_OTP_*`), the same number and token work.
 5. Each alert is a paid business-initiated message, a few a month at most.
