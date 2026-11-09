@@ -16,9 +16,10 @@
   initSidebarToggle();
 
   const $ = (id) => document.getElementById(id);
+  const T = crmI18n.t;
   const idOf = (value) => String(value || "");
   const manager = isOrgManager();
-  const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
+  const when = (iso) => (iso ? new Date(iso).toLocaleString(crmI18n.locale(), { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
   const clone = (value) => JSON.parse(JSON.stringify(value ?? {}));
 
   let activeTab = "workflows"; // workflows | runs | sequences | bot
@@ -27,70 +28,59 @@
   let workflows = [];
   let sequences = [];
 
-  // --- labels ------------------------------------------------------------------------------
+  // --- labels (text keys: the server keeps English values) --------------------------------
   const STEP_LOOK = {
-    "whatsapp.text": ["fa-brands fa-whatsapp", "Send a WhatsApp message"],
-    "whatsapp.template": ["fa-brands fa-whatsapp", "Send a WhatsApp template"],
-    assign: ["fa-solid fa-user-check", "Give the lead to someone"],
-    "tag.add": ["fa-solid fa-tag", "Add a tag to the customer"],
-    "tag.remove": ["fa-solid fa-tag", "Remove a tag"],
-    "stage.change": ["fa-solid fa-arrow-right", "Move the lead to a stage"],
-    "task.create": ["fa-solid fa-list-check", "Create a task"],
-    "agent.notify": ["fa-solid fa-bell", "Notify someone in the CRM"],
-    wait: ["fa-solid fa-hourglass-half", "Wait"],
-    "webhook.call": ["fa-solid fa-plug", "Call a webhook"],
-    "sequence.enroll": ["fa-solid fa-layer-group", "Add the customer to a sequence"],
-    "payment.link": ["fa-solid fa-indian-rupee-sign", "Send the order's payment link"],
+    "whatsapp.text": ["fa-brands fa-whatsapp"],
+    "whatsapp.template": ["fa-brands fa-whatsapp"],
+    assign: ["fa-solid fa-user-check"],
+    "tag.add": ["fa-solid fa-tag"],
+    "tag.remove": ["fa-solid fa-tag"],
+    "stage.change": ["fa-solid fa-arrow-right"],
+    "task.create": ["fa-solid fa-list-check"],
+    "agent.notify": ["fa-solid fa-bell"],
+    wait: ["fa-solid fa-hourglass-half"],
+    "webhook.call": ["fa-solid fa-plug"],
+    "sequence.enroll": ["fa-solid fa-layer-group"],
+    "payment.link": ["fa-solid fa-indian-rupee-sign"],
   };
-  const TRIGGER_SHORT = {
-    "lead.created": "New lead",
-    "message.received": "WhatsApp message",
-    "lead.stage_changed": "Stage change",
-    "lead.no_reply": "No reply",
-    "quotation.not_accepted": "Quote not accepted",
-    "order.stage_changed": "Order stage",
-    "payment.received": "Payment",
-    "payment.overdue": "Not paid",
-    "task.overdue": "Overdue task",
-    manual: "Test run",
-  };
-  const OP_LABELS = {
-    in: "is one of", notIn: "is not one of", has: "has", hasNot: "does not have", is: "is", isNot: "is not",
-    none: "is nobody yet", any: "is someone", open: "we are open", closed: "we are closed",
-  };
-  const VALUE_LABELS = {
-    "contact.name": "Customer's name",
-    "contact.company": "Customer's company",
-    "contact.city": "Customer's city",
-    "lead.product": "Lead title (product)",
-    "owner.name": "Name of the lead's owner",
-    "org.name": "Your business name",
-    "order.number": "Order number",
-    "order.due": "Amount still due on the order",
-    "quotation.number": "Quotation number",
+  const stepName = (type, fallback) => (STEP_LOOK[type] ? T(`auto.step.${type}`) : fallback || type);
+  const triggerShort = (type) => (crmI18n.has(`auto.short.${type}`) ? T(`auto.short.${type}`) : type);
+  const opLabel = (op) => (crmI18n.has(`auto.op.${op}`) ? T(`auto.op.${op}`) : op);
+  const VALUE_KEYS = {
+    "contact.name": "bc.val.name",
+    "contact.company": "bc.val.company",
+    "contact.city": "bc.val.city",
+    "lead.product": "bc.val.product",
+    "owner.name": "auto.val.owner",
+    "org.name": "bc.val.org",
+    "order.number": "auto.val.orderNumber",
+    "order.due": "auto.val.orderDue",
+    "quotation.number": "auto.val.quoteNumber",
   };
   const PLACEHOLDERS = ["contact.name", "contact.company", "contact.city", "lead.title", "owner.name", "org.name", "order.number", "order.due", "quotation.number", "task.title", "message.text"];
+  // [badge class, text key]: a run's or a step's status, then a customer's in a sequence.
   const RUN_BADGE = {
-    running: ["badge-info", "Running"], waiting: ["badge-warning", "Waiting"], done: ["badge-success", "Done"],
-    failed: ["badge-danger", "Failed"], skipped: ["badge-neutral", "Skipped"], cancelled: ["badge-neutral", "Stopped"],
-    active: ["badge-info", "In it now"], completed: ["badge-success", "Completed"], stopped: ["badge-neutral", "Stopped"],
+    running: ["badge-info", "runStatus.running"], waiting: ["badge-warning", "runStatus.waiting"], done: ["badge-success", "runStatus.done"],
+    failed: ["badge-danger", "runStatus.failed"], skipped: ["badge-neutral", "runStatus.skipped"], cancelled: ["badge-neutral", "runStatus.cancelled"],
+    active: ["badge-info", "auto.in-it-now"], completed: ["badge-success", "enroll.completed"], stopped: ["badge-neutral", "runStatus.cancelled"],
   };
   const badge = (status) => {
-    const [cls, label] = RUN_BADGE[status] || ["badge-neutral", status];
-    return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
+    const [cls, key] = RUN_BADGE[status] || ["badge-neutral", ""];
+    return `<span class="badge ${cls}">${escapeHtml(key ? T(key) : status)}</span>`;
   };
+  const statusLabel = (status) => crmLabel("wfStatus", status);
 
   const activeMembers = () => cached("members").filter((m) => m.status === "active");
   const canTakeLeads = (m) => ["owner", "admin"].includes(m.role) || (m.modules || []).some((x) => x === "leads" || x === "deals");
   const nameOf = (id) => {
     const member = cached("members").find((m) => idOf(m.id) === idOf(id));
-    return member ? member.name || member.email : "someone no longer in the team";
+    return member ? member.name || member.email : T("auto.gone");
   };
   const memberOptions = (selected, filter = () => true) =>
     activeMembers().filter(filter).map((m) => `<option value="${escapeHtml(m.id)}" ${idOf(m.id) === idOf(selected) ? "selected" : ""}>${escapeHtml(m.name || m.email)}</option>`).join("");
   const templateOf = (id) => templates.find((t) => idOf(t.id) === idOf(id));
   const sequenceOf = (id) => sequences.find((s) => idOf(s.id) === idOf(id));
-  const triggerLabel = (type) => meta?.triggers.find((t) => t.type === type)?.label || TRIGGER_SHORT[type] || type;
+  const triggerLabel = (type) => (crmI18n.has(`auto.trigger.${type}`) ? T(`auto.trigger.${type}`) : meta?.triggers.find((tr) => tr.type === type)?.label || triggerShort(type));
   const list = (value) => (Array.isArray(value) ? value : value == null || value === "" ? [] : [value]);
   const clean = (object) => Object.fromEntries(Object.entries(object).filter(([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && !v.length)));
   const query = () => ($("searchInput").value || "").toLowerCase().trim();
@@ -98,13 +88,13 @@
   function triggerText(trigger) {
     const p = trigger.params || {};
     const extra = {
-      "lead.created": p.sources?.length ? `from ${p.sources.join(", ")}` : "",
-      "message.received": p.keywords?.length ? `with ${p.keywords.map((k) => `"${k}"`).join(" or ")}` : "",
-      "lead.stage_changed": [p.fromStages?.length ? `from ${p.fromStages.join(" / ")}` : "", p.toStages?.length ? `to ${p.toStages.join(" / ")}` : ""].filter(Boolean).join(" "),
-      "lead.no_reply": `${p.hours || 24} hours`,
-      "quotation.not_accepted": `${p.days || 3} days`,
-      "payment.overdue": `${p.days || 7} days`,
-      "order.stage_changed": p.toStages?.length ? `to ${p.toStages.join(" / ")}` : "",
+      "lead.created": p.sources?.length ? T("auto.tt.from", { list: p.sources.map((x) => crmLabel("source", x)).join(", ") }) : "",
+      "message.received": p.keywords?.length ? T("auto.tt.with", { words: p.keywords.map((k) => `"${k}"`).join(T("bc.f.or")) }) : "",
+      "lead.stage_changed": [p.fromStages?.length ? T("auto.tt.from", { list: p.fromStages.map((x) => crmLabel("stage", x)).join(" / ") }) : "", p.toStages?.length ? T("auto.tt.to", { list: p.toStages.map((x) => crmLabel("stage", x)).join(" / ") }) : ""].filter(Boolean).join(" "),
+      "lead.no_reply": T("auto.tt.hours", { n: p.hours || 24 }),
+      "quotation.not_accepted": T("auto.tt.days", { n: p.days || 3 }),
+      "payment.overdue": T("auto.tt.days", { n: p.days || 7 }),
+      "order.stage_changed": p.toStages?.length ? T("auto.tt.to", { list: p.toStages.map((x) => crmLabel("orderStage", x)).join(" / ") }) : "",
     }[trigger.type];
     return extra ? `${triggerLabel(trigger.type)} · ${extra}` : triggerLabel(trigger.type);
   }
@@ -112,18 +102,18 @@
   function stepText(step) {
     const p = step.params || {};
     switch (step.type) {
-      case "whatsapp.text": return "WhatsApp message";
-      case "whatsapp.template": return `Template ${templateOf(p.templateId)?.name || ""}`.trim();
-      case "assign": return `Give to ${nameOf(p.memberId)}`;
-      case "tag.add": return `Tag "${p.tag}"`;
-      case "tag.remove": return `Untag "${p.tag}"`;
-      case "stage.change": return `Stage → ${p.stage}`;
-      case "task.create": return "Task";
-      case "agent.notify": return `Notify ${p.to === "owner" ? "the owner" : p.to === "managers" ? "owners & admins" : nameOf(p.to)}`;
-      case "wait": return `Wait ${p.amount} ${p.unit || "hours"}`;
-      case "webhook.call": return "Webhook";
-      case "sequence.enroll": return `Sequence ${sequenceOf(p.sequenceId)?.name || ""}`.trim();
-      case "payment.link": return "Payment link";
+      case "whatsapp.text": return T("auto.st.text");
+      case "whatsapp.template": return T("auto.st.template", { name: templateOf(p.templateId)?.name || "" }).trim();
+      case "assign": return T("auto.st.assign", { name: nameOf(p.memberId) });
+      case "tag.add": return T("auto.st.tag", { tag: p.tag });
+      case "tag.remove": return T("auto.st.untag", { tag: p.tag });
+      case "stage.change": return T("auto.st.stage", { stage: crmLabel("stage", p.stage) });
+      case "task.create": return T("dash.add.task");
+      case "agent.notify": return T("auto.st.notify", { who: p.to === "owner" ? T("auto.who.owner") : p.to === "managers" ? T("auto.who.managers") : nameOf(p.to) });
+      case "wait": return T("auto.st.wait", { n: p.amount, unit: T(`auto.unit.${p.unit || "hours"}`) });
+      case "webhook.call": return T("auto.st.webhook");
+      case "sequence.enroll": return T("auto.st.sequence", { name: sequenceOf(p.sequenceId)?.name || "" }).trim();
+      case "payment.link": return T("quotes.act.paylink");
       default: return step.type;
     }
   }
@@ -138,7 +128,7 @@
     "tag.add": { tag: "" },
     "tag.remove": { tag: "" },
     "stage.change": { stage: "Contacted" },
-    "task.create": { title: "Call {{contact.name}}", dueInDays: 1, assignTo: "owner", priority: "Medium" },
+    "task.create": { get title() { return T("auto.ph.call"); }, dueInDays: 1, assignTo: "owner", priority: "Medium" },
     "agent.notify": { to: "owner", message: "" },
     wait: { amount: 1, unit: "hours" },
     "webhook.call": { url: "" },
@@ -147,27 +137,27 @@
   };
 
   const placeholderChips = () =>
-    `<div class="au-placeholders" aria-label="Insert customer details">${PLACEHOLDERS.map((p) => `<button type="button" data-insert="{{${p}}}">{{${p}}}</button>`).join("")}</div>`;
+    `<div class="au-placeholders" aria-label="${escapeHtml(T("auto.insertDetails"))}">${PLACEHOLDERS.map((p) => `<button type="button" data-insert="{{${p}}}">{{${p}}}</button>`).join("")}</div>`;
 
   function templateVariables(template) {
     if (!template) return [];
     return [
-      ...(template.header?.variables || []).map((name) => ["header", name, `{{${name}}} in the heading`]),
-      ...template.body.variables.map((name) => ["body", name, `{{${name}}} in the message`]),
-      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), `The end of the "${b.text}" button link`]),
+      ...(template.header?.variables || []).map((name) => ["header", name, T("quotes.var.header", { name })]),
+      ...template.body.variables.map((name) => ["body", name, T("quotes.var.body", { name })]),
+      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), T("quotes.var.button", { text: b.text })]),
     ];
   }
 
   function variablePickers(template, variables = {}) {
-    const values = meta.variableValues.map((v) => [v, VALUE_LABELS[v] || v]).concat([["text:", "Fixed words…"]]);
+    const values = meta.variableValues.map((v) => [v, VALUE_KEYS[v] ? T(VALUE_KEYS[v]) : v]).concat([["text:", T("bc.val.text")]]);
     return templateVariables(template)
       .map(([part, name, label]) => {
         const spec = variables?.[part]?.[name] || "";
         const isText = String(spec).startsWith("text:");
         const options = values.map(([value, text]) => `<option value="${escapeHtml(value)}" ${spec === value || (value === "text:" && isText) ? "selected" : ""}>${escapeHtml(text)}</option>`).join("");
         return `<div class="au-inline"><label class="mini" style="min-width:150px">${escapeHtml(label)}</label>
-          <select data-var-part="${part}" data-var-name="${escapeHtml(name)}"><option value="">Choose…</option>${options}</select>
-          <input class="grow" type="text" data-var-text maxlength="200" placeholder="The fixed words (may use {{contact.name}})" value="${isText ? escapeHtml(spec.slice(5)) : ""}" ${isText ? "" : "hidden"} /></div>`;
+          <select data-var-part="${part}" data-var-name="${escapeHtml(name)}"><option value="">${escapeHtml(T("bc.choose"))}</option>${options}</select>
+          <input class="grow" type="text" data-var-text maxlength="200" placeholder="${escapeHtml(T("auto.fixedWords"))}" value="${isText ? escapeHtml(spec.slice(5)) : ""}" ${isText ? "" : "hidden"} /></div>`;
       })
       .join("");
   }
@@ -177,52 +167,50 @@
     const hint = (text) => `<p class="au-hint">${text}</p>`;
     switch (step.type) {
       case "whatsapp.text":
-        return `<textarea data-p="text" maxlength="4096" placeholder="Namaste {{contact.name}}, thank you for your enquiry…">${escapeHtml(p.text || "")}</textarea>${placeholderChips()}
-          ${hint(inSequence
-            ? "Goes only if the customer wrote to you in the last 24 hours (WhatsApp's rule), otherwise this step is skipped: for follow-ups days later, use a template step."
-            : "Goes only if the customer wrote to you in the last 24 hours (WhatsApp's rule); otherwise this step is skipped. To reach anyone, use a template step.")}`;
+        return `<textarea data-p="text" maxlength="4096" placeholder="${escapeHtml(T("auto.ph.text"))}">${escapeHtml(p.text || "")}</textarea>${placeholderChips()}
+          ${hint(escapeHtml(T(inSequence ? "auto.hint.textSeq" : "auto.hint.text")))}`;
       case "whatsapp.template": {
-        const sendable = templates.filter((t) => t.sendable);
-        if (!templates.length) return hint("No WhatsApp templates here: connect a number and sync templates in Settings → WhatsApp (or ask for Inbox access).");
+        const sendable = templates.filter((tpl) => tpl.sendable);
+        if (!templates.length) return hint(escapeHtml(T("auto.hint.noTemplates")));
         const template = templateOf(p.templateId);
-        return `<select data-p="templateId" data-rerender><option value="">Choose a template…</option>${sendable.map((t) => `<option value="${escapeHtml(t.id)}" ${idOf(t.id) === idOf(p.templateId) ? "selected" : ""}>${escapeHtml(t.name)} (${escapeHtml(t.language)}, ${escapeHtml(t.category)})</option>`).join("")}</select>
+        return `<select data-p="templateId" data-rerender><option value="">${escapeHtml(T("quotes.send.chooseTpl"))}</option>${sendable.map((tpl) => `<option value="${escapeHtml(tpl.id)}" ${idOf(tpl.id) === idOf(p.templateId) ? "selected" : ""}>${escapeHtml(tpl.name)} (${escapeHtml(tpl.language)}, ${escapeHtml(tpl.category)})</option>`).join("")}</select>
           ${template ? `<p class="au-hint">${escapeHtml(template.body.text)}</p>` : ""}
           ${variablePickers(template, p.variables)}
-          ${hint("Approved templates can be sent any time. Marketing templates skip customers who opted out.")}`;
+          ${hint(escapeHtml(T("auto.hint.template")))}`;
       }
       case "assign":
-        return `<select data-p="memberId"><option value="">Choose a person…</option>${memberOptions(p.memberId, canTakeLeads)}</select>
-          ${hint("The lead, the customer (if nobody has them yet) and their unassigned WhatsApp chats go to this person.")}`;
+        return `<select data-p="memberId"><option value="">${escapeHtml(T("auto.choosePerson"))}</option>${memberOptions(p.memberId, canTakeLeads)}</select>
+          ${hint(escapeHtml(T("auto.hint.assign")))}`;
       case "tag.add":
       case "tag.remove":
-        return `<input type="text" data-p="tag" maxlength="50" placeholder="e.g. VIP" value="${escapeHtml(p.tag || "")}" />`;
+        return `<input type="text" data-p="tag" maxlength="50" placeholder="${escapeHtml(T("auto.ph.tag"))}" value="${escapeHtml(p.tag || "")}" />`;
       case "stage.change":
-        return `<div class="au-inline"><select data-p="stage" data-rerender>${meta.leadStages.map((s) => `<option ${s === p.stage ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select>
-          ${p.stage === "Lost" ? `<input class="grow" type="text" data-p="lostReason" maxlength="500" placeholder="Why it is lost" value="${escapeHtml(p.lostReason || "")}" />` : ""}</div>
-          ${hint("Won also makes the contact a customer, as when a person does it.")}`;
+        return `<div class="au-inline"><select data-p="stage" data-rerender>${meta.leadStages.map((s) => `<option value="${escapeHtml(s)}" ${s === p.stage ? "selected" : ""}>${escapeHtml(crmLabel("stage", s))}</option>`).join("")}</select>
+          ${p.stage === "Lost" ? `<input class="grow" type="text" data-p="lostReason" maxlength="500" placeholder="${escapeHtml(T("auto.ph.lost"))}" value="${escapeHtml(p.lostReason || "")}" />` : ""}</div>
+          ${hint(escapeHtml(T("auto.hint.won")))}`;
       case "task.create":
-        return `<input type="text" data-p="title" maxlength="300" placeholder="Call {{contact.name}}" value="${escapeHtml(p.title || "")}" />${placeholderChips()}
-          <div class="au-inline"><span>Due in</span><input type="number" data-p="dueInDays" min="0" max="365" value="${escapeHtml(p.dueInDays ?? 1)}" /><span>days, for</span>
-            <select data-p="assignTo"><option value="owner">the lead's owner</option>${memberOptions(p.assignTo)}</select>
-            <span>priority</span><select data-p="priority">${["Low", "Medium", "High"].map((x) => `<option ${x === (p.priority || "Medium") ? "selected" : ""}>${x}</option>`).join("")}</select></div>`;
+        return `<input type="text" data-p="title" maxlength="300" placeholder="${escapeHtml(T("auto.ph.call"))}" value="${escapeHtml(p.title || "")}" />${placeholderChips()}
+          <div class="au-inline"><span>${escapeHtml(T("auto.dueIn"))}</span><input type="number" data-p="dueInDays" min="0" max="365" value="${escapeHtml(p.dueInDays ?? 1)}" /><span>${escapeHtml(T("auto.daysFor"))}</span>
+            <select data-p="assignTo"><option value="owner">${escapeHtml(T("auto.leadOwner"))}</option>${memberOptions(p.assignTo)}</select>
+            <span>${escapeHtml(T("auto.priorityWord"))}</span><select data-p="priority">${["Low", "Medium", "High"].map((x) => `<option value="${x}" ${x === (p.priority || "Medium") ? "selected" : ""}>${escapeHtml(crmLabel("priority", x))}</option>`).join("")}</select></div>`;
       case "agent.notify":
-        return `<input type="text" data-p="message" maxlength="500" placeholder="New lead: {{contact.name}}" value="${escapeHtml(p.message || "")}" />${placeholderChips()}
-          <div class="au-inline"><span>Who</span><select data-p="to">
-            <option value="owner" ${p.to === "owner" || !p.to ? "selected" : ""}>The lead's owner (else owners and admins)</option>
-            <option value="managers" ${p.to === "managers" ? "selected" : ""}>Owners and admins</option>${memberOptions(p.to)}</select></div>
-          ${hint("Shows under the bell at the top of every page.")}`;
+        return `<input type="text" data-p="message" maxlength="500" placeholder="${escapeHtml(T("auto.ph.notify"))}" value="${escapeHtml(p.message || "")}" />${placeholderChips()}
+          <div class="au-inline"><span>${escapeHtml(T("auto.who"))}</span><select data-p="to">
+            <option value="owner" ${p.to === "owner" || !p.to ? "selected" : ""}>${escapeHtml(T("auto.who.ownerElse"))}</option>
+            <option value="managers" ${p.to === "managers" ? "selected" : ""}>${escapeHtml(T("auto.who.managersCap"))}</option>${memberOptions(p.to)}</select></div>
+          ${hint(escapeHtml(T("auto.hint.bell")))}`;
       case "wait":
-        return `<div class="au-inline"><span>Wait</span><input type="number" data-p="amount" min="1" max="999" value="${escapeHtml(p.amount || 1)}" />
-          <select data-p="unit">${["minutes", "hours", "days"].map((u) => `<option ${u === (p.unit || "hours") ? "selected" : ""}>${u}</option>`).join("")}</select><span>then carry on</span></div>
-          ${hint("At most 90 days. If the workflow is paused meanwhile, the run stops.")}`;
+        return `<div class="au-inline"><span>${escapeHtml(T("auto.step.wait"))}</span><input type="number" data-p="amount" min="1" max="999" value="${escapeHtml(p.amount || 1)}" />
+          <select data-p="unit">${["minutes", "hours", "days"].map((u) => `<option value="${u}" ${u === (p.unit || "hours") ? "selected" : ""}>${escapeHtml(T(`auto.unit.${u}`))}</option>`).join("")}</select><span>${escapeHtml(T("auto.carryOn"))}</span></div>
+          ${hint(escapeHtml(T("auto.hint.wait")))}`;
       case "webhook.call":
         return `<input type="url" data-p="url" maxlength="500" placeholder="https://hooks.zapier.com/…" value="${escapeHtml(p.url || "")}" />
-          ${hint("The CRM POSTs the lead, customer, order … as JSON to this https address (public addresses only). The <code>X-CRM-Signature</code> header is <code>sha256=</code> + an HMAC of the body with this workflow's secret, which owners and admins see here after saving.")}`;
+          ${hint(T("auto.hint.webhook"))}`;
       case "sequence.enroll":
-        return `<select data-p="sequenceId"><option value="">Choose a sequence…</option>${sequences.map((s) => `<option value="${escapeHtml(s.id)}" ${idOf(s.id) === idOf(p.sequenceId) ? "selected" : ""}>${escapeHtml(s.name)}${s.status !== "Active" ? ` (${escapeHtml(s.status)})` : ""}</option>`).join("")}</select>
-          ${hint("The customer gets the sequence's follow-ups from day 0. Someone already in it is not added twice.")}`;
+        return `<select data-p="sequenceId"><option value="">${escapeHtml(T("auto.chooseSequence"))}</option>${sequences.map((s) => `<option value="${escapeHtml(s.id)}" ${idOf(s.id) === idOf(p.sequenceId) ? "selected" : ""}>${escapeHtml(s.name)}${s.status !== "Active" ? ` (${escapeHtml(statusLabel(s.status))})` : ""}</option>`).join("")}</select>
+          ${hint(escapeHtml(T("auto.hint.sequence")))}`;
       case "payment.link":
-        return hint("For the order of this run (order and payment triggers): its open payment link — or a new one for what is still due — goes to the customer on WhatsApp: a message within 24 hours of their last message, else the payment-link template chosen in Settings → Payments. Paid or cancelled orders are skipped.");
+        return hint(escapeHtml(T("auto.hint.payment")));
       default:
         return "";
     }
@@ -237,23 +225,24 @@
       container.innerHTML = total
         ? steps
             .map((step, index) => {
-              const [icon, label] = STEP_LOOK[step.type] || ["fa-solid fa-gear", step.type];
+              const [icon] = STEP_LOOK[step.type] || ["fa-solid fa-gear"];
+              const label = stepName(step.type);
               return `
                 <div class="au-step" data-index="${index}" data-type="${escapeHtml(step.type)}">
                   <div class="au-step-head"><span class="step-num">${index + 1}</span>
-                    ${withDay ? `<label class="au-day">Day <input type="number" data-day min="0" max="365" value="${escapeHtml(step.day ?? 0)}" aria-label="Day" /></label>` : ""}
+                    ${withDay ? `<label class="au-day">${escapeHtml(T("auto.day"))} <input type="number" data-day min="0" max="365" value="${escapeHtml(step.day ?? 0)}" aria-label="${escapeHtml(T("auto.day"))}" /></label>` : ""}
                     <i class="${icon} step-icon"></i> ${escapeHtml(label)}
                     <span class="au-step-tools">
-                      <button type="button" class="icon-btn" data-move="-1" ${index === 0 ? "disabled" : ""} aria-label="Move up"><i class="fa-solid fa-arrow-up"></i></button>
-                      <button type="button" class="icon-btn" data-move="1" ${index === total - 1 ? "disabled" : ""} aria-label="Move down"><i class="fa-solid fa-arrow-down"></i></button>
-                      <button type="button" class="icon-btn danger" data-remove-step aria-label="Remove step"><i class="fa-solid fa-trash"></i></button>
+                      <button type="button" class="icon-btn" data-move="-1" ${index === 0 ? "disabled" : ""} aria-label="${escapeHtml(T("auto.moveUp"))}"><i class="fa-solid fa-arrow-up"></i></button>
+                      <button type="button" class="icon-btn" data-move="1" ${index === total - 1 ? "disabled" : ""} aria-label="${escapeHtml(T("auto.moveDown"))}"><i class="fa-solid fa-arrow-down"></i></button>
+                      <button type="button" class="icon-btn danger" data-remove-step aria-label="${escapeHtml(T("auto.removeStep"))}"><i class="fa-solid fa-trash"></i></button>
                     </span>
                   </div>
                   <div class="au-step-body">${stepBody(step, { inSequence: withDay })}</div>
                 </div>`;
             })
             .join("")
-        : '<div class="dynamic-list-empty">No steps yet: choose one below and press Add step.</div>';
+        : `<div class="dynamic-list-empty">${escapeHtml(T("auto.noSteps"))}</div>`;
     }
 
     function readStep(card) {
@@ -344,9 +333,9 @@
     };
   }
 
-  const ownerOptions = (selected) => `<option value="">No owner</option>${memberOptions(selected)}`;
+  const ownerOptions = (selected) => `<option value="">${escapeHtml(T("auto.noOwner"))}</option>${memberOptions(selected)}`;
   const notesHtml = (notes) =>
-    notes?.length ? `<strong><i class="fa-solid fa-triangle-exclamation"></i> From the old automation settings</strong><ul>${notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul>` : "";
+    notes?.length ? `<strong><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(T("auto.oldSettings"))}</strong><ul>${notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul>` : "";
 
   // ===========================================================================================
   // KPIs and workflow cards
@@ -355,12 +344,12 @@
     const sum = (key) => workflows.reduce((total, w) => total + (w.stats?.[key] || 0), 0);
     const inSequences = sequences.reduce((total, s) => total + (s.stats?.active || 0), 0);
     const cards = [
-      { label: "Active Workflows", value: workflows.filter((w) => w.status === "Active").length, cls: "success" },
-      { label: "Workflow Runs", value: sum("runs"), cls: "info" },
-      { label: "Failed Runs", value: sum("failed"), cls: sum("failed") ? "warning" : "" },
-      { label: "Customers in Sequences", value: inSequences, cls: "" },
+      { label: T("auto.kpi.active"), value: workflows.filter((w) => w.status === "Active").length, cls: "success" },
+      { label: T("auto.kpi.runs"), value: sum("runs"), cls: "info" },
+      { label: T("auto.kpi.failed"), value: sum("failed"), cls: sum("failed") ? "warning" : "" },
+      { label: T("auto.kpi.inSequences"), value: inSequences, cls: "" },
     ];
-    $("kpiGrid").innerHTML = cards.map((c) => `<div class="stat-card ${c.cls}"><div class="label">${c.label}</div><div class="value">${c.value}</div></div>`).join("");
+    $("kpiGrid").innerHTML = cards.map((c) => `<div class="stat-card ${c.cls}"><div class="label">${escapeHtml(c.label)}</div><div class="value">${escapeHtml(String(c.value))}</div></div>`).join("");
   }
 
   function workflowCard(w) {
@@ -373,33 +362,33 @@
           <div class="auto-card__icon"><i class="fa-solid fa-bolt"></i></div>
           <div class="auto-card__title-wrap">
             <div class="auto-card__name">${escapeHtml(w.name)}</div>
-            <div class="auto-card__owner">${escapeHtml(w.ownerId ? nameOf(w.ownerId) : "No owner")}</div>
+            <div class="auto-card__owner">${escapeHtml(w.ownerId ? nameOf(w.ownerId) : T("auto.noOwner"))}</div>
           </div>
-          <span class="status-pill status-${escapeHtml((w.status || "draft").toLowerCase())}">${escapeHtml(w.status)}</span>
+          <span class="status-pill status-${escapeHtml((w.status || "draft").toLowerCase())}">${escapeHtml(statusLabel(w.status))}</span>
         </div>
-        ${w.notes?.length ? `<div class="auto-card__warn" title="${escapeHtml(w.notes.join("\n"))}"><i class="fa-solid fa-triangle-exclamation"></i> Needs a look before you turn it on</div>` : ""}
+        ${w.notes?.length ? `<div class="auto-card__warn" title="${escapeHtml(w.notes.join("\n"))}"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(T("auto.needsLook"))}</div>` : ""}
         <div class="auto-card__trigger">
           <i class="fa-solid fa-bolt-lightning"></i>
-          <span>When <strong>${escapeHtml(triggerText(w.trigger))}</strong></span>
+          <span>${T("auto.whenTrigger", { trigger: `<strong>${escapeHtml(triggerText(w.trigger))}</strong>` })}</span>
         </div>
         <div class="auto-card__chain">
-          ${conditions ? `<span class="chain-chip cond">${conditions} condition${conditions === 1 ? "" : "s"}</span>` : ""}
-          ${steps.length ? steps.map((step) => `<span class="chain-chip">${escapeHtml(stepText(step))}</span>`).join("") : '<span class="chain-chip">No steps yet</span>'}
+          ${conditions ? `<span class="chain-chip cond">${escapeHtml(T(conditions === 1 ? "auto.conditions.one" : "auto.conditions.many", { n: conditions }))}</span>` : ""}
+          ${steps.length ? steps.map((step) => `<span class="chain-chip">${escapeHtml(stepText(step))}</span>`).join("") : `<span class="chain-chip">${escapeHtml(T("auto.noStepsShort"))}</span>`}
         </div>
         <div class="auto-card__stats">
-          <div class="auto-card__stat"><span class="num">${s.runs || 0}</span><span class="lbl">Runs</span></div>
-          <div class="auto-card__stat"><span class="num">${s.done || 0}</span><span class="lbl">Finished</span></div>
-          <div class="auto-card__stat"><span class="num">${s.failed || 0}</span><span class="lbl">Failed</span></div>
+          <div class="auto-card__stat"><span class="num">${s.runs || 0}</span><span class="lbl">${escapeHtml(T("auto.stat.runs"))}</span></div>
+          <div class="auto-card__stat"><span class="num">${s.done || 0}</span><span class="lbl">${escapeHtml(T("auto.stat.finished"))}</span></div>
+          <div class="auto-card__stat"><span class="num">${s.failed || 0}</span><span class="lbl">${escapeHtml(T("runStatus.failed"))}</span></div>
         </div>
         <div class="auto-card__foot">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-outline" type="button" data-act="test" ${w.status !== "Active" ? "disabled title=\"Turn it on first\"" : ""}><i class="fa-solid fa-play"></i> Test run</button>
-            <button class="btn btn-outline" type="button" data-act="toggle">${w.status === "Active" ? '<i class="fa-solid fa-pause"></i> Pause' : '<i class="fa-solid fa-power-off"></i> Turn on'}</button>
+            <button class="btn btn-outline" type="button" data-act="test" ${w.status !== "Active" ? `disabled title="${escapeHtml(T("auto.turnOnFirst"))}"` : ""}><i class="fa-solid fa-play"></i> ${escapeHtml(T("auto.test-run"))}</button>
+            <button class="btn btn-outline" type="button" data-act="toggle">${w.status === "Active" ? `<i class="fa-solid fa-pause"></i> ${escapeHtml(T("mkt.pause"))}` : `<i class="fa-solid fa-power-off"></i> ${escapeHtml(T("auto.turnOn"))}`}</button>
           </div>
           <div class="auto-card__actions">
-            <button class="icon-btn" type="button" data-act="log" title="Run log" aria-label="Run log"><i class="fa-solid fa-clock-rotate-left"></i></button>
-            <button class="icon-btn" type="button" data-act="edit" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen"></i></button>
-            <button class="icon-btn danger" type="button" data-act="delete" title="Delete" aria-label="Delete"><i class="fa-solid fa-trash"></i></button>
+            <button class="icon-btn" type="button" data-act="log" title="${escapeHtml(T("auto.run-log"))}" aria-label="${escapeHtml(T("auto.run-log"))}"><i class="fa-solid fa-clock-rotate-left"></i></button>
+            <button class="icon-btn" type="button" data-act="edit" title="${escapeHtml(T("common.edit"))}" aria-label="${escapeHtml(T("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+            <button class="icon-btn danger" type="button" data-act="delete" title="${escapeHtml(T("common.delete"))}" aria-label="${escapeHtml(T("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
           </div>
         </div>
       </div>`;
@@ -410,7 +399,7 @@
     const shown = workflows.filter((w) => !q || `${w.name} ${triggerText(w.trigger)} ${nameOf(w.ownerId)}`.toLowerCase().includes(q));
     $("workflowsGrid").innerHTML = shown.length
       ? shown.map(workflowCard).join("")
-      : `<div class="empty-state"><i class="fa-solid fa-diagram-project"></i><p>${workflows.length ? "No workflow matches your search." : "No workflows yet. Greet new leads, chase quotations, remind your team — automatically."}</p></div>`;
+      : `<div class="empty-state"><i class="fa-solid fa-diagram-project"></i><p>${escapeHtml(T(workflows.length ? "auto.empty.wfSearch" : "auto.empty.wf"))}</p></div>`;
   }
 
   const upsertIn = (items, item) => {
@@ -424,24 +413,23 @@
     const status = item.status === "Active" ? "Paused" : "Active";
     try {
       upsertIn(kind === "workflows" ? workflows : sequences, await crmApi(`/${kind}/${item.id}`, jsonRequest("PATCH", { status })));
-      showToast(status === "Active" ? `"${item.name}" is on` : `"${item.name}" is paused`, "success");
+      showToast(T(status === "Active" ? "auto.isOn" : "auto.isPaused", { name: item.name }), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't change it."), "error");
+      showToast(apiErrorMessage(error, T("auto.err.change")), "error");
     }
     renderAll();
   }
 
   async function removeItem(kind, item, onDone) {
-    const what = kind === "workflows" ? "Runs that are waiting stop." : "Everyone in it stops getting its steps.";
-    if (!confirm(`Delete "${item.name}"? ${what} This can't be undone.`)) return;
+    if (!confirm(T(kind === "workflows" ? "auto.confirmDeleteWf" : "auto.confirmDeleteSq", { name: item.name }))) return;
     try {
       await crmApi(`/${kind}/${item.id}`, { method: "DELETE" });
       if (kind === "workflows") workflows = workflows.filter((x) => idOf(x.id) !== idOf(item.id));
       else sequences = sequences.filter((x) => idOf(x.id) !== idOf(item.id));
       if (onDone) onDone();
-      showToast(kind === "workflows" ? "Workflow deleted" : "Sequence deleted", "success");
+      showToast(T(kind === "workflows" ? "auto.wfDeleted" : "auto.sqDeleted"), "success");
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't delete it."), "error");
+      showToast(apiErrorMessage(error, T("common.deleteFailed")), "error");
     }
     renderAll();
   }
@@ -469,30 +457,33 @@
   let draft = null; // { id, trigger, conditions }
   const wfSteps = stepEditor($("wfSteps"));
 
-  function checks(name, values, selected, attr = "data-tp") {
+  // label: how a value reads (sources and stages are kept in English by the server).
+  function checks(name, values, selected, attr = "data-tp", label = (v) => v) {
     const chosen = list(selected);
-    return `<div class="au-checks">${values.map((v) => `<label class="au-check"><input type="checkbox" ${attr}="${escapeHtml(name)}" value="${escapeHtml(v)}" ${chosen.includes(v) ? "checked" : ""} /> ${escapeHtml(v)}</label>`).join("")}</div>`;
+    return `<div class="au-checks">${values.map((v) => `<label class="au-check"><input type="checkbox" ${attr}="${escapeHtml(name)}" value="${escapeHtml(v)}" ${chosen.includes(v) ? "checked" : ""} /> ${escapeHtml(label(v))}</label>`).join("")}</div>`;
   }
 
   // --- trigger -------------------------------------------------------------------------------
   function renderTriggerParams() {
     const { type, params = {} } = draft.trigger;
-    const hint = (text) => `<p class="au-hint">${text}</p>`;
+    const hint = (key) => `<p class="au-hint">${escapeHtml(T(key))}</p>`;
+    const source = (v) => crmLabel("source", v);
+    const stage = (v) => crmLabel("stage", v);
     const html = {
-      "lead.created": `${hint("Only leads from these sources (none ticked = every source):")}${checks("sources", meta.sources, params.sources)}`,
-      "message.received": `<div class="au-inline"><span>Only if the message contains</span><input class="grow" type="text" data-tp="keywords" maxlength="600" value="${escapeHtml((params.keywords || []).join(", "))}" placeholder="price, rate, catalogue" /></div>
-        ${hint("Words separated by commas; any one is enough and capitals don't matter. Empty = every message.")}`,
-      "lead.stage_changed": `${hint("Moved to (none ticked = any stage):")}${checks("toStages", meta.leadStages, params.toStages)}
-        ${hint("Moved from (none ticked = any stage):")}${checks("fromStages", meta.leadStages, params.fromStages)}`,
-      "lead.no_reply": `<div class="au-inline"><span>No reply for</span><input type="number" data-tp="hours" min="1" max="720" value="${escapeHtml(params.hours || 24)}" /><span>hours after your last WhatsApp message</span></div>
-        ${hint("Checked every 10 minutes. Each silence starts the workflow once.")}`,
-      "quotation.not_accepted": `<div class="au-inline"><span>Still not accepted</span><input type="number" data-tp="days" min="1" max="90" value="${escapeHtml(params.days || 3)}" /><span>days after it was sent</span></div>
-        ${hint("Quotations that are Sent or Viewed. Checked every 10 minutes; once per quotation revision.")}`,
-      "order.stage_changed": `${hint("Moved to (none ticked = any stage):")}${checks("toStages", meta.orderStages, params.toStages)}`,
-      "payment.received": hint("When a payment comes in: through a payment link, entered by hand on an order, or an order moved to Payment Collected."),
-      "payment.overdue": `<div class="au-inline"><span>Still not fully paid</span><input type="number" data-tp="days" min="1" max="180" value="${escapeHtml(params.days || 7)}" /><span>days after the order date</span></div>
-        ${hint("Orders that are not cancelled or collected. Checked every 10 minutes; once per order, and again after a part payment. Add the step “Send the order's payment link” for a reminder.")}`,
-      "task.overdue": hint("Tasks past their due date and not done. Checked every 10 minutes; once per task and due date."),
+      "lead.created": `${hint("auto.tp.sources")}${checks("sources", meta.sources, params.sources, "data-tp", source)}`,
+      "message.received": `<div class="au-inline"><span>${escapeHtml(T("auto.tp.contains"))}</span><input class="grow" type="text" data-tp="keywords" maxlength="600" value="${escapeHtml((params.keywords || []).join(", "))}" placeholder="${escapeHtml(T("auto.tp.keywordsPh"))}" /></div>
+        ${hint("auto.tp.keywords")}`,
+      "lead.stage_changed": `${hint("auto.tp.movedTo")}${checks("toStages", meta.leadStages, params.toStages, "data-tp", stage)}
+        ${hint("auto.tp.movedFrom")}${checks("fromStages", meta.leadStages, params.fromStages, "data-tp", stage)}`,
+      "lead.no_reply": `<div class="au-inline"><span>${escapeHtml(T("auto.tp.noReplyFor"))}</span><input type="number" data-tp="hours" min="1" max="720" value="${escapeHtml(params.hours || 24)}" /><span>${escapeHtml(T("auto.tp.hoursAfter"))}</span></div>
+        ${hint("auto.tp.noReplyHint")}`,
+      "quotation.not_accepted": `<div class="au-inline"><span>${escapeHtml(T("auto.tp.notAccepted"))}</span><input type="number" data-tp="days" min="1" max="90" value="${escapeHtml(params.days || 3)}" /><span>${escapeHtml(T("auto.tp.daysAfterSent"))}</span></div>
+        ${hint("auto.tp.quoteHint")}`,
+      "order.stage_changed": `${hint("auto.tp.movedTo")}${checks("toStages", meta.orderStages, params.toStages, "data-tp", (v) => crmLabel("orderStage", v))}`,
+      "payment.received": hint("auto.tp.payment"),
+      "payment.overdue": `<div class="au-inline"><span>${escapeHtml(T("auto.tp.notPaid"))}</span><input type="number" data-tp="days" min="1" max="180" value="${escapeHtml(params.days || 7)}" /><span>${escapeHtml(T("auto.tp.daysAfterOrder"))}</span></div>
+        ${hint("auto.tp.overdueHint")}`,
+      "task.overdue": hint("auto.tp.task"),
     }[type] || "";
     $("wfTriggerParams").innerHTML = html;
   }
@@ -520,23 +511,23 @@
     const def = meta.conditions.find((f) => f.field === condition.field) || meta.conditions[0];
     const op = def.ops.includes(condition.op) ? condition.op : def.ops[0];
     let value = "";
-    if (def.field === "source") value = checks("value", meta.sources, condition.value, "data-cv");
-    if (def.field === "stage") value = checks("value", meta.leadStages, condition.value, "data-cv");
-    if (def.field === "tag") value = `<input class="grow" type="text" data-cv-text maxlength="50" placeholder="Tag, e.g. VIP" value="${escapeHtml(condition.value || "")}" />`;
+    if (def.field === "source") value = checks("value", meta.sources, condition.value, "data-cv", (v) => crmLabel("source", v));
+    if (def.field === "stage") value = checks("value", meta.leadStages, condition.value, "data-cv", (v) => crmLabel("stage", v));
+    if (def.field === "tag") value = `<input class="grow" type="text" data-cv-text maxlength="50" placeholder="${escapeHtml(T("auto.ph.condTag"))}" value="${escapeHtml(condition.value || "")}" />`;
     if (def.field === "owner" && (op === "is" || op === "isNot")) value = `<select data-cv-member>${memberOptions(condition.value)}</select>`;
     return `
       <div class="dynamic-row au-inline au-cond" data-index="${index}">
-        <select data-cf aria-label="What to check">${meta.conditions.map((f) => `<option value="${f.field}" ${f.field === def.field ? "selected" : ""}>${escapeHtml(f.label)}</option>`).join("")}</select>
-        <select data-co aria-label="How">${def.ops.map((o) => `<option value="${o}" ${o === op ? "selected" : ""}>${escapeHtml(OP_LABELS[o] || o)}</option>`).join("")}</select>
+        <select data-cf aria-label="${escapeHtml(T("auto.whatToCheck"))}">${meta.conditions.map((f) => `<option value="${f.field}" ${f.field === def.field ? "selected" : ""}>${escapeHtml(crmI18n.has(`auto.cond.${f.field}`) ? T(`auto.cond.${f.field}`) : f.label)}</option>`).join("")}</select>
+        <select data-co aria-label="${escapeHtml(T("auto.how"))}">${def.ops.map((o) => `<option value="${o}" ${o === op ? "selected" : ""}>${escapeHtml(opLabel(o))}</option>`).join("")}</select>
         ${value}
-        <button type="button" class="remove-row" data-remove-condition aria-label="Remove condition"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="remove-row" data-remove-condition aria-label="${escapeHtml(T("auto.removeCondition"))}"><i class="fa-solid fa-xmark"></i></button>
       </div>`;
   }
 
   function renderConditions() {
     $("wfConditions").innerHTML = draft.conditions.length
       ? draft.conditions.map(conditionRow).join("")
-      : '<div class="dynamic-list-empty">No conditions: the workflow runs every time the trigger happens.</div>';
+      : `<div class="dynamic-list-empty">${escapeHtml(T("auto.noConditions"))}</div>`;
   }
 
   function readConditions() {
@@ -560,9 +551,9 @@
     const box = $("wfSecretBox");
     box.hidden = !workflow?.webhookSecret;
     box.innerHTML = workflow?.webhookSecret
-      ? `<strong>Webhook secret</strong> (owners and admins only): <code id="wfSecretValue">${escapeHtml(workflow.webhookSecret)}</code>
-         <button type="button" class="link-mini" id="wfSecretCopy"><i class="fa-regular fa-copy"></i> Copy</button>
-         <p class="au-hint">Check each call: <code>X-CRM-Signature</code> must equal <code>sha256=</code> + HMAC-SHA256 of the raw body with this secret.</p>`
+      ? `<strong>${escapeHtml(T("auto.secret"))}</strong> ${escapeHtml(T("auto.secretWho"))}: <code id="wfSecretValue">${escapeHtml(workflow.webhookSecret)}</code>
+         <button type="button" class="link-mini" id="wfSecretCopy"><i class="fa-regular fa-copy"></i> ${escapeHtml(T("pl.copy"))}</button>
+         <p class="au-hint">${T("auto.secretHint")}</p>`
       : "";
   }
 
@@ -572,28 +563,28 @@
       try {
         workflow = await crmApi(`/workflows/${id}`);
       } catch (error) {
-        showToast(apiErrorMessage(error, "Couldn't open the workflow."), "error");
+        showToast(apiErrorMessage(error, T("auto.err.openWf")), "error");
         return;
       }
     }
     draft = workflow
       ? { id: workflow.id, trigger: workflow.trigger, conditions: workflow.conditions || [] }
       : { id: "", trigger: { type: "lead.created", params: {} }, conditions: [] };
-    $("workflowModalTitle").textContent = workflow ? "Edit Workflow" : "New Workflow";
+    $("workflowModalTitle").textContent = T(workflow ? "auto.editWf" : "auto.new-workflow");
     $("wfEditId").value = draft.id;
     $("wfName").value = workflow?.name || "";
     $("wfStatus").value = workflow?.status || "Active";
     $("wfOwnerField").hidden = !manager;
     $("wfOwner").innerHTML = ownerOptions(workflow ? workflow.ownerId : getCurrentMember()?.id);
-    $("wfTrigger").innerHTML = meta.triggers.map((t) => `<option value="${t.type}" ${t.type === draft.trigger.type ? "selected" : ""}>${escapeHtml(t.label)}</option>`).join("");
-    $("wfNewStepType").innerHTML = meta.actions.map((a) => `<option value="${a.type}">${escapeHtml(STEP_LOOK[a.type]?.[1] || a.label)}</option>`).join("");
+    $("wfTrigger").innerHTML = meta.triggers.map((tr) => `<option value="${tr.type}" ${tr.type === draft.trigger.type ? "selected" : ""}>${escapeHtml(triggerLabel(tr.type))}</option>`).join("");
+    $("wfNewStepType").innerHTML = meta.actions.map((a) => `<option value="${a.type}">${escapeHtml(stepName(a.type, a.label))}</option>`).join("");
     $("wfDeleteBtn").style.display = workflow ? "inline-flex" : "none";
     $("wfNotes").hidden = !workflow?.notes?.length;
     $("wfNotes").innerHTML = notesHtml(workflow?.notes);
     renderSecret(workflow);
     renderTriggerParams();
     renderConditions();
-    wfSteps.set(workflow ? workflow.steps || [] : [{ type: "agent.notify", params: { to: "owner", message: "New lead: {{contact.name}}" } }]);
+    wfSteps.set(workflow ? workflow.steps || [] : [{ type: "agent.notify", params: { to: "owner", message: T("auto.ph.notify") } }]);
     $("workflowModalOverlay").classList.add("open");
     $("wfName").focus();
   }
@@ -613,12 +604,12 @@
     const steps = wfSteps.read();
     const name = $("wfName").value.trim();
     if (!name) {
-      showToast("Give the workflow a name.", "error");
+      showToast(T("auto.needWfName"), "error");
       $("wfName").focus();
       return;
     }
     if (!steps.length) {
-      showToast("Add at least one step.", "error");
+      showToast(T("auto.needStep"), "error");
       return;
     }
     const body = { name, status: $("wfStatus").value, trigger: draft.trigger, conditions: draft.conditions, steps };
@@ -629,11 +620,11 @@
       const saved = await crmApi(draft.id ? `/workflows/${draft.id}` : "/workflows", jsonRequest(draft.id ? "PATCH" : "POST", body));
       upsertIn(workflows, saved);
       closeBuilder();
-      const secretNote = manager && saved.hasWebhook && !$("wfSecretBox").innerHTML ? " Open it again to copy the webhook secret." : "";
-      showToast(`${draft.id ? "Workflow updated" : "Workflow created"}${saved.status === "Active" ? " and on" : ""}.${secretNote}`, "success");
+      const secretNote = manager && saved.hasWebhook && !$("wfSecretBox").innerHTML ? ` ${T("auto.secretAgain")}` : "";
+      showToast(`${T(draft.id ? (saved.status === "Active" ? "auto.wfUpdatedOn" : "auto.wfUpdated") : saved.status === "Active" ? "auto.wfCreatedOn" : "auto.wfCreated")}${secretNote}`, "success");
       renderAll();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't save the workflow."), "error");
+      showToast(apiErrorMessage(error, T("auto.err.saveWf")), "error");
       pointAt(error, wfSteps);
     } finally {
       saveBtn.disabled = false;
@@ -671,7 +662,7 @@
   $("wfAddStepBtn").addEventListener("click", () => wfSteps.add($("wfNewStepType").value));
   $("wfSecretBox").addEventListener("click", (event) => {
     if (!event.target.closest("#wfSecretCopy")) return;
-    navigator.clipboard?.writeText($("wfSecretValue").textContent).then(() => showToast("Secret copied", "success"), () => showToast("Select the secret and copy it.", "info"));
+    navigator.clipboard?.writeText($("wfSecretValue").textContent).then(() => showToast(T("auto.secretCopied"), "success"), () => showToast(T("auto.secretSelect"), "info"));
   });
   $("workflowForm").addEventListener("submit", saveWorkflow);
   $("workflowModalClose").addEventListener("click", closeBuilder);
@@ -691,10 +682,10 @@
   let runPage = 1;
 
   function stepsSummary(run) {
-    if (run.status === "waiting" && run.nextAt) return `Waiting until ${when(run.nextAt)}`;
+    if (run.status === "waiting" && run.nextAt) return T("auto.waitingUntil", { when: when(run.nextAt) });
     const counts = {};
     run.steps.forEach((s) => (counts[s.status] = (counts[s.status] || 0) + 1));
-    return Object.entries(counts).map(([status, n]) => `${n} ${status}`).join(" · ") || "—";
+    return Object.entries(counts).map(([status, n]) => `${n} ${RUN_BADGE[status] ? T(RUN_BADGE[status][1]) : status}`).join(" · ") || "—";
   }
 
   function renderRuns() {
@@ -705,12 +696,12 @@
               <td class="muted">${escapeHtml(when(run.createdAt))}</td>
               <td>${escapeHtml(run.workflowName)}</td>
               <td>${escapeHtml(run.subject.label || "—")}</td>
-              <td class="muted">${escapeHtml(TRIGGER_SHORT[run.trigger] || run.trigger)}</td>
+              <td class="muted">${escapeHtml(triggerShort(run.trigger))}</td>
               <td>${badge(run.status)}</td>
               <td class="muted">${escapeHtml(stepsSummary(run))}</td>
             </tr>`)
           .join("")
-      : '<tr><td colspan="6"><div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-clock-rotate-left"></i><p>No runs yet. They appear here when a workflow starts.</p></div></td></tr>';
+      : `<tr><td colspan="6"><div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-clock-rotate-left"></i><p>${escapeHtml(T("auto.noRuns"))}</p></div></td></tr>`;
   }
 
   async function loadRuns({ more = false } = {}) {
@@ -724,14 +715,14 @@
       $("runMoreBtn").hidden = !body.pagination?.hasNextPage;
       renderRuns();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't load the run log."), "error");
+      showToast(apiErrorMessage(error, T("auto.err.runs")), "error");
     }
   }
 
   function fillWorkflowFilter() {
     const select = $("runWorkflowFilter");
     const current = select.value;
-    select.innerHTML = `<option value="">All workflows</option>${workflows.map((w) => `<option value="${escapeHtml(w.id)}">${escapeHtml(w.name)}</option>`).join("")}`;
+    select.innerHTML = `<option value="">${escapeHtml(T("auto.all-workflows"))}</option>${workflows.map((w) => `<option value="${escapeHtml(w.id)}">${escapeHtml(w.name)}</option>`).join("")}`;
     select.value = workflows.some((w) => idOf(w.id) === current) ? current : "";
   }
 
@@ -742,32 +733,32 @@
   function eventText(run) {
     const e = run.event || {};
     const bits = [];
-    if (e.source) bits.push(`source ${e.source}`);
-    if (e.from || e.to) bits.push(`${e.from || "?"} → ${e.to || "?"}`);
-    if (e.orderNumber) bits.push(`order ${e.orderNumber}`);
-    if (e.quotationNumber) bits.push(`quotation ${e.quotationNumber}`);
-    if (e.hours) bits.push(`no reply for ${e.hours} hours`);
-    if (e.days) bits.push(`${e.days} days after sending`);
-    if (e.startedBy) bits.push(`started by ${e.startedBy}`);
+    if (e.source) bits.push(T("auto.ev.source", { source: crmLabel("source", e.source) }));
+    if (e.from || e.to) bits.push(`${e.from ? crmLabel("stage", e.from) : "?"} → ${e.to ? crmLabel("stage", e.to) : "?"}`);
+    if (e.orderNumber) bits.push(T("orders.orderNumber", { number: e.orderNumber }));
+    if (e.quotationNumber) bits.push(T("auto.ev.quotation", { number: e.quotationNumber }));
+    if (e.hours) bits.push(T("auto.ev.noReply", { n: e.hours }));
+    if (e.days) bits.push(T("auto.ev.days", { n: e.days }));
+    if (e.startedBy) bits.push(T("auto.ev.startedBy", { name: e.startedBy }));
     if (e.text) bits.push(`"${e.text}"`);
     return bits.join(" · ");
   }
 
   const stepLog = (steps) =>
     `<ol class="au-runlog">${steps
-      .map((s) => `<li>${badge(s.status)}<div><strong>${s.day != null ? `Day ${s.day} · ` : `${s.index + 1}. `}${escapeHtml(STEP_LOOK[s.type]?.[1] || s.label || s.type)}</strong>${s.detail ? `<div class="detail">${escapeHtml(s.detail)}</div>` : ""}</div><span class="when">${escapeHtml(when(s.at))}</span></li>`)
+      .map((s) => `<li>${badge(s.status)}<div><strong>${s.day != null ? `${escapeHtml(T("auto.dayN", { n: s.day }))} · ` : `${s.index + 1}. `}${escapeHtml(stepName(s.type, s.label))}</strong>${s.detail ? `<div class="detail">${escapeHtml(s.detail)}</div>` : ""}</div><span class="when">${escapeHtml(when(s.at))}</span></li>`)
       .join("")}</ol>`;
 
   function renderRun(run) {
     shownRun = run;
-    $("runModalTitle").textContent = run.workflowName || "Run";
-    $("runModalSub").textContent = [run.subject.label, TRIGGER_SHORT[run.trigger] || run.trigger, `started ${when(run.createdAt)}`].filter(Boolean).join(" · ");
+    $("runModalTitle").textContent = run.workflowName || T("auto.run");
+    $("runModalSub").textContent = [run.subject.label, triggerShort(run.trigger), T("bc.startedAt", { when: when(run.createdAt) })].filter(Boolean).join(" · ");
     const happened = eventText(run);
     $("runModalBody").innerHTML = `
-      <p style="margin:0 0 12px">${badge(run.status)} ${run.finishedAt ? `<span class="au-hint">finished ${escapeHtml(when(run.finishedAt))}</span>` : ""}</p>
+      <p style="margin:0 0 12px">${badge(run.status)} ${run.finishedAt ? `<span class="au-hint">${escapeHtml(T("auto.finishedAt", { when: when(run.finishedAt) }))}</span>` : ""}</p>
       ${happened ? `<p class="au-hint" style="margin:0 0 12px">${escapeHtml(happened)}</p>` : ""}
       ${run.error ? `<div class="au-run-error">${escapeHtml(run.error)}</div>` : ""}
-      ${run.steps.length ? stepLog(run.steps) : '<p class="au-hint">No step has run yet.</p>'}`;
+      ${run.steps.length ? stepLog(run.steps) : `<p class="au-hint">${escapeHtml(T("auto.noStepRun"))}</p>`}`;
     $("runCancelBtn").hidden = !["running", "waiting"].includes(run.status);
     const link = $("runOpenLink");
     link.hidden = !run.subject.contactId;
@@ -779,7 +770,7 @@
     try {
       renderRun(await crmApi(`/automation-runs/${id}`));
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't open the run."), "error");
+      showToast(apiErrorMessage(error, T("auto.err.openRun")), "error");
       return;
     }
     $("runModalOverlay").classList.add("open");
@@ -810,13 +801,13 @@
     if (row) openRun(row.dataset.run);
   });
   $("runCancelBtn").addEventListener("click", async () => {
-    if (!shownRun || !confirm("Stop this run? Its remaining steps will not happen.")) return;
+    if (!shownRun || !confirm(T("auto.confirmStopRun"))) return;
     try {
       renderRun(await crmApi(`/automation-runs/${shownRun.id}/cancel`, { method: "POST" }));
-      showToast("Run stopped", "success");
+      showToast(T("auto.runStopped"), "success");
       if (activeTab === "runs") loadRuns();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't stop the run."), "error");
+      showToast(apiErrorMessage(error, T("auto.err.stopRun")), "error");
     }
   });
   $("runModalClose").addEventListener("click", closeRun);
@@ -844,12 +835,12 @@
       const leads = await crmApi(`/leads?${params}`);
       box.innerHTML = leads.length
         ? leads
-            .map((lead) => `<button type="button" data-lead="${escapeHtml(lead.id)}"><strong>${escapeHtml(lead.contact?.name || lead.title || "Lead")}</strong>
-              <span class="sub">${escapeHtml([lead.title, lead.contact?.phone, lead.stage].filter(Boolean).join(" · "))}</span></button>`)
+            .map((lead) => `<button type="button" data-lead="${escapeHtml(lead.id)}"><strong>${escapeHtml(lead.contact?.name || lead.title || T("dash.add.lead"))}</strong>
+              <span class="sub">${escapeHtml([lead.title, lead.contact?.phone, lead.stage ? crmLabel("stage", lead.stage) : ""].filter(Boolean).join(" · "))}</span></button>`)
             .join("")
-        : '<p class="au-hint">No lead found.</p>';
+        : `<p class="au-hint">${escapeHtml(T("auto.noLead"))}</p>`;
     } catch (error) {
-      box.innerHTML = `<p class="au-hint">${escapeHtml(error.status === 403 ? "You need access to Leads to pick one." : apiErrorMessage(error, "Couldn't search the leads."))}</p>`;
+      box.innerHTML = `<p class="au-hint">${escapeHtml(error.status === 403 ? T("auto.needLeads") : apiErrorMessage(error, T("auto.err.searchLeads")))}</p>`;
     }
   }
 
@@ -868,9 +859,9 @@
 
   const openTestRun = (w) =>
     openLeadPicker({
-      title: "Test run",
+      title: T("auto.test-run"),
       subtitle: w.name,
-      hint: "The workflow runs now for the lead you pick, whatever its trigger. Its steps really happen: messages are sent and tasks are created.",
+      hint: T("auto.testHint"),
       pick: async (leadId) => {
         const run = await crmApi(`/workflows/${w.id}/run`, {
           method: "POST",
@@ -878,7 +869,7 @@
           body: JSON.stringify({ leadId }),
         });
         closeLeadPicker();
-        showToast("Test run started", "success");
+        showToast(T("auto.testStarted"), "success");
         openRun(run.id, { poll: true });
       },
     });
@@ -894,7 +885,7 @@
     try {
       await onPick(button.dataset.lead);
     } catch (error) {
-      showToast(apiErrorMessage(error, "That did not work."), "error");
+      showToast(apiErrorMessage(error, T("bc.err.act")), "error");
     } finally {
       button.disabled = false;
     }
@@ -922,35 +913,35 @@
   function sequenceCard(s) {
     const steps = s.steps || [];
     const st = s.stats || {};
-    const stops = [s.stopOnReply && "a reply", s.stopOnClose && "won/lost"].filter(Boolean).join(" or ");
+    const stops = [s.stopOnReply && T("auto.stop.reply"), s.stopOnClose && T("auto.stop.close")].filter(Boolean).join(T("bc.f.or"));
     return `
       <div class="auto-card" data-id="${escapeHtml(s.id)}">
         <div class="auto-card__top">
           <div class="auto-card__icon"><i class="fa-solid fa-layer-group"></i></div>
           <div class="auto-card__title-wrap">
             <div class="auto-card__name">${escapeHtml(s.name)}</div>
-            <div class="auto-card__owner">${escapeHtml(s.ownerId ? nameOf(s.ownerId) : "No owner")}${stops ? ` · stops on ${escapeHtml(stops)}` : ""}</div>
+            <div class="auto-card__owner">${escapeHtml(s.ownerId ? nameOf(s.ownerId) : T("auto.noOwner"))}${stops ? ` · ${escapeHtml(T("auto.stopsOn", { what: stops }))}` : ""}</div>
           </div>
-          <span class="status-pill status-${escapeHtml((s.status || "draft").toLowerCase())}">${escapeHtml(s.status)}</span>
+          <span class="status-pill status-${escapeHtml((s.status || "draft").toLowerCase())}">${escapeHtml(statusLabel(s.status))}</span>
         </div>
-        ${s.notes?.length ? `<div class="auto-card__warn" title="${escapeHtml(s.notes.join("\n"))}"><i class="fa-solid fa-triangle-exclamation"></i> Needs a look before you turn it on</div>` : ""}
+        ${s.notes?.length ? `<div class="auto-card__warn" title="${escapeHtml(s.notes.join("\n"))}"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(T("auto.needsLook"))}</div>` : ""}
         <div class="auto-card__chain">
-          ${steps.length ? steps.map((step) => `<span class="chain-chip step">Day ${step.day} · ${escapeHtml(stepText(step))}</span>`).join("") : '<span class="chain-chip step">No steps yet</span>'}
+          ${steps.length ? steps.map((step) => `<span class="chain-chip step">${escapeHtml(T("auto.dayN", { n: step.day }))} · ${escapeHtml(stepText(step))}</span>`).join("") : `<span class="chain-chip step">${escapeHtml(T("auto.noStepsShort"))}</span>`}
         </div>
         <div class="auto-card__stats">
-          <div class="auto-card__stat"><span class="num">${st.active || 0}</span><span class="lbl">In it now</span></div>
-          <div class="auto-card__stat"><span class="num">${st.completed || 0}</span><span class="lbl">Completed</span></div>
-          <div class="auto-card__stat"><span class="num">${st.stopped || 0}</span><span class="lbl">Stopped</span></div>
+          <div class="auto-card__stat"><span class="num">${st.active || 0}</span><span class="lbl">${escapeHtml(T("auto.in-it-now"))}</span></div>
+          <div class="auto-card__stat"><span class="num">${st.completed || 0}</span><span class="lbl">${escapeHtml(T("enroll.completed"))}</span></div>
+          <div class="auto-card__stat"><span class="num">${st.stopped || 0}</span><span class="lbl">${escapeHtml(T("runStatus.cancelled"))}</span></div>
         </div>
         <div class="auto-card__foot">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-outline" type="button" data-sq="enroll" ${s.status !== "Active" ? "disabled title=\"Turn it on first\"" : ""}><i class="fa-solid fa-user-plus"></i> Add customer</button>
-            <button class="btn btn-outline" type="button" data-sq="toggle">${s.status === "Active" ? '<i class="fa-solid fa-pause"></i> Pause' : '<i class="fa-solid fa-power-off"></i> Turn on'}</button>
+            <button class="btn btn-outline" type="button" data-sq="enroll" ${s.status !== "Active" ? `disabled title="${escapeHtml(T("auto.turnOnFirst"))}"` : ""}><i class="fa-solid fa-user-plus"></i> ${escapeHtml(T("auto.addCustomer"))}</button>
+            <button class="btn btn-outline" type="button" data-sq="toggle">${s.status === "Active" ? `<i class="fa-solid fa-pause"></i> ${escapeHtml(T("mkt.pause"))}` : `<i class="fa-solid fa-power-off"></i> ${escapeHtml(T("auto.turnOn"))}`}</button>
           </div>
           <div class="auto-card__actions">
-            <button class="icon-btn" type="button" data-sq="people" title="Who is in it" aria-label="Who is in it"><i class="fa-solid fa-users"></i></button>
-            <button class="icon-btn" type="button" data-sq="edit" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen"></i></button>
-            <button class="icon-btn danger" type="button" data-sq="delete" title="Delete" aria-label="Delete"><i class="fa-solid fa-trash"></i></button>
+            <button class="icon-btn" type="button" data-sq="people" title="${escapeHtml(T("auto.whoIn"))}" aria-label="${escapeHtml(T("auto.whoIn"))}"><i class="fa-solid fa-users"></i></button>
+            <button class="icon-btn" type="button" data-sq="edit" title="${escapeHtml(T("common.edit"))}" aria-label="${escapeHtml(T("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+            <button class="icon-btn danger" type="button" data-sq="delete" title="${escapeHtml(T("common.delete"))}" aria-label="${escapeHtml(T("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
           </div>
         </div>
       </div>`;
@@ -961,14 +952,14 @@
     const shown = sequences.filter((s) => !q || `${s.name} ${nameOf(s.ownerId)}`.toLowerCase().includes(q));
     $("sequencesGrid").innerHTML = shown.length
       ? shown.map(sequenceCard).join("")
-      : `<div class="empty-state"><i class="fa-solid fa-layer-group"></i><p>${sequences.length ? "No sequence matches your search." : "No sequences yet. Follow up on day 0, 2 and 5 with templates and tasks — they stop when the customer replies."}</p></div>`;
+      : `<div class="empty-state"><i class="fa-solid fa-layer-group"></i><p>${escapeHtml(T(sequences.length ? "auto.empty.sqSearch" : "auto.empty.sq"))}</p></div>`;
   }
 
   const enrollCustomer = (s) =>
     openLeadPicker({
-      title: "Add a customer",
+      title: T("auto.add-a-customer"),
       subtitle: s.name,
-      hint: "Pick a lead: its customer gets this sequence's steps from day 0 (in working hours if the sequence says so).",
+      hint: T("auto.enrollHint"),
       pick: async (leadId) => {
         const enrollment = await crmApi(`/sequences/${s.id}/enroll`, {
           method: "POST",
@@ -976,7 +967,7 @@
           body: JSON.stringify({ leadId }),
         });
         closeLeadPicker();
-        showToast(`${enrollment.label || "The customer"} was added to "${s.name}"`, "success");
+        showToast(T("auto.enrolled", { who: enrollment.label || T("auto.theCustomer"), name: s.name }), "success");
         await refreshAutomations();
         if ($("peopleModalOverlay").classList.contains("open")) loadPeople();
       },
@@ -999,7 +990,7 @@
   function openSequenceModal(id) {
     const s = id ? sequences.find((x) => idOf(x.id) === idOf(id)) : null;
     sqDraftId = s ? s.id : "";
-    $("sequenceModalTitle").textContent = s ? "Edit Sequence" : "New Sequence";
+    $("sequenceModalTitle").textContent = T(s ? "auto.editSq" : "auto.new-sequence");
     $("sqEditId").value = sqDraftId;
     $("sqName").value = s?.name || "";
     $("sqStatus").value = s?.status || "Active";
@@ -1008,11 +999,11 @@
     $("sqStopOnReply").checked = s ? s.stopOnReply : true;
     $("sqStopOnClose").checked = s ? s.stopOnClose : true;
     $("sqWorkingHours").checked = s ? s.workingHoursOnly : true;
-    $("sqNewStepType").innerHTML = meta.sequenceSteps.map((type) => `<option value="${type}">${escapeHtml(STEP_LOOK[type]?.[1] || type)}</option>`).join("");
+    $("sqNewStepType").innerHTML = meta.sequenceSteps.map((type) => `<option value="${type}">${escapeHtml(stepName(type))}</option>`).join("");
     $("sqDeleteBtn").style.display = s ? "inline-flex" : "none";
     $("sqNotes").hidden = !s?.notes?.length;
     $("sqNotes").innerHTML = notesHtml(s?.notes);
-    sqSteps.set(s ? s.steps : [{ day: 0, type: "whatsapp.template", params: clone(NEW_STEP["whatsapp.template"]) }, { day: 2, type: "task.create", params: { title: "Call {{contact.name}}", dueInDays: 0, assignTo: "owner", priority: "Medium" } }]);
+    sqSteps.set(s ? s.steps : [{ day: 0, type: "whatsapp.template", params: clone(NEW_STEP["whatsapp.template"]) }, { day: 2, type: "task.create", params: { title: T("auto.ph.call"), dueInDays: 0, assignTo: "owner", priority: "Medium" } }]);
     $("sequenceModalOverlay").classList.add("open");
     $("sqName").focus();
   }
@@ -1023,12 +1014,12 @@
     const steps = sqSteps.read();
     const name = $("sqName").value.trim();
     if (!name) {
-      showToast("Give the sequence a name.", "error");
+      showToast(T("auto.needSqName"), "error");
       $("sqName").focus();
       return;
     }
     if (!steps.length) {
-      showToast("Add at least one step.", "error");
+      showToast(T("auto.needStep"), "error");
       return;
     }
     const body = {
@@ -1042,10 +1033,10 @@
       const saved = await crmApi(sqDraftId ? `/sequences/${sqDraftId}` : "/sequences", jsonRequest(sqDraftId ? "PATCH" : "POST", body));
       upsertIn(sequences, saved);
       closeSequenceModal();
-      showToast(`${sqDraftId ? "Sequence updated" : "Sequence created"}${saved.status === "Active" ? " and on" : ""}.`, "success");
+      showToast(T(sqDraftId ? (saved.status === "Active" ? "auto.sqUpdatedOn" : "auto.sqUpdated") : saved.status === "Active" ? "auto.sqCreatedOn" : "auto.sqCreated"), "success");
       renderAll();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't save the sequence."), "error");
+      showToast(apiErrorMessage(error, T("auto.err.saveSq")), "error");
       sqSteps.point(error?.errors?.[0]?.field);
     } finally {
       saveBtn.disabled = false;
@@ -1068,19 +1059,19 @@
   let peoplePage = 1;
 
   function personHtml(e) {
-    const by = e.enrolledBy.kind === "workflow" ? e.enrolledBy.name : `by ${e.enrolledBy.name || "a teammate"}`;
+    const by = e.enrolledBy.kind === "workflow" ? e.enrolledBy.name : T("auto.byName", { name: e.enrolledBy.name || T("auto.aTeammate") });
     const next = e.status === "active" && e.nextAt
-      ? `Next: day ${peopleOf?.steps?.[e.stepIndex]?.day ?? "?"} step on ${when(e.nextAt)}`
-      : e.stopReason || e.error || (e.status === "completed" ? `Finished ${when(e.finishedAt)}` : "");
+      ? T("auto.nextStep", { day: peopleOf?.steps?.[e.stepIndex]?.day ?? "?", when: when(e.nextAt) })
+      : e.stopReason || e.error || (e.status === "completed" ? T("auto.finishedCap", { when: when(e.finishedAt) }) : "");
     return `
       <div class="au-person" data-enrollment="${escapeHtml(e.id)}">
         <div class="au-person-head">
-          <a href="customer-360.html?id=${encodeURIComponent(e.contactId)}">${escapeHtml(e.label || "Customer")}</a>
+          <a href="customer-360.html?id=${encodeURIComponent(e.contactId)}">${escapeHtml(e.label || T("orders.customer"))}</a>
           ${badge(e.status)}
-          ${e.status === "active" ? '<button class="btn btn-danger-outline" type="button" data-stop>Take out</button>' : ""}
+          ${e.status === "active" ? `<button class="btn btn-danger-outline" type="button" data-stop>${escapeHtml(T("auto.takeOut"))}</button>` : ""}
         </div>
-        <div class="sub">Added ${escapeHtml(when(e.enrolledAt))} ${escapeHtml(by)}${next ? ` · ${escapeHtml(next)}` : ""}</div>
-        ${e.steps.length ? `<details><summary>${e.steps.length} step${e.steps.length === 1 ? "" : "s"} done</summary>${stepLog(e.steps)}</details>` : ""}
+        <div class="sub">${escapeHtml(T("auto.added", { when: when(e.enrolledAt), by }))}${next ? ` · ${escapeHtml(next)}` : ""}</div>
+        ${e.steps.length ? `<details><summary>${escapeHtml(T("auto.stepsDone", { n: e.steps.length }))}</summary>${stepLog(e.steps)}</details>` : ""}
       </div>`;
   }
 
@@ -1092,16 +1083,16 @@
       const body = await crmRequest(`/sequences/${peopleOf.id}/enrollments?${params}`);
       people = more ? people.concat(body.data) : body.data;
       $("peopleMoreBtn").hidden = !body.pagination?.hasNextPage;
-      $("peopleList").innerHTML = people.length ? people.map(personHtml).join("") : '<p class="au-hint">Nobody here yet. Add a customer, or let a workflow add them ("Add the customer to a sequence").</p>';
+      $("peopleList").innerHTML = people.length ? people.map(personHtml).join("") : `<p class="au-hint">${escapeHtml(T("auto.nobodyYet"))}</p>`;
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't load who is in the sequence."), "error");
+      showToast(apiErrorMessage(error, T("auto.err.people")), "error");
     }
   }
 
   function openPeople(s) {
     peopleOf = s;
     $("peopleModalTitle").textContent = s.name;
-    $("peopleModalSub").textContent = `${s.stats?.active || 0} in it now · ${s.stats?.completed || 0} completed · ${s.stats?.stopped || 0} stopped`;
+    $("peopleModalSub").textContent = T("auto.peopleSub", { active: s.stats?.active || 0, completed: s.stats?.completed || 0, stopped: s.stats?.stopped || 0 });
     $("peopleStatusFilter").value = "";
     $("peopleAddBtn").disabled = s.status !== "Active";
     $("peopleList").innerHTML = "";
@@ -1114,14 +1105,14 @@
     const stop = event.target.closest("[data-stop]");
     if (!stop) return;
     const id = stop.closest("[data-enrollment]").dataset.enrollment;
-    if (!confirm("Take this customer out of the sequence? Its remaining steps will not happen for them.")) return;
+    if (!confirm(T("auto.confirmTakeOut"))) return;
     try {
       await crmApi(`/sequence-enrollments/${id}/stop`, { method: "POST" });
-      showToast("Taken out of the sequence", "success");
+      showToast(T("auto.takenOut"), "success");
       await refreshAutomations();
       loadPeople();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't take them out."), "error");
+      showToast(apiErrorMessage(error, T("auto.err.takeOut")), "error");
     }
   });
   $("peopleStatusFilter").addEventListener("change", () => loadPeople());
@@ -1144,8 +1135,8 @@
     const ownList = tab === "runs" || tab === "bot"; // these tabs have their own buttons
     $("searchBox").style.display = ownList ? "none" : "";
     $("addBtn").style.display = ownList ? "none" : "";
-    $("addBtnLabel").textContent = tab === "sequences" ? "New Sequence" : "New Workflow";
-    $("searchInput").placeholder = tab === "sequences" ? "Search sequences..." : "Search workflows...";
+    $("addBtnLabel").textContent = T(tab === "sequences" ? "auto.new-sequence" : "auto.new-workflow");
+    $("searchInput").placeholder = T(tab === "sequences" ? "auto.searchSq" : "auto.searchWf");
     document.dispatchEvent(new CustomEvent("automation:tab", { detail: tab }));
     if (tab === "bot") {
       renderAll();
@@ -1190,6 +1181,6 @@
         if (tab === "runs" || tab === "sequences" || (tab === "bot" && manager)) setTab(tab);
         else renderAll();
       })
-      .catch((error) => showToast(apiErrorMessage(error, "Couldn't load the automation settings."), "error"));
+      .catch((error) => showToast(apiErrorMessage(error, T("auto.err.load")), "error"));
   });
 })();

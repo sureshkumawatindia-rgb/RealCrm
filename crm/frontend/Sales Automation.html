@@ -142,7 +142,7 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Sales Automation</h2>
+            <h2 data-i18n="nav.automation">Sales Automation</h2>
           </div>
         </header>
 
@@ -154,26 +154,22 @@
           <div class="toolbar">
             <div class="automation-tabs">
               <button class="automation-tab active" id="tabWorkflowsBtn">
-                <i class="fa-solid fa-diagram-project"></i> Workflows
-              </button>
+                <i class="fa-solid fa-diagram-project"></i> <span data-i18n="auto.workflows">Workflows</span></button>
               <button class="automation-tab" id="tabRunsBtn">
-                <i class="fa-solid fa-clock-rotate-left"></i> Run log
-              </button>
+                <i class="fa-solid fa-clock-rotate-left"></i> <span data-i18n="auto.run-log">Run log</span></button>
               <button class="automation-tab" id="tabSequencesBtn">
-                <i class="fa-solid fa-layer-group"></i> Sequences
-              </button>
+                <i class="fa-solid fa-layer-group"></i> <span data-i18n="auto.sequences">Sequences</span></button>
               <button class="automation-tab" id="tabBotBtn" hidden>
-                <i class="fa-solid fa-robot"></i> FAQ bot
-              </button>
+                <i class="fa-solid fa-robot"></i> <span data-i18n="auto.faq-bot">FAQ bot</span></button>
             </div>
             <div class="search-box" id="searchBox">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" id="searchInput" placeholder="Search..." />
+              <input type="text" id="searchInput" placeholder="Search..." data-i18n-placeholder="auto.search" />
             </div>
             <div style="display: flex; gap: 10px; margin-left: auto">
               <button class="btn btn-primary" id="addBtn">
                 <i class="fa-solid fa-plus"></i>
-                <span id="addBtnLabel">New Workflow</span>
+                <span id="addBtnLabel" data-i18n="auto.new-workflow">New Workflow</span>
               </button>
             </div>
           </div>
@@ -188,39 +184,36 @@
             <div class="panel au-runs">
               <div class="au-runs-filters">
                 <select class="filter" id="runWorkflowFilter">
-                  <option value="">All workflows</option>
+                  <option value="" data-i18n="auto.all-workflows">All workflows</option>
                 </select>
                 <select class="filter" id="runStatusFilter">
-                  <option value="">Any status</option>
-                  <option value="running">Running</option>
-                  <option value="waiting">Waiting</option>
-                  <option value="done">Done</option>
-                  <option value="failed">Failed</option>
-                  <option value="cancelled">Stopped</option>
+                  <option value="" data-i18n="auto.any-status">Any status</option>
+                  <option value="running" data-i18n="auto.running">Running</option>
+                  <option value="waiting" data-i18n="bcPerson.pending">Waiting</option>
+                  <option value="done" data-i18n="taskStatus.Done">Done</option>
+                  <option value="failed" data-i18n="bcPerson.failed">Failed</option>
+                  <option value="cancelled" data-i18n="auto.stopped">Stopped</option>
                 </select>
                 <button class="btn btn-outline" id="runRefreshBtn" type="button">
-                  <i class="fa-solid fa-rotate"></i> Refresh
-                </button>
+                  <i class="fa-solid fa-rotate"></i> <span data-i18n="auto.refresh">Refresh</span></button>
               </div>
               <div class="au-table-wrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>When</th>
-                      <th>Workflow</th>
-                      <th>Customer</th>
-                      <th>Started by</th>
-                      <th>Status</th>
-                      <th>Steps</th>
+                      <th data-i18n="bc.col.when">When</th>
+                      <th data-i18n="auto.workflow">Workflow</th>
+                      <th data-i18n="orders.customer">Customer</th>
+                      <th data-i18n="auto.started-by">Started by</th>
+                      <th data-i18n="col.status">Status</th>
+                      <th data-i18n="auto.steps">Steps</th>
                     </tr>
                   </thead>
                   <tbody id="runsBody"></tbody>
                 </table>
               </div>
               <div class="au-more">
-                <button class="btn btn-outline" id="runMoreBtn" type="button" hidden>
-                  Load more
-                </button>
+                <button class="btn btn-outline" id="runMoreBtn" type="button" hidden data-i18n="mkt.load-more">Load more</button>
               </div>
             </div>
           </div>
@@ -230,58 +223,50 @@
             <div class="au-bot-grid">
               <div class="panel au-bot-card">
                 <div class="au-bot-head">
-                  <h3><i class="fa-brands fa-whatsapp"></i> WhatsApp bot</h3>
-                  <label class="au-check"><input type="checkbox" id="botEnabled" /> On</label>
+                  <h3><i class="fa-brands fa-whatsapp"></i> <span data-i18n="auto.whatsapp-bot">WhatsApp bot</span></h3>
+                  <label class="au-check"><input type="checkbox" id="botEnabled" /> <span data-i18n="auto.on">On</span></label>
                 </div>
-                <p class="au-hint">
-                  Answers customers who write on WhatsApp while nobody from the team has the chat.
-                  It stops in a chat when the customer asks for a person or a teammate replies.
-                </p>
+                <p class="au-hint" data-i18n="auto.answers-customers-who-write-on-whatsapp">Answers customers who write on WhatsApp while nobody from the team has the chat. It stops in a chat when the customer asks for a person or a teammate replies.</p>
                 <section class="au-section">
                   <div class="au-section-head">
-                    <label class="au-check"><input type="checkbox" id="botGreetingOn" /> Greeting</label>
-                    <span class="au-hint" style="margin: 0">when someone writes</span>
+                    <label class="au-check"><input type="checkbox" id="botGreetingOn" /> <span data-i18n="auto.greeting">Greeting</span></label>
+                    <span class="au-hint" style="margin: 0" data-i18n="auto.when-someone-writes">when someone writes</span>
                   </div>
                   <div id="botGreeting"></div>
                 </section>
                 <section class="au-section">
                   <div class="au-section-head">
-                    <label class="au-check"><input type="checkbox" id="botAwayOn" /> Away message</label>
-                    <span class="au-hint" style="margin: 0">outside working hours (Settings → Lead rules)</span>
+                    <label class="au-check"><input type="checkbox" id="botAwayOn" /> <span data-i18n="auto.away-message">Away message</span></label>
+                    <span class="au-hint" style="margin: 0" data-i18n="auto.outside-working-hours-settings-lead-rules">outside working hours (Settings → Lead rules)</span>
                   </div>
                   <div id="botAway"></div>
                 </section>
                 <section class="au-section">
-                  <div class="au-section-head"><span class="au-tag au-tag--if">Talk to a person</span></div>
+                  <div class="au-section-head"><span class="au-tag au-tag--if" data-i18n="auto.talk-to-a-person">Talk to a person</span></div>
                   <div class="field">
-                    <label for="botHandoffKeywords">When the customer writes (commas between)</label>
-                    <input type="text" id="botHandoffKeywords" maxlength="1200" placeholder="agent, human, call me, baat karni hai" />
+                    <label for="botHandoffKeywords" data-i18n="auto.when-the-customer-writes-commas-between">When the customer writes (commas between)</label>
+                    <input type="text" id="botHandoffKeywords" maxlength="1200" placeholder="agent, human, call me, baat karni hai" data-i18n-placeholder="auto.agent-human-call-me-baat-karni" />
                   </div>
                   <div class="field">
-                    <label for="botHandoffText">The bot replies, then waits for your team</label>
+                    <label for="botHandoffText" data-i18n="auto.the-bot-replies-then-waits-for">The bot replies, then waits for your team</label>
                     <input type="text" id="botHandoffText" maxlength="1024" />
                   </div>
                 </section>
                 <div class="au-inline" style="margin-bottom: 14px">
-                  <span>Greeting and away message at most once per chat every</span>
+                  <span data-i18n="auto.greeting-and-away-message-at-most">Greeting and away message at most once per chat every</span>
                   <input type="number" id="botRepeat" min="1" max="168" />
-                  <span>hours</span>
+                  <span data-i18n="auto.hours">hours</span>
                 </div>
                 <button class="btn btn-primary" id="botSaveBtn" type="button">
-                  <i class="fa-solid fa-floppy-disk"></i> Save bot settings
-                </button>
+                  <i class="fa-solid fa-floppy-disk"></i> <span data-i18n="auto.save-bot-settings">Save bot settings</span></button>
               </div>
               <div class="panel au-bot-card">
                 <div class="au-bot-head">
-                  <h3><i class="fa-solid fa-comments"></i> Answers</h3>
+                  <h3><i class="fa-solid fa-comments"></i> <span data-i18n="auto.answers">Answers</span></h3>
                   <button class="btn btn-outline" id="botAddRuleBtn" type="button">
-                    <i class="fa-solid fa-plus"></i> New answer
-                  </button>
+                    <i class="fa-solid fa-plus"></i> <span data-i18n="auto.new-answer">New answer</span></button>
                 </div>
-                <p class="au-hint">
-                  When a message has one of an answer's words, the bot sends that answer. Options
-                  become buttons (1–3) or a list (4–10); each opens another answer or a person.
-                </p>
+                <p class="au-hint" data-i18n="auto.when-a-message-has-one-of">When a message has one of an answer's words, the bot sends that answer. Options become buttons (1–3) or a list (4–10); each opens another answer or a person.</p>
                 <div id="botRules" class="au-bot-rules"></div>
               </div>
             </div>
@@ -299,8 +284,8 @@
     <div class="modal-overlay" id="workflowModalOverlay">
       <div class="modal modal--wide au-builder">
         <div class="modal-head">
-          <h3 id="workflowModalTitle">New Workflow</h3>
-          <button class="icon-btn" id="workflowModalClose" type="button" aria-label="Close">
+          <h3 id="workflowModalTitle" data-i18n="auto.new-workflow">New Workflow</h3>
+          <button class="icon-btn" id="workflowModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -309,60 +294,58 @@
             <input type="hidden" id="wfEditId" />
             <div id="wfNotes" class="au-notes" hidden></div>
             <div class="field">
-              <label for="wfName">Workflow name</label>
+              <label for="wfName" data-i18n="auto.workflow-name">Workflow name</label>
               <input
                 type="text"
                 id="wfName"
                 maxlength="200"
-                placeholder="e.g. Welcome new IndiaMART leads"
+                placeholder="e.g. Welcome new IndiaMART leads" data-i18n-placeholder="auto.e-g-welcome-new-indiamart-leads"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label for="wfStatus">Status</label>
+                <label for="wfStatus" data-i18n="col.status">Status</label>
                 <select id="wfStatus">
-                  <option value="Active">Active — runs on its own</option>
-                  <option value="Paused">Paused</option>
-                  <option value="Draft">Draft</option>
+                  <option value="Active" data-i18n="auto.active-runs-on-its-own">Active — runs on its own</option>
+                  <option value="Paused" data-i18n="campaign.Paused">Paused</option>
+                  <option value="Draft" data-i18n="campaign.Draft">Draft</option>
                 </select>
               </div>
               <div class="field" id="wfOwnerField">
-                <label for="wfOwner">Owner</label>
+                <label for="wfOwner" data-i18n="leads.col.owner">Owner</label>
                 <select id="wfOwner"></select>
               </div>
             </div>
 
             <section class="au-section">
               <div class="au-section-head">
-                <span class="au-tag au-tag--when">When</span> this happens
+                <span class="au-tag au-tag--when" data-i18n="bc.col.when">When</span> <span data-i18n="auto.this-happens">this happens</span>
               </div>
               <div class="field">
-                <select id="wfTrigger" aria-label="Trigger"></select>
+                <select id="wfTrigger" aria-label="Trigger" data-i18n-aria-label="auto.trigger"></select>
               </div>
               <div id="wfTriggerParams"></div>
             </section>
 
             <section class="au-section">
               <div class="au-section-head">
-                <span class="au-tag au-tag--if">Only if</span> (optional)
+                <span class="au-tag au-tag--if" data-i18n="auto.only-if">Only if</span> <span data-i18n="auto.optional-note">(optional)</span>
                 <button type="button" class="link-mini" id="wfAddConditionBtn">
-                  <i class="fa-solid fa-plus"></i> Add condition
-                </button>
+                  <i class="fa-solid fa-plus"></i> <span data-i18n="auto.add-condition">Add condition</span></button>
               </div>
               <div id="wfConditions" class="dynamic-list"></div>
             </section>
 
             <section class="au-section">
               <div class="au-section-head">
-                <span class="au-tag au-tag--then">Then</span> do these steps, in order
+                <span class="au-tag au-tag--then" data-i18n="auto.then">Then</span> <span data-i18n="auto.do-these-steps-in-order">do these steps, in order</span>
               </div>
               <div id="wfSteps" class="au-steps"></div>
               <div class="au-add-step">
-                <select id="wfNewStepType" aria-label="Step to add"></select>
+                <select id="wfNewStepType" aria-label="Step to add" data-i18n-aria-label="auto.step-to-add"></select>
                 <button type="button" class="btn btn-outline" id="wfAddStepBtn">
-                  <i class="fa-solid fa-plus"></i> Add step
-                </button>
+                  <i class="fa-solid fa-plus"></i> <span data-i18n="auto.add-step">Add step</span></button>
               </div>
             </section>
 
@@ -376,14 +359,9 @@
             type="button"
             style="display: none; margin-right: auto"
           >
-            <i class="fa-solid fa-trash"></i> Delete Workflow
-          </button>
-          <button class="btn btn-outline" id="wfCancelBtn" type="button">
-            Cancel
-          </button>
-          <button class="btn btn-primary" type="submit" form="workflowForm" id="wfSaveBtn">
-            Save Workflow
-          </button>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="auto.delete-workflow">Delete Workflow</span></button>
+          <button class="btn btn-outline" id="wfCancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit" form="workflowForm" id="wfSaveBtn" data-i18n="auto.save-workflow">Save Workflow</button>
         </div>
       </div>
     </div>
@@ -393,22 +371,20 @@
       <div class="modal modal--wide">
         <div class="modal-head">
           <div>
-            <h3 id="runModalTitle">Run</h3>
+            <h3 id="runModalTitle" data-i18n="auto.run">Run</h3>
             <p class="modal-subtitle" id="runModalSub"></p>
           </div>
-          <button class="icon-btn" id="runModalClose" type="button" aria-label="Close">
+          <button class="icon-btn" id="runModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
         <div class="modal-body" id="runModalBody"></div>
         <div class="modal-foot">
           <a class="btn btn-outline" id="runOpenLink" href="#" hidden style="margin-right: auto">
-            <i class="fa-solid fa-address-card"></i> Open customer
-          </a>
+            <i class="fa-solid fa-address-card"></i> <span data-i18n="auto.open-customer">Open customer</span></a>
           <button class="btn btn-danger-outline" id="runCancelBtn" type="button" hidden>
-            <i class="fa-solid fa-stop"></i> Stop this run
-          </button>
-          <button class="btn btn-outline" id="runCloseBtn" type="button">Close</button>
+            <i class="fa-solid fa-stop"></i> <span data-i18n="auto.stop-this-run">Stop this run</span></button>
+          <button class="btn btn-outline" id="runCloseBtn" type="button" data-i18n="common.close">Close</button>
         </div>
       </div>
     </div>
@@ -418,21 +394,21 @@
       <div class="modal">
         <div class="modal-head">
           <div>
-            <h3 id="testModalTitle">Test run</h3>
+            <h3 id="testModalTitle" data-i18n="auto.test-run">Test run</h3>
             <p class="modal-subtitle" id="testModalSub"></p>
           </div>
-          <button class="icon-btn" id="testModalClose" type="button" aria-label="Close">
+          <button class="icon-btn" id="testModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
         <div class="modal-body">
           <p class="au-hint" id="testModalHint"></p>
           <div class="field">
-            <label for="testLeadSearch">Lead</label>
+            <label for="testLeadSearch" data-i18n="dash.add.lead">Lead</label>
             <input
               type="search"
               id="testLeadSearch"
-              placeholder="Search by name, phone or company"
+              placeholder="Search by name, phone or company" data-i18n-placeholder="auto.search-by-name-phone-or-company"
               autocomplete="off"
             />
           </div>
@@ -445,8 +421,8 @@
     <div class="modal-overlay" id="sequenceModalOverlay">
       <div class="modal modal--wide au-builder">
         <div class="modal-head">
-          <h3 id="sequenceModalTitle">New Sequence</h3>
-          <button class="icon-btn" id="sequenceModalClose" type="button" aria-label="Close">
+          <h3 id="sequenceModalTitle" data-i18n="auto.new-sequence">New Sequence</h3>
+          <button class="icon-btn" id="sequenceModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -455,57 +431,53 @@
             <input type="hidden" id="sqEditId" />
             <div id="sqNotes" class="au-notes" hidden></div>
             <div class="field">
-              <label for="sqName">Sequence name</label>
+              <label for="sqName" data-i18n="auto.sequence-name">Sequence name</label>
               <input
                 type="text"
                 id="sqName"
                 maxlength="200"
-                placeholder="e.g. Quotation follow-up — 3 touches"
+                placeholder="e.g. Quotation follow-up — 3 touches" data-i18n-placeholder="auto.e-g-quotation-follow-up-3"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label for="sqStatus">Status</label>
+                <label for="sqStatus" data-i18n="col.status">Status</label>
                 <select id="sqStatus">
-                  <option value="Active">Active — takes customers</option>
-                  <option value="Paused">Paused</option>
-                  <option value="Draft">Draft</option>
+                  <option value="Active" data-i18n="auto.active-takes-customers">Active — takes customers</option>
+                  <option value="Paused" data-i18n="campaign.Paused">Paused</option>
+                  <option value="Draft" data-i18n="campaign.Draft">Draft</option>
                 </select>
               </div>
               <div class="field" id="sqOwnerField">
-                <label for="sqOwner">Owner</label>
+                <label for="sqOwner" data-i18n="leads.col.owner">Owner</label>
                 <select id="sqOwner"></select>
               </div>
             </div>
 
             <section class="au-section">
               <div class="au-section-head">
-                <span class="au-tag au-tag--if">Stops</span> for a customer when
+                <span class="au-tag au-tag--if" data-i18n="auto.stops">Stops</span> <span data-i18n="auto.for-a-customer-when">for a customer when</span>
               </div>
               <div class="au-checks">
-                <label class="au-check"><input type="checkbox" id="sqStopOnReply" /> they reply on WhatsApp</label>
-                <label class="au-check"><input type="checkbox" id="sqStopOnClose" /> their lead is won or lost</label>
+                <label class="au-check"><input type="checkbox" id="sqStopOnReply" /> <span data-i18n="auto.they-reply-on-whatsapp">they reply on WhatsApp</span></label>
+                <label class="au-check"><input type="checkbox" id="sqStopOnClose" /> <span data-i18n="auto.their-lead-is-won-or-lost">their lead is won or lost</span></label>
               </div>
               <div class="au-checks" style="margin-top: 8px">
-                <label class="au-check"><input type="checkbox" id="sqWorkingHours" /> Send only during working hours</label>
+                <label class="au-check"><input type="checkbox" id="sqWorkingHours" /> <span data-i18n="auto.send-only-during-working-hours">Send only during working hours</span></label>
               </div>
-              <p class="au-hint">
-                Working hours are set in Settings → Lead rules; a step due at night waits for
-                the morning. You can also take anyone out by hand.
-              </p>
+              <p class="au-hint" data-i18n="auto.working-hours-are-set-in-settings">Working hours are set in Settings → Lead rules; a step due at night waits for the morning. You can also take anyone out by hand.</p>
             </section>
 
             <section class="au-section">
               <div class="au-section-head">
-                <span class="au-tag au-tag--then">Steps</span> on days after the customer is added
+                <span class="au-tag au-tag--then" data-i18n="auto.steps">Steps</span> <span data-i18n="auto.on-days-after-the-customer-is-added">on days after the customer is added</span>
               </div>
               <div id="sqSteps" class="au-steps"></div>
               <div class="au-add-step">
-                <select id="sqNewStepType" aria-label="Step to add"></select>
+                <select id="sqNewStepType" aria-label="Step to add" data-i18n-aria-label="auto.step-to-add"></select>
                 <button type="button" class="btn btn-outline" id="sqAddStepBtn">
-                  <i class="fa-solid fa-plus"></i> Add step
-                </button>
+                  <i class="fa-solid fa-plus"></i> <span data-i18n="auto.add-step">Add step</span></button>
               </div>
             </section>
           </form>
@@ -517,14 +489,9 @@
             type="button"
             style="display: none; margin-right: auto"
           >
-            <i class="fa-solid fa-trash"></i> Delete Sequence
-          </button>
-          <button class="btn btn-outline" id="sqCancelBtn" type="button">
-            Cancel
-          </button>
-          <button class="btn btn-primary" type="submit" form="sequenceForm" id="sqSaveBtn">
-            Save Sequence
-          </button>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="auto.delete-sequence">Delete Sequence</span></button>
+          <button class="btn btn-outline" id="sqCancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit" form="sequenceForm" id="sqSaveBtn" data-i18n="auto.save-sequence">Save Sequence</button>
         </div>
       </div>
     </div>
@@ -533,8 +500,8 @@
     <div class="modal-overlay" id="ruleModalOverlay">
       <div class="modal modal--wide au-builder">
         <div class="modal-head">
-          <h3 id="ruleModalTitle">New answer</h3>
-          <button class="icon-btn" id="ruleModalClose" type="button" aria-label="Close">
+          <h3 id="ruleModalTitle" data-i18n="auto.new-answer">New answer</h3>
+          <button class="icon-btn" id="ruleModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -542,32 +509,31 @@
           <form id="ruleForm" novalidate>
             <div class="field-row">
               <div class="field">
-                <label for="ruleName">Name</label>
-                <input type="text" id="ruleName" maxlength="100" placeholder="e.g. Price list" required />
+                <label for="ruleName" data-i18n="col.name">Name</label>
+                <input type="text" id="ruleName" maxlength="100" placeholder="e.g. Price list" data-i18n-placeholder="auto.e-g-price-list" required />
               </div>
               <div class="field">
-                <label for="rulePriority">Order (lower is tried first)</label>
+                <label for="rulePriority" data-i18n="auto.order-lower-is-tried-first">Order (lower is tried first)</label>
                 <input type="number" id="rulePriority" min="0" max="10000" />
               </div>
             </div>
             <div class="field">
-              <label for="ruleKeywords">Words that bring this answer (commas between)</label>
-              <input type="text" id="ruleKeywords" maxlength="1800" placeholder="price, rate, दाम" />
-              <p class="au-hint">Whole words, capitals ignored. Leave empty for an answer that only opens from another answer's option.</p>
+              <label for="ruleKeywords" data-i18n="auto.words-that-bring-this-answer-commas">Words that bring this answer (commas between)</label>
+              <input type="text" id="ruleKeywords" maxlength="1800" placeholder="price, rate, दाम" data-i18n-placeholder="auto.price-rate" />
+              <p class="au-hint" data-i18n="auto.whole-words-capitals-ignored-leave-empty">Whole words, capitals ignored. Leave empty for an answer that only opens from another answer's option.</p>
             </div>
-            <label class="au-check" style="margin-bottom: 12px"><input type="checkbox" id="ruleActive" /> Active</label>
+            <label class="au-check" style="margin-bottom: 12px"><input type="checkbox" id="ruleActive" /> <span data-i18n="campaign.Active">Active</span></label>
             <section class="au-section">
-              <div class="au-section-head"><span class="au-tag au-tag--then">Answer</span></div>
+              <div class="au-section-head"><span class="au-tag au-tag--then" data-i18n="auto.answer">Answer</span></div>
               <div id="ruleAnswer"></div>
             </section>
           </form>
         </div>
         <div class="modal-foot">
           <button class="btn btn-danger-outline" id="ruleDeleteBtn" type="button" style="display: none; margin-right: auto">
-            <i class="fa-solid fa-trash"></i> Delete
-          </button>
-          <button class="btn btn-outline" id="ruleCancelBtn" type="button">Cancel</button>
-          <button class="btn btn-primary" type="submit" form="ruleForm" id="ruleSaveBtn">Save answer</button>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="common.delete">Delete</span></button>
+          <button class="btn btn-outline" id="ruleCancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit" form="ruleForm" id="ruleSaveBtn" data-i18n="auto.save-answer">Save answer</button>
         </div>
       </div>
     </div>
@@ -577,29 +543,28 @@
       <div class="modal modal--wide">
         <div class="modal-head">
           <div>
-            <h3 id="peopleModalTitle">In this sequence</h3>
+            <h3 id="peopleModalTitle" data-i18n="auto.in-this-sequence">In this sequence</h3>
             <p class="modal-subtitle" id="peopleModalSub"></p>
           </div>
-          <button class="icon-btn" id="peopleModalClose" type="button" aria-label="Close">
+          <button class="icon-btn" id="peopleModalClose" type="button" aria-label="Close" data-i18n-aria-label="common.close">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="au-people-filters">
-            <select class="filter" id="peopleStatusFilter" aria-label="Show">
-              <option value="">Everyone</option>
-              <option value="active">In it now</option>
-              <option value="completed">Completed</option>
-              <option value="stopped">Stopped</option>
-              <option value="failed">Failed</option>
+            <select class="filter" id="peopleStatusFilter" aria-label="Show" data-i18n-aria-label="mkt.show">
+              <option value="" data-i18n="mkt.everyone">Everyone</option>
+              <option value="active" data-i18n="auto.in-it-now">In it now</option>
+              <option value="completed" data-i18n="campaign.Completed">Completed</option>
+              <option value="stopped" data-i18n="auto.stopped">Stopped</option>
+              <option value="failed" data-i18n="bcPerson.failed">Failed</option>
             </select>
             <button class="btn btn-outline" id="peopleAddBtn" type="button">
-              <i class="fa-solid fa-user-plus"></i> Add a customer
-            </button>
+              <i class="fa-solid fa-user-plus"></i> <span data-i18n="auto.add-a-customer">Add a customer</span></button>
           </div>
           <div id="peopleList" class="au-people"></div>
           <div class="au-more">
-            <button class="btn btn-outline" id="peopleMoreBtn" type="button" hidden>Load more</button>
+            <button class="btn btn-outline" id="peopleMoreBtn" type="button" hidden data-i18n="mkt.load-more">Load more</button>
           </div>
         </div>
       </div>

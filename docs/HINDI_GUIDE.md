@@ -71,7 +71,7 @@ Left alone on purpose:
   Calendar pages and `js/automation.js`, `js/marketing.js`, `js/marketing-broadcasts.js`, and
   the FAQ bot tab of Sales Automation (`js/automation-bot.js`). The scripts of the Team and AI
   Insights pages (`js/accounts.js`, `js/ai-insights.js`) are in Hindi; those pages' own HTML is
-  the owner's.
+  the owner's. Since 2026-11-09 the Sales Automation page and `js/automation.js` have all their texts in both languages; `js/automation-bot.js` is still English.
 
 `backend/src/tests/i18n.test.js` checks that every key a page or script uses exists (with `t`,
 `crmI18n.t`, `lt` and `tr`), both files have the same keys and placeholders, and Hindi is written
