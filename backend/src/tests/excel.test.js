@@ -5,7 +5,7 @@ const Contact = require('../models/Contact');
 const Product = require('../models/Product');
 const AuditLog = require('../models/AuditLog');
 const xlsx = require('../utils/xlsx');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 4A (D82): Excel files in and out, and the Excel / Power BI feeds.
 const binary = (res, callback) => {

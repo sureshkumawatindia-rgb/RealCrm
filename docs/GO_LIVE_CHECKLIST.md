@@ -19,8 +19,9 @@ service's **Environment** on Render — never into a chat, an email or a documen
 
 ## 2. Your own domain with HTTPS
 
-- **Do:** point `crm.yourdomain.in` (or similar) at Render and set `PUBLIC_URL` to it.
-- **Guide:** `docs/DOMAIN_SETUP_AGREEMCRM.md` (agreemcrm.com / .in, step by step),
+- **Do:** point `crm.agreem360.com` at Render and set `PUBLIC_URL=https://crm.agreem360.com`;
+  send `agreem360.com` and `www` there.
+- **Guide:** `docs/DOMAIN_SETUP.md` (agreem360.com, step by step),
   `docs/RENDER_SETUP.md` step 6, `docs/DEPLOYMENT.md` §2.
 - **Without it:** customers see an onrender.com address; "Connect WhatsApp" and Google need the
   final address in their settings.
@@ -78,7 +79,10 @@ service's **Environment** on Render — never into a chat, an email or a documen
 - **Do:** the company's legal name, address, email and GSTIN on the plan invoices
   (`BILLING_SELLER_NAME`, `BILLING_SELLER_GSTIN`, `BILLING_SELLER_ADDRESS`, `BILLING_SELLER_EMAIL`;
   confirm the SAC with your CA), and the same details for the website's terms, privacy and
-  data-deletion pages (polish plan checkpoint 2 — send them when ready).
+  data-deletion pages (polish plan checkpoint 2 — send them when ready). The Refund, Delivery
+  and Contact pages (`refund.html`, `delivery.html`, `contact.html`, which Razorpay's website
+  check asks for) show the same details, plus the phone/WhatsApp, support email and hours set in
+  **Platform admin → Support**; a line not set stays hidden.
 - **Guide:** `docs/BILLING_SETUP.md` section 4.
 - **Without it:** the GST invoices to companies miss the seller's details; Meta's App Review asks
   for the privacy and data-deletion pages.

@@ -51,9 +51,14 @@
   let current = null;
   let loaded = false;
   let watching = null; // the check after a checkout tab was opened
+  let interval = null; // the prices shown: monthly or yearly (D125); starts as the paid plan's
 
   const paying = () => ["active", "past_due"].includes(current.subscription.status) && Boolean(current.subscription.provider);
   const planName = (key) => catalog.plans.find((p) => p.key === key)?.name || key;
+  // The paid plan's interval (null while nothing is paid), and a plan's price in an interval.
+  const paidInterval = () => current.subscription.interval || null;
+  const priceOf = (p, which = interval) => (which === "yearly" && p.yearly ? p.yearly : p);
+  const perText = (which) => t(which === "yearly" ? "setplan.perYear" : "setplan.perMonth");
 
   function statusLine({ plan, subscription: s }) {
     switch (s.status) {
@@ -91,7 +96,7 @@
           ${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
           ${buttons.length ? `<div class="pl-buttons" style="margin-top: 10px">${buttons.join("")}</div>` : ""}
         </div>
-        <div class="plan-price">${rupees(current.plan.pricePaise)}<small> ${escapeHtml(t("setplan.perMonth"))} + GST</small></div>
+        <div class="plan-price">${rupees(priceOf(current.plan, paidInterval() || "monthly").pricePaise)}<small> ${escapeHtml(perText(paidInterval() || "monthly"))} + GST</small></div>
       </div>`;
   }
 
@@ -202,25 +207,31 @@
     }
   }
 
+  // A paid plan changes plans within its own interval only (D125): the other interval's cards
+  // show no button, and the hint under them says how to move.
+  const otherInterval = () => paying() && paidInterval() && paidInterval() !== interval;
+
   function buttonFor(p) {
-    const isCurrent = p.key === current.plan.key;
+    const isCurrent = p.key === current.plan.key && !otherInterval();
     if (isCurrent && paying() && !current.subscription.pendingPlan) return `<button class="btn btn-outline" type="button" disabled>${escapeHtml(t("setplan.currentPlan"))}</button>`;
-    if (!current.billing?.enabled) return "";
-    const action = paying() ? (p.totalPaise > current.plan.totalPaise ? "setplan.upgradeTo" : "setplan.switchTo") : "setplan.choose";
+    if (!current.billing?.enabled || otherInterval()) return "";
+    const action = paying() ? (priceOf(p).totalPaise > priceOf(current.plan).totalPaise ? "setplan.upgradeTo" : "setplan.switchTo") : "setplan.choose";
     return `<button class="btn btn-primary" type="button" data-plan="${escapeHtml(p.key)}">${escapeHtml(t(action, { name: p.name }))}</button>`;
   }
 
   function planCard(p) {
-    const isCurrent = p.key === current.plan.key;
+    const isCurrent = p.key === current.plan.key && !otherInterval();
+    const price = priceOf(p);
     const limits = catalog.limits.map(({ metric }) => (p.limits[metric] === null ? t(UNLIMITED_TEXT[metric]) : LIMIT_TEXT[metric](p.limits[metric]))).filter(Boolean);
     const features = catalog.features.map(({ feature, label }) => `<li class="${p.features[feature] ? "" : "no"}">${p.features[feature] ? '<i class="fa-solid fa-check"></i> ' : ""}${escapeHtml(label)}</li>`);
     // Above the new plan's limits: nothing is removed, but no more can be added.
     const over = (current.usage || []).filter((m) => p.limits[m.metric] !== null && m.used > p.limits[m.metric]).map((m) => m.label.toLowerCase());
+    const save = interval === "yearly" && p.yearly?.savePct > 0 ? ` <span class="badge badge-success">${escapeHtml(t("setplan.save", { pct: p.yearly.savePct }))}</span>` : "";
     return `
       <div class="plan-card${isCurrent ? " current" : ""}">
-        <h4>${escapeHtml(p.name)} ${isCurrent ? `<span class="badge badge-brand">${escapeHtml(t("setplan.yourPlan"))}</span>` : ""}</h4>
-        <div class="plan-price">${rupees(p.pricePaise)}<small> ${escapeHtml(t("setplan.perMonth"))}</small></div>
-        <div class="settings-hint" style="margin: 0">${escapeHtml(t("setplan.withGst", { amount: rupees(p.totalPaise) }))}</div>
+        <h4>${escapeHtml(p.name)} ${isCurrent ? `<span class="badge badge-brand">${escapeHtml(t("setplan.yourPlan"))}</span>` : ""}${save}</h4>
+        <div class="plan-price">${rupees(price.pricePaise)}<small> ${escapeHtml(perText(interval))}</small></div>
+        <div class="settings-hint" style="margin: 0">${escapeHtml(t("setplan.withGst", { amount: rupees(price.totalPaise) }))}</div>
         <ul>${limits.map((text) => `<li>${escapeHtml(text)}</li>`).join("")}${features.join("")}</ul>
         ${over.length && !isCurrent ? `<div class="settings-hint" style="margin: 0">${escapeHtml(t("setplan.over", { what: over.join(", ") }))}</div>` : ""}
         ${buttonFor(p)}
@@ -233,8 +244,18 @@
     $("planIncluded").hidden = !included.length;
     $("planIncludedList").innerHTML = included.map((text) => `<li><i class="fa-solid fa-check"></i><span>${escapeHtml(text)}</span></li>`).join("");
     const billing = current.billing || {};
+    const yearly = interval === "yearly";
+    document.querySelectorAll("#planInterval [data-interval]").forEach((button) => {
+      const on = button.dataset.interval === interval;
+      button.classList.toggle("is-active", on);
+      button.setAttribute("aria-pressed", String(on));
+    });
+    if (otherInterval()) {
+      $("planGridHint").textContent = t(paidInterval() === "yearly" ? "setplan.switch-to-monthly-hint" : "setplan.switch-to-yearly-hint");
+      return;
+    }
     $("planGridHint").textContent = billing.enabled
-      ? t("setplan.prices-are-per-month-plus-18", { v: paying() ? t("setplan.an-upgrade-starts-now-a-smaller") : "" })
+      ? t(yearly ? "setplan.yearly-hint" : "setplan.prices-are-per-month-plus-18", { v: paying() ? t(yearly ? "setplan.upgrade-hint-yearly" : "setplan.an-upgrade-starts-now-a-smaller") : "" })
       : t("setplan.prices-are-per-month-plus-18-2", { v: billing.contactEmail ? t("setplan.write-to", { contactEmail: billing.contactEmail }) : t("setplan.contact-support") });
   }
 
@@ -250,7 +271,7 @@
       <div style="overflow-x: auto"><table>
         <thead><tr><th>${escapeHtml(t("docCategory.Invoice"))}</th><th>${escapeHtml(t("board.dateLabel"))}</th><th>${escapeHtml(t("padmin.plan"))}</th><th>${escapeHtml(t("myperf.period"))}</th><th style="text-align: right">${escapeHtml(t("quotes.col.amount"))}</th><th></th></tr></thead>
         <tbody>${invoices.map((i) => `<tr>
-          <td>${escapeHtml(i.number)}</td><td>${escapeHtml(day(i.issuedAt))}</td><td>${escapeHtml(i.planName)}</td>
+          <td>${escapeHtml(i.number)}</td><td>${escapeHtml(day(i.issuedAt))}</td><td>${escapeHtml(i.planName)}${i.interval === "yearly" ? ` · ${escapeHtml(t("setplan.yearly"))}` : ""}</td>
           <td>${i.periodStart ? `${escapeHtml(day(i.periodStart))} – ${escapeHtml(day(i.periodEnd))}` : ""}</td>
           <td style="text-align: right">${rupees(i.totalPaise)}<div class="settings-hint" style="margin: 0">${escapeHtml(t("setplan.inclGst", { amount: rupees(i.gstPaise) }))}</div></td>
           <td><button class="btn btn-outline" type="button" data-invoice="${escapeHtml(i.id)}" data-number="${escapeHtml(i.number)}"><i class="fa-solid fa-file-pdf"></i> PDF</button></td>
@@ -267,6 +288,7 @@
   async function load() {
     try {
       [catalog, current] = await Promise.all([crmApi("/billing/plans"), crmPlan.state({ fresh: true }), loadHistory(), crmI18n.ready]);
+      interval = interval || paidInterval() || "monthly";
       render();
       renderInvoices();
     } catch (error) {
@@ -300,12 +322,14 @@
   async function choose(button) {
     const key = button.dataset.plan;
     const changing = paying();
-    if (changing && !confirm(`${button.textContent.trim()}? ${catalog.plans.find((p) => p.key === key).totalPaise > current.plan.totalPaise ? t("setplan.it-starts-now") : t("setplan.it-starts-with-the-next-month")}`)) return;
+    const yearly = interval === "yearly";
+    const bigger = priceOf(catalog.plans.find((p) => p.key === key)).totalPaise > priceOf(current.plan).totalPaise;
+    if (changing && !confirm(`${button.textContent.trim()}? ${bigger ? t("setplan.it-starts-now") : t(yearly ? "setplan.it-starts-next-year" : "setplan.it-starts-with-the-next-month")}`)) return;
     // The tab opens on the click itself (pop-up blockers allow that), then gets the address.
     const tab = changing ? null : window.open("", "_blank");
     button.disabled = true;
     try {
-      const result = await crmApi("/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: key }) });
+      const result = await crmApi("/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: key, interval }) });
       if (result.checkoutUrl) {
         if (tab) {
           tab.opener = null;
@@ -317,7 +341,7 @@
         await load();
         watchForPayment();
       } else {
-        showToast(result.when === "now" ? t("setplan.you-are-on-the-plan-now", { v: planName(key) }) : t("setplan.the-plan-starts-with-the-next", { v: planName(key) }), "success");
+        showToast(result.when === "now" ? t("setplan.you-are-on-the-plan-now", { v: planName(key) }) : t(yearly ? "setplan.the-plan-starts-next-year" : "setplan.the-plan-starts-with-the-next", { v: planName(key) }), "success");
         crmPlan.forget();
         await load();
       }
@@ -332,6 +356,13 @@
   $("planGrid").addEventListener("click", (event) => {
     const button = event.target.closest("[data-plan]");
     if (button && !button.disabled) choose(button);
+  });
+
+  $("planInterval").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-interval]");
+    if (!button || !catalog || button.dataset.interval === interval) return;
+    interval = button.dataset.interval;
+    renderPlans();
   });
 
   $("planCurrent").addEventListener("click", async (event) => {

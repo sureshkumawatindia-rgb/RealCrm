@@ -112,8 +112,8 @@ describe('Platform admin page (D104)', () => {
 
     it('shows the money: MRR, money in this month, new companies, trial to paid and churn', async () => {
       const o = (await get(admin, '/overview')).body.data;
-      // Growth (₹4,999) + Pro (₹2,499), before GST: the paying and payment-due companies.
-      expect(o.mrrPaise).toBe(499900 + 249900);
+      // Growth (₹3,999) + Pro (₹1,999), before GST: the paying and payment-due companies (D125).
+      expect(o.mrrPaise).toBe(399900 + 199900);
       expect(o.companies).toEqual(expect.objectContaining({ paying: 2, pastDue: 1, comped: 1, locked: 2 }));
       expect(o.collectedThisMonth).toEqual(expect.objectContaining({ totalPaise: 589882, invoices: 1 }));
       // Trials over in the last 90 days (comped left out): Paying, Due, Lapsed, Stopped; three paid.

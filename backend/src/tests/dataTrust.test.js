@@ -30,7 +30,7 @@ const erasure = require('../services/erasureService');
 const privacy = require('../services/privacyService');
 const inbound = require('../services/whatsappInboundService');
 const { indiaDate } = require('../utils/dates');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 8 of the 100 phases (D120): data trust. A customer's data is given to them or erased on
 // their request (India's DPDP Act 2023, ss. 11–12), the tax records the law asks for are kept and

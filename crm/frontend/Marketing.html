@@ -142,16 +142,16 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>Marketing</h2>
+            <h2 data-i18n="nav.marketing">Marketing</h2>
           </div>
         </header>
 
         <div class="page">
           <!-- CAMPAIGNS | WHATSAPP BROADCASTS | SEGMENTS (the last two: owners and admins) -->
           <div class="mk-tabs" id="mkTabs" hidden>
-            <button class="mk-tab active" type="button" data-mk="campaigns"><i class="fa-solid fa-bullhorn"></i> Campaigns</button>
-            <button class="mk-tab" type="button" data-mk="broadcasts"><i class="fa-brands fa-whatsapp"></i> WhatsApp broadcasts</button>
-            <button class="mk-tab" type="button" data-mk="segments"><i class="fa-solid fa-users-viewfinder"></i> Segments</button>
+            <button class="mk-tab active" type="button" data-mk="campaigns"><i class="fa-solid fa-bullhorn"></i> <span data-i18n="mkt.campaigns">Campaigns</span></button>
+            <button class="mk-tab" type="button" data-mk="broadcasts"><i class="fa-brands fa-whatsapp"></i> <span data-i18n="mkt.whatsapp-broadcasts">WhatsApp broadcasts</span></button>
+            <button class="mk-tab" type="button" data-mk="segments"><i class="fa-solid fa-users-viewfinder"></i> <span data-i18n="mkt.segments">Segments</span></button>
           </div>
 
           <div id="campaignsPanel">
@@ -165,54 +165,49 @@
               <input
                 type="text"
                 id="searchInput"
-                placeholder="Search campaigns, owners, audience..."
+                placeholder="Search campaigns, owners, audience..." data-i18n-placeholder="mkt.search-campaigns-owners-audience"
               />
             </div>
             <div class="filter-bar">
               <select class="filter" id="filterType">
-                <option value="all">All Types</option>
-                <option value="Email">Email</option>
-                <option value="Social">Social</option>
-                <option value="SMS">SMS</option>
-                <option value="Ads">Ads</option>
-                <option value="Event">Event</option>
+                <option value="all" data-i18n="cal.all-types">All Types</option>
+                <option value="Email" data-i18n="campaignType.Email">Email</option>
+                <option value="Social" data-i18n="campaignType.Social">Social</option>
+                <option value="SMS" data-i18n="campaignType.SMS">SMS</option>
+                <option value="Ads" data-i18n="campaignType.Ads">Ads</option>
+                <option value="Event" data-i18n="campaignType.Event">Event</option>
               </select>
               <select class="filter" id="filterStatus">
-                <option value="all">All Status</option>
-                <option value="Draft">Draft</option>
-                <option value="Scheduled">Scheduled</option>
-                <option value="Active">Active</option>
-                <option value="Paused">Paused</option>
-                <option value="Completed">Completed</option>
+                <option value="all" data-i18n="customers.all-status">All Status</option>
+                <option value="Draft" data-i18n="campaign.Draft">Draft</option>
+                <option value="Scheduled" data-i18n="campaign.Scheduled">Scheduled</option>
+                <option value="Active" data-i18n="campaign.Active">Active</option>
+                <option value="Paused" data-i18n="campaign.Paused">Paused</option>
+                <option value="Completed" data-i18n="campaign.Completed">Completed</option>
               </select>
               <select class="filter" id="filterOwner">
-                <option value="all">All Owners</option>
+                <option value="all" data-i18n="deals.all-owners">All Owners</option>
               </select>
-              <button class="link-clear" id="clearFiltersBtn">
-                Clear filters
-              </button>
+              <button class="link-clear" id="clearFiltersBtn" data-i18n="deals.clear-filters">Clear filters</button>
             </div>
             <div style="display: flex; gap: 10px; margin-left: auto">
               <div class="view-toggle">
                 <button id="viewKanbanBtn" class="active">
-                  <i class="fa-solid fa-table-columns"></i> Kanban
-                </button>
+                  <i class="fa-solid fa-table-columns"></i> <span data-i18n="deals.kanban">Kanban</span></button>
                 <button id="viewTableBtn">
-                  <i class="fa-solid fa-list"></i> Table
-                </button>
+                  <i class="fa-solid fa-list"></i> <span data-i18n="deals.table">Table</span></button>
               </div>
               <button class="btn btn-primary" id="addBtn">
-                <i class="fa-solid fa-plus"></i> New Campaign
-              </button>
+                <i class="fa-solid fa-plus"></i> <span data-i18n="mkt.new-campaign">New Campaign</span></button>
             </div>
           </div>
 
           <div class="nav-bar-kanban-card">
-            <button data-stage="Draft">DRAFT</button>
-            <button data-stage="Scheduled">SCHEDULED</button>
-            <button data-stage="Active">ACTIVE</button>
-            <button data-stage="Paused">PAUSED</button>
-            <button data-stage="Completed">COMPLETED</button>
+            <button data-stage="Draft" data-i18n="mkt.draft">DRAFT</button>
+            <button data-stage="Scheduled" data-i18n="mkt.scheduled">SCHEDULED</button>
+            <button data-stage="Active" data-i18n="mkt.active">ACTIVE</button>
+            <button data-stage="Paused" data-i18n="mkt.paused">PAUSED</button>
+            <button data-stage="Completed" data-i18n="mkt.completed">COMPLETED</button>
           </div>
 
           <!-- BOARD + SIDE PANEL -->
@@ -228,11 +223,9 @@
             <aside class="side-panel">
               <div class="side-tabs">
                 <button class="side-tab active" data-tab="team">
-                  <i class="fa-solid fa-user-group"></i> Owners
-                </button>
+                  <i class="fa-solid fa-user-group"></i> <span data-i18n="mkt.owners">Owners</span></button>
                 <button class="side-tab" data-tab="calendar">
-                  <i class="fa-solid fa-calendar-days"></i> Timeline
-                </button>
+                  <i class="fa-solid fa-calendar-days"></i> <span data-i18n="mkt.timeline">Timeline</span></button>
               </div>
               <div
                 class="side-tab-content active"
@@ -252,7 +245,7 @@
           <div id="broadcastsPanel" hidden>
             <div class="mk-bar">
               <span class="mk-quota" id="bcQuota"></span>
-              <button class="btn btn-primary" id="bcNewBtn" type="button"><i class="fa-solid fa-plus"></i> New broadcast</button>
+              <button class="btn btn-primary" id="bcNewBtn" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="mkt.new-broadcast">New broadcast</span></button>
             </div>
             <div class="panel mk-table-wrap"><div id="bcList"></div></div>
           </div>
@@ -260,8 +253,8 @@
           <!-- SEGMENTS -->
           <div id="segmentsPanel" hidden>
             <div class="mk-bar">
-              <span class="mk-hint">A segment is a saved audience; it updates itself as customers change. Customers who said no to WhatsApp offers are never in one.</span>
-              <button class="btn btn-primary" id="sgNewBtn" type="button"><i class="fa-solid fa-plus"></i> New segment</button>
+              <span class="mk-hint" data-i18n="mkt.a-segment-is-a-saved-audience">A segment is a saved audience; it updates itself as customers change. Customers who said no to WhatsApp offers are never in one.</span>
+              <button class="btn btn-primary" id="sgNewBtn" type="button"><i class="fa-solid fa-plus"></i> <span data-i18n="mkt.new-segment">New segment</span></button>
             </div>
             <div id="sgList" class="mk-cards"></div>
           </div>
@@ -273,21 +266,21 @@
     <div class="modal-overlay" id="bcEditOverlay">
       <div class="modal modal--wide">
         <div class="modal-head">
-          <h3 id="bcEditTitle">New broadcast</h3>
-          <button class="icon-btn" id="bcEditClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 id="bcEditTitle" data-i18n="mkt.new-broadcast">New broadcast</h3>
+          <button class="icon-btn" id="bcEditClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
           <div class="field">
-            <label for="bcName">Name</label>
-            <input type="text" id="bcName" maxlength="150" placeholder="e.g. Diwali offer – Tier A Rajasthan" />
+            <label for="bcName" data-i18n="col.name">Name</label>
+            <input type="text" id="bcName" maxlength="150" placeholder="e.g. Diwali offer – Tier A Rajasthan" data-i18n-placeholder="mkt.e-g-diwali-offer-tier-a" />
           </div>
           <div class="field-row">
             <div class="field">
-              <label for="bcTemplate">Approved WhatsApp template</label>
+              <label for="bcTemplate" data-i18n="mkt.approved-whatsapp-template">Approved WhatsApp template</label>
               <select id="bcTemplate"></select>
             </div>
             <div class="field">
-              <label for="bcSegment">Send to (segment)</label>
+              <label for="bcSegment" data-i18n="mkt.send-to-segment">Send to (segment)</label>
               <select id="bcSegment"></select>
             </div>
           </div>
@@ -295,14 +288,14 @@
           <div id="bcVariables"></div>
           <div id="bcEstimate" class="mk-estimate" hidden></div>
           <div class="field" id="bcScheduleField" hidden>
-            <label for="bcScheduleAt">Send at (leave empty to send now)</label>
+            <label for="bcScheduleAt" data-i18n="mkt.send-at-leave-empty-to-send">Send at (leave empty to send now)</label>
             <input type="datetime-local" id="bcScheduleAt" />
           </div>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-danger-outline" id="bcDeleteBtn" type="button" style="display: none; margin-right: auto"><i class="fa-solid fa-trash"></i> Delete</button>
-          <button class="btn btn-outline" id="bcSaveBtn" type="button">Save draft</button>
-          <button class="btn btn-primary" id="bcSendBtn" type="button" disabled><i class="fa-brands fa-whatsapp"></i> Send</button>
+          <button class="btn btn-danger-outline" id="bcDeleteBtn" type="button" style="display: none; margin-right: auto"><i class="fa-solid fa-trash"></i> <span data-i18n="common.delete">Delete</span></button>
+          <button class="btn btn-outline" id="bcSaveBtn" type="button" data-i18n="quotes.act.saveDraft">Save draft</button>
+          <button class="btn btn-primary" id="bcSendBtn" type="button" disabled><i class="fa-brands fa-whatsapp"></i> <span data-i18n="inbox.send">Send</span></button>
         </div>
       </div>
     </div>
@@ -312,34 +305,34 @@
       <div class="modal modal--wide">
         <div class="modal-head">
           <div>
-            <h3 id="bcViewTitle">Broadcast</h3>
+            <h3 id="bcViewTitle" data-i18n="inbox.auto.broadcast">Broadcast</h3>
             <p class="modal-subtitle" id="bcViewSub"></p>
           </div>
-          <button class="icon-btn" id="bcViewClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          <button class="icon-btn" id="bcViewClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
           <div id="bcViewNote" class="mk-note" hidden></div>
           <div id="bcFunnel" class="mk-funnel"></div>
           <div class="mk-bar">
-            <select class="filter" id="bcPeopleFilter" aria-label="Show">
-              <option value="">Everyone</option>
-              <option value="pending">Waiting</option>
-              <option value="sent">Sent</option>
-              <option value="delivered">Delivered</option>
-              <option value="read">Read</option>
-              <option value="replied">Replied</option>
-              <option value="failed">Failed</option>
-              <option value="skipped">Skipped</option>
+            <select class="filter" id="bcPeopleFilter" aria-label="Show" data-i18n-aria-label="mkt.show">
+              <option value="" data-i18n="mkt.everyone">Everyone</option>
+              <option value="pending" data-i18n="bcPerson.pending">Waiting</option>
+              <option value="sent" data-i18n="bcPerson.sent">Sent</option>
+              <option value="delivered" data-i18n="bcPerson.delivered">Delivered</option>
+              <option value="read" data-i18n="bcPerson.read">Read</option>
+              <option value="replied" data-i18n="bcPerson.replied">Replied</option>
+              <option value="failed" data-i18n="bcPerson.failed">Failed</option>
+              <option value="skipped" data-i18n="bcPerson.skipped">Skipped</option>
             </select>
           </div>
           <div class="mk-table-wrap"><div id="bcPeople"></div></div>
-          <div class="mk-more"><button class="btn btn-outline" id="bcPeopleMore" type="button" hidden>Load more</button></div>
+          <div class="mk-more"><button class="btn btn-outline" id="bcPeopleMore" type="button" hidden data-i18n="mkt.load-more">Load more</button></div>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-outline" id="bcPauseBtn" type="button" hidden><i class="fa-solid fa-pause"></i> Pause</button>
-          <button class="btn btn-outline" id="bcResumeBtn" type="button" hidden><i class="fa-solid fa-play"></i> Resume</button>
-          <button class="btn btn-danger-outline" id="bcCancelBtn" type="button" hidden><i class="fa-solid fa-stop"></i> Cancel</button>
-          <button class="btn btn-outline" id="bcViewDone" type="button">Close</button>
+          <button class="btn btn-outline" id="bcPauseBtn" type="button" hidden><i class="fa-solid fa-pause"></i> <span data-i18n="mkt.pause">Pause</span></button>
+          <button class="btn btn-outline" id="bcResumeBtn" type="button" hidden><i class="fa-solid fa-play"></i> <span data-i18n="mkt.resume">Resume</span></button>
+          <button class="btn btn-danger-outline" id="bcCancelBtn" type="button" hidden><i class="fa-solid fa-stop"></i> <span data-i18n="common.cancel">Cancel</span></button>
+          <button class="btn btn-outline" id="bcViewDone" type="button" data-i18n="common.close">Close</button>
         </div>
       </div>
     </div>
@@ -348,35 +341,35 @@
     <div class="modal-overlay" id="sgOverlay">
       <div class="modal modal--wide">
         <div class="modal-head">
-          <h3 id="sgTitle">New segment</h3>
-          <button class="icon-btn" id="sgClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          <h3 id="sgTitle" data-i18n="mkt.new-segment">New segment</h3>
+          <button class="icon-btn" id="sgClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
           <div class="field-row">
-            <div class="field"><label for="sgName">Name</label><input type="text" id="sgName" maxlength="100" placeholder="e.g. Tier A – Rajasthan" /></div>
-            <div class="field"><label for="sgDescription">Note (optional)</label><input type="text" id="sgDescription" maxlength="500" /></div>
+            <div class="field"><label for="sgName" data-i18n="col.name">Name</label><input type="text" id="sgName" maxlength="100" placeholder="e.g. Tier A – Rajasthan" data-i18n-placeholder="mkt.e-g-tier-a-rajasthan" /></div>
+            <div class="field"><label for="sgDescription" data-i18n="orders.note-optional">Note (optional)</label><input type="text" id="sgDescription" maxlength="500" /></div>
           </div>
           <div class="field-row">
-            <div class="field"><label for="sgTagsAll">Has all these tags</label><input type="text" id="sgTagsAll" list="sgTagOptions" placeholder="Tier A" /></div>
-            <div class="field"><label for="sgTagsAny">Has any of these tags</label><input type="text" id="sgTagsAny" list="sgTagOptions" placeholder="Wholesale, Retail" /></div>
+            <div class="field"><label for="sgTagsAll" data-i18n="mkt.has-all-these-tags">Has all these tags</label><input type="text" id="sgTagsAll" list="sgTagOptions" placeholder="Tier A" data-i18n-placeholder="mkt.tier-a" /></div>
+            <div class="field"><label for="sgTagsAny" data-i18n="mkt.has-any-of-these-tags">Has any of these tags</label><input type="text" id="sgTagsAny" list="sgTagOptions" placeholder="Wholesale, Retail" data-i18n-placeholder="mkt.wholesale-retail" /></div>
           </div>
           <div class="field-row">
-            <div class="field"><label for="sgTagsNone">Has none of these tags</label><input type="text" id="sgTagsNone" list="sgTagOptions" /></div>
-            <div class="field"><label for="sgCategories">Product categories</label><input type="text" id="sgCategories" list="sgCategoryOptions" placeholder="Spices" /></div>
+            <div class="field"><label for="sgTagsNone" data-i18n="mkt.has-none-of-these-tags">Has none of these tags</label><input type="text" id="sgTagsNone" list="sgTagOptions" /></div>
+            <div class="field"><label for="sgCategories" data-i18n="mkt.product-categories">Product categories</label><input type="text" id="sgCategories" list="sgCategoryOptions" placeholder="Spices" data-i18n-placeholder="mkt.spices" /></div>
           </div>
           <div class="field-row">
-            <div class="field"><label for="sgStates">States</label><input type="text" id="sgStates" list="sgStateOptions" placeholder="Rajasthan, Gujarat" /></div>
-            <div class="field"><label for="sgCities">Cities</label><input type="text" id="sgCities" list="sgCityOptions" /></div>
+            <div class="field"><label for="sgStates" data-i18n="mkt.states">States</label><input type="text" id="sgStates" list="sgStateOptions" placeholder="Rajasthan, Gujarat" data-i18n-placeholder="mkt.rajasthan-gujarat" /></div>
+            <div class="field"><label for="sgCities" data-i18n="mkt.cities">Cities</label><input type="text" id="sgCities" list="sgCityOptions" /></div>
           </div>
-          <p class="mk-hint">Commas between several; capitals do not matter. Empty = no filter.</p>
-          <div class="field"><label>Customers or leads</label><div class="mk-checks" id="sgLifecycles"></div></div>
-          <div class="field"><label>Source</label><div class="mk-checks" id="sgSources"></div></div>
-          <div class="field"><label>Has a lead at stage</label><div class="mk-checks" id="sgStages"></div></div>
+          <p class="mk-hint" data-i18n="mkt.commas-between-several-capitals-do-not">Commas between several; capitals do not matter. Empty = no filter.</p>
+          <div class="field"><label data-i18n="mkt.customers-or-leads">Customers or leads</label><div class="mk-checks" id="sgLifecycles"></div></div>
+          <div class="field"><label data-i18n="leads.col.source">Source</label><div class="mk-checks" id="sgSources"></div></div>
+          <div class="field"><label data-i18n="mkt.has-a-lead-at-stage">Has a lead at stage</label><div class="mk-checks" id="sgStages"></div></div>
           <div class="field">
-            <label>WhatsApp offers</label>
+            <label data-i18n="customers.whatsapp-offers">WhatsApp offers</label>
             <div class="mk-checks">
-              <label class="mk-check"><input type="radio" name="sgConsent" value="not_opted_out" checked /> Everyone who has not said no</label>
-              <label class="mk-check"><input type="radio" name="sgConsent" value="opted_in" /> Only those who agreed</label>
+              <label class="mk-check"><input type="radio" name="sgConsent" value="not_opted_out" checked /> <span data-i18n="mkt.everyone-who-has-not-said-no">Everyone who has not said no</span></label>
+              <label class="mk-check"><input type="radio" name="sgConsent" value="opted_in" /> <span data-i18n="mkt.only-those-who-agreed">Only those who agreed</span></label>
             </div>
           </div>
           <div id="sgPreview" class="mk-estimate"></div>
@@ -386,9 +379,9 @@
           <datalist id="sgCategoryOptions"></datalist>
         </div>
         <div class="modal-foot">
-          <button class="btn btn-danger-outline" id="sgDeleteBtn" type="button" style="display: none; margin-right: auto"><i class="fa-solid fa-trash"></i> Delete</button>
-          <button class="btn btn-outline" id="sgCancelBtn" type="button">Cancel</button>
-          <button class="btn btn-primary" id="sgSaveBtn" type="button">Save segment</button>
+          <button class="btn btn-danger-outline" id="sgDeleteBtn" type="button" style="display: none; margin-right: auto"><i class="fa-solid fa-trash"></i> <span data-i18n="common.delete">Delete</span></button>
+          <button class="btn btn-outline" id="sgCancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
+          <button class="btn btn-primary" id="sgSaveBtn" type="button" data-i18n="mkt.save-segment">Save segment</button>
         </div>
       </div>
     </div>
@@ -397,7 +390,7 @@
     <div class="modal-overlay" id="modalOverlay">
       <div class="modal modal--wide">
         <div class="modal-head">
-          <h3 id="modalTitle">New Campaign</h3>
+          <h3 id="modalTitle" data-i18n="mkt.new-campaign">New Campaign</h3>
           <button class="icon-btn" id="modalClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -406,76 +399,76 @@
           <form id="campaignForm">
             <input type="hidden" id="editId" />
             <div class="field">
-              <label>Campaign Name</label>
+              <label data-i18n="mkt.campaign-name">Campaign Name</label>
               <input
                 type="text"
                 id="fName"
-                placeholder="e.g. Diwali Email Blast"
+                placeholder="e.g. Diwali Email Blast" data-i18n-placeholder="mkt.e-g-diwali-email-blast"
                 required
               />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Type</label>
+                <label data-i18n="quotes.type">Type</label>
                 <select id="fType">
-                  <option>Email</option>
-                  <option>Social</option>
-                  <option>SMS</option>
-                  <option>Ads</option>
-                  <option>Event</option>
+                  <option value="Email" data-i18n="campaignType.Email">Email</option>
+                  <option value="Social" data-i18n="campaignType.Social">Social</option>
+                  <option value="SMS" data-i18n="campaignType.SMS">SMS</option>
+                  <option value="Ads" data-i18n="campaignType.Ads">Ads</option>
+                  <option value="Event" data-i18n="campaignType.Event">Event</option>
                 </select>
               </div>
               <div class="field">
-                <label>Status</label>
+                <label data-i18n="col.status">Status</label>
                 <select id="fStatus">
-                  <option>Draft</option>
-                  <option>Scheduled</option>
-                  <option>Active</option>
-                  <option>Paused</option>
-                  <option>Completed</option>
+                  <option value="Draft" data-i18n="campaign.Draft">Draft</option>
+                  <option value="Scheduled" data-i18n="campaign.Scheduled">Scheduled</option>
+                  <option value="Active" data-i18n="campaign.Active">Active</option>
+                  <option value="Paused" data-i18n="campaign.Paused">Paused</option>
+                  <option value="Completed" data-i18n="campaign.Completed">Completed</option>
                 </select>
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Start Date</label>
+                <label data-i18n="mkt.start-date">Start Date</label>
                 <input type="date" id="fStartDate" required />
               </div>
               <div class="field">
-                <label>End Date</label>
+                <label data-i18n="mkt.end-date">End Date</label>
                 <input type="date" id="fEndDate" />
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Budget (₹)</label>
+                <label data-i18n="mkt.budget">Budget (₹)</label>
                 <input type="number" id="fBudget" min="0" />
               </div>
               <div class="field">
-                <label>Leads Generated</label>
+                <label data-i18n="mkt.leads-generated">Leads Generated</label>
                 <input type="number" id="fLeadsGenerated" min="0" />
               </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Target Audience</label>
+                <label data-i18n="mkt.target-audience">Target Audience</label>
                 <input
                   type="text"
                   id="fAudience"
-                  placeholder="e.g. Existing customers, Mumbai region"
+                  placeholder="e.g. Existing customers, Mumbai region" data-i18n-placeholder="mkt.e-g-existing-customers-mumbai-region"
                 />
               </div>
               <div class="field">
-                <label>Owner</label>
+                <label data-i18n="leads.col.owner">Owner</label>
                 <select id="fOwner" required></select>
               </div>
             </div>
             <div class="field">
-              <label>Description</label>
+              <label data-i18n="customers.description">Description</label>
               <textarea
                 id="fDescription"
                 rows="2"
-                placeholder="Optional notes about this campaign..."
+                placeholder="Optional notes about this campaign..." data-i18n-placeholder="mkt.optional-notes-about-this-campaign"
               ></textarea>
             </div>
 
@@ -489,15 +482,13 @@
                   color: var(--text-muted);
                   margin-bottom: 10px;
                 "
-              >
-                Activity &amp; Notes
-              </label>
+               data-i18n="deals.activity-notes">Activity &amp; Notes</label>
               <div class="timeline" id="timelineList"></div>
               <div class="note-input-row">
                 <input
                   type="text"
                   id="noteInput"
-                  placeholder="Add a note or log activity..."
+                  placeholder="Add a note or log activity..." data-i18n-placeholder="deals.add-a-note-or-log-activity"
                 />
                 <button type="button" class="btn btn-outline" id="addNoteBtn">
                   <i class="fa-solid fa-plus"></i>
@@ -513,19 +504,14 @@
             type="button"
             style="display: none; margin-right: auto"
           >
-            <i class="fa-solid fa-trash"></i> Delete Campaign
-          </button>
-          <button class="btn btn-outline" id="cancelBtn" type="button">
-            Cancel
-          </button>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="mkt.delete-campaign">Delete Campaign</span></button>
+          <button class="btn btn-outline" id="cancelBtn" type="button" data-i18n="common.cancel">Cancel</button>
           <button
             class="btn btn-primary"
             id="saveBtn"
             type="submit"
             form="campaignForm"
-          >
-            Save Campaign
-          </button>
+           data-i18n="mkt.save-campaign">Save Campaign</button>
         </div>
       </div>
     </div>

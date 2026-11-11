@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Theme and language before the page is drawn (CP5) -->
+    <script src="js/boot.js"></script>
+    <title>Contact Us | AgreemCRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- Contact Us: public, linked from the home and login pages (Razorpay's website check asks
+         for it). The business details come from BILLING_SELLER_* and the phone, WhatsApp, support
+         email and hours from Platform admin → Support, both through /api/v1/site. A line whose
+         value is not set stays hidden. -->
+    <main class="legal-page">
+      <article class="legal-doc">
+        <a class="legal-back" href="index.html"><i class="fa-solid fa-arrow-left"></i> AgreemCRM</a>
+        <h1>Contact us</h1>
+        <p class="legal-updated">Last updated: 11 November 2026</p>
+
+        <p>
+          AgreemCRM is run by <strong class="js-operator-name">AgreemCRM</strong>. Write or call us
+          about your account, your plan, a payment, or anything else.
+        </p>
+
+        <h2>Business</h2>
+        <p><strong>Name:</strong> <span class="js-operator-name">AgreemCRM</span></p>
+        <p data-when-set hidden><strong>Address:</strong> <span class="js-operator-address-line"></span></p>
+        <p data-when-set hidden><strong>GSTIN:</strong> <span class="js-operator-gstin"></span></p>
+
+        <h2>Reach us</h2>
+        <p data-when-set hidden><strong>Email:</strong> <a class="js-operator-email" href="#"></a></p>
+        <p data-when-set hidden><strong>Support email:</strong> <a class="js-support-email" href="#"></a></p>
+        <p data-when-set hidden>
+          <strong>Phone and WhatsApp:</strong> <a class="js-support-phone" href="#"></a> ·
+          <a class="js-support-whatsapp" href="#" target="_blank" rel="noopener">chat on WhatsApp</a>
+        </p>
+        <p data-when-set hidden><strong>Hours:</strong> <span class="js-support-hours"></span></p>
+        <p>
+          Already using the CRM? Press <strong>?</strong> at the top of any page for help, and write
+          to us from there.
+        </p>
+
+        <h2>More</h2>
+        <p>
+          Personal data: the <a href="privacy.html">Privacy Policy</a>. Plans and payments: the
+          <a href="refund.html">Cancellation &amp; Refund Policy</a>.
+        </p>
+
+        <nav class="legal-links" aria-label="Policies">
+          <a href="terms.html">Terms of Service</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="refund.html">Cancellation &amp; Refunds</a>
+          <a href="delivery.html">Delivery</a>
+          <a href="contact.html">Contact us</a>
+        </nav>
+      </article>
+    </main>
+
+    <script src="js/app.js"></script>
+    <script src="js/legal.js"></script>
+  </body>
+</html>

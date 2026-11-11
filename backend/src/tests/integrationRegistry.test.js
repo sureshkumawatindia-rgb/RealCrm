@@ -9,7 +9,7 @@ const queue = require('../jobs/queue');
 const safeWebhook = require('../utils/safeWebhook');
 const webhooks = require('../services/outboundWebhookService');
 const { WEBHOOK_EVENT_KEYS } = require('../constants/api');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 1F (D78): new webhook events, the signature with time, the 24-hour secret overlap and
 // Settings → Connections.

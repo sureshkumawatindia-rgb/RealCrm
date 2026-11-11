@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Theme and language before the page is drawn (CP5) -->
+    <script src="js/boot.js"></script>
+    <title>Cancellation &amp; Refund Policy | AgreemCRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- Cancellation & Refund Policy: public, linked from the home page (Razorpay's website check
+         asks for it). It says what the plan billing does (docs/BILLING_SETUP.md). The operator's
+         name and email come from /api/v1/site (BILLING_SELLER_*). -->
+    <main class="legal-page">
+      <article class="legal-doc">
+        <a class="legal-back" href="index.html"><i class="fa-solid fa-arrow-left"></i> AgreemCRM</a>
+        <h1>Cancellation &amp; Refund Policy</h1>
+        <p class="legal-updated">Last updated: 11 November 2026</p>
+
+        <p>
+          This policy covers what a business (“the company”) pays for its AgreemCRM plan to
+          <strong class="js-operator-name">AgreemCRM</strong> (“we”). Payments that a company
+          collects from its own customers through its own payment gateway (Settings → Payments)
+          are between that company and its customers.
+        </p>
+
+        <h2>Free trial</h2>
+        <p>
+          Every new company gets a free trial of <span class="js-trial-days">30</span> days. Nothing
+          is charged during the trial. If you choose a plan during the trial, Razorpay only sets up
+          the payment authorisation; the first charge happens when the trial ends.
+        </p>
+
+        <h2>Cancelling</h2>
+        <p>
+          An owner or admin can cancel the plan at any time in Settings → Plan &amp; usage. The plan
+          keeps working until the end of the month (or, for a yearly plan, the year) already paid
+          for, and is not charged again.
+          Nothing is deleted when a plan ends: the company can still sign in, read its data and
+          download it.
+        </p>
+
+        <h2>Refunds</h2>
+        <p>
+          Plans are billed in advance, monthly or yearly. A month or a year that has started is not
+          refunded, in full or in part, also when you cancel or move to a smaller plan during it.
+        </p>
+        <p>We refund a payment in full when:</p>
+        <ul>
+          <li>you were charged twice for the same month or year;</li>
+          <li>you were charged after you had cancelled;</li>
+          <li>the service did not work for you because of a fault on our side that we could not fix.</li>
+        </ul>
+        <p>
+          Write to us within 30 days of the charge at
+          <a class="js-operator-email" href="contact.html">the address on the Contact page</a>, with the
+          invoice number. An approved refund goes back to the original payment method within 7
+          working days; your bank may take a few more days to show it.
+        </p>
+
+        <h2>Changing plans</h2>
+        <p>
+          A bigger plan starts at once. A smaller plan starts with the next month (or year). To move
+          between monthly and yearly payment, cancel the plan and choose the other one when the
+          paid period ends. Each payment comes with a GST tax invoice, which you can download in
+          Settings → Plan &amp; usage.
+        </p>
+
+        <h2>Failed payments</h2>
+        <p>
+          If a payment fails, Razorpay tries again and the plan shows “Payment due”. If every
+          try fails, the plan stops until a plan is chosen again. Your data stays.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Questions about a payment: see the <a href="contact.html">Contact page</a>.
+        </p>
+
+        <nav class="legal-links" aria-label="Policies">
+          <a href="terms.html">Terms of Service</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="refund.html">Cancellation &amp; Refunds</a>
+          <a href="delivery.html">Delivery</a>
+          <a href="contact.html">Contact us</a>
+        </nav>
+      </article>
+    </main>
+
+    <script src="js/app.js"></script>
+    <script src="js/legal.js"></script>
+  </body>
+</html>

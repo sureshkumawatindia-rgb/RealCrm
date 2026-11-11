@@ -10,8 +10,9 @@ const payments = require('../payments/razorpay');
 //   body, webhook secret); X-Razorpay-Event-Id tells retries apart
 const NAME = 'Razorpay';
 const BASE = 'https://api.razorpay.com/v1';
-// Monthly plans, for up to 10 years (Razorpay needs a total count).
-const TOTAL_COUNT = 120;
+// Monthly or yearly plans (D125), for up to 10 years (Razorpay needs a total count).
+const TOTAL_COUNT = { monthly: 120, yearly: 10 };
+const periodOf = (period) => (period === 'yearly' ? 'yearly' : 'monthly');
 
 const auth = ({ keyId, keySecret }) => ({ Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}` });
 const fromUnix = (seconds) => (seconds ? new Date(Number(seconds) * 1000) : null);
@@ -44,23 +45,24 @@ const normalizePayment = (payment) => ({ id: String(payment.id), amountPaise: Nu
 module.exports = {
   name: NAME,
 
-  // A plan per CRM plan and price (item.amount is what is charged each month, GST included).
-  async createPlan(keys, { name, amountPaise, description, notes }) {
+  // A plan per CRM plan, interval and price (item.amount is what is charged each month or each
+  // year, GST included).
+  async createPlan(keys, { name, amountPaise, description, notes, period }) {
     const plan = await call(NAME, `${BASE}/plans`, {
       method: 'POST',
       headers: auth(keys),
-      body: { period: 'monthly', interval: 1, item: { name, amount: amountPaise, currency: 'INR', description }, notes },
+      body: { period: periodOf(period), interval: 1, item: { name, amount: amountPaise, currency: 'INR', description }, notes },
     });
     return { id: String(plan.id) };
   },
 
   // startAt: the first charge (e.g. the end of the free trial); without it, right after the
   // customer authorises. The customer pays on Razorpay's own page (short_url).
-  async createSubscription(keys, { planId, startAt, notes }) {
+  async createSubscription(keys, { planId, period, startAt, notes }) {
     return normalize(await call(NAME, `${BASE}/subscriptions`, {
       method: 'POST',
       headers: auth(keys),
-      body: { plan_id: planId, total_count: TOTAL_COUNT, quantity: 1, customer_notify: true, ...(startAt && { start_at: unix(startAt) }), notes },
+      body: { plan_id: planId, total_count: TOTAL_COUNT[periodOf(period)], quantity: 1, customer_notify: true, ...(startAt && { start_at: unix(startAt) }), notes },
     }));
   },
 

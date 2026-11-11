@@ -3,7 +3,7 @@ jest.mock('../integrations/google/idToken', () => require('./helpers/fakeGoogle'
 const Lead = require('../models/Lead');
 const Touchpoint = require('../models/Touchpoint');
 const { channelOf, cleanTouch } = require('../services/attributionService');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 2 (D79): where leads come from — touchpoints, first and last touch, and the report.
 const as = (user) => ({

@@ -18,10 +18,10 @@ describe('Plan limits under parallel requests (Phase 3B)', () => {
     const owner = await login('race-contacts@example.com', { name: 'Hema' });
     const organizationId = new mongoose.Types.ObjectId(owner.data.organizationId);
     await setStarter(organizationId);
-    await Contact.collection.insertMany(Array.from({ length: 5997 }, (_, i) => ({ organizationId, name: `C ${i}`, deletedAt: null })));
+    await Contact.collection.insertMany(Array.from({ length: 4997 }, (_, i) => ({ organizationId, name: `C ${i}`, deletedAt: null })));
     const results = await Promise.all(Array.from({ length: 8 }, (_, i) => api().post('/api/v1/contacts').set(bearer(owner.token)).send({ name: `Parallel ${i}` })));
     expect(codes(results)).toEqual(['PLAN_LIMIT', 'PLAN_LIMIT', 'PLAN_LIMIT', 'PLAN_LIMIT', 'PLAN_LIMIT', 'ok', 'ok', 'ok']);
-    expect(await Contact.countDocuments({ organizationId })).toBe(6000);
+    expect(await Contact.countDocuments({ organizationId })).toBe(5000);
     expect(await PlanLock.countDocuments()).toBe(0); // every hold was let go
   });
 
@@ -30,16 +30,16 @@ describe('Plan limits under parallel requests (Phase 3B)', () => {
     const organizationId = new mongoose.Types.ObjectId(owner.data.organizationId);
     await setStarter(organizationId);
     const contact = (await api().post('/api/v1/contacts').set(bearer(owner.token)).send({ name: 'Ravi Traders' })).body.data;
-    await Quotation.collection.insertMany(Array.from({ length: 1998 }, (_, i) => ({ organizationId, number: `F-${i}`, createdAt: new Date(), deletedAt: null })));
+    await Quotation.collection.insertMany(Array.from({ length: 998 }, (_, i) => ({ organizationId, number: `F-${i}`, createdAt: new Date(), deletedAt: null })));
     const quote = () => api().post('/api/v1/quotations').set(bearer(owner.token)).send({ contactId: contact.id, items: [{ name: 'Jeera', quantity: 1, unitPricePaise: 10000 }] });
     expect(codes(await Promise.all(Array.from({ length: 5 }, quote)))).toEqual(['PLAN_LIMIT', 'PLAN_LIMIT', 'PLAN_LIMIT', 'ok', 'ok']);
-    expect(await Quotation.collection.countDocuments({ organizationId })).toBe(2000);
+    expect(await Quotation.collection.countDocuments({ organizationId })).toBe(1000);
 
-    // 8 users on Starter: the owner + 5 invites, then 4 at once → 2 more.
-    for (let i = 0; i < 5; i += 1) expect((await api().post('/api/v1/invites').set(bearer(owner.token)).send({ email: `seat-${i}@example.com`, role: 'agent' })).status).toBe(201);
-    const invites = await Promise.all(Array.from({ length: 4 }, (_, i) => api().post('/api/v1/invites').set(bearer(owner.token)).send({ email: `rush-${i}@example.com`, role: 'agent' })));
+    // 5 users on Starter (D125): the owner + 2 invites, then 4 at once → 2 more.
+    for (let i = 0; i < 2; i += 1) expect((await api().post('/api/v1/invites').set(bearer(owner.token)).send({ email: `seat-${i}@example.com`, role: 'agent' })).status).toBe(201);
+    const invites = await Promise.all(Array.from({ length: 4 }, (_, i) => api().post('/api/v1/invites').set(bearer(owner.token)).send({ email: `rush-${i}@example.com`, role: 'viewer' })));
     expect(codes(invites)).toEqual(['PLAN_LIMIT', 'PLAN_LIMIT', 'ok', 'ok']);
-    expect(await Invite.countDocuments({ organizationId, status: 'pending' })).toBe(7);
+    expect(await Invite.countDocuments({ organizationId, status: 'pending' })).toBe(4);
   });
 
   it('takes over a hold whose server stopped, and says "busy" rather than waiting for ever', async () => {

@@ -6,7 +6,7 @@ const { OWNER_FILES } = require('./helpers/responsiveScan');
 // Phase 4 (D116, docs/HINDI_GUIDE.md): no English-only text comes back. Every text on a page and
 // in a page script goes through i18n/en.json and hi.json; see helpers/englishText.js for what
 // counts. The owner's own files are left to the owner; the legal pages stay in English.
-const LEGAL = new Set(['privacy.html', 'terms.html']);
+const LEGAL = new Set(['privacy.html', 'terms.html', 'refund.html', 'delivery.html', 'contact.html']);
 // The FAQ bot tab belongs to the owner's Sales Automation page, which the owner is putting into
 // Hindi (round 3): left to the owner as well.
 const OWNER_ROUND = new Set(['js/automation-bot.js']);

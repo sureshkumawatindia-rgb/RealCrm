@@ -6,7 +6,7 @@ const Notification = require('../models/Notification');
 const queue = require('../jobs/queue');
 const engine = require('../services/automation/engine');
 const leadRouting = require('../services/leadRoutingService');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Checkpoint A of the last 5% (D99): the company's own fields (D73) in automations — conditions,
 // {{contact.cf.<key>}} in messages and template blanks — in quick replies, on the Inbox's

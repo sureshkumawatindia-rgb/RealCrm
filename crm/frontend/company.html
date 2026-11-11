@@ -157,14 +157,34 @@
         <div class="setup-body">
           <form id="companyForm">
             <div data-i18n="company.basics" class="setup-section-label">Basics</div>
-            <div class="field">
-              <label data-i18n="company.company-name">Company Name</label>
-              <input
-                type="text"
-                id="cName"
-                placeholder="e.g. OneCoreCRM Pvt Ltd"
-                required
-               data-i18n-placeholder="company.e-g-onecorecrm-pvt-ltd"/>
+            <div class="field-row">
+              <div class="field">
+                <label data-i18n="company.company-name">Company Name</label>
+                <input
+                  type="text"
+                  id="cName"
+                  placeholder="e.g. OneCoreCRM Pvt Ltd"
+                  required
+                 data-i18n-placeholder="company.e-g-onecorecrm-pvt-ltd"/>
+              </div>
+              <div class="field">
+                <label data-i18n="company.crm-type" for="cCrmType">CRM Type</label>
+                <select id="cCrmType">
+                  <option data-i18n="crmType.business" value="business">Business</option>
+                  <option data-i18n="crmType.pest_control" value="pest_control">Pest Control</option>
+                  <option data-i18n="crmType.trader" value="trader">Trader / Wholesaler</option>
+                  <option data-i18n="crmType.manufacturer" value="manufacturer">Manufacturer</option>
+                  <option data-i18n="crmType.real_estate" value="real_estate">Real Estate</option>
+                  <option data-i18n="crmType.education" value="education">Education / Coaching</option>
+                  <option data-i18n="crmType.clinic" value="clinic">Clinic / Hospital</option>
+                  <option data-i18n="crmType.travel" value="travel">Travel Agency</option>
+                  <option data-i18n="crmType.insurance" value="insurance">Insurance / Loan Agent</option>
+                  <option data-i18n="crmType.salon" value="salon">Salon / Spa</option>
+                  <option data-i18n="crmType.gym" value="gym">Gym / Fitness</option>
+                  <option data-i18n="crmType.interior" value="interior">Interior / Construction</option>
+                  <option data-i18n="crmType.solar" value="solar">Solar Installer</option>
+                </select>
+              </div>
             </div>
             <div class="field-row">
               <div class="field">

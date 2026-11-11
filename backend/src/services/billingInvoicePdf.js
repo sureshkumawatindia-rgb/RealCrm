@@ -74,9 +74,10 @@ function render(invoice) {
     x += c.width;
   }
   y += 24;
-  const period = invoice.periodStart && invoice.periodEnd ? `${day(invoice.periodStart)} – ${day(invoice.periodEnd)}` : 'one month';
+  const yearly = invoice.interval === 'yearly'; // D125
+  const period = invoice.periodStart && invoice.periodEnd ? `${day(invoice.periodStart)} – ${day(invoice.periodEnd)}` : yearly ? 'one year' : 'one month';
   const values = [
-    `AgreemCRM ${invoice.planName || ''} plan, subscription for ${period}`,
+    `AgreemCRM ${invoice.planName || ''} plan${yearly ? ' (yearly)' : ''}, subscription for ${period}`,
     invoice.sac || '',
     num(invoice.taxablePaise),
     ...(intra ? [num(invoice.cgstPaise), num(invoice.sgstPaise)] : [num(invoice.igstPaise)]),

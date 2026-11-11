@@ -5,7 +5,7 @@ const OrganizationMember = require('../models/OrganizationMember');
 const Lead = require('../models/Lead');
 const ApiKey = require('../models/ApiKey');
 const Message = require('../models/Message');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 const pub = (key) => ({ get: (path) => api().get(`/api/public/v1${path}`).set('Authorization', `Bearer ${key}`), post: (path, body) => api().post(`/api/public/v1${path}`).set('Authorization', `Bearer ${key}`).send(body), patch: (path, body) => api().patch(`/api/public/v1${path}`).set('Authorization', `Bearer ${key}`).send(body) });
 
@@ -104,9 +104,9 @@ describe('Public API (Phase 10C)', () => {
     await Organization.updateOne({ _id: org._id }, { $set: { plan: 'pro', subscription: { status: 'active' } } });
     const blocked = await pub(full).get('/me');
     expect(blocked.status).toBe(403);
-    expect(blocked.body).toMatchObject({ code: 'PLAN_LIMIT', message: expect.stringContaining('The public API and webhooks come with the Growth plan') });
+    expect(blocked.body).toMatchObject({ code: 'PLAN_LIMIT', message: expect.stringContaining('The public API and webhooks come with the Scale plan') });
     expect((await api().post('/api/v1/api-keys').set(bearer(owner.token)).send({ name: 'More', scopes: ['contacts:read'] })).body.code).toBe('PLAN_LIMIT');
-    await Organization.updateOne({ _id: org._id }, { $set: { plan: 'growth' } });
+    await Organization.updateOne({ _id: org._id }, { $set: { plan: 'scale' } });
     expect((await pub(full).get('/me')).status).toBe(200);
 
     // A key made by an admin stops when the admin is no longer one.

@@ -26,6 +26,9 @@ const emailService = require('./emailService');
 // organization's subscription: active, payment due (Razorpay retries), halted (locked), cancelled
 // (works until the paid month ends). Each monthly charge gets a GST tax invoice from the
 // platform. Owners and admins hear about it under the bell.
+// D125: a plan is paid monthly or yearly. Each interval has its own gateway plan; a paid
+// subscription changes plans within its interval only (moving between monthly and yearly is
+// cancel, then choose again), and its interval is read from the gateway's plan.
 const JOBS = { WEBHOOK: 'billing.webhook', SYNC: 'billing.sync', TRIAL: 'billing.trial' };
 const SYNC_EVERY_MS = 6 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -71,21 +74,28 @@ async function tellManagers(organizationId, title, body) {
 }
 
 // --- plans at the gateway ----------------------------------------------------------------------
-const chargeOf = (planKey) => planService.serializePlan(planKey).totalPaise; // per month, GST included
+// What is charged each month or each year, GST included.
+function chargeOf(planKey, interval = 'monthly') {
+  const plan = planService.serializePlan(planKey);
+  return interval === 'yearly' ? plan.yearly.totalPaise : plan.totalPaise;
+}
 
-async function providerPlanFor(planKey) {
-  const filter = { provider: providerName(), keyId: keyId(), planKey, amountPaise: chargeOf(planKey) };
-  const known = await BillingPlan.findOne(filter);
+async function providerPlanFor(planKey, interval = 'monthly') {
+  const filter = { provider: providerName(), keyId: keyId(), planKey, amountPaise: chargeOf(planKey, interval) };
+  // Plans made before D125 have no interval and are monthly.
+  const known = await BillingPlan.findOne({ ...filter, interval: interval === 'monthly' ? { $in: ['monthly', null] } : interval });
   if (known) return known.providerPlanId;
   const plan = PLANS[planKey];
+  const yearly = interval === 'yearly';
   const made = await gateway().createPlan(keys(), {
-    name: `AgreemCRM ${plan.name}`,
+    name: `AgreemCRM ${plan.name}${yearly ? ' (yearly)' : ''}`,
     amountPaise: filter.amountPaise,
-    description: `${plan.name} plan: ${formatRupees(plan.pricePaise)} + ${PLAN_GST_PCT}% GST a month`,
-    notes: { planKey },
+    period: interval,
+    description: `${plan.name} plan: ${formatRupees(yearly ? plan.yearlyPricePaise : plan.pricePaise)} + ${PLAN_GST_PCT}% GST a ${yearly ? 'year' : 'month'}`,
+    notes: { planKey, interval },
   });
   try {
-    await BillingPlan.create({ ...filter, providerPlanId: made.id });
+    await BillingPlan.create({ ...filter, interval, providerPlanId: made.id });
     return made.id;
   } catch (error) {
     if (error.code !== 11000) throw error;
@@ -93,10 +103,13 @@ async function providerPlanFor(planKey) {
   }
 }
 
-async function planKeyOf(providerPlanId) {
+// The CRM plan and interval of a gateway plan (null when it is not one of ours).
+async function providerPlanOf(providerPlanId) {
   if (!providerPlanId) return null;
-  return (await BillingPlan.findOne({ provider: providerName(), providerPlanId }))?.planKey || null;
+  const known = await BillingPlan.findOne({ provider: providerName(), providerPlanId });
+  return known ? { planKey: known.planKey, interval: known.interval || 'monthly' } : null;
 }
+const planKeyOf = async (providerPlanId) => (await providerPlanOf(providerPlanId))?.planKey || null;
 
 // --- choosing, changing and cancelling (owners and admins) ---------------------------------------
 async function loadOrganization(organizationId) {
@@ -107,19 +120,26 @@ async function loadOrganization(organizationId) {
 
 const isPaying = (organization) => ['authenticated', 'active', 'pending'].includes(organization.subscription?.gatewayStatus);
 
-// POST /billing/checkout { plan } → { checkoutUrl } (pay on the gateway's page) or { changed, when }.
-async function checkout(req, { plan: planKey }) {
+// POST /billing/checkout { plan, interval } → { checkoutUrl } (pay on the gateway's page) or
+// { changed, when }.
+async function checkout(req, { plan: planKey, interval = 'monthly' }) {
   if (!enabled()) throw httpError(409, 'BILLING_OFF', offMessage());
+  if (interval === 'yearly' && !PLANS[planKey].yearlyPricePaise) throw httpError(400, 'VALIDATION_ERROR', `The ${PLANS[planKey].name} plan is not sold yearly.`);
   const organization = await loadOrganization(req.tenant.organizationId);
   const sub = organization.subscription || {};
   const gw = gateway();
 
   if (sub.providerSubscriptionId && isPaying(organization)) {
+    const paidInterval = sub.interval || 'monthly';
+    if (interval !== paidInterval) {
+      throw httpError(409, 'INTERVAL_CHANGE', `Your plan is paid ${paidInterval}. To pay ${interval} instead, cancel this plan, and choose the ${interval} plan when the paid ${paidInterval === 'yearly' ? 'year' : 'month'} ends.`);
+    }
     if (organization.plan === planKey && !sub.pendingPlan) throw httpError(409, 'SAME_PLAN', `You are already on the ${PLANS[planKey].name} plan.`);
-    // Upgrades start now (Razorpay charges the difference its own way); downgrades next month.
-    const when = PLANS[planKey].pricePaise > PLANS[organization.plan].pricePaise ? 'now' : 'cycle_end';
+    // Upgrades start now (Razorpay charges the difference its own way); downgrades with the next
+    // period (month or year).
+    const when = chargeOf(planKey, interval) > chargeOf(organization.plan, interval) ? 'now' : 'cycle_end';
     try {
-      await gw.changePlan(keys(), sub.providerSubscriptionId, { planId: await providerPlanFor(planKey), when });
+      await gw.changePlan(keys(), sub.providerSubscriptionId, { planId: await providerPlanFor(planKey, interval), when });
     } catch (error) {
       if (!error.statusCode || error.statusCode >= 500) throw error;
       throw httpError(409, 'PLAN_CHANGE_REFUSED', `${error.message} Plans paid by UPI or e-mandate cannot be switched: cancel this plan and choose the new one when the paid month ends.`);
@@ -130,7 +150,7 @@ async function checkout(req, { plan: planKey }) {
     } else {
       await Organization.updateOne({ _id: organization._id }, { $set: { 'subscription.pendingPlan': planKey } });
     }
-    await audit(req, { action: 'billing.plan_changed', entityType: 'Organization', entityId: organization._id, changes: { from: organization.plan, to: planKey, when } });
+    await audit(req, { action: 'billing.plan_changed', entityType: 'Organization', entityId: organization._id, changes: { from: organization.plan, to: planKey, interval, when } });
     return { changed: true, when, plan: planKey };
   }
 
@@ -142,9 +162,10 @@ async function checkout(req, { plan: planKey }) {
     await gw.cancelSubscription(keys(), sub.providerSubscriptionId, { atCycleEnd: false }).catch(() => {}); // the unpaid one before
   }
   const created = await gw.createSubscription(keys(), {
-    planId: await providerPlanFor(planKey),
+    planId: await providerPlanFor(planKey, interval),
+    period: interval,
     startAt,
-    notes: { organizationId: String(organization._id), planKey },
+    notes: { organizationId: String(organization._id), planKey, interval },
   });
   await Organization.updateOne({ _id: organization._id }, {
     $set: {
@@ -155,7 +176,7 @@ async function checkout(req, { plan: planKey }) {
       'subscription.pendingPlan': planKey,
     },
   });
-  await audit(req, { action: 'billing.checkout', entityType: 'Organization', entityId: organization._id, changes: { plan: planKey, startAt } });
+  await audit(req, { action: 'billing.checkout', entityType: 'Organization', entityId: organization._id, changes: { plan: planKey, interval, startAt } });
   return { checkoutUrl: created.shortUrl, startsAt: startAt };
 }
 
@@ -200,7 +221,9 @@ async function applySubscription(organizationId, gsub) {
   if (periodEnd) set['subscription.currentPeriodEnd'] = periodEnd;
   if (['active', 'cancelled', 'halted', 'expired'].includes(status)) unset['subscription.checkoutUrl'] = 1;
   if (status !== 'active') unset['subscription.cancelAtPeriodEnd'] = 1;
-  const planKey = (await planKeyOf(gsub.planId)) || sub.pendingPlan || organization.plan;
+  const gatewayPlan = await providerPlanOf(gsub.planId);
+  const planKey = gatewayPlan?.planKey || sub.pendingPlan || organization.plan;
+  if (gatewayPlan) set['subscription.interval'] = gatewayPlan.interval;
   if (sub.pendingPlan && (sub.pendingPlan === planKey || !gsub.hasScheduledChanges)) unset['subscription.pendingPlan'] = 1;
   await Organization.updateOne({ _id: organizationId }, { $set: set, ...(Object.keys(unset).length && { $unset: unset }) });
   if (PLAN_KEYS.includes(planKey) && planKey !== organization.plan) await applyPlan(organization, planKey);
@@ -254,13 +277,15 @@ async function numberInvoice(invoice) {
   return invoice;
 }
 
-// One paid month → one GST invoice (the amount paid includes 18% GST).
+// One paid month or year → one GST invoice (the amount paid includes 18% GST).
 async function recordCharge(organizationId, { subscriptionId, planId, payment, periodStart, periodEnd }) {
   const provider = providerName();
   if (await BillingInvoice.exists({ provider, providerPaymentId: payment.id })) return null;
   const organization = await Organization.findById(organizationId);
   if (!organization) return null;
-  const planKey = (await planKeyOf(planId)) || organization.plan;
+  const gatewayPlan = await providerPlanOf(planId);
+  const planKey = gatewayPlan?.planKey || organization.plan;
+  const interval = gatewayPlan?.interval || organization.subscription?.interval || 'monthly';
   const seller = sellerParty();
   const buyer = buyerParty(organization);
   const placeOfSupplyCode = buyer.stateCode || seller.stateCode;
@@ -272,7 +297,7 @@ async function recordCharge(organizationId, { subscriptionId, planId, payment, p
   try {
     invoice = await BillingInvoice.create({
       organizationId, number: `pending:${provider}:${payment.id}`, issuedAt: payment.paidAt || new Date(),
-      planKey, planName: PLANS[planKey]?.name || planKey, periodStart, periodEnd, sac: env.billing.sac,
+      planKey, planName: PLANS[planKey]?.name || planKey, interval, periodStart, periodEnd, sac: env.billing.sac,
       seller, buyer, placeOfSupplyCode, taxablePaise,
       cgstPaise: intraState ? Math.floor(tax / 2) : 0, sgstPaise: intraState ? tax - Math.floor(tax / 2) : 0, igstPaise: intraState ? 0 : tax,
       totalPaise, provider, providerPaymentId: payment.id, providerInvoiceId: payment.invoiceId || '', providerSubscriptionId: subscriptionId,
@@ -410,7 +435,7 @@ async function remindTrials(now = new Date()) {
 // --- invoices for the page -------------------------------------------------------------------
 function serializeInvoice(invoice) {
   return {
-    id: invoice._id, number: invoice.number, issuedAt: invoice.issuedAt, planName: invoice.planName,
+    id: invoice._id, number: invoice.number, issuedAt: invoice.issuedAt, planName: invoice.planName, interval: invoice.interval || 'monthly',
     periodStart: invoice.periodStart || null, periodEnd: invoice.periodEnd || null,
     taxablePaise: invoice.taxablePaise, gstPaise: invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise, totalPaise: invoice.totalPaise,
   };

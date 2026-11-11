@@ -57,6 +57,8 @@ function subscriptionOf(organization, now = new Date()) {
     currentPeriodEnd: sub.currentPeriodEnd || null,
     cancelAtPeriodEnd: Boolean(sub.cancelAtPeriodEnd),
     pendingPlan: sub.pendingPlan || null,
+    // How the paid plan is billed (D125): monthly or yearly; null while nothing is paid for.
+    interval: sub.providerSubscriptionId ? sub.interval || 'monthly' : null,
     provider: sub.provider || null,
     // A checkout that was started but not paid yet (to finish it from Settings → Plan & usage).
     checkoutUrl: sub.gatewayStatus === 'created' && sub.checkoutUrl ? sub.checkoutUrl : null,
@@ -234,6 +236,19 @@ async function assertActive(organizationOrId, action) {
 }
 
 // --- what the Plan & usage page and the banner read ------------------------------------------------
+// The yearly price (D125): before GST, the GST, what is charged once a year, and how much less it
+// is than twelve monthly payments.
+function yearlyOf(plan) {
+  if (!plan.yearlyPricePaise) return null;
+  const gstPaise = Math.round((plan.yearlyPricePaise * PLAN_GST_PCT) / 100);
+  return {
+    pricePaise: plan.yearlyPricePaise,
+    gstPaise,
+    totalPaise: plan.yearlyPricePaise + gstPaise,
+    savePct: Math.round((1 - plan.yearlyPricePaise / (plan.pricePaise * 12)) * 100),
+  };
+}
+
 function serializePlan(key) {
   const plan = PLANS[key];
   const gstPaise = Math.round((plan.pricePaise * PLAN_GST_PCT) / 100);
@@ -243,6 +258,7 @@ function serializePlan(key) {
     pricePaise: plan.pricePaise,
     gstPaise,
     totalPaise: plan.pricePaise + gstPaise,
+    yearly: yearlyOf(plan),
     limits: Object.fromEntries(Object.keys(LIMITS).map((metric) => [metric, limitOf(plan, metric)])),
     features: Object.fromEntries(Object.keys(FEATURES).map((feature) => [feature, Boolean(plan[feature])])),
   };

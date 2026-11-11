@@ -27,12 +27,17 @@
     <title>AgreemCRM — WhatsApp team inbox, leads and GST quotations</title>
     <meta name="description" content="AgreemCRM puts every WhatsApp enquiry, lead, GST quotation, order and payment of your business in one team inbox. Start with a free trial." />
     <meta name="theme-color" content="#ffde59" />
-    <!-- The card WhatsApp, Facebook and others show when the link is shared (the same as login.html) -->
+    <!-- The card WhatsApp, Facebook and others show when the link is shared (the same as login.html).
+         They need full addresses: the CRM's own (docs/DOMAIN_SETUP.md, D137). -->
+    <link rel="canonical" href="https://crm.agreem360.com/crm/frontend/index.html" />
+    <meta property="og:url" content="https://crm.agreem360.com/crm/frontend/index.html" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="AgreemCRM" />
     <meta property="og:title" content="AgreemCRM — your business on WhatsApp, in one team inbox" />
     <meta property="og:description" content="Every WhatsApp enquiry, lead, quotation and payment of your business in one place, for the whole team." />
-    <meta property="og:image" content="img/icons/icon-512.png" />
+    <meta property="og:image" content="https://crm.agreem360.com/crm/frontend/img/icons/icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
     <meta name="twitter:card" content="summary" />
     <link rel="icon" type="image/png" href="img/icons/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -252,6 +257,10 @@
         <div class="lp-wrap">
           <h2 id="pricingTitle" data-i18n="lp.plans-for-every-team-size">Plans for every team size</h2>
           <p class="lp-sub" id="pricingSub" data-i18n="lp.monthly-prices-in-rupees-gst-is">Monthly prices in rupees. GST is extra.</p>
+          <div class="lp-interval" id="planInterval" role="group" aria-label="How often to pay" data-i18n-aria-label="lp.billing">
+            <button type="button" class="is-active" data-interval="monthly" aria-pressed="true" data-i18n="lp.monthly">Monthly</button>
+            <button type="button" data-interval="yearly" aria-pressed="false" data-i18n="lp.yearly">Yearly</button>
+          </div>
           <div class="lp-plans" id="plans" aria-live="polite">
             <p class="lp-loading" data-i18n="lp.loading-the-plans">Loading the plans…</p>
           </div>
@@ -330,6 +339,9 @@
           <a href="privacy.html" data-i18n="lp.privacy-policy">Privacy Policy</a>
           <a href="terms.html" data-i18n="lp.terms-of-service">Terms of Service</a>
           <a href="privacy.html#data-deletion" data-i18n="lp.data-deletion">Data deletion</a>
+          <a href="refund.html" data-i18n="lp.refunds">Cancellation &amp; refunds</a>
+          <a href="delivery.html" data-i18n="lp.delivery">Delivery</a>
+          <a href="contact.html" data-i18n="lp.contact-us">Contact us</a>
           <a href="login.html" data-i18n="lp.logIn">Log in</a>
         </nav>
       </div>

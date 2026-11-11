@@ -13,7 +13,7 @@ const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
 
 // Phase 10 acceptance: a company lives its SaaS life through the real code and the real job
 // worker. It signs up (30-day trial), pays for Pro on the test gateway (GST invoice), outgrows
-// it and upgrades to Growth for the API, connects its ERP (API key + signed webhook), takes a
+// it and upgrades to Scale for the API (D125), connects its ERP (API key + signed webhook), takes a
 // lead from the ERP, gets an AI reply suggestion, gets a phone notification, downloads all its
 // data, and finally deletes itself after the waiting period.
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
@@ -63,11 +63,11 @@ describe('Phase 10 acceptance: the SaaS life of a company', () => {
     const post = (user, path, body) => api().post(`/api/v1${path}`).set(as(user)).send(body);
     const get = (user, path) => api().get(`/api/v1${path}`).set(as(user));
 
-    // --- 1. Sign-up: a 30-day Growth trial -------------------------------------------------------
+    // --- 1. Sign-up: a 3-day Growth trial (D125) -----------------------------------------------------
     const owner = await login('saas-owner@example.com', { name: 'Asha' });
     const orgId = owner.data.organizationId;
     await api().patch('/api/v1/organization').set(as(owner)).send({ name: 'Saffron Traders', gstin: '08AAACS1234C1Z5' });
-    expect((await get(owner, '/billing/subscription')).body.data).toMatchObject({ plan: { key: 'growth' }, subscription: { status: 'trialing', daysLeft: 30 } });
+    expect((await get(owner, '/billing/subscription')).body.data).toMatchObject({ plan: { key: 'growth' }, subscription: { status: 'trialing', daysLeft: 3 } });
 
     // --- 2. The trial ends; adding waits for a plan; Pro is paid on the test gateway --------------
     await Organization.updateOne({ _id: orgId }, { $set: { 'subscription.trialEndsAt': new Date(Date.now() - 1000) } });
@@ -77,11 +77,11 @@ describe('Phase 10 acceptance: the SaaS life of a company', () => {
     await until(async () => (await Organization.findById(orgId)).plan === 'pro', 'the Pro plan');
     const invoice = await until(() => BillingInvoice.findOne({ organizationId: orgId }), 'the GST invoice');
     // No platform GSTIN in this test, so the seller's state is unknown: IGST.
-    expect(invoice.toObject()).toMatchObject({ totalPaise: 294882, taxablePaise: 249900, igstPaise: 44982, buyer: { gstin: '08AAACS1234C1Z5' } });
+    expect(invoice.toObject()).toMatchObject({ totalPaise: 235882, taxablePaise: 199900, igstPaise: 35982, buyer: { gstin: '08AAACS1234C1Z5' } });
 
-    // --- 3. The API needs Growth: upgrade (at once) ----------------------------------------------------
+    // --- 3. The API needs Scale (D125): upgrade (at once) ---------------------------------------------
     expect((await post(owner, '/api-keys', { name: 'ERP', scopes: ['leads:write', 'contacts:read'] })).body.code).toBe('PLAN_LIMIT');
-    expect((await post(owner, '/billing/checkout', { plan: 'growth' })).body.data).toMatchObject({ changed: true, when: 'now' });
+    expect((await post(owner, '/billing/checkout', { plan: 'scale' })).body.data).toMatchObject({ changed: true, when: 'now' });
 
     // --- 4. The ERP: an API key and a signed webhook for new leads -----------------------------------
     const agent = await inviteAndJoin(owner.token, 'saas-agent@example.com', { role: 'agent', displayName: 'Arun', modules: ['inbox', 'leads'] });

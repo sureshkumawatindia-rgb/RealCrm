@@ -56,6 +56,33 @@ function pageHeaders(req, res, next) {
 app.get('/', (req, res) => res.redirect('/crm/frontend/index.html'));
 // Browsers ask for /favicon.ico on every page that names no icon: the app's own icon.
 app.get('/favicon.ico', pageHeaders, (req, res) => res.sendFile(path.join(frontendDir, 'img', 'icons', 'icon-192.png'), { maxAge: '7d' }));
+// Search engines (D137): only the public pages (the home page, sign-in and the policy pages), at
+// the address in PUBLIC_URL. The CRM's own pages need a sign-in and stay out; so does the API.
+// Staging is never shown (its X-Robots-Tag above says the same).
+const SITE_PAGES = ['index.html', 'privacy.html', 'terms.html', 'refund.html', 'delivery.html', 'contact.html', 'login.html'];
+app.get('/robots.txt', pageHeaders, (req, res) => {
+  res.type('text/plain');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  if (env.isStaging) return res.send('User-agent: *\nDisallow: /\n');
+  return res.send([
+    'User-agent: *',
+    ...SITE_PAGES.map((name) => `Allow: /crm/frontend/${name}`),
+    ...['css/', 'js/', 'img/', 'i18n/'].map((folder) => `Allow: /crm/frontend/${folder}`),
+    'Disallow: /crm/frontend/',
+    'Disallow: /api/',
+    'Disallow: /uploads/',
+    '',
+    `Sitemap: ${env.publicUrl}/sitemap.xml`,
+    '',
+  ].join('\n'));
+});
+app.get('/sitemap.xml', pageHeaders, (req, res) => {
+  const base = env.publicUrl.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const urls = SITE_PAGES.filter((name) => name !== 'login.html').map((name) => `  <url><loc>${base}/crm/frontend/${name}</loc></url>`);
+  res.type('application/xml');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`);
+});
 // The phone app's service worker, with the list of the CRM's files and their revisions written in
 // (Phase 7, D119): any changed file makes a new one, which the browser checks on every page opened.
 app.get('/crm/frontend/sw.js', pageHeaders, (req, res) => {

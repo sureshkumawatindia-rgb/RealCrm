@@ -48,7 +48,7 @@ describe('Paying for the plan (Phase 10B)', () => {
     expect(checkout.status).toBe(200);
     const { checkoutUrl, startsAt } = checkout.body.data;
     expect(checkoutUrl).toMatch(/\/api\/v1\/webhooks\/billing-test\/mock_sub_/);
-    expect(new Date(startsAt).getTime()).toBeGreaterThan(Date.now() + 29 * DAY);
+    expect(new Date(startsAt).getTime()).toBeGreaterThan(Date.now() + 2 * DAY); // the 3-day trial's end (D125)
     let state = (await api().get('/api/v1/billing/subscription').set(bearer(owner.token))).body.data;
     expect(state.subscription).toMatchObject({ status: 'trialing', pendingPlan: 'pro', checkoutUrl });
     expect((await api().get(testPage(checkoutUrl))).text).toContain('Pro plan');
@@ -65,9 +65,9 @@ describe('Paying for the plan (Phase 10B)', () => {
     await press(checkoutUrl, 'charge');
     const invoices = (await api().get('/api/v1/billing/invoices').set(bearer(owner.token))).body.data;
     expect(invoices).toHaveLength(1);
-    expect(invoices[0]).toMatchObject({ number: 'YC/2026-27/0001', planName: 'Pro', totalPaise: 294882, taxablePaise: 249900, gstPaise: 44982 });
+    expect(invoices[0]).toMatchObject({ number: 'AC/2026-27/0001', planName: 'Pro', totalPaise: 235882, taxablePaise: 199900, gstPaise: 35982 });
     const stored = await BillingInvoice.findById(invoices[0].id);
-    expect(stored).toMatchObject({ cgstPaise: 22491, sgstPaise: 22491, igstPaise: 0, placeOfSupplyCode: '08', sac: '998315' });
+    expect(stored).toMatchObject({ cgstPaise: 17991, sgstPaise: 17991, igstPaise: 0, placeOfSupplyCode: '08', sac: '998315' });
     expect(stored.buyer).toMatchObject({ name: 'Yellow Traders', gstin: '08AAACY1234C1Z5', stateCode: '08' });
     expect(stored.seller).toMatchObject({ name: 'Yellow Software Pvt Ltd', stateCode: '08' });
     const pdf = await api().get(`/api/v1/billing/invoices/${invoices[0].id}/pdf`).set(bearer(owner.token)).buffer(true);
@@ -76,7 +76,7 @@ describe('Paying for the plan (Phase 10B)', () => {
     expect(pdf.body.subarray(0, 4).toString()).toBe('%PDF');
     expect((await api().get('/api/v1/billing/invoices').set(bearer(agent.token))).status).toBe(403);
     const org = await orgOf(owner);
-    expect(await notes(org._id)).toEqual(expect.arrayContaining(['Your Pro plan is active', 'Payment received: ₹2,948.82']));
+    expect(await notes(org._id)).toEqual(expect.arrayContaining(['Your Pro plan is active', 'Payment received: ₹2,358.82']));
     // The same payment reported again (webhook + check) makes no second invoice.
     await billing.syncOrganization(org._id);
     expect(await BillingInvoice.countDocuments({ organizationId: org._id })).toBe(1);
@@ -180,12 +180,42 @@ describe('Paying for the plan (Phase 10B)', () => {
       expect(after.toObject()).toMatchObject({ plan: 'growth', subscription: { status: 'active', gatewayStatus: 'active' } });
       const invoice = await BillingInvoice.findOne({ organizationId: org._id });
       expect(invoice).toMatchObject({ planName: 'Growth', totalPaise: 589882, taxablePaise: 499900, igstPaise: 89982, cgstPaise: 0, placeOfSupplyCode: '27', providerPaymentId: 'pay_rzp1' });
-      expect(invoice.number).toMatch(/^YC\/2026-27\/\d{4}$/);
+      expect(invoice.number).toMatch(/^AC\/2026-27\/\d{4}$/);
     } finally {
       fetchSpy.mockRestore();
       Object.assign(env.billing, { provider: saved.provider });
       Object.assign(env.billing.razorpay, { keyId: saved.keyId, keySecret: saved.keySecret, webhookSecret: saved.webhookSecret });
     }
+  }, 60000);
+
+  it('pays yearly (D125): Infinite at 79,999 + GST once a year, a yearly invoice, and monthly only after cancelling', async () => {
+    const owner = await login('yearly-owner@example.com', { name: 'Yash' });
+    await api().patch('/api/v1/organization').set(bearer(owner.token)).send({ name: 'Year Traders', gstin: '08AAACY5678C1Z5', address: 'MI Road', city: 'Jaipur' });
+    // The trial is over, so the first charge is at once.
+    await Organization.updateOne({ _id: owner.data.organizationId }, { $set: { 'subscription.trialEndsAt': new Date(Date.now() - DAY) } });
+    const checkout = await api().post('/api/v1/billing/checkout').set(bearer(owner.token)).send({ plan: 'infinite', interval: 'yearly' });
+    expect(checkout.status).toBe(200);
+    expect(checkout.body.data.startsAt).toBeNull();
+    expect((await api().get(testPage(checkout.body.data.checkoutUrl))).text).toContain('Infinite plan');
+    expect(await BillingPlan.findOne({ planKey: 'infinite', interval: 'yearly' })).toMatchObject({ amountPaise: 9439882 });
+
+    await press(checkout.body.data.checkoutUrl, 'pay');
+    const state = (await api().get('/api/v1/billing/subscription').set(bearer(owner.token))).body.data;
+    expect(state.plan).toMatchObject({ key: 'infinite', yearly: { pricePaise: 7999900, totalPaise: 9439882 } });
+    expect(state.subscription).toMatchObject({ status: 'active', interval: 'yearly', locked: false });
+    expect(new Date(state.subscription.currentPeriodEnd).getTime() - Date.now()).toBeGreaterThan(360 * DAY);
+    const [invoice] = (await api().get('/api/v1/billing/invoices').set(bearer(owner.token))).body.data;
+    expect(invoice).toMatchObject({ planName: 'Infinite', interval: 'yearly', totalPaise: 9439882, taxablePaise: 7999900 });
+    expect((await api().get(`/api/v1/billing/invoices/${invoice.id}/pdf`).set(bearer(owner.token))).status).toBe(200);
+
+    // Monthly instead: cancel first. A smaller yearly plan starts with the next year.
+    const monthly = await api().post('/api/v1/billing/checkout').set(bearer(owner.token)).send({ plan: 'infinite', interval: 'monthly' });
+    expect(monthly.status).toBe(409);
+    expect(monthly.body.code).toBe('INTERVAL_CHANGE');
+    const smaller = await api().post('/api/v1/billing/checkout').set(bearer(owner.token)).send({ plan: 'scale', interval: 'yearly' });
+    expect(smaller.body.data).toMatchObject({ changed: true, when: 'cycle_end', plan: 'scale' });
+    expect((await orgOf(owner)).subscription).toMatchObject({ pendingPlan: 'scale', interval: 'yearly' });
+    expect((await api().post('/api/v1/billing/checkout').set(bearer(owner.token)).send({ plan: 'scale', interval: 'weekly' })).status).toBe(400);
   }, 60000);
 
   it('reminds owners before the trial ends, once each time', async () => {

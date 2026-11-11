@@ -9,7 +9,7 @@ const customFieldFilters = require('../services/customFieldFilters');
 const webhooks = require('../services/outboundWebhookService');
 const { MAX_LIST_COLUMNS } = require('../constants/customFields');
 const { FIELDS, RECORDS, CASES } = require('./helpers/customFieldFilterCases');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 1B (D74): the company's own fields in list filters, list columns, CSV import, the public
 // API, webhooks and search.

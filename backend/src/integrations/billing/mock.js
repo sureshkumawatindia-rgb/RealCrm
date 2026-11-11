@@ -11,9 +11,11 @@ const subscriptions = new Map();
 
 const randomId = (prefix) => `${prefix}${crypto.randomBytes(8).toString('hex')}`;
 const amountOf = (planId) => Number(String(planId).split('_').pop()) || 0;
-function addMonth(date) {
+const yearlyPlan = (planId) => /_yearly_/.test(String(planId)); // D125
+function addPeriod(date, planId) {
   const next = new Date(date);
-  next.setUTCMonth(next.getUTCMonth() + 1);
+  if (yearlyPlan(planId)) next.setUTCFullYear(next.getUTCFullYear() + 1);
+  else next.setUTCMonth(next.getUTCMonth() + 1);
   return next;
 }
 const copy = (sub) => ({ ...sub, notes: { ...sub.notes } });
@@ -24,7 +26,7 @@ function find(id) {
   return sub;
 }
 
-// One month paid: the period moves on and an invoice is kept (what GET /invoices lists).
+// One month (or year) paid: the period moves on and an invoice is kept (what GET /invoices lists).
 function charge(sub) {
   const start = sub.currentEnd && sub.currentEnd > new Date(Date.now() - 60000) ? sub.currentEnd : new Date();
   if (sub.scheduledPlanId) {
@@ -33,7 +35,7 @@ function charge(sub) {
     sub.hasScheduledChanges = false;
   }
   sub.currentStart = start;
-  sub.currentEnd = addMonth(start);
+  sub.currentEnd = addPeriod(start, sub.planId);
   sub.chargeAt = sub.currentEnd;
   sub.paidCount += 1;
   sub.status = 'active';
@@ -47,8 +49,8 @@ const event = (sub, name, payment = null) => ({ eventId: randomId('mock_evt_'), 
 module.exports = {
   name: NAME,
 
-  async createPlan(keys, { amountPaise, notes }) {
-    return { id: `mock_plan_${notes?.planKey || 'plan'}_${amountPaise}` };
+  async createPlan(keys, { amountPaise, notes, period }) {
+    return { id: `mock_plan_${notes?.planKey || 'plan'}_${period === 'yearly' ? 'yearly_' : ''}${amountPaise}` };
   },
 
   async createSubscription(keys, { planId, startAt, notes }) {

@@ -4,30 +4,32 @@
  * later (/broadcasts); the results per customer. Segments: saved audiences with a live preview
  * (/segments). The Campaigns tab stays js/marketing.js. Uses app.js: crmApi, crmRequest,
  * jsonRequest, newIdempotencyKey, escapeHtml, isOrgManager, showToast, apiErrorMessage,
- * LEAD_STAGES.
+ * LEAD_STAGES. Runs once the page texts (English or Hindi) are loaded.
  */
-(function marketingBroadcasts() {
+crmI18n.ready.then(function marketingBroadcasts() {
   if (!isOrgManager()) return;
+  const T = crmI18n.t;
   const $ = (id) => document.getElementById(id);
   const idOf = (value) => String(value || "");
-  const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
-  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const when = (iso) => (iso ? new Date(iso).toLocaleString(crmI18n.locale(), { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
+  const rupees = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString(crmI18n.locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const num = (n) => Number(n || 0).toLocaleString(crmI18n.locale());
   const splitList = (text) => [...new Set(String(text || "").split(",").map((s) => s.trim()).filter(Boolean))];
   const SOURCES = ["WhatsApp", "IndiaMART", "JustDial", "TradeIndia", "Facebook", "Google Ads", "Website", "Manual", "Import"];
+  // [what fills a variable, its text key]
   const VALUES = [
-    ["contact.name", "Customer's name"], ["contact.company", "Customer's company"], ["contact.city", "Customer's city"],
-    ["lead.product", "Lead title (product)"], ["owner.name", "Name of the customer's owner"], ["org.name", "Your business name"], ["text:", "Fixed words…"],
+    ["contact.name", "bc.val.name"], ["contact.company", "bc.val.company"], ["contact.city", "bc.val.city"],
+    ["lead.product", "bc.val.product"], ["owner.name", "bc.val.owner"], ["org.name", "bc.val.org"], ["text:", "bc.val.text"],
   ];
+  // [badge class, text key]: a broadcast's status, then one customer's.
   const STATUS_BADGE = {
-    draft: ["badge-neutral", "Draft"], scheduled: ["badge-info", "Scheduled"], sending: ["badge-warning", "Sending"], paused: ["badge-neutral", "Paused"],
-    completed: ["badge-success", "Sent"], cancelled: ["badge-neutral", "Cancelled"], failed: ["badge-danger", "Failed"],
-    pending: ["badge-neutral", "Waiting"], sent: ["badge-info", "Sent"], delivered: ["badge-info", "Delivered"], read: ["badge-success", "Read"],
-    replied: ["badge-success", "Replied"], skipped: ["badge-neutral", "Skipped"],
+    draft: ["badge-neutral", "bcStatus.draft"], scheduled: ["badge-info", "bcStatus.scheduled"], sending: ["badge-warning", "bcStatus.sending"], paused: ["badge-neutral", "bcStatus.paused"],
+    completed: ["badge-success", "bcStatus.completed"], cancelled: ["badge-neutral", "bcStatus.cancelled"], failed: ["badge-danger", "bcPerson.failed"],
+    pending: ["badge-neutral", "bcPerson.pending"], sent: ["badge-info", "bcPerson.sent"], delivered: ["badge-info", "bcPerson.delivered"], read: ["badge-success", "bcPerson.read"],
+    replied: ["badge-success", "bcPerson.replied"], skipped: ["badge-neutral", "bcPerson.skipped"],
   };
-  const badge = (status) => {
-    const [cls, label] = STATUS_BADGE[status] || ["badge-neutral", status];
-    return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
-  };
+  const statusName = (status) => (STATUS_BADGE[status] ? T(STATUS_BADGE[status][1]) : status);
+  const badge = (status) => `<span class="badge ${(STATUS_BADGE[status] || ["badge-neutral"])[0]}">${escapeHtml(statusName(status))}</span>`;
   const pct = (part, whole) => (whole ? Math.round((part / whole) * 100) : 0);
 
   let templates = [];
@@ -57,17 +59,17 @@
   async function load({ force = false } = {}) {
     if (loaded && !force) return;
     try {
-      const [b, s, t, o, q] = await Promise.all([
+      const [b, s, tpls, o, q] = await Promise.all([
         crmRequest("/broadcasts?limit=50"), crmApi("/segments"), crmApi("/templates").catch(() => []), crmApi("/segments/options"), crmApi("/broadcasts/quota"),
       ]);
       broadcasts = b.data;
       segments = s;
-      templates = t.filter((x) => x.sendable);
+      templates = tpls.filter((x) => x.sendable);
       options = o;
-      $("bcQuota").textContent = `${q.plan} plan: ${q.used} of ${q.limit} broadcasts used this month`;
+      $("bcQuota").textContent = T("bc.quota", { plan: q.plan, used: q.used, limit: q.limit });
       loaded = true;
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't load the broadcasts."), "error");
+      showToast(apiErrorMessage(error, T("bc.err.load")), "error");
     }
   }
 
@@ -76,7 +78,7 @@
   // ===========================================================================================
   function renderBroadcasts() {
     $("bcList").innerHTML = broadcasts.length
-      ? `<table><thead><tr><th>Broadcast</th><th>Segment</th><th>Status</th><th>Sent</th><th>Delivered</th><th>Read</th><th>Replied</th><th>Failed</th><th>When</th></tr></thead><tbody>
+      ? `<table><thead><tr><th>${escapeHtml(T("inbox.auto.broadcast"))}</th><th>${escapeHtml(T("bc.col.segment"))}</th><th>${escapeHtml(T("col.status"))}</th><th>${escapeHtml(T("bcPerson.sent"))}</th><th>${escapeHtml(T("bcPerson.delivered"))}</th><th>${escapeHtml(T("bcPerson.read"))}</th><th>${escapeHtml(T("bcPerson.replied"))}</th><th>${escapeHtml(T("bcPerson.failed"))}</th><th>${escapeHtml(T("bc.col.when"))}</th></tr></thead><tbody>
         ${broadcasts.map((b) => {
           const s = b.stats;
           return `<tr data-bc="${escapeHtml(b.id)}">
@@ -91,7 +93,7 @@
             <td class="mk-sub">${escapeHtml(when(b.startedAt || b.scheduledAt || b.createdAt))}</td>
           </tr>`;
         }).join("")}</tbody></table>`
-      : '<div class="empty-state"><i class="fa-brands fa-whatsapp"></i><p>No broadcasts yet. Make a segment, then send an approved template to it.</p></div>';
+      : `<div class="empty-state"><i class="fa-brands fa-whatsapp"></i><p>${escapeHtml(T("bc.empty"))}</p></div>`;
   }
 
   $("bcList").addEventListener("click", (event) => {
@@ -110,22 +112,22 @@
   function templateVariables(template) {
     if (!template) return [];
     return [
-      ...(template.header?.variables || []).map((name) => ["header", name, `{{${name}}} in the heading`]),
-      ...template.body.variables.map((name) => ["body", name, `{{${name}}} in the message`]),
-      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), `The end of the "${b.text}" button link`]),
+      ...(template.header?.variables || []).map((name) => ["header", name, T("quotes.var.header", { name })]),
+      ...template.body.variables.map((name) => ["body", name, T("quotes.var.body", { name })]),
+      ...template.buttons.filter((b) => b.variables.length).map((b) => ["buttons", String(b.index), T("quotes.var.button", { text: b.text })]),
     ];
   }
 
   function renderVariables(variables = {}) {
     const template = templateOf($("bcTemplate").value);
-    $("bcTemplateText").textContent = template ? `${template.category} template: ${template.body.text}` : "";
+    $("bcTemplateText").textContent = template ? T("bc.tplText", { category: template.category, text: template.body.text }) : "";
     $("bcVariables").innerHTML = templateVariables(template)
       .map(([part, name, label]) => {
         const spec = variables?.[part]?.[name] || "";
         const isText = String(spec).startsWith("text:");
         return `<div class="field"><label>${escapeHtml(label)}</label><div class="mk-inline">
-          <select data-var-part="${part}" data-var-name="${escapeHtml(name)}"><option value="">Choose…</option>${VALUES.map(([value, text]) => `<option value="${value}" ${spec === value || (value === "text:" && isText) ? "selected" : ""}>${escapeHtml(text)}</option>`).join("")}</select>
-          <input type="text" data-var-text maxlength="200" placeholder="The fixed words" value="${isText ? escapeHtml(spec.slice(5)) : ""}" ${isText ? "" : "hidden"} /></div></div>`;
+          <select data-var-part="${part}" data-var-name="${escapeHtml(name)}"><option value="">${escapeHtml(T("bc.choose"))}</option>${VALUES.map(([value, key]) => `<option value="${value}" ${spec === value || (value === "text:" && isText) ? "selected" : ""}>${escapeHtml(T(key))}</option>`).join("")}</select>
+          <input type="text" data-var-text maxlength="200" placeholder="${escapeHtml(T("bc.fixedWords"))}" value="${isText ? escapeHtml(spec.slice(5)) : ""}" ${isText ? "" : "hidden"} /></div></div>`;
       })
       .join("");
   }
@@ -146,12 +148,12 @@
     }
     try {
       const e = await crmApi(`/broadcasts/${editing.id}/estimate`);
-      const daily = e.dailyLimit.limit == null ? "no daily limit" : `Meta lets this number reach ${e.dailyLimit.limit.toLocaleString("en-IN")} people a day (${e.dailyLimit.leftToday.toLocaleString("en-IN")} left today; the rest goes later)`;
+      const daily = e.dailyLimit.limit == null ? T("bc.noDaily") : T("bc.daily", { limit: num(e.dailyLimit.limit), left: num(e.dailyLimit.leftToday) });
       $("bcEstimate").innerHTML = `
-        <div><strong>${e.recipients.toLocaleString("en-IN")}</strong> customers will get it (with a mobile number, not opted out).</div>
-        <div>Estimated Meta cost: <strong>${rupees(e.cost.paise)}</strong> + GST ${rupees(e.cost.gstPaise)} (₹${(e.cost.perMessagePaise / 100).toFixed(4)} each, rates of ${escapeHtml(e.cost.asOf)}; your Meta invoice is what counts).</div>
+        <div>${T("bc.est.recipients", { n: `<strong>${num(e.recipients)}</strong>` })}</div>
+        <div>${T("bc.est.cost", { cost: `<strong>${rupees(e.cost.paise)}</strong>`, gst: rupees(e.cost.gstPaise), each: `₹${(e.cost.perMessagePaise / 100).toFixed(4)}`, asOf: escapeHtml(e.cost.asOf) })}</div>
         <div>${escapeHtml(daily)}.</div>
-        <div>${escapeHtml(e.quota.plan)} plan: ${e.quota.left} of ${e.quota.limit} broadcasts left this month.</div>`;
+        <div>${escapeHtml(T("bc.est.quota", { plan: e.quota.plan, left: e.quota.left, limit: e.quota.limit }))}</div>`;
       $("bcEstimate").hidden = false;
       $("bcSendBtn").disabled = !e.recipients || !e.quota.left;
     } catch (error) {
@@ -162,11 +164,11 @@
   function openComposer(b = null) {
     editing = b;
     if (!templates.length || !segments.length) {
-      showToast(!templates.length ? "No approved WhatsApp template yet: sync them in Settings → WhatsApp." : "Make a segment first (the Segments tab).", "error");
+      showToast(T(!templates.length ? "bc.noTemplates" : "bc.needSegment"), "error");
       if (!segments.length) showTab("segments");
       return;
     }
-    $("bcEditTitle").textContent = b ? `Edit "${b.name}"` : "New broadcast";
+    $("bcEditTitle").textContent = b ? T("bc.editNamed", { name: b.name }) : T("mkt.new-broadcast");
     $("bcName").value = b?.name || "";
     $("bcTemplate").innerHTML = templates.map((t) => `<option value="${escapeHtml(t.id)}" ${idOf(t.id) === idOf(b?.template.id) ? "selected" : ""}>${escapeHtml(t.name)} (${escapeHtml(t.language)}, ${escapeHtml(t.category)})</option>`).join("");
     $("bcSegment").innerHTML = segments.map((s) => `<option value="${escapeHtml(s.id)}" ${idOf(s.id) === idOf(b?.segment.id) ? "selected" : ""}>${escapeHtml(s.name)} (${s.count})</option>`).join("");
@@ -184,7 +186,7 @@
   async function saveDraft() {
     const body = { name: $("bcName").value.trim(), templateId: $("bcTemplate").value, segmentId: $("bcSegment").value, variables: readVariables() };
     if (!body.name) {
-      showToast("Give the broadcast a name.", "error");
+      showToast(T("bc.needName"), "error");
       $("bcName").focus();
       return false;
     }
@@ -192,13 +194,13 @@
       editing = await crmApi(editing ? `/broadcasts/${editing.id}` : "/broadcasts", jsonRequest(editing ? "PATCH" : "POST", body));
       $("bcScheduleField").hidden = false;
       $("bcDeleteBtn").style.display = "inline-flex";
-      showToast("Draft saved: check the numbers, then send", "success");
+      showToast(T("bc.draftSaved"), "success");
       await load({ force: true });
       renderBroadcasts();
       await renderEstimate();
       return true;
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't save the broadcast."), "error");
+      showToast(apiErrorMessage(error, T("bc.err.save")), "error");
       return false;
     }
   }
@@ -214,7 +216,7 @@
   $("bcSendBtn").addEventListener("click", async () => {
     if (!(await saveDraft())) return;
     const at = $("bcScheduleAt").value ? new Date($("bcScheduleAt").value).toISOString() : null;
-    const question = at ? `Schedule "${editing.name}" for ${when(at)}?` : `Send "${editing.name}" now?`;
+    const question = at ? T("bc.confirmSchedule", { name: editing.name, when: when(at) }) : T("bc.confirmSend", { name: editing.name });
     if (!confirm(question)) return;
     try {
       const result = await crmRequest(`/broadcasts/${editing.id}/send`, {
@@ -226,11 +228,11 @@
       renderBroadcasts();
       if (!at) openResults(editing.id);
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't send the broadcast."), "error");
+      showToast(apiErrorMessage(error, T("bc.err.send")), "error");
     }
   });
   $("bcDeleteBtn").addEventListener("click", async () => {
-    if (!editing || !confirm(`Delete the draft "${editing.name}"?`)) return;
+    if (!editing || !confirm(T("bc.confirmDelete", { name: editing.name }))) return;
     try {
       if (editing.status === "scheduled") await crmApi(`/broadcasts/${editing.id}/cancel`, { method: "POST" });
       await crmApi(`/broadcasts/${editing.id}`, { method: "DELETE" });
@@ -238,7 +240,7 @@
       await load({ force: true });
       renderBroadcasts();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't delete it."), "error");
+      showToast(apiErrorMessage(error, T("common.deleteFailed")), "error");
     }
   });
   $("bcNewBtn").addEventListener("click", () => openComposer(null));
@@ -259,13 +261,14 @@
     viewing = b;
     const s = b.stats;
     $("bcViewTitle").textContent = b.name;
-    $("bcViewSub").textContent = `${b.template.name} → ${b.segment.name} · ${STATUS_BADGE[b.status]?.[1] || b.status}${b.startedAt ? ` · started ${when(b.startedAt)}` : b.scheduledAt ? ` · for ${when(b.scheduledAt)}` : ""}`;
-    const note = b.error || (b.waitUntil ? `Meta's daily limit for this number is used up: the rest goes after ${when(b.waitUntil)}.` : b.status === "scheduled" ? `Goes at ${when(b.scheduledAt)}.` : "");
+    $("bcViewSub").textContent = `${b.template.name} → ${b.segment.name} · ${statusName(b.status)}${b.startedAt ? ` · ${T("bc.startedAt", { when: when(b.startedAt) })}` : b.scheduledAt ? ` · ${T("bc.forAt", { when: when(b.scheduledAt) })}` : ""}`;
+    const note = b.error || (b.waitUntil ? T("bc.waitNote", { when: when(b.waitUntil) }) : b.status === "scheduled" ? T("bc.goesAt", { when: when(b.scheduledAt) }) : "");
     $("bcViewNote").hidden = !note;
     $("bcViewNote").textContent = note;
-    const steps = [["Recipients", s.total], ["Sent", s.sent], ["Delivered", s.delivered], ["Read", s.read], ["Replied", s.replied]];
-    $("bcFunnel").innerHTML = `${steps.map(([label, n]) => `<div class="mk-step"><div class="n">${n.toLocaleString("en-IN")}</div><div class="l">${label}${label !== "Recipients" && s.sent ? ` · ${pct(n, label === "Sent" ? s.total : s.sent)}%` : ""}</div><div class="bar"><span style="width:${pct(n, s.total)}%"></span></div></div>`).join("")}
-      <div class="mk-step muted"><div class="n">${s.failed + s.skipped}</div><div class="l">Failed ${s.failed} · skipped ${s.skipped}${s.pending ? ` · waiting ${s.pending}` : ""}</div></div>`;
+    const steps = [["total", s.total], ["sent", s.sent], ["delivered", s.delivered], ["read", s.read], ["replied", s.replied]];
+    const stepName = (step) => T(step === "total" ? "bc.recipients" : `bcPerson.${step}`);
+    $("bcFunnel").innerHTML = `${steps.map(([step, n]) => `<div class="mk-step"><div class="n">${num(n)}</div><div class="l">${escapeHtml(stepName(step))}${step !== "total" && s.sent ? ` · ${pct(n, step === "sent" ? s.total : s.sent)}%` : ""}</div><div class="bar"><span style="width:${pct(n, s.total)}%"></span></div></div>`).join("")}
+      <div class="mk-step muted"><div class="n">${s.failed + s.skipped}</div><div class="l">${escapeHtml(T("bc.failedSkipped", { failed: s.failed, skipped: s.skipped }))}${s.pending ? ` · ${escapeHtml(T("bc.waitingN", { n: s.pending }))}` : ""}</div></div>`;
     $("bcPauseBtn").hidden = b.status !== "sending";
     $("bcResumeBtn").hidden = b.status !== "paused";
     $("bcCancelBtn").hidden = !["scheduled", "sending", "paused"].includes(b.status);
@@ -279,12 +282,12 @@
     people = more ? people.concat(body.data) : body.data;
     $("bcPeopleMore").hidden = !body.pagination?.hasNextPage;
     $("bcPeople").innerHTML = people.length
-      ? `<table><thead><tr><th>Customer</th><th>Status</th><th>When</th><th></th></tr></thead><tbody>${people.map((p) => `
+      ? `<table><thead><tr><th>${escapeHtml(T("orders.customer"))}</th><th>${escapeHtml(T("col.status"))}</th><th>${escapeHtml(T("bc.col.when"))}</th><th></th></tr></thead><tbody>${people.map((p) => `
         <tr><td>${escapeHtml(p.name)}<div class="mk-sub">${escapeHtml(p.phone)}</div></td>
           <td>${badge(p.status)}${p.reason ? `<div class="mk-sub">${escapeHtml(p.reason)}</div>` : ""}</td>
           <td class="mk-sub">${escapeHtml(when(p.repliedAt || p.readAt || p.deliveredAt || p.sentAt || p.failedAt))}</td>
-          <td>${p.conversationId ? `<a href="Inbox.html?c=${encodeURIComponent(p.conversationId)}">Chat</a>` : ""}</td></tr>`).join("")}</tbody></table>`
-      : '<p class="mk-hint">Nobody here.</p>';
+          <td>${p.conversationId ? `<a href="Inbox.html?c=${encodeURIComponent(p.conversationId)}">${escapeHtml(T("bc.chat"))}</a>` : ""}</td></tr>`).join("")}</tbody></table>`
+      : `<p class="mk-hint">${escapeHtml(T("bc.nobody"))}</p>`;
   }
 
   async function openResults(id) {
@@ -295,7 +298,7 @@
       $("bcViewOverlay").classList.add("open");
       await loadPeople();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't open the broadcast."), "error");
+      showToast(apiErrorMessage(error, T("bc.err.open")), "error");
       return;
     }
     // While it sends, the numbers move on their own.
@@ -318,12 +321,12 @@
     renderBroadcasts();
   };
   async function act(action) {
-    if (action === "cancel" && !confirm("Cancel this broadcast? Customers it has not reached yet will not get it.")) return;
+    if (action === "cancel" && !confirm(T("bc.confirmCancel"))) return;
     try {
       renderResults(await crmApi(`/broadcasts/${viewing.id}/${action}`, { method: "POST" }));
       await loadPeople();
     } catch (error) {
-      showToast(apiErrorMessage(error, "That did not work."), "error");
+      showToast(apiErrorMessage(error, T("bc.err.act")), "error");
     }
   }
   $("bcPauseBtn").addEventListener("click", () => act("pause"));
@@ -345,28 +348,28 @@
 
   function filterSummary(f) {
     const bits = [];
-    if (f.tagsAll?.length) bits.push(`tags ${f.tagsAll.join(" + ")}`);
-    if (f.tagsAny?.length) bits.push(`any of ${f.tagsAny.join(" / ")}`);
-    if (f.tagsNone?.length) bits.push(`not ${f.tagsNone.join(" / ")}`);
+    if (f.tagsAll?.length) bits.push(T("bc.f.tags", { list: f.tagsAll.join(" + ") }));
+    if (f.tagsAny?.length) bits.push(T("bc.f.any", { list: f.tagsAny.join(" / ") }));
+    if (f.tagsNone?.length) bits.push(T("bc.f.not", { list: f.tagsNone.join(" / ") }));
     if (f.states?.length) bits.push(f.states.join(", "));
     if (f.cities?.length) bits.push(f.cities.join(", "));
-    if (f.sources?.length) bits.push(`from ${f.sources.join(", ")}`);
-    if (f.lifecycles?.length) bits.push(f.lifecycles.join(" or "));
-    if (f.productCategories?.length) bits.push(`buys ${f.productCategories.join(", ")}`);
-    if (f.leadStages?.length) bits.push(`lead at ${f.leadStages.join(" / ")}`);
-    if (f.consent === "opted_in") bits.push("only who agreed");
-    return bits.length ? bits : ["everyone"];
+    if (f.sources?.length) bits.push(T("bc.f.from", { list: f.sources.map((x) => crmLabel("source", x)).join(", ") }));
+    if (f.lifecycles?.length) bits.push(f.lifecycles.map((x) => crmLabel("bcLife", x)).join(T("bc.f.or")));
+    if (f.productCategories?.length) bits.push(T("bc.f.buys", { list: f.productCategories.join(", ") }));
+    if (f.leadStages?.length) bits.push(T("bc.f.leadAt", { list: f.leadStages.map((x) => crmLabel("stage", x)).join(" / ") }));
+    if (f.consent === "opted_in") bits.push(T("bc.f.agreed"));
+    return bits.length ? bits : [T("bc.f.everyone")];
   }
 
   function renderSegments() {
     $("sgList").innerHTML = segments.length
       ? segments.map((s) => `
         <div class="mk-card" data-sg="${escapeHtml(s.id)}">
-          <div class="mk-card-head"><strong>${escapeHtml(s.name)}</strong><span class="mk-count">${s.count.toLocaleString("en-IN")} customers</span></div>
+          <div class="mk-card-head"><strong>${escapeHtml(s.name)}</strong><span class="mk-count">${escapeHtml(T("bc.nCustomers", { n: num(s.count) }))}</span></div>
           ${s.description ? `<div class="mk-sub">${escapeHtml(s.description)}</div>` : ""}
           <div class="mk-chips">${filterSummary(s.filters).map((b) => `<span class="badge badge-neutral">${escapeHtml(b)}</span>`).join("")}</div>
         </div>`).join("")
-      : '<div class="empty-state"><i class="fa-solid fa-users-viewfinder"></i><p>No segments yet. For example "Tier A – Rajasthan": tag Tier A, state Rajasthan.</p></div>';
+      : `<div class="empty-state"><i class="fa-solid fa-users-viewfinder"></i><p>${escapeHtml(T("bc.sgEmpty"))}</p></div>`;
   }
 
   const checks = (id, values, selected = []) => {
@@ -389,10 +392,10 @@
   async function renderPreview() {
     try {
       const p = await crmApi("/segments/preview", jsonRequest("POST", { filters: readFilters() }));
-      $("sgPreview").innerHTML = `<div><strong>${p.total.toLocaleString("en-IN")}</strong> customers · ${p.withWhatsApp.toLocaleString("en-IN")} with a mobile number${p.optedOut ? ` · ${p.optedOut} left out (said no to offers)` : ""}</div>
+      $("sgPreview").innerHTML = `<div>${T("bc.pv.total", { total: `<strong>${num(p.total)}</strong>` })} · ${escapeHtml(T("bc.pv.mobile", { n: num(p.withWhatsApp) }))}${p.optedOut ? ` · ${escapeHtml(T("bc.pv.out", { n: p.optedOut }))}` : ""}</div>
         ${p.sample.length ? `<div class="mk-sub">${p.sample.map((c) => escapeHtml(`${c.name}${c.city ? ` (${c.city})` : ""}`)).join(", ")}${p.total > p.sample.length ? " …" : ""}</div>` : ""}`;
     } catch (error) {
-      $("sgPreview").textContent = apiErrorMessage(error, "Couldn't count the customers.");
+      $("sgPreview").textContent = apiErrorMessage(error, T("bc.err.count"));
     }
   }
   const schedulePreview = () => {
@@ -403,7 +406,7 @@
   function openSegment(s = null) {
     segmentId = s ? s.id : "";
     const f = s?.filters || {};
-    $("sgTitle").textContent = s ? `Edit "${s.name}"` : "New segment";
+    $("sgTitle").textContent = s ? T("bc.editNamed", { name: s.name }) : T("mkt.new-segment");
     $("sgName").value = s?.name || "";
     $("sgDescription").value = s?.description || "";
     $("sgTagsAll").value = (f.tagsAll || []).join(", ");
@@ -412,9 +415,9 @@
     $("sgStates").value = (f.states || []).join(", ");
     $("sgCities").value = (f.cities || []).join(", ");
     $("sgCategories").value = (f.productCategories || []).join(", ");
-    checks("sgLifecycles", [["customer", "Customers"], ["lead", "Leads"]], f.lifecycles);
-    checks("sgSources", SOURCES.map((x) => [x, x]), f.sources);
-    checks("sgStages", LEAD_STAGES.map((x) => [x, x]), f.leadStages);
+    checks("sgLifecycles", [["customer", T("nav.customers")], ["lead", T("nav.leads")]], f.lifecycles);
+    checks("sgSources", SOURCES.map((x) => [x, crmLabel("source", x)]), f.sources);
+    checks("sgStages", LEAD_STAGES.map((x) => [x, crmLabel("stage", x)]), f.leadStages);
     document.querySelector(`input[name="sgConsent"][value="${f.consent === "opted_in" ? "opted_in" : "not_opted_out"}"]`).checked = true;
     datalist("sgTagOptions", options.tags);
     datalist("sgStateOptions", options.states);
@@ -436,29 +439,29 @@
   $("sgSaveBtn").addEventListener("click", async () => {
     const body = { name: $("sgName").value.trim(), description: $("sgDescription").value.trim(), filters: readFilters() };
     if (!body.name) {
-      showToast("Give the segment a name.", "error");
+      showToast(T("bc.sgNeedName"), "error");
       $("sgName").focus();
       return;
     }
     try {
       await crmApi(segmentId ? `/segments/${segmentId}` : "/segments", jsonRequest(segmentId ? "PATCH" : "POST", body));
       closeSegment();
-      showToast("Segment saved", "success");
+      showToast(T("bc.sgSaved"), "success");
       await load({ force: true });
       renderSegments();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't save the segment."), "error");
+      showToast(apiErrorMessage(error, T("bc.err.sgSave")), "error");
     }
   });
   $("sgDeleteBtn").addEventListener("click", async () => {
-    if (!segmentId || !confirm("Delete this segment? Broadcasts already sent keep their results.")) return;
+    if (!segmentId || !confirm(T("bc.sgConfirmDelete"))) return;
     try {
       await crmApi(`/segments/${segmentId}`, { method: "DELETE" });
       closeSegment();
       await load({ force: true });
       renderSegments();
     } catch (error) {
-      showToast(apiErrorMessage(error, "Couldn't delete the segment."), "error");
+      showToast(apiErrorMessage(error, T("bc.err.sgDelete")), "error");
     }
   });
   $("sgList").addEventListener("click", (event) => {
@@ -477,4 +480,4 @@
   const tab = new URLSearchParams(window.location.search).get("tab");
   if (deepLink) showTab("broadcasts").then(() => openResults(deepLink));
   else if (tab === "broadcasts" || tab === "segments") showTab(tab);
-})();
+});

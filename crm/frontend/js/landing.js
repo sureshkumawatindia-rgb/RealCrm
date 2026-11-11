@@ -90,8 +90,15 @@
   const includedLabel = (text) => (has(`lp.included.${includedSlug(text)}`) && texts.en?.[`lp.included.${includedSlug(text)}`] === text ? t(`lp.included.${includedSlug(text)}`) : text);
   const icon = (name) => `<svg class="lp-ico" aria-hidden="true"><use href="#i-${name}" /></svg>`;
 
+  // Monthly or yearly prices (D125), switched above the plans.
+  let interval = "monthly";
+  let shownCatalog = null;
+
   function planCard(plan, catalog) {
     const trial = plan.key === catalog.trialPlan;
+    const yearly = interval === "yearly" && plan.yearly;
+    const price = yearly ? plan.yearly : plan;
+    const save = yearly && plan.yearly.savePct > 0 ? `<span class="lp-save">${escapeText(t("lp.save", { pct: plan.yearly.savePct }))}</span>` : "";
     const limits = catalog.limits
       .map(({ metric }) => limitText(metric, plan.limits[metric]))
       .filter(Boolean);
@@ -106,28 +113,47 @@
           <h3 id="${id}">${escapeText(plan.name)}</h3>
           ${trial ? `<span class="lp-badge">${escapeText(t("lp.trialBadge"))}</span>` : ""}
         </div>
-        <p class="lp-price">${rupees(plan.pricePaise)}<small>${escapeText(t("lp.perMonth"))}</small></p>
-        <p class="lp-gst">${escapeText(t("lp.withGst", { total: rupees(plan.totalPaise), gst: catalog.gstPct }))}</p>
+        <p class="lp-price">${rupees(price.pricePaise)}<small>${escapeText(t(yearly ? "lp.perYear" : "lp.perMonth"))}</small>${save}</p>
+        <p class="lp-gst">${escapeText(t("lp.withGst", { total: rupees(price.totalPaise), gst: catalog.gstPct }))}</p>
         <ul>${limits.map((text) => `<li>${escapeText(text)}</li>`).join("")}</ul>
         <ul class="lp-features">${features.join("")}</ul>
         <a class="lp-btn ${trial ? "lp-btn-dark" : "lp-btn-light"} lp-btn-block" href="login.html?signup=1">${escapeText(t("lp.startTrial"))}</a>
       </article>`;
   }
 
+  // The cards and the line above them, in the chosen interval.
+  function drawPlans() {
+    const catalog = shownCatalog;
+    if (!catalog) return;
+    $("plans").innerHTML = catalog.plans.map((plan) => planCard(plan, catalog)).join("");
+    const trialPlan = catalog.plans.find((plan) => plan.key === catalog.trialPlan);
+    if (trialPlan) {
+      const every = Object.values(trialPlan.features).every(Boolean) ? t("lp.everyFeature") : "";
+      $("pricingSub").textContent = t(interval === "yearly" ? "lp.pricingSubYearly" : "lp.pricingSub", { gst: catalog.gstPct, days: catalog.trialDays, plan: trialPlan.name, every });
+    }
+    document.querySelectorAll("#planInterval [data-interval]").forEach((button) => {
+      const on = button.dataset.interval === interval;
+      button.classList.toggle("is-active", on);
+      button.setAttribute("aria-pressed", String(on));
+    });
+  }
+  $("planInterval").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-interval]");
+    if (!button || button.dataset.interval === interval) return;
+    interval = button.dataset.interval;
+    drawPlans();
+  });
+
   async function loadPlans() {
     const box = $("plans");
     box.innerHTML = `<p class="lp-loading">${escapeText(t("lp.loading-the-plans"))}</p>`;
     try {
-      const catalog = await getJson("/site/plans");
-      const trialPlan = catalog.plans.find((plan) => plan.key === catalog.trialPlan);
-      box.innerHTML = catalog.plans.map((plan) => planCard(plan, catalog)).join("");
-      $("includedList").innerHTML = catalog.included.map((text) => `<li>${icon("check")}<span>${escapeText(includedLabel(text))}</span></li>`).join("");
-      $("included").hidden = !catalog.included.length;
-      if (trialPlan) {
-        const every = Object.values(trialPlan.features).every(Boolean) ? t("lp.everyFeature") : "";
-        $("pricingSub").textContent = t("lp.pricingSub", { gst: catalog.gstPct, days: catalog.trialDays, plan: trialPlan.name, every });
-        $("trialNote").textContent = t("lp.trialNote", { days: catalog.trialDays, plan: trialPlan.name });
-      }
+      shownCatalog = await getJson("/site/plans");
+      drawPlans();
+      $("includedList").innerHTML = shownCatalog.included.map((text) => `<li>${icon("check")}<span>${escapeText(includedLabel(text))}</span></li>`).join("");
+      $("included").hidden = !shownCatalog.included.length;
+      const trialPlan = shownCatalog.plans.find((plan) => plan.key === shownCatalog.trialPlan);
+      if (trialPlan) $("trialNote").textContent = t("lp.trialNote", { days: shownCatalog.trialDays, plan: trialPlan.name });
     } catch {
       box.innerHTML = `
         <div class="lp-error" role="alert">

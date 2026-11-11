@@ -44,12 +44,12 @@ function getCampaign(id) {
 // ---------------------------------------------------------------
 function formatCurrency(n) {
   const num = Number(n) || 0;
-  return "₹" + num.toLocaleString("en-IN");
+  return "₹" + num.toLocaleString(crmI18n.locale());
 }
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", {
+  return d.toLocaleDateString(crmI18n.locale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -70,6 +70,8 @@ function escapeHtml(str) {
   // Quotes too: the result is also used inside HTML attributes.
   return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+const statusLabel = (status) => crmLabel("campaign", status);
+const typeLabel = (type) => crmLabel("campaignType", type);
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -117,22 +119,22 @@ function renderKpis() {
   );
 
   const cards = [
-    { label: "Total Campaigns", value: campaigns.length, cls: "" },
-    { label: "Active Campaigns", value: active.length, cls: "success" },
+    { label: t("mkt.kpi.total"), value: campaigns.length, cls: "" },
+    { label: t("mkt.kpi.active"), value: active.length, cls: "success" },
     {
-      label: "Total Budget",
+      label: t("mkt.kpi.budget"),
       value: formatCurrency(totalBudget),
       cls: "info",
     },
-    { label: "Leads Generated", value: totalLeads, cls: "warning" },
+    { label: t("mkt.leads-generated"), value: totalLeads, cls: "warning" },
   ];
 
   document.getElementById("kpiGrid").innerHTML = cards
     .map(
       (c) => `
 <div class="stat-card ${c.cls}">
-  <div class="label">${c.label}</div>
-  <div class="value">${c.value}</div>
+  <div class="label">${escapeHtml(c.label)}</div>
+  <div class="value">${escapeHtml(String(c.value))}</div>
 </div>`,
     )
     .join("");
@@ -160,18 +162,18 @@ function renderKanban() {
 
       const cardsHtml = statusCampaigns.length
         ? statusCampaigns.map((c) => campaignCardHtml(c)).join("")
-        : `<div class="kanban-col-empty">No campaigns</div>`;
+        : `<div class="kanban-col-empty">${escapeHtml(t("mkt.noCampaigns"))}</div>`;
 
       return `
 <div class="kanban-col" data-status="${status}">
   <div class="kanban-col-head">
     <div class="kanban-col-head-title">
       <span class="kanban-dot" style="background:${STATUS_DOT[status]}"></span>
-      <h4>${status}</h4>
+      <h4>${escapeHtml(statusLabel(status))}</h4>
     </div>
     <span class="kanban-count">${statusCampaigns.length}</span>
   </div>
-  <div class="kanban-col-value">${formatCurrency(totalBudget)} budget</div>
+  <div class="kanban-col-value">${escapeHtml(t("mkt.colBudget", { amount: formatCurrency(totalBudget) }))}</div>
   <div class="kanban-col-body" data-drop-status="${status}">
     ${cardsHtml}
   </div>
@@ -189,17 +191,17 @@ function campaignCardHtml(c) {
     <div class="campaign-card" draggable="true" data-id="${c.id}">
 <div class="campaign-card__top">
   <div class="campaign-card__name">${escapeHtml(c.name)}</div>
-  <span class="campaign-card__type"><i class="fa-solid ${TYPE_ICON[c.type] || "fa-bullhorn"}"></i> ${escapeHtml(c.type || "")}</span>
+  <span class="campaign-card__type"><i class="fa-solid ${TYPE_ICON[c.type] || "fa-bullhorn"}"></i> ${escapeHtml(c.type ? typeLabel(c.type) : "")}</span>
 </div>
 ${c.audience ? `<div class="campaign-card__audience"><i class="fa-solid fa-users"></i> ${escapeHtml(c.audience)}</div>` : ""}
 <div class="campaign-card__stats">
-  <span>Budget: <strong>${formatCurrency(c.budget)}</strong></span>
-  <span>Leads: <strong>${c.leadsGenerated || 0}</strong></span>
+  <span>${escapeHtml(t("mkt.card.budget"))} <strong>${formatCurrency(c.budget)}</strong></span>
+  <span>${escapeHtml(t("mkt.card.leads"))} <strong>${c.leadsGenerated || 0}</strong></span>
 </div>
 <div class="campaign-card__foot">
   <div class="campaign-card__owner">
     <span class="campaign-card__owner-avatar">${initials(c.owner)}</span>
-    ${escapeHtml((c.owner || "").split(" ")[0] || "Unassigned")}
+    ${escapeHtml((c.owner || "").split(" ")[0] || t("dash.unassigned"))}
   </div>
   <div class="campaign-card__date ${overdue ? "overdue" : ""}">
     ${overdue ? '<i class="fa-solid fa-triangle-exclamation"></i> ' : ""}${formatDate(c.startDate)}
@@ -214,8 +216,8 @@ function moveCampaign(id, newStatus) {
   const campaign = getCampaign(id);
   if (!campaign || campaign.status === newStatus) return;
   saveCampaign(campaign.id, { status: newStatus })
-    .then(() => showToast(`Moved "${campaign.name}" to ${newStatus}`, "success"))
-    .catch((error) => showToast(apiErrorMessage(error, "Couldn't move the campaign."), "error"))
+    .then(() => showToast(t("deals.moved", { name: campaign.name, stage: statusLabel(newStatus) }), "success"))
+    .catch((error) => showToast(apiErrorMessage(error, t("mkt.err.move")), "error"))
     .finally(renderAll);
 }
 
@@ -227,8 +229,8 @@ function attachDragEvents() {
       const campaign = getCampaign(card.dataset.id);
       if (!campaign) return;
       const status = await crmMoveMenu.open({
-        title: `Move "${campaign.name}" to`, current: campaign.status, returnFocus: event.currentTarget,
-        options: STATUSES.map((s) => ({ value: s, label: s, color: STATUS_DOT[s] })),
+        title: t("deals.moveTo", { name: campaign.name }), current: campaign.status, returnFocus: event.currentTarget,
+        options: STATUSES.map((s) => ({ value: s, label: statusLabel(s), color: STATUS_DOT[s] })),
       });
       if (status) moveCampaign(campaign.id, status);
     });
@@ -295,7 +297,7 @@ function renderTable() {
     wrap.innerHTML = `
 <div class="empty-state">
   <i class="fa-solid fa-bullhorn"></i>
-  <div>No campaigns match your filters.</div>
+  <div>${escapeHtml(t("mkt.empty.filtered"))}</div>
 </div>`;
     return;
   }
@@ -304,13 +306,13 @@ function renderTable() {
     <table>
 <thead>
   <tr>
-    <th>Campaign</th>
-    <th>Type</th>
-    <th>Status</th>
-    <th>Budget</th>
-    <th>Leads</th>
-    <th>Start Date</th>
-    <th>Owner</th>
+    <th>${escapeHtml(t("mkt.col.campaign"))}</th>
+    <th>${escapeHtml(t("quotes.type"))}</th>
+    <th>${escapeHtml(t("col.status"))}</th>
+    <th>${escapeHtml(t("mkt.col.budget"))}</th>
+    <th>${escapeHtml(t("nav.leads"))}</th>
+    <th>${escapeHtml(t("mkt.start-date"))}</th>
+    <th>${escapeHtml(t("leads.col.owner"))}</th>
     <th></th>
   </tr>
 </thead>
@@ -320,16 +322,16 @@ function renderTable() {
       (c) => `
     <tr data-id="${c.id}">
       <td><strong>${escapeHtml(c.name)}</strong></td>
-      <td>${escapeHtml(c.type)}</td>
-      <td><span class="badge ${STATUS_BADGE_CLASS[c.status]}">${c.status}</span></td>
+      <td>${escapeHtml(typeLabel(c.type))}</td>
+      <td><span class="badge ${STATUS_BADGE_CLASS[c.status]}">${escapeHtml(statusLabel(c.status))}</span></td>
       <td>${formatCurrency(c.budget)}</td>
       <td>${c.leadsGenerated || 0}</td>
       <td>${formatDate(c.startDate)}</td>
       <td>${escapeHtml(c.owner || "—")}</td>
       <td>
         <div class="row-actions">
-          <button class="icon-btn edit-row" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
-          <button class="icon-btn danger delete-row" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+          <button class="icon-btn edit-row" data-id="${c.id}" title="${escapeHtml(t("common.edit"))}" aria-label="${escapeHtml(t("common.edit"))}"><i class="fa-solid fa-pen"></i></button>
+          <button class="icon-btn danger delete-row" data-id="${c.id}" title="${escapeHtml(t("common.delete"))}" aria-label="${escapeHtml(t("common.delete"))}"><i class="fa-solid fa-trash"></i></button>
         </div>
       </td>
     </tr>`,
@@ -369,7 +371,7 @@ function renderTeamTab() {
 
   const el = document.getElementById("teamTabContent");
   if (!names.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-user-group"></i><div>No agents yet.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:30px 10px"><i class="fa-solid fa-user-group"></i><div>${escapeHtml(t("deals.noAgents"))}</div></div>`;
     return;
   }
 
@@ -385,7 +387,7 @@ function renderTeamTab() {
     <div class="avatar">${initials(name)}</div>
     <div class="info">
       <div class="name">${escapeHtml(name)}</div>
-      <div class="sub">${agent ? escapeHtml(agent.role) : "Campaign Owner"} · ${formatCurrency(budget)}</div>
+      <div class="sub">${escapeHtml(agent ? crmLabel("role", agent.role) : t("mkt.owner"))} · ${formatCurrency(budget)}</div>
     </div>
     <span class="count">${count}</span>
   </div>`;
@@ -404,7 +406,7 @@ function renderCalendarTab() {
 
   const el = document.getElementById("calendarTabContent");
   if (!campaigns.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:20px 10px"><i class="fa-solid fa-calendar-days"></i><div>No upcoming campaigns.</div></div>`;
+    el.innerHTML = `<div class="empty-state" style="padding:20px 10px"><i class="fa-solid fa-calendar-days"></i><div>${escapeHtml(t("mkt.noUpcoming"))}</div></div>`;
     return;
   }
 
@@ -415,11 +417,11 @@ function renderCalendarTab() {
 <div class="calendar-row">
   <div class="calendar-date-chip">
     <span class="d">${dt.getDate()}</span>
-    <span class="m">${dt.toLocaleDateString("en-IN", { month: "short" })}</span>
+    <span class="m">${dt.toLocaleDateString(crmI18n.locale(), { month: "short" })}</span>
   </div>
   <div class="info">
     <div class="name">${escapeHtml(c.name)}</div>
-    <div class="sub">${escapeHtml(c.type)} · ${c.status}</div>
+    <div class="sub">${escapeHtml(typeLabel(c.type))} · ${escapeHtml(statusLabel(c.status))}</div>
   </div>
 </div>`;
     })
@@ -439,13 +441,13 @@ function populateOwnerSelect() {
             `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`,
         )
         .join("")
-    : `<option value="" disabled selected>Add an agent first (Account Champions)</option>`;
+    : `<option value="" disabled selected>${escapeHtml(t("docs.addAgentFirst"))}</option>`;
 }
 function populateFilterOwners() {
   const sel = document.getElementById("filterOwner");
   const current = sel.value;
   sel.innerHTML =
-    `<option value="all">All Owners</option>` +
+    `<option value="all">${escapeHtml(t("deals.allOwners"))}</option>` +
     ownerNames()
       .map(
         (n) =>
@@ -467,7 +469,7 @@ function openModal(id) {
   if (id) {
     const campaign = getCampaign(id);
     if (!campaign) return;
-    document.getElementById("modalTitle").textContent = "Edit Campaign";
+    document.getElementById("modalTitle").textContent = t("mkt.edit");
     document.getElementById("editId").value = campaign.id;
     document.getElementById("fName").value = campaign.name;
     document.getElementById("fType").value = campaign.type;
@@ -487,7 +489,7 @@ function openModal(id) {
     renderTimeline(null);
     loadTimeline(campaign.id);
   } else {
-    document.getElementById("modalTitle").textContent = "New Campaign";
+    document.getElementById("modalTitle").textContent = t("mkt.new-campaign");
     document.getElementById("editId").value = "";
     document.getElementById("fType").value = "Email";
     document.getElementById("fStatus").value = "Draft";
@@ -508,7 +510,7 @@ async function loadTimeline(id) {
     if (document.getElementById("editId").value === String(id)) renderTimeline(notes);
   } catch (error) {
     document.getElementById("timelineList").innerHTML =
-      `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, "Couldn't load the activity."))}</div>`;
+      `<div class="text-muted" style="font-size:12.5px">${escapeHtml(apiErrorMessage(error, t("mkt.err.activity")))}</div>`;
   }
 }
 
@@ -516,7 +518,7 @@ async function loadTimeline(id) {
 function renderTimeline(notes) {
   const el = document.getElementById("timelineList");
   if (!notes) {
-    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">Loading activity…</div>`;
+    el.innerHTML = `<div class="text-muted" style="font-size:12.5px">${escapeHtml(t("deals.loadingActivity"))}</div>`;
     return;
   }
   el.innerHTML = notes.length
@@ -532,7 +534,7 @@ function renderTimeline(notes) {
 </div>`,
         )
         .join("")
-    : `<div class="text-muted" style="font-size:12.5px">No activity yet.</div>`;
+    : `<div class="text-muted" style="font-size:12.5px">${escapeHtml(t("deals.noActivity"))}</div>`;
 }
 
 async function addNoteToCampaign() {
@@ -544,21 +546,21 @@ async function addNoteToCampaign() {
   try {
     await addCampaignNote(id, text);
   } catch (error) {
-    showToast(apiErrorMessage(error, "Couldn't add the note."), "error");
+    showToast(apiErrorMessage(error, t("inbox.err.note")), "error");
     return;
   }
   input.value = "";
-  showToast("Note added", "success");
+  showToast(t("c360.noteAdded"), "success");
   await loadTimeline(id);
 }
 
 function confirmDelete(id) {
   const campaign = getCampaign(id);
   if (!campaign) return;
-  if (confirm(`Delete "${campaign.name}"? This can't be undone.`)) {
+  if (confirm(t("deals.confirmDelete", { name: campaign.name }))) {
     removeCampaign(id)
-      .then(() => showToast("Campaign deleted", "success"))
-      .catch((error) => showToast(apiErrorMessage(error, "Couldn't delete the campaign."), "error"))
+      .then(() => showToast(t("mkt.deleted"), "success"))
+      .catch((error) => showToast(apiErrorMessage(error, t("mkt.err.delete")), "error"))
       .finally(renderAll);
   }
 }
@@ -711,15 +713,15 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       if (!payload.name || !payload.startDate) {
-        showToast("Please fill in all required fields", "error");
+        showToast(t("deals.required"), "error");
         return;
       }
 
       try {
         await saveCampaign(id || null, payload);
-        showToast(id ? "Campaign updated" : "Campaign created", "success");
+        showToast(t(id ? "mkt.updated" : "mkt.created"), "success");
       } catch (error) {
-        showToast(apiErrorMessage(error, "Couldn't save the campaign."), "error");
+        showToast(apiErrorMessage(error, t("mkt.err.save")), "error");
         return;
       }
       closeModal();

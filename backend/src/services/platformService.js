@@ -105,7 +105,9 @@ async function overview(now = new Date()) {
     if (state.status === 'trialing') companies.trialing += 1;
     if (PAYING.includes(state.status)) {
       companies.paying += 1;
-      mrrPaise += PLANS[organization.plan]?.pricePaise || 0;
+      // A yearly plan counts a twelfth of its price each month (D125).
+      const plan = PLANS[organization.plan];
+      mrrPaise += sub.interval === 'yearly' && plan?.yearlyPricePaise ? Math.round(plan.yearlyPricePaise / 12) : plan?.pricePaise || 0;
     }
     if (state.status === 'past_due') companies.pastDue += 1;
     if (state.status === 'comped') companies.comped += 1;
@@ -244,7 +246,7 @@ function checklist() {
   const billingLive = env.billing.provider === 'razorpay' && set(env.billing.razorpay.keyId, env.billing.razorpay.keySecret, env.billing.razorpay.webhookSecret);
   const items = [
     { key: 'server', title: 'Server settings on Render (production)', done: env.isProduction && httpsDomain && set(env.dataEncryptionKey), guide: 'docs/RENDER_SETUP.md', without: 'Development defaults; secrets encrypted with the old key.' },
-    { key: 'domain', title: 'Your own domain with HTTPS', done: ownDomain, guide: 'docs/DEPLOYMENT.md', without: 'Customers see an onrender.com address; Google and Meta need the final address in their settings.' },
+    { key: 'domain', title: 'Your own domain with HTTPS', done: ownDomain, guide: 'docs/DOMAIN_SETUP.md', without: 'Customers see an onrender.com address; Google and Meta need the final address in their settings.' },
     { key: 'database', title: 'MongoDB Atlas on a paid tier, with backups', done: null, guide: 'docs/DEPLOYMENT.md', without: 'The free tier stops growing at 512 MB and has no backups.' },
     { key: 'backups', title: 'Weekly backup copy (R2)', done: set(env.storage.r2.backupBucket), guide: 'docs/FOUNDATION_SETUP_STEPS.md', without: 'No weekly copy of the database outside Atlas.' },
     { key: 'files', title: 'Files on Cloudflare R2', done: env.storage.driver === 'r2', guide: 'docs/FOUNDATION_SETUP_STEPS.md', without: 'Files stay on one server\'s disk: a second server cannot run.' },

@@ -11,7 +11,7 @@ const safeWebhook = require('../utils/safeWebhook');
 const webhooks = require('../services/outboundWebhookService');
 const engine = require('../services/automation/engine');
 const leadRouting = require('../services/leadRoutingService');
-const { api, bearer, login } = require('./helpers/api');
+const { api, bearer, loginWithApi: login } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 const settle = async (rounds = 4) => {
   for (let i = 0; i < rounds; i += 1) {

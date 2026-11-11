@@ -607,7 +607,7 @@ async function crmDownload(path, fileName, options = {}) {
 // ---------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------
-const PUBLIC_PAGES = new Set(["", "index.html", "login.html", "privacy.html", "terms.html"]);
+const PUBLIC_PAGES = new Set(["", "index.html", "login.html", "privacy.html", "terms.html", "refund.html", "delivery.html", "contact.html"]);
 
 function currentPageName() {
   return decodeURIComponent(window.location.pathname.split("/").pop()).toLowerCase();
@@ -682,8 +682,101 @@ function crmPreferences() {
   return { language, theme: CRM_THEMES.includes(theme) ? theme : "system" };
 }
 
+// CRM types (docs/CRM_TYPES_PLAN.md): the same CRM in the words of the company's kind of work,
+// in every text and both languages. Business has no list: its words are the CRM's own.
+// A trader's, a manufacturer's or a property dealer's leads come as enquiries (IndiaMART, the
+// property portals, phone, WhatsApp); deals and products keep their names.
+const ENQUIRY_WORDS = { en: { lead: ["enquiry", "enquiries"] }, hi: { "लीड": "पूछताछ" } };
+const CRM_TYPE_WORDS = {
+  pest_control: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["job", "jobs"], product: ["treatment", "treatments"] },
+    hi: { "लीड": "पूछताछ", "डील": "जॉब", "प्रोडक्ट": "ट्रीटमेंट" },
+  },
+  trader: ENQUIRY_WORDS,
+  manufacturer: ENQUIRY_WORDS,
+  real_estate: ENQUIRY_WORDS,
+  solar: ENQUIRY_WORDS,
+  // An institute's deals are admissions and its products are courses. Hindi keeps डील: its texts
+  // treat डील as feminine (डील हटा दी) and एडमिशन is masculine.
+  education: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["admission", "admissions"], product: ["course", "courses"] },
+    hi: { "लीड": "पूछताछ", "प्रोडक्ट": "कोर्स" },
+  },
+  // A clinic's customers are patients. Its deals are cases (in English only, as for an institute),
+  // and its products are treatments. ग्राहकों (the plural before को, की …) becomes मरीज़ों.
+  clinic: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["case", "cases"], product: ["treatment", "treatments"], customer: ["patient", "patients"] },
+    hi: { "लीड": "पूछताछ", "प्रोडक्ट": "ट्रीटमेंट", "ग्राहक": ["मरीज़", "मरीज़ों"] },
+  },
+  // A travel agency's deals are trips and its products are packages. In Hindi ट्रिप is feminine like
+  // डील, and पैकेज masculine like प्रोडक्ट, so both languages change.
+  travel: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["trip", "trips"], product: ["package", "packages"] },
+    hi: { "लीड": "पूछताछ", "डील": "ट्रिप", "प्रोडक्ट": "पैकेज" },
+  },
+  // An agent's customers are clients and its deals are cases (both in English only). Products stay:
+  // "plans" would be mixed up with the CRM's own subscription plans.
+  insurance: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["case", "cases"], customer: ["client", "clients"] },
+    hi: { "लीड": "पूछताछ" },
+  },
+  // A salon's customers are clients (English only), its deals are bookings (बुकिंग is feminine
+  // like डील) and its products are services (English only: सर्विस is feminine, प्रोडक्ट masculine).
+  salon: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["booking", "bookings"], product: ["service", "services"], customer: ["client", "clients"] },
+    hi: { "लीड": "पूछताछ", "डील": "बुकिंग" },
+  },
+  // A gym's products are packages (पैकेज, masculine like प्रोडक्ट). Its customers keep their name:
+  // "members" would be mixed up with the team's members.
+  gym: {
+    en: { lead: ["enquiry", "enquiries"], product: ["package", "packages"] },
+    hi: { "लीड": "पूछताछ", "प्रोडक्ट": "पैकेज" },
+  },
+  // An interior firm's customers are clients (English only). Deals keep their name: "projects" is
+  // the CRM's own Projects page, where a won job is carried out.
+  interior: {
+    en: { lead: ["enquiry", "enquiries"], customer: ["client", "clients"] },
+    hi: { "लीड": "पूछताछ" },
+  },
+};
+// Left as they are: {placeholders}, HTML tags, and the names other companies give their own screens.
+const CRM_WORDS_KEEP = /(\{[^{}]*\}|<[^>]*>|Lead Ads|Lead Manager|Import\/Export Leads|Lead delivery|lead form|लीड ऐड्स)/;
+
+function crmTypeWording(type) {
+  const words = CRM_TYPE_WORDS[type];
+  if (!words) return null;
+  const english = new RegExp(`\\b(an? +)?(${Object.keys(words.en).join("|")})(s?)\\b`, "gi"); // i18n-ok: a pattern, not a text
+  // No lookbehind: a Safari before 16.4 could not even load this file. A Hindi letter is any of
+  // U+0900–097F but the danda (। ॥), which ends a sentence like a full stop.
+  const letter = "\\u0900-\\u0963\\u0966-\\u097F";
+  const hindi = new RegExp(`(^|[^${letter}])(${Object.keys(words.hi).join("|")})(्स|ों)?(?![${letter}])`, "g");
+  const inEnglish = (all, article, word, plural) => {
+    const [one, many] = words.en[word.toLowerCase()];
+    let to = plural ? many : one;
+    if (word === word.toUpperCase()) to = to.toUpperCase();
+    else if (word[0] === word[0].toUpperCase()) to = to[0].toUpperCase() + to.slice(1);
+    return article ? `${article[0]}${/^[aeiou]/i.test(to) ? "n" : ""} ${to}` : to;
+  };
+  // A Hindi word is one word, or [the word, its plural before को, की …] (ग्राहकों → मरीज़ों).
+  const inHindi = (all, before, word, ending) => {
+    const to = words.hi[word];
+    return `${before}${Array.isArray(to) ? (ending === "ों" ? to[1] : to[0]) : to}`;
+  };
+  return (text) => text
+    .split(CRM_WORDS_KEEP)
+    .map((part, index) => (index % 2 ? part : part.replace(english, inEnglish).replace(hindi, inHindi)))
+    .join("")
+    .replace(/(\S+) (and|और) \1(?=[\s.,:;]|$)/gi, "$1"); // "leads and enquiries" must not say one word twice
+}
+
 const crmI18n = (() => {
   let language = crmPreferences().language;
+  let wording; // worked out once: a page reloads when the company's type changes
+  const typeWording = () => {
+    if (wording === undefined) wording = crmTypeWording(getCompanyInfo()?.crmType);
+    return wording;
+  };
+  const inTypeWords = (text) => (typeof text === "string" && typeWording() ? typeWording()(text) : text);
   const texts = {};
   // Phase 7 (D119): js/boot.js has usually started these downloads already, in the page's <head>,
   // with the page's own files (on a phone's 4G a whole step sooner than from here).
@@ -697,7 +790,7 @@ const crmI18n = (() => {
             texts[code] = data;
             return data;
           });
-  const lookup = (key) => texts[language]?.[key] ?? texts.en?.[key];
+  const lookup = (key) => inTypeWords(texts[language]?.[key] ?? texts.en?.[key]);
   // {name} takes the caller's value; a WhatsApp variable written as {{1}} with no value given
   // stays as it is (D116: hints that show how to write one).
   const fill = (text, values) => String(text).replace(/\{(\w+)\}/g, (all, name, at, whole) =>
@@ -725,7 +818,7 @@ const crmI18n = (() => {
     document.documentElement.lang = language;
     document.documentElement.classList.remove("i18n-pending");
     // The browser tab's title from the page's own heading, in the person's language (D116).
-    const heading = language === "en" ? null : document.querySelector(".topbar h2[data-i18n], h1[data-i18n], h2[data-i18n]");
+    const heading = language === "en" && !typeWording() ? null : document.querySelector(".topbar h2[data-i18n], h1[data-i18n], h2[data-i18n]");
     const brand = document.title.includes("|") ? document.title.split("|").pop().trim() : "";
     if (heading?.textContent.trim() && brand) document.title = `${heading.textContent.trim()} | ${brand}`;
   }
@@ -753,6 +846,7 @@ const crmI18n = (() => {
     apply,
     setLanguage,
     has: (key) => texts[language]?.[key] !== undefined,
+    usesTypeWords: () => Boolean(typeWording()),
     language: () => language,
     locale: () => (language === "hi" ? "hi-IN" : "en-IN"), // dates and numbers on translated pages
   };
@@ -861,6 +955,7 @@ const COMPANY_FIELDS = [
 // Company form inputs (company.html and Settings) → organization fields.
 const COMPANY_FORM_FIELDS = {
   cName: "name",
+  cCrmType: "crmType",
   cIndustry: "industry",
   cSize: "size",
   cFounded: "foundedYear",
@@ -937,7 +1032,9 @@ async function saveCompanyProfile(data) {
 function fillCompanyForm(company) {
   Object.entries(COMPANY_FORM_FIELDS).forEach(([id, key]) => {
     const input = document.getElementById(id);
-    if (input) input.value = company?.[key] ?? "";
+    if (!input) return;
+    input.value = company?.[key] ?? "";
+    if (input.tagName === "SELECT" && input.selectedIndex < 0) input.selectedIndex = 0; // no saved choice: CRM Type starts at Business
   });
 }
 
@@ -3167,16 +3264,21 @@ async function syncMembership() {
     const me = await crmApi("/auth/me");
     if (!me?.member) return;
     const cached = getCompanyInfo() || {};
-    const { name = "", logoUrl = "", hiddenModules = [], deviceCopies = true, copiesClearedAt = null } = me.organization || {};
+    const { name = "", logoUrl = "", hiddenModules = [], deviceCopies = true, copiesClearedAt = null, crmType = "business" } = me.organization || {};
     const pagesChanged = (cached.hiddenModules || []).join() !== hiddenModules.join();
+    const typeChanged = (cached.crmType || "business") !== crmType;
     // D120: the company turned copies on phones off, or erased a customer's data — the copies this
     // phone kept go now (the Inbox fills them again from the network).
     const erasedSince = Boolean(copiesClearedAt) && copiesClearedAt !== (cached.copiesClearedAt || null);
     if ((deviceCopies === false && cached.deviceCopies !== false) || erasedSince) crmDevice.forgetCopies();
-    if (cached.name !== name || (cached.logoUrl || "") !== logoUrl || pagesChanged || (cached.deviceCopies !== false) !== deviceCopies || erasedSince) {
-      saveCompanyInfo({ ...cached, name, logoUrl, hiddenModules, deviceCopies, copiesClearedAt });
+    if (cached.name !== name || (cached.logoUrl || "") !== logoUrl || pagesChanged || (cached.deviceCopies !== false) !== deviceCopies || erasedSince || typeChanged) {
+      saveCompanyInfo({ ...cached, name, logoUrl, hiddenModules, deviceCopies, copiesClearedAt, crmType });
       renderSidebarBrand();
       if (pagesChanged) hideUnavailableModules(); // an owner switched pages on or off (D76)
+    }
+    if (typeChanged) { // the company's CRM type changed: every text on the page does too
+      window.location.reload();
+      return;
     }
     // The language and theme chosen on another device (CP5).
     const preferences = me.user?.preferences;
@@ -3251,7 +3353,7 @@ const NAV_KEYS = {
   "help.html": "nav.help",
 };
 function translateSidebar() {
-  if (crmI18n.language() === "en") return;
+  if (crmI18n.language() === "en" && !crmI18n.usesTypeWords()) return;
   const setText = (el, key) => {
     if (!el || !crmI18n.has(key)) return;
     const node = [...el.childNodes].reverse().find((child) => child.nodeType === Node.TEXT_NODE && child.textContent.trim());

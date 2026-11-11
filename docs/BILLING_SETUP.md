@@ -4,13 +4,14 @@ This guide is for **you, the owner of the CRM platform**. Companies that use the
 
 ## How it works
 
-- **New companies** get a **30-day free trial** of the Growth plan (D48). Companies that used the CRM before billing existed are **complimentary**: they keep their plan with no end date.
-- In **Settings → Plan & usage**, an owner or admin sees the plan, the usage meters and the four plans. **Choose** opens Razorpay's payment page in a new tab (card, UPI or netbanking).
+- **New companies** get a **3-day free trial** of the Growth plan (D48; 30 days until D125). Companies that used the CRM before billing existed are **complimentary**: they keep their plan with no end date.
+- In **Settings → Plan & usage**, an owner or admin sees the plan, the usage meters and the five plans, with a **Monthly / Yearly** switch (D125). **Choose** opens Razorpay's payment page in a new tab (card, UPI or netbanking).
   - Choosing a plan **during the trial** keeps the rest of the trial free: Razorpay only sets up the mandate, and the first charge happens when the trial ends.
-  - After that, Razorpay charges every month until the company cancels.
-- Each monthly charge creates a **GST tax invoice** from your business: CGST + SGST if the company is in your state, otherwise IGST. The invoice can be downloaded as a PDF from the same page. Invoice numbers are `YC/2026-27/0001`, `0002` and so on, without gaps, restarting each financial year.
-- **Upgrades** start at once. **Downgrades** start with the next month (Razorpay cannot switch plans that are paid by UPI or e-mandate; the page then tells the company to cancel and choose again).
-- **Cancel plan**: the plan keeps working until the paid month ends, and is not charged again.
+  - After that, Razorpay charges every month (or once a year, for a yearly plan) until the company cancels.
+- Each charge creates a **GST tax invoice** from your business: CGST + SGST if the company is in your state, otherwise IGST. The invoice can be downloaded as a PDF from the same page. Invoice numbers are `AC/2026-27/0001`, `0002` and so on, without gaps, restarting each financial year (`BILLING_INVOICE_PREFIX`, `AC` since D125).
+- **Upgrades** start at once. **Downgrades** start with the next month, or the next year for a yearly plan (Razorpay cannot switch plans that are paid by UPI or e-mandate; the page then tells the company to cancel and choose again).
+- **Monthly ↔ yearly**: a paid plan changes plans within its own interval only. To move between monthly and yearly, the company cancels and chooses the other when the paid period ends (the page says so).
+- **Cancel plan**: the plan keeps working until the paid month (or year) ends, and is not charged again.
 - **If a payment fails**, the plan shows **Payment due** and Razorpay retries. If every retry fails, the plan is **halted**.
 - **When the trial ends without a plan**, or the plan is halted or ended, the company can still sign in, read everything, reply to customers, receive WhatsApp messages and leads, and record payments. It cannot add users, numbers, contacts, templates, quotations or broadcasts, or use the paid features, until it chooses a plan. Nothing is deleted (D49).
 - Owners and admins get bell notes: 7, 3 and 1 days before the trial ends, when it ends, when a plan starts, for each payment, and when a payment fails.
@@ -41,7 +42,17 @@ The test gateway never runs in production.
    RAZORPAY_BILLING_WEBHOOK_SECRET=<a long random text you choose>
    ```
 
-You don't need to create plans in Razorpay. The CRM creates each plan the first time someone chooses it: monthly, priced at the plan price + 18% GST (₹1,178.82, ₹3,538.82, ₹7,078.82, ₹11,798.82). It remembers each plan's id. If you change a price in `backend/src/constants/plans.js`, a new Razorpay plan is made for new subscriptions.
+You don't need to create plans in Razorpay. The CRM creates each plan the first time someone chooses it, monthly or yearly, priced at the plan price + 18% GST (D125):
+
+| Plan | Monthly | With GST | Yearly | With GST |
+|---|---|---|---|---|
+| Starter | ₹799 | ₹942.82 | ₹4,299 | ₹5,072.82 |
+| Pro | ₹1,999 | ₹2,358.82 | ₹10,699 | ₹12,624.82 |
+| Growth | ₹3,999 | ₹4,718.82 | ₹21,299 | ₹25,132.82 |
+| Scale | ₹7,999 | ₹9,438.82 | ₹42,699 | ₹50,384.82 |
+| Infinite | ₹14,999 | ₹17,698.82 | ₹79,999 | ₹94,398.82 |
+
+It remembers each plan's id. If you change a price in `backend/src/constants/plans.js`, a new Razorpay plan is made for new subscriptions.
 
 ## 3. Webhook
 

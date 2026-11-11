@@ -1160,14 +1160,34 @@
                 </div>
                 <form id="companyForm">
                   <div data-i18n="company.basics" class="settings-section-label">Basics</div>
-                  <div class="field">
-                    <label data-i18n="company.company-name">Company Name</label>
-                    <input
-                      type="text"
-                      id="cName"
-                      placeholder="e.g. Mehta Traders Pvt Ltd"
-                      required
-                     data-i18n-placeholder="set.e-g-yellow-crms-pvt-ltd"/>
+                  <div class="field-row">
+                    <div class="field">
+                      <label data-i18n="company.company-name">Company Name</label>
+                      <input
+                        type="text"
+                        id="cName"
+                        placeholder="e.g. Mehta Traders Pvt Ltd"
+                        required
+                       data-i18n-placeholder="set.e-g-yellow-crms-pvt-ltd"/>
+                    </div>
+                    <div class="field">
+                      <label data-i18n="company.crm-type" for="cCrmType">CRM Type</label>
+                      <select id="cCrmType">
+                        <option data-i18n="crmType.business" value="business">Business</option>
+                        <option data-i18n="crmType.pest_control" value="pest_control">Pest Control</option>
+                        <option data-i18n="crmType.trader" value="trader">Trader / Wholesaler</option>
+                        <option data-i18n="crmType.manufacturer" value="manufacturer">Manufacturer</option>
+                        <option data-i18n="crmType.real_estate" value="real_estate">Real Estate</option>
+                        <option data-i18n="crmType.education" value="education">Education / Coaching</option>
+                        <option data-i18n="crmType.clinic" value="clinic">Clinic / Hospital</option>
+                        <option data-i18n="crmType.travel" value="travel">Travel Agency</option>
+                        <option data-i18n="crmType.insurance" value="insurance">Insurance / Loan Agent</option>
+                        <option data-i18n="crmType.salon" value="salon">Salon / Spa</option>
+                        <option data-i18n="crmType.gym" value="gym">Gym / Fitness</option>
+                        <option data-i18n="crmType.interior" value="interior">Interior / Construction</option>
+                        <option data-i18n="crmType.solar" value="solar">Solar Installer</option>
+                      </select>
+                    </div>
                   </div>
                   <div class="field-row">
                     <div class="field">
@@ -2468,6 +2488,10 @@
                 </div>
                 <div class="settings-section">
                   <div data-i18n="set.plans" class="settings-section-label">Plans</div>
+                  <div class="plan-interval" id="planInterval" role="group" aria-label="How often to pay" data-i18n-aria-label="setplan.interval">
+                    <button type="button" class="plan-interval-btn is-active" data-interval="monthly" aria-pressed="true" data-i18n="setplan.monthly">Monthly</button>
+                    <button type="button" class="plan-interval-btn" data-interval="yearly" aria-pressed="false" data-i18n="setplan.yearly">Yearly</button>
+                  </div>
                   <div class="plan-grid" id="planGrid"></div>
                   <p data-i18n="set.prices-are-per-month-plus-18" class="settings-hint" style="margin-top: 10px" id="planGridHint">Prices are per month, plus 18% GST.</p>
                   <div class="plan-included" id="planIncluded" hidden>

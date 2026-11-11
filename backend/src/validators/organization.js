@@ -1,12 +1,14 @@
 const Joi = require('joi');
 const { GSTIN_PATTERN } = require('../utils/gstin');
 const { CODE_PATTERN } = require('../utils/workspaceCode');
+const { CRM_TYPE_IDS } = require('../constants/crmTypes');
 
 const text = (max) => Joi.string().trim().max(max).allow('');
 
 module.exports = {
   organizationPatch: Joi.object({
     name: Joi.string().trim().min(1).max(200),
+    crmType: Joi.string().valid(...CRM_TYPE_IDS),
     industry: text(100),
     size: text(50),
     foundedYear: Joi.alternatives(Joi.number().integer().min(1800).max(2100), Joi.valid(null, '')),

@@ -523,11 +523,49 @@ html.i18n-pending body {
 }
 
 /* pricing */
+/* Monthly or yearly prices (D125) */
+.lp-interval {
+  display: flex;
+  width: fit-content;
+  gap: 4px;
+  margin: 28px auto 0;
+  padding: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.lp-interval button {
+  border: 0;
+  background: transparent;
+  min-height: 40px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.lp-interval button.is-active {
+  background: var(--ink);
+  color: var(--surface);
+  font-weight: 600;
+}
+.lp-save {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--brand-light);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+}
 .lp-plans {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 208px), 1fr));
   gap: 16px;
-  margin-top: 44px;
+  margin-top: 28px;
   align-items: stretch;
 }
 .lp-loading,

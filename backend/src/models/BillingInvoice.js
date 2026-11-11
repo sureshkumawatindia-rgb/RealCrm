@@ -15,6 +15,7 @@ const billingInvoiceSchema = new mongoose.Schema(
     issuedAt: { type: Date, required: true },
     planKey: String,
     planName: String,
+    interval: { type: String, enum: ['monthly', 'yearly'], default: 'monthly' }, // a paid month or year (D125)
     periodStart: Date,
     periodEnd: Date,
     sac: String,

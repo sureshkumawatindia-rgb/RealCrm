@@ -12,7 +12,7 @@ const pipelineService = require('./pipelineService');
 const quickReplyService = require('./quickReplyService');
 const organizationService = require('./organizationService');
 const { audit } = require('../utils/audit');
-const { KITS, KIT_IDS, KIT_LANGUAGES, GETTING_STARTED_STEPS } = require('../constants/businessKits');
+const { KITS, CHOOSABLE_KIT_IDS, KIT_LANGUAGES, GETTING_STARTED_STEPS } = require('../constants/businessKits');
 const { DEFAULT_STAGES } = require('../constants/pipelines');
 
 // The first day (100 phases, phase 5, D117). The "Getting started" list of an owner or admin,
@@ -90,7 +90,7 @@ async function kits(req, { language } = {}) {
     language: lang,
     current: organization?.onboarding?.kit || null,
     keeps: { stages: !untouched(pipeline), terms: Boolean(billing.terms.trim()) },
-    kits: KIT_IDS.map((id) => {
+    kits: CHOOSABLE_KIT_IDS.map((id) => {
       const kit = KITS[id];
       return {
         id,

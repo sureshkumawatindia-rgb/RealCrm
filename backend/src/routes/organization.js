@@ -11,7 +11,7 @@ const organizationService = require('../services/organizationService');
 const deletion = require('../services/organizationDeletionService');
 const teamSettings = require('../services/teamSettingsService');
 const gettingStarted = require('../services/gettingStartedService');
-const { KIT_IDS, KIT_LANGUAGES } = require('../constants/businessKits');
+const { CHOOSABLE_KIT_IDS, KIT_LANGUAGES } = require('../constants/businessKits');
 const Organization = require('../models/Organization');
 const Joi = require('joi');
 const { HIDEABLE_MODULES } = require('../constants/permissions');
@@ -89,7 +89,7 @@ router.patch('/getting-started', requireRole('owner', 'admin'), validate({ body:
 router.get('/business-kits', requireRole('owner', 'admin'), validate({ query: Joi.object({ language: Joi.string().valid(...KIT_LANGUAGES) }) }), async (req, res) => {
   res.json({ success: true, data: await gettingStarted.kits(req, req.valid.query) });
 });
-router.post('/business-kit', requireRole('owner', 'admin'), validate({ body: Joi.object({ kit: Joi.string().valid(...KIT_IDS).required(), language: Joi.string().valid(...KIT_LANGUAGES) }) }), async (req, res) => {
+router.post('/business-kit', requireRole('owner', 'admin'), validate({ body: Joi.object({ kit: Joi.string().valid(...CHOOSABLE_KIT_IDS).required(), language: Joi.string().valid(...KIT_LANGUAGES) }) }), async (req, res) => {
   res.json({ success: true, data: await gettingStarted.applyKit(req, req.body), message: 'Ready settings added' });
 });
 router.post('/logo', requireRole('owner', 'admin'), uploadLogo, controller.uploadLogo);

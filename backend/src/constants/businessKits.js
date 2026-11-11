@@ -3,6 +3,17 @@
 // terms — in English and Hindi. Applying a kit fills only what the company has not set itself
 // (services/gettingStartedService.js). A "___" in a quick reply is for the person to fill in
 // before sending; {{contact.name}} and {{org.name}} fill themselves.
+const pestControl = require('./crmTypeSetups/pestControl');
+const realEstate = require('./crmTypeSetups/realEstate');
+const education = require('./crmTypeSetups/education');
+const clinic = require('./crmTypeSetups/clinic');
+const travel = require('./crmTypeSetups/travel');
+const insurance = require('./crmTypeSetups/insurance');
+const salon = require('./crmTypeSetups/salon');
+const gym = require('./crmTypeSetups/gym');
+const interior = require('./crmTypeSetups/interior');
+const solar = require('./crmTypeSetups/solar');
+
 const KIT_LANGUAGES = Object.freeze(['en', 'hi']);
 
 const KITS = Object.freeze({
@@ -180,10 +191,22 @@ const KITS = Object.freeze({
     },
     validityDays: 15,
   },
+  pest_control: pestControl.kit,
+  real_estate: realEstate.kit,
+  education: education.kit,
+  clinic: clinic.kit,
+  travel: travel.kit,
+  insurance: insurance.kit,
+  salon: salon.kit,
+  gym: gym.kit,
+  interior: interior.kit,
+  solar: solar.kit,
 });
 const KIT_IDS = Object.freeze(Object.keys(KITS));
+// The kits offered in "Ready settings"; the others come with a CRM type (constants/crmTypes.js).
+const CHOOSABLE_KIT_IDS = Object.freeze(KIT_IDS.filter((id) => !KITS[id].crmTypeOnly));
 
 // The "Getting started" checklist's steps, in order.
 const GETTING_STARTED_STEPS = Object.freeze(['business', 'kit', 'whatsapp', 'products', 'leads', 'team', 'quote']);
 
-module.exports = { KITS, KIT_IDS, KIT_LANGUAGES, GETTING_STARTED_STEPS };
+module.exports = { KITS, KIT_IDS, CHOOSABLE_KIT_IDS, KIT_LANGUAGES, GETTING_STARTED_STEPS };

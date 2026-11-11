@@ -6,7 +6,7 @@ const ConsentEvent = require('../models/ConsentEvent');
 const MessageTemplate = require('../models/MessageTemplate');
 const consent = require('../services/automation/consent');
 const { ACTIONS } = require('../services/automation/actions');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 2 (D79): every change of a customer's WhatsApp marketing consent is kept, and an opted-out
 // customer gets no marketing message.

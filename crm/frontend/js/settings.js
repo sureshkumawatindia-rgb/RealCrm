@@ -343,8 +343,13 @@ document.getElementById("companyForm").addEventListener("submit", async (e) => {
     showToast(t("set2.company-name-is-required"), "error");
     return;
   }
+  const typeBefore = getCompanyInfo()?.crmType || "business";
   try {
     const organization = await saveCompanyProfile(data);
+    if (organization.crmType !== typeBefore) { // the menu, the words and the set-up all change
+      window.location.href = "Settings.html?tab=company";
+      return;
+    }
     renderWorkspaceCode(organization.slug); // a code made from the name follows a new name
     document.getElementById("companyLastSaved").textContent = t("proj.settingsSaved");
     setCompanyNote("");

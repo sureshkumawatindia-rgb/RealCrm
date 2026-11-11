@@ -13,7 +13,7 @@ const { stateCodeFor, stateName } = require('../constants/gst');
 const { codeFromName, uniqueCode, followsName } = require('../utils/workspaceCode');
 
 const PROFILE_FIELDS = [
-  'name', 'industry', 'size', 'foundedYear', 'website', 'email', 'phone', 'gstin',
+  'name', 'crmType', 'industry', 'size', 'foundedYear', 'website', 'email', 'phone', 'gstin',
   'address', 'city', 'state', 'country', 'postalCode', 'description',
 ];
 // Older field names, moved by migration 001; read as a fallback until then.

@@ -47,7 +47,8 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      # https://yellow-crm.onrender.com (or your own domain), without a trailing slash.
+      # https://crm.agreem360.com (docs/DOMAIN_SETUP.md), without a trailing slash; before the
+      # domain is set up, the service's own https://yellow-crm.onrender.com.
       - key: PUBLIC_URL
         sync: false
       # Added later in the service's Environment tab, when they are ready (not asked here, so

@@ -11,43 +11,49 @@
 // D69 (2026-10-12): contacts, broadcasts, quotations and templates are twice BizNuma's
 // (3,000 / 10,000 / 40,000 / 1,00,000 contacts; 10 / 100 / 500 / 1,000 broadcasts; 1,000 / 2,500 /
 // 10,000 / 25,000 quotations; 50 templates on Starter); prices stay below BizNuma's.
+// D125 (2026-11-11, the launch plans, the owner's own numbers): ₹799 / 1,999 / 3,999 / 7,999 /
+// 14,999 a month; Starter 1 WhatsApp number, Pro 3, Growth 5, Scale 10, Infinite 20; the API
+// from Scale up. Yearly: Infinite ₹79,999 (the owner's price); the others at the same share of
+// twelve months (about 5.3 months' price, rounded to ...99). yearlyPricePaise is before GST too.
 const MAX_WHATSAPP_NUMBERS = 20;
 const PLANS = Object.freeze({
   starter: {
-    name: 'Starter', pricePaise: 79900,
-    users: 8, agents: 8, whatsappNumbers: 8, contacts: 6000, broadcastsPerMonth: 20, quotesPerMonth: 2000, templates: 100,
+    name: 'Starter', pricePaise: 79900, yearlyPricePaise: 429900,
+    users: 5, agents: 4, whatsappNumbers: 1, contacts: 5000, broadcastsPerMonth: 20, quotesPerMonth: 1000, templates: 50,
     paymentLinks: true,
     aiBudgetShare: 0.25,
   },
   pro: {
-    name: 'Pro', pricePaise: 249900,
-    users: 16, agents: 12, whatsappNumbers: 12, contacts: 20000, broadcastsPerMonth: 200, quotesPerMonth: 5000,
+    name: 'Pro', pricePaise: 199900, yearlyPricePaise: 1069900,
+    users: 15, agents: 12, whatsappNumbers: 3, contacts: 20000, broadcastsPerMonth: 200, quotesPerMonth: 5000, templates: 200,
     paymentLinks: true, conversionsApi: true, catalog: true, agentNumbers: true,
     aiBudgetShare: 0.5,
   },
   growth: {
-    name: 'Growth', pricePaise: 499900,
-    users: 30, agents: 20, whatsappNumbers: MAX_WHATSAPP_NUMBERS, contacts: 80000, broadcastsPerMonth: 1000, quotesPerMonth: 20000,
-    paymentLinks: true, conversionsApi: true, catalog: true, agentNumbers: true, advancedAutomation: true, api: true,
+    name: 'Growth', pricePaise: 399900, yearlyPricePaise: 2129900,
+    users: 30, agents: 24, whatsappNumbers: 5, contacts: 60000, broadcastsPerMonth: 1000, quotesPerMonth: 20000,
+    paymentLinks: true, conversionsApi: true, catalog: true, agentNumbers: true, advancedAutomation: true,
     aiBudgetShare: 1,
   },
   scale: {
-    name: 'Scale', pricePaise: 849900,
-    users: 50, agents: 40, whatsappNumbers: MAX_WHATSAPP_NUMBERS, contacts: 200000, broadcastsPerMonth: 2000, quotesPerMonth: 50000,
+    name: 'Scale', pricePaise: 799900, yearlyPricePaise: 4269900,
+    users: 60, agents: 48, whatsappNumbers: 10, contacts: 200000, broadcastsPerMonth: 5000, quotesPerMonth: 50000,
     paymentLinks: true, conversionsApi: true, catalog: true, agentNumbers: true, advancedAutomation: true, api: true,
     aiBudgetShare: 2,
   },
   infinite: {
-    name: 'Infinite', pricePaise: 1499900,
+    name: 'Infinite', pricePaise: 1499900, yearlyPricePaise: 7999900,
     whatsappNumbers: MAX_WHATSAPP_NUMBERS,
     paymentLinks: true, conversionsApi: true, catalog: true, agentNumbers: true, advancedAutomation: true, api: true,
     aiBudgetShare: 4,
   },
 });
 const PLAN_KEYS = Object.freeze(Object.keys(PLANS));
-// A new organization tries the Growth plan for 30 days (D48).
+// How often a plan is paid for (D125): every month, or a year at once.
+const BILLING_INTERVALS = Object.freeze(['monthly', 'yearly']);
+// A new organization tries the Growth plan for 3 days (D48; 30 days until D125).
 const TRIAL_PLAN = 'growth';
-const TRIAL_DAYS = 30;
+const TRIAL_DAYS = 3;
 const PLAN_GST_PCT = 18;
 
 // What is counted, in the order the usage meters show it. monthly: counted from the 1st (India).
@@ -101,4 +107,4 @@ const SUBSCRIPTION_STATUSES = Object.freeze(['trialing', 'active', 'past_due', '
 
 const planOf = (organization) => PLANS[organization?.plan] || PLANS[TRIAL_PLAN];
 
-module.exports = { PLANS, PLAN_KEYS, MAX_WHATSAPP_NUMBERS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, METERS, ALERT_LEVELS, FEATURES, INCLUDED, SUBSCRIPTION_STATUSES, planOf };
+module.exports = { PLANS, PLAN_KEYS, BILLING_INTERVALS, MAX_WHATSAPP_NUMBERS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, METERS, ALERT_LEVELS, FEATURES, INCLUDED, SUBSCRIPTION_STATUSES, planOf };

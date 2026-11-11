@@ -14,7 +14,7 @@ const SequenceEnrollment = require('../models/SequenceEnrollment');
 const Task = require('../models/Task');
 const inbound = require('../services/whatsappInboundService');
 const { attachRealtime } = require('../realtime/socket');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 6 acceptance: an IndiaMART lead is given to a salesperson and followed up by a sequence
 // until the customer replies; a new WhatsApp customer is served by the FAQ bot until they ask
@@ -247,7 +247,8 @@ describe('Phase 6 acceptance: workflows, sequences and the FAQ bot working toget
       expect({ path, data: res.body.data }).toEqual({ path, data: [] });
     }
     expect((await api().get(`/api/v1/automation-runs/${run._id}`).set(as(stranger))).status).toBe(404);
-    expect((await api().get('/api/v1/notifications').set(as(stranger))).body.data).toEqual({ items: [], unread: 0 });
-    expect(strangerHears.every((events) => events.length === 0)).toBe(true);
+    // Nothing of this company's reaches the other one (its own 3-day trial note aside, D125).
+    expect((await api().get('/api/v1/notifications').set(as(stranger))).body.data.items.filter((n) => n.source !== 'billing')).toEqual([]);
+    expect(strangerHears.every((events) => events.filter((event) => event?.source !== 'billing').length === 0)).toBe(true);
   }, 180000);
 });

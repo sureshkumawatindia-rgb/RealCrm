@@ -4,7 +4,7 @@ const AuditLog = require('../models/AuditLog');
 const Contact = require('../models/Contact');
 const CustomFieldDefinition = require('../models/CustomFieldDefinition');
 const { MAX_ACTIVE_FIELDS } = require('../constants/customFields');
-const { api, bearer, login, inviteAndJoin } = require('./helpers/api');
+const { api, bearer, loginWithApi: login, inviteAndJoin } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 1A (D73): a company's own fields on customers and leads.
 const as = (user) => ({

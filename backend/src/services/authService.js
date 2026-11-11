@@ -15,6 +15,7 @@ const planService = require('./planService');
 const loginAlertService = require('./loginAlertService');
 const workspaceService = require('./workspaceService');
 const { hiddenModulesOf } = require('./teamSettingsService');
+const { DEFAULT_CRM_TYPE } = require('../constants/crmTypes');
 const { DEFAULT_PREFERENCES } = require('../constants/preferences');
 
 function safeGoogleAuthMessage(error) {
@@ -223,7 +224,7 @@ async function switchOrganization(req, organizationId) {
 }
 
 async function me(req) {
-  const organization = await Organization.findById(req.tenant.organizationId).select('name logoUrl settings.hiddenModules settings.privacy.deviceCopies settings.privacy.lastErasureAt');
+  const organization = await Organization.findById(req.tenant.organizationId).select('name logoUrl crmType settings.hiddenModules settings.privacy.deviceCopies settings.privacy.lastErasureAt');
   return {
     user: userSummary(req.user),
     // hiddenModules (D76): every page leaves them out of the menu at once.
@@ -232,6 +233,7 @@ async function me(req) {
     organization: {
       id: organization?._id, name: organization?.name || '', logoUrl: organization?.logoUrl || '', hiddenModules: hiddenModulesOf(organization),
       deviceCopies: organization?.settings?.privacy?.deviceCopies !== false, copiesClearedAt: organization?.settings?.privacy?.lastErasureAt || null,
+      crmType: organization?.crmType || DEFAULT_CRM_TYPE, // every page speaks this kind of business's words
     },
     member: memberSummary(req.member),
     memberships: await describeMemberships(req.user._id),

@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
-const { PLAN_KEYS, TRIAL_PLAN, SUBSCRIPTION_STATUSES } = require('../constants/plans');
+const { PLAN_KEYS, TRIAL_PLAN, SUBSCRIPTION_STATUSES, BILLING_INTERVALS } = require('../constants/plans');
 const { codeFromName, uniqueCode } = require('../utils/workspaceCode');
 const { KIT_IDS } = require('../constants/businessKits');
+const { CRM_TYPE_IDS, DEFAULT_CRM_TYPE } = require('../constants/crmTypes');
 
 const organizationSchema = new mongoose.Schema(
   {
@@ -11,6 +12,7 @@ const organizationSchema = new mongoose.Schema(
     slug: { type: String, trim: true, lowercase: true },
     logoUrl: { type: String, default: '' },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    crmType: { type: String, enum: CRM_TYPE_IDS, default: DEFAULT_CRM_TYPE },
     industry: { type: String, trim: true },
     size: { type: String, trim: true },
     foundedYear: { type: Number },
@@ -27,7 +29,7 @@ const organizationSchema = new mongoose.Schema(
     description: { type: String, trim: true },
     // The SaaS plan (constants/plans.js) and where its subscription stands (Phase 10,
     // services/planService.js). No defaults on purpose: an organization from before billing has
-    // no status and counts as comped (D48); a new one starts a 30-day trial at sign-up.
+    // no status and counts as comped (D48); a new one starts a trial at sign-up (3 days since D125).
     plan: { type: String, enum: PLAN_KEYS, default: TRIAL_PLAN },
     subscription: {
       status: { type: String, enum: SUBSCRIPTION_STATUSES },
@@ -40,6 +42,7 @@ const organizationSchema = new mongoose.Schema(
       providerSubscriptionId: String,
       providerCustomerId: String,
       pendingPlan: { type: String, enum: PLAN_KEYS },
+      interval: { type: String, enum: BILLING_INTERVALS }, // monthly or yearly (D125), from the gateway's plan
       gatewayStatus: String, // the billing gateway's own word (created, authenticated, active …)
       checkoutUrl: String, // the gateway's payment page while the first payment is awaited
       remindedFor: String, // the last trial reminder sent ("7", "3", "1", "ended"), once each

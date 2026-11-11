@@ -1,7 +1,7 @@
 jest.mock('../integrations/google/idToken', () => require('./helpers/fakeGoogle'));
 
 const AuditLog = require('../models/AuditLog');
-const { api, bearer, login } = require('./helpers/api');
+const { api, bearer, loginWithApi: login } = require('./helpers/api'); // companies on Scale: the API needs it (D125)
 
 // Phase 1F (D78): the company's own objects and their records in the public API.
 const pub = (key) => ({

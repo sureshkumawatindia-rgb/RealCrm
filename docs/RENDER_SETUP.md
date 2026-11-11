@@ -67,9 +67,9 @@ Each address is shown in the CRM settings. Settings → WhatsApp and Settings �
 
 Meta opens its "Connect WhatsApp" window only on a domain registered in the platform's Meta app, so give the CRM its own domain before setting that up.
 
-1. Render → your service → **Settings** → **Custom Domains** → add `app.yourcompany.in`.
+1. Render → your service → **Settings** → **Custom Domains** → add `crm.agreem360.com` (all the steps, with Cloudflare: `docs/DOMAIN_SETUP.md`).
 2. Add the DNS record Render shows (a CNAME) at your domain seller. Render issues the HTTPS certificate itself.
-3. Change `PUBLIC_URL` to `https://app.yourcompany.in`, and add it in Google (step 3) and the webhooks (step 5).
+3. Change `PUBLIC_URL` to `https://crm.agreem360.com`, and add it in Google (step 3) and the webhooks (step 5).
 
 ## Step 7: switch on the optional features
 

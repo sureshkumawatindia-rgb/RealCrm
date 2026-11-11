@@ -37,16 +37,16 @@ describe('Plan entitlements and usage meters (Phase 3A)', () => {
     expect(seen).toMatchObject({ plan: { key: 'starter', name: 'Starter' }, status: 'active', locked: false });
     const features = Object.fromEntries(seen.features.map((f) => [f.key, f]));
     expect(features.paymentLinks).toMatchObject({ on: true, from: 'plan', needs: null, message: '' });
-    expect(features.api).toMatchObject({ on: false, from: null, needs: { key: 'growth', name: 'Growth' } });
-    expect(features.api.message).toBe('The public API and webhooks come with the Growth plan and above (you are on Starter). Upgrade in Settings → Plan & usage.');
+    expect(features.api).toMatchObject({ on: false, from: null, needs: { key: 'scale', name: 'Scale' } });
+    expect(features.api.message).toBe('The public API and webhooks come with the Scale plan and above (you are on Starter). Upgrade in Settings → Plan & usage.');
     expect(features.catalog.needs).toEqual({ key: 'pro', name: 'Pro' });
-    expect(Object.fromEntries(seen.limits.map((l) => [l.metric, l.limit]))).toMatchObject({ users: 8, contacts: 6000, templates: 100 });
+    expect(Object.fromEntries(seen.limits.map((l) => [l.metric, l.limit]))).toMatchObject({ users: 5, contacts: 5000, templates: 50 });
     expect(JSON.stringify(seen)).not.toMatch(/"used"/);
 
     // Another company sees its own plan only.
     const theirs = (await api().get('/api/v1/billing/entitlements').set(bearer(other.token))).body.data;
     expect(theirs.plan.key).toBe('growth');
-    expect(theirs.features.find((f) => f.key === 'api')).toMatchObject({ on: true, from: 'plan' });
+    expect(theirs.features.find((f) => f.key === 'advancedAutomation')).toMatchObject({ on: true, from: 'plan' }); // Growth: workflows, not the API (D125)
 
     // A locked company: nothing is on, and it says why.
     await Organization.updateOne({ _id: owner.data.organizationId }, { $set: { subscription: { status: 'trialing', trialEndsAt: new Date(Date.now() - DAY) } } });
@@ -59,7 +59,7 @@ describe('Plan entitlements and usage meters (Phase 3A)', () => {
     const owner = await login('grant-owner@example.com', { name: 'Bina' });
     const organizationId = owner.data.organizationId;
     await setPlan(organizationId, 'starter');
-    await templates(organizationId, 100);
+    await templates(organizationId, 50);
     await expect(planService.assertRoom(organizationId, 'templates')).rejects.toMatchObject({ code: 'PLAN_LIMIT' });
     const flow = () => api().post('/api/v1/workflows').set(bearer(owner.token)).send({ name: 'Flow', trigger: { type: 'lead.created' }, steps: [{ type: 'tag.add', params: { tag: 'new' } }] });
     expect((await flow()).body.code).toBe('PLAN_LIMIT');
@@ -74,16 +74,16 @@ describe('Plan entitlements and usage meters (Phase 3A)', () => {
     await planService.grant(organizationId, { key: 'advancedAutomation', days: 14, reason: 'Pilot' });
     await expect(planService.assertRoom(organizationId, 'templates', { adding: 5 })).resolves.toBeUndefined();
     await expect(planService.assertRoom(organizationId, 'templates', { adding: 6 })).rejects.toMatchObject({
-      message: 'The Starter plan with its 5 extra allows 105 message templates; you have room for 5 more (100 used), not 6. Upgrade in Settings → Plan & usage.',
+      message: 'The Starter plan with its 5 extra allows 55 message templates; you have room for 5 more (50 used), not 6. Upgrade in Settings → Plan & usage.',
     });
     expect((await flow()).status).toBe(201);
 
     const usage = await meters(owner.token);
-    expect(usage.templates).toMatchObject({ used: 100, limit: 105, left: 5, extra: 5, group: 'limit' });
+    expect(usage.templates).toMatchObject({ used: 50, limit: 55, left: 5, extra: 5, group: 'limit' });
     expect(new Date(usage.templates.until).getTime()).toBeGreaterThan(Date.now() + 29 * DAY);
     const seen = (await api().get('/api/v1/billing/entitlements').set(bearer(owner.token))).body.data;
     expect(seen.features.find((f) => f.key === 'advancedAutomation')).toMatchObject({ on: true, from: 'grant', needs: null });
-    expect(seen.limits.find((l) => l.metric === 'templates')).toMatchObject({ limit: 105, extra: 5 });
+    expect(seen.limits.find((l) => l.metric === 'templates')).toMatchObject({ limit: 55, extra: 5 });
 
     // The audit log has who, what and why.
     const granted = await AuditLog.find({ organizationId, action: 'entitlement.granted' }).sort({ createdAt: 1 });
@@ -93,7 +93,7 @@ describe('Plan entitlements and usage meters (Phase 3A)', () => {
     // When it ends, the plan's own number is back; ended grants stay as history.
     await Organization.updateOne({ _id: organizationId, 'entitlementGrants._id': extra._id }, { $set: { 'entitlementGrants.$.until': new Date(Date.now() - 1000) } });
     await expect(planService.assertRoom(organizationId, 'templates')).rejects.toMatchObject({ code: 'PLAN_LIMIT' });
-    expect((await meters(owner.token)).templates).toMatchObject({ limit: 100, extra: 0 });
+    expect((await meters(owner.token)).templates).toMatchObject({ limit: 50, extra: 0 });
     expect((await orgOf(owner)).entitlementGrants).toHaveLength(2);
 
     // Revoking the feature: refused again by the server, and audited.
@@ -112,6 +112,7 @@ describe('Plan entitlements and usage meters (Phase 3A)', () => {
   it('counts API calls at the same moment exactly, and shows every meter to managers only', async () => {
     const owner = await login('meter-owner@example.com', { name: 'Chitra' });
     const agent = await inviteAndJoin(owner.token, 'meter-agent@example.com', { role: 'agent' });
+    await setPlan(owner.data.organizationId, 'scale'); // the API comes with Scale and above (D125)
     const key = (await api().post('/api/v1/api-keys').set(bearer(owner.token)).send({ name: 'Zapier', scopes: ['contacts:read'] })).body.data.key;
     const calls = await Promise.all(Array.from({ length: 20 }, () => api().get('/api/public/v1/me').set('Authorization', `Bearer ${key}`)));
     expect(calls.every((call) => call.status === 200)).toBe(true);
@@ -172,41 +173,41 @@ describe('Plan entitlements and usage meters (Phase 3A)', () => {
     const agent = await inviteAndJoin(owner.token, 'alert-agent@example.com', { role: 'agent' });
     const organizationId = owner.data.organizationId;
     await setPlan(organizationId, 'starter');
-    await templates(organizationId, 80);
+    await templates(organizationId, 40);
 
     await usageService.run();
     let sent = await notes(organizationId);
     expect(sent.map((n) => n.title)).toEqual(['Message templates: 80% of your plan used', 'Message templates: 80% of your plan used']);
     expect(sent.map((n) => String(n.memberId)).sort()).toEqual([owner.data.member.id, admin.data.member.id].sort());
     expect(sent.some((n) => String(n.memberId) === agent.data.member.id)).toBe(false);
-    expect(sent[0]).toMatchObject({ link: 'Settings.html?tab=plan', body: '80 of 100 message templates on the Starter plan. See Settings → Plan & usage to upgrade.' });
+    expect(sent[0]).toMatchObject({ link: 'Settings.html?tab=plan', body: '40 of 50 message templates on the Starter plan. See Settings → Plan & usage to upgrade.' });
 
     await Promise.all([usageService.run(), usageService.run()]);
     expect(await notes(organizationId)).toHaveLength(2); // once per level
 
-    await templates(organizationId, 20, 80);
+    await templates(organizationId, 10, 40);
     await usageService.run();
     sent = await notes(organizationId);
     expect(sent).toHaveLength(4);
     expect(sent[3].title).toBe("Message templates: your plan's limit is reached");
-    expect(sent[3].body).toMatch(/^100 of 100 message templates on the Starter plan\. Adding more stops until you upgrade/);
+    expect(sent[3].body).toMatch(/^50 of 50 message templates on the Starter plan\. Adding more stops until you upgrade/);
 
     // Below 80% again, then back up: a new note.
-    await MessageTemplate.deleteMany({ organizationId, name: { $in: Array.from({ length: 30 }, (_, i) => `t_${i}`) } });
+    await MessageTemplate.deleteMany({ organizationId, name: { $in: Array.from({ length: 15 }, (_, i) => `t_${i}`) } });
     await usageService.run();
     expect((await orgOf(owner)).usageAlerts?.templates).toBeUndefined();
-    await templates(organizationId, 10, 200);
+    await templates(organizationId, 5, 200);
     await usageService.run();
     expect(await notes(organizationId)).toHaveLength(6);
 
     // A monthly meter alerts again in a new month (last month's 100% does not hold it back).
     const filler = (i) => ({ organizationId: new mongoose.Types.ObjectId(String(organizationId)), number: `F-${i}`, createdAt: new Date(), deletedAt: null });
-    await Quotation.collection.insertMany(Array.from({ length: 1700 }, (_, i) => filler(i)));
+    await Quotation.collection.insertMany(Array.from({ length: 850 }, (_, i) => filler(i)));
     await Organization.updateOne({ _id: organizationId }, { $set: { 'usageAlerts.quotesPerMonth': { level: 100, period: '2000-01' } } });
     await usageService.run();
     const quoteNotes = (await notes(organizationId)).filter((n) => /^Quotations this month/.test(n.title));
     expect(quoteNotes).toHaveLength(2);
-    expect(quoteNotes[0].body).toMatch(/^1,700 of 2,000 quotations a month on the Starter plan\. See Settings → Plan & usage to upgrade; the count starts again on 1 /);
+    expect(quoteNotes[0].body).toMatch(/^850 of 1,000 quotations a month on the Starter plan\. See Settings → Plan & usage to upgrade; the count starts again on 1 /);
     expect((await orgOf(owner)).usageAlerts.quotesPerMonth).toEqual({ level: 80, period: indiaDate(0).slice(0, 7) });
 
     // A locked company gets no usage notes (its banner says it).
@@ -236,8 +237,8 @@ describe('Plan entitlements and usage meters (Phase 3A)', () => {
     await setPlan(owner.data.organizationId, 'starter');
     const { items } = (await api().get('/api/v1/integrations/status').set(bearer(owner.token))).body.data;
     const byKind = Object.fromEntries(items.map((item) => [item.kind, item]));
-    expect(byKind.apiKeys.plan).toMatchObject({ feature: 'api', needs: { key: 'growth', name: 'Growth' } });
-    expect(byKind.webhooks.plan.needs.name).toBe('Growth');
+    expect(byKind.apiKeys.plan).toMatchObject({ feature: 'api', needs: { key: 'scale', name: 'Scale' } });
+    expect(byKind.webhooks.plan.needs.name).toBe('Scale');
     expect(byKind.metaCapi.plan.needs.name).toBe('Pro');
     expect(byKind.payments.plan).toBeNull();
     expect(byKind.whatsapp.plan).toBeNull();
