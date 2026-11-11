@@ -29,6 +29,42 @@ page or the login page is shared needs a full address, so `index.html` and `logi
 
 ---
 
+## The quick route: the DNS stays at GoDaddy (chosen 2026-11-11)
+
+agreem360.com's DNS is at GoDaddy (nameservers `ns49/ns50.domaincontrol.com`). For the launch it
+stays there: no nameserver change and no waiting. So **skip step 2 and step 5** (they are the
+Cloudflare route, for later), and do steps 1, 3, 4, 6 and 7 with these changes:
+
+**G1. The `crm` record (in place of step 3.3).** GoDaddy → **My Products** → `agreem360.com` →
+**DNS** → **Add New Record**:
+- Type: **CNAME**
+- Name: `crm`
+- Value: the address Render shows in step 3.2 (like `yellow-crm.onrender.com`; no `https://`,
+  no `/`)
+- TTL: leave the default → **Save**
+
+Do not delete or change GoDaddy's other records (`@`, `www`, MX, `_domainconnect`).
+
+**G2. Send agreem360.com to the CRM (in place of step 5).** GoDaddy → `agreem360.com` → **DNS** →
+**Forwarding** → **Add Forwarding** for the domain:
+- Forward to: `https://` and `crm.agreem360.com`
+- Redirect type: **Permanent (301)**
+- **Forward only** (never "Forward with masking": it hides the CRM in a frame, and the CRM
+  refuses frames)
+- **Save.** GoDaddy sets the `@` records itself; leave them as it sets them. `www` points at `@`
+  by default, so it follows.
+
+GoDaddy sends every page to the CRM's home page (it does not keep the page asked for), which is
+fine for now. If `https://agreem360.com` (with the "s") shows a certificate warning, GoDaddy's
+forwarding has no certificate for it; moving the DNS to Cloudflare later (steps 2 and 5) fixes
+that. Nobody pastes the root address anywhere, so this can wait.
+
+**G3. Email records (step 7).** Add Resend's records in GoDaddy's DNS the same way. GoDaddy adds
+`.agreem360.com` to the name itself: for a record Resend shows as `send.mail.agreem360.com`, type
+`send.mail` as the Name.
+
+---
+
 ## Step 1: the domain's own settings (5 minutes)
 
 agreem360.com is already bought. In the domain seller's account, check:
@@ -37,12 +73,15 @@ agreem360.com is already bought. In the domain seller's account, check:
 - **Domain lock / Transfer lock: ON**
 - **Privacy protection: ON** (usually free)
 - **2-step login (2FA): ON** for the seller account itself
-- **DNSSEC: OFF** for now (step 2 moves the DNS, and DNSSEC would block it)
+- **DNSSEC: OFF** for now (only matters for the Cloudflare route: step 2 moves the DNS, and
+  DNSSEC would block it)
 
 Do not buy the extras the seller offers (hosting, email, SSL certificate, website builder).
 Render and Cloudflare give HTTPS free. Email comes from Resend, and Zoho or Google later.
 
-## Step 2: move the DNS to Cloudflare (free, 10 minutes + waiting)
+## Step 2 (Cloudflare route, later): move the DNS to Cloudflare (free, 10 minutes + waiting)
+
+Skip this step while the DNS stays at GoDaddy (the quick route above).
 
 One place for all records, free HTTPS redirects, and the R2 account is already there.
 
@@ -64,7 +103,8 @@ onrender.com address). Then:
 1. Render → service **yellow-crm** → **Settings** → **Custom Domains** → **Add** →
    `crm.agreem360.com`.
 2. Render shows a **CNAME** record (name `crm`, value like `yellow-crm.onrender.com`).
-3. Cloudflare → `agreem360.com` → **DNS** → **Records** → **Add record**:
+3. With the DNS at GoDaddy: add the record as in **G1** above. On the Cloudflare route instead:
+   Cloudflare → `agreem360.com` → **DNS** → **Records** → **Add record**:
    - Type: **CNAME**
    - Name: `crm`
    - Target: exactly what Render showed
@@ -96,7 +136,9 @@ Google Cloud Console → **APIs & Services → Credentials** → the OAuth clien
 
 Keep the old onrender.com entries until everything works. They do no harm.
 
-## Step 5: send agreem360.com and www to the CRM (10 minutes)
+## Step 5 (Cloudflare route, later): send agreem360.com and www to the CRM (10 minutes)
+
+While the DNS stays at GoDaddy, do **G2** above instead.
 
 Cloudflare → `agreem360.com` → **DNS → Records**, add two records:
 
@@ -135,18 +177,18 @@ Every address below is also shown inside the CRM on the new domain.
 | Meta: Connect WhatsApp webhook | `https://crm.agreem360.com/api/v1/webhooks/meta` | `WHATSAPP_SETUP.md` A3 |
 | Meta: App domains / JavaScript SDK domains | `crm.agreem360.com` / `https://crm.agreem360.com/` | `WHATSAPP_SETUP.md` A3 |
 | Meta: Privacy, Terms, data deletion | `https://crm.agreem360.com/crm/frontend/privacy.html`, `…/terms.html`, `…/privacy.html#data-deletion` | `WHATSAPP_SETUP.md` A3 |
-| Meta: domain verification | Business settings → Brand safety → **Domains** → `agreem360.com` → add the **TXT** record Meta shows in Cloudflare | `WHATSAPP_SETUP.md` A2 |
+| Meta: domain verification | Business settings → Brand safety → **Domains** → `agreem360.com` → add the **TXT** record Meta shows in the DNS (GoDaddy, or Cloudflare later) | `WHATSAPP_SETUP.md` A2 |
 | Razorpay: website for the account's check | `https://crm.agreem360.com` (the home page links Terms, Privacy, Refund, Delivery and Contact) | `BILLING_SETUP.md` §2 |
 | Razorpay plan billing webhook | `https://crm.agreem360.com/api/v1/webhooks/billing/razorpay` | `BILLING_SETUP.md` §3 |
 | Lead sources (IndiaMART push, Facebook, Google Ads, JustDial, TradeIndia) | Settings → Lead sources shows each | `RENDER_SETUP.md` step 5 |
 | Each company's Razorpay or Cashfree | Settings → Payments shows it | `PAYMENTS_SETUP.md` |
 | Web push | Render → Environment: `VAPID_SUBJECT=https://crm.agreem360.com` | `RENDER_SETUP.md` step 7 |
-| Google Search Console (optional) | Add the domain `agreem360.com` (TXT record in Cloudflare), then submit `https://crm.agreem360.com/sitemap.xml` | — |
+| Google Search Console (optional) | Add the domain `agreem360.com` (a TXT record in the DNS), then submit `https://crm.agreem360.com/sitemap.xml` | — |
 
 ## Step 7: email on the domain
 
 **Emails the CRM sends (invites, trials, invoices):** follow `docs/EMAIL_SETUP.md` with
-`mail.agreem360.com`. Add Resend's TXT and MX records in Cloudflare. If there is a CNAME, set it
+`mail.agreem360.com`. Add Resend's TXT and MX records in the DNS (GoDaddy: see G3). On Cloudflare, set any CNAME
 to **DNS only**. Then add the DMARC record (`_dmarc.mail.agreem360.com`). On Render:
 
 ```
@@ -157,7 +199,7 @@ EMAIL_FROM=AgreemCRM <hello@mail.agreem360.com>
 
 **An inbox for people (support@, billing@, sales@):** Zoho Mail (it has a free plan for a few
 users) or Google Workspace. Follow their "add domain" steps and add their MX, SPF and DKIM records
-in Cloudflare on `agreem360.com`. This does not clash with Resend, because Resend uses
+in the DNS of `agreem360.com`. This does not clash with Resend, because Resend uses
 `mail.agreem360.com`. `BILLING_SELLER_EMAIL=billing@agreem360.com` needs this inbox to receive
 mail; the support email in **Platform admin → Support** can be `support@agreem360.com`.
 
@@ -175,7 +217,8 @@ Staging tells search engines to stay away by itself (`robots.txt` says `Disallow
 | Symptom | Fix |
 |---|---|
 | Cloudflare still says "Pending" after a day | The nameservers at the seller are not exactly Cloudflare's two, or DNSSEC is still on at the seller. |
-| Render keeps "Verifying" / no certificate | The `crm` CNAME is **Proxied (orange)**. Set it to **DNS only (grey)**, then press Verify again. |
+| Render keeps "Verifying" / no certificate | GoDaddy: the `crm` record's value has `https://` or a `/` in it, or the record is only minutes old (wait up to an hour, press Verify again). Cloudflare: the `crm` CNAME is **Proxied (orange)**; set it to **DNS only (grey)**, then press Verify again. |
+| `agreem360.com` opens the CRM inside a frame, or a blank page | GoDaddy's forwarding is set to "with masking". Change it to **Forward only** (G2). |
 | "Too many redirects" | A Redirect Rule catches `crm.agreem360.com`. Use the hostname filter from step 5. |
 | Google says `origin_mismatch` | Step 4: the origin is missing or has a `/` at the end. |
 | WhatsApp messages stop arriving | Meta's callback still points at the old onrender.com address (step 6). |
