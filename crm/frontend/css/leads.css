@@ -137,7 +137,7 @@
 .nav-bar-kanban-card button.active {
   background: var(--brand-light);
   color: var(--brand-darker);
-  border-color: rgba(217, 163, 0, 0.2);
+  border-color: var(--brand-ring);
 }
 
 .deals-layout {

@@ -1,6 +1,6 @@
 /* ============================================================
    All in One CRM — Design tokens
-   White + Yellow theme — "Smooth" pass
+   White + Blue theme (Gmail's Compose and Send blues) — "Smooth" pass
    Signature: soft, layered elevation shadows, gentle rounded
    corners, calm neutral grays, and fluid Apple-style easing.
    No hard offsets, no ink-black borders, no pure black anywhere.
@@ -9,15 +9,17 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap");
 
 :root {
-  --brand: #ffde59;
-  --brand-dark: #ffc700;
-  --brand-darker: #d9a300;
-  --brand-light: #fffaea;
-  --brand-ring: rgba(255, 199, 0, 0.28);
+  --brand: #0b57d0; /* Gmail's Send button: buttons, avatars, progress */
+  --brand-dark: #0a4cb8; /* hover, borders, focus */
+  --brand-darker: #0842a0; /* blue text, links and icons */
+  --brand-light: #e9f0fd; /* soft blue: hover rows, table heads, banners */
+  --brand-ring: rgba(11, 87, 208, 0.24);
+  --brand-tonal: #c2e7ff; /* Gmail's Compose button: what is selected (menu, tabs) */
+  --on-brand-tonal: #001d35;
 
   /* soft, warm charcoal instead of ink-black */
   --ink: #2c2c2e;
-  --bg: #fbfbfd;
+  --bg: #f6f8fc; /* Gmail's soft blue-white */
   --surface: #ffffff;
   --border: rgba(60, 60, 67, 0.13);
   --border-soft: #f0f0f2;
@@ -35,8 +37,8 @@
   --danger-bg: #ffeceb;
   --badge-danger: #ff453a; /* red count badges with white digits */
   --danger-text: #c42b21; /* red text on white that is easy to read (--danger is for fills) */
-  --info: #4a6cf7;
-  --info-bg: #eef1ff;
+  --info: #0b6f7a; /* teal, so "info" and "new" stay apart from the blue brand */
+  --info-bg: #e0f4f5;
 
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -63,7 +65,7 @@
 
   /* CP5: colours that used to be written in the pages, so the dark theme can change them */
   color-scheme: light;
-  --on-brand: #1d1d1f; /* text on the yellow: dark in both themes */
+  --on-brand: #ffffff; /* text on the blue */
   --panel-2: #f3f4f6;
   --success-text: #15803d; /* 5:1 on white (was #1a9e4b, 3.5:1) */
   --warning-text: #8a5300;
@@ -75,17 +77,17 @@
   --wa-hover: #1ebe5a;
   --wa-soft: #e7f9ee;
   --wa-soft-border: #d6efdf;
-  --highlight: rgba(255, 222, 89, 0.6);
+  --highlight: rgba(168, 199, 250, 0.6);
   --tint: rgba(0, 0, 0, 0.05);
   --glass: rgba(251, 251, 253, 0.82);
   --glass-surface: rgba(255, 255, 255, 0.9);
   --overlay: rgba(29, 29, 31, 0.32);
   --ink-fill: #2b2b2e;
   --on-ink: #ffffff;
-  --chat-bg: #efeae2;
+  --chat-bg: #eef2f8; /* soft blue-grey chat wallpaper (was WhatsApp beige) */
   --bubble-in: #ffffff;
   --bubble-out: #d9fdd3;
-  --note-bg: #fff8d6;
+  --note-bg: #e8f0fe;
 }
 
 /* The dark theme (CP5): "System" on a dark phone or computer, or "Dark" chosen (app.js
@@ -93,9 +95,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --brand-darker: #ffd23f; /* yellow text and links on dark */
-    --brand-light: rgba(255, 222, 89, 0.12);
-    --brand-ring: rgba(255, 199, 0, 0.35);
+    --brand: #a8c7fa; /* Gmail's blue for dark screens */
+    --brand-dark: #7cacf8;
+    --brand-darker: #8ab4f8; /* blue text and links on dark */
+    --brand-light: rgba(168, 199, 250, 0.12);
+    --brand-ring: rgba(168, 199, 250, 0.35);
+    --on-brand: #062e6f;
+    --brand-tonal: #004a77;
+    --on-brand-tonal: #c2e7ff;
     --ink: #ececf1;
     --bg: #0f1115;
     --surface: #181b20;
@@ -117,13 +124,13 @@
     --danger-bg: rgba(255, 69, 58, 0.16);
     --danger-soft: rgba(255, 69, 58, 0.14);
     --danger-text: #ff8a80;
-    --info: #7b93ff;
-    --info-bg: rgba(74, 108, 247, 0.2);
+    --info: #5ccfd9;
+    --info-bg: rgba(11, 111, 122, 0.28);
     --violet: #c4b5fd;
     --violet-bg: rgba(124, 58, 237, 0.22);
     --wa-soft: rgba(37, 211, 102, 0.1);
     --wa-soft-border: rgba(37, 211, 102, 0.28);
-    --highlight: rgba(255, 222, 89, 0.28);
+    --highlight: rgba(168, 199, 250, 0.28);
     --tint: rgba(255, 255, 255, 0.06);
     --glass: rgba(15, 17, 21, 0.82);
     --glass-surface: rgba(24, 27, 32, 0.92);
@@ -134,7 +141,7 @@
     --chat-bg: #0b141a;
     --bubble-in: #202c33;
     --bubble-out: #005c4b;
-  --note-bg: rgba(255, 222, 89, 0.1);
+  --note-bg: rgba(168, 199, 250, 0.1);
     --pop-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
     --pop-3: 0 2px 6px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);
     --pop-4: 0 3px 10px rgba(0, 0, 0, 0.45), 0 10px 24px rgba(0, 0, 0, 0.4);
@@ -146,9 +153,14 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand-darker: #ffd23f; /* yellow text and links on dark */
-  --brand-light: rgba(255, 222, 89, 0.12);
-  --brand-ring: rgba(255, 199, 0, 0.35);
+  --brand: #a8c7fa; /* Gmail's blue for dark screens */
+  --brand-dark: #7cacf8;
+  --brand-darker: #8ab4f8; /* blue text and links on dark */
+  --brand-light: rgba(168, 199, 250, 0.12);
+  --brand-ring: rgba(168, 199, 250, 0.35);
+  --on-brand: #062e6f;
+  --brand-tonal: #004a77;
+  --on-brand-tonal: #c2e7ff;
   --ink: #ececf1;
   --bg: #0f1115;
   --surface: #181b20;
@@ -170,13 +182,13 @@
   --danger-bg: rgba(255, 69, 58, 0.16);
   --danger-soft: rgba(255, 69, 58, 0.14);
   --danger-text: #ff8a80;
-  --info: #7b93ff;
-  --info-bg: rgba(74, 108, 247, 0.2);
+  --info: #5ccfd9;
+  --info-bg: rgba(11, 111, 122, 0.28);
   --violet: #c4b5fd;
   --violet-bg: rgba(124, 58, 237, 0.22);
   --wa-soft: rgba(37, 211, 102, 0.1);
   --wa-soft-border: rgba(37, 211, 102, 0.28);
-  --highlight: rgba(255, 222, 89, 0.28);
+  --highlight: rgba(168, 199, 250, 0.28);
   --tint: rgba(255, 255, 255, 0.06);
   --glass: rgba(15, 17, 21, 0.82);
   --glass-surface: rgba(24, 27, 32, 0.92);
@@ -187,7 +199,7 @@
   --chat-bg: #0b141a;
   --bubble-in: #202c33;
   --bubble-out: #005c4b;
-  --note-bg: rgba(255, 222, 89, 0.1);
+  --note-bg: rgba(168, 199, 250, 0.1);
   --pop-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
   --pop-3: 0 2px 6px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);
   --pop-4: 0 3px 10px rgba(0, 0, 0, 0.45), 0 10px 24px rgba(0, 0, 0, 0.4);
@@ -275,8 +287,8 @@ button {
   padding: 56px clamp(32px, 6vw, 88px);
   background:
     radial-gradient(520px 300px at 0% 0%, rgba(255, 255, 255, 0.55), transparent),
-    linear-gradient(160deg, var(--brand) 0%, #ffd23f 55%, var(--brand-dark) 100%);
-  color: #1f1a05;
+    linear-gradient(160deg, #c2e7ff 0%, #d3e3fd 55%, #a8c7fa 100%);
+  color: #001d35;
 }
 .auth-brand {
   display: flex;
@@ -302,7 +314,7 @@ button {
   font-size: 15.5px;
   line-height: 1.55;
   max-width: 500px;
-  color: rgba(31, 26, 5, 0.78);
+  color: rgba(0, 29, 53, 0.78);
 }
 /* A drawn inbox (no names or messages: an illustration, not data) */
 .auth-illustration {
@@ -315,14 +327,14 @@ button {
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 24px 50px rgba(80, 60, 0, 0.22);
+  box-shadow: 0 24px 50px rgba(8, 40, 90, 0.22);
 }
 .ai-list {
   display: grid;
   align-content: start;
   gap: 4px;
   padding: 12px 10px;
-  border-right: 1px solid #f0ead2;
+  border-right: 1px solid #e1e8f3;
 }
 .ai-row {
   display: flex;
@@ -332,19 +344,19 @@ button {
   border-radius: 10px;
 }
 .ai-row.active {
-  background: #fff7d1;
+  background: #d3e3fd;
 }
 .ai-row i {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #e9e4cf;
+  background: #dbe3ef;
   flex-shrink: 0;
 }
 .ai-row b {
   height: 8px;
   border-radius: 4px;
-  background: #ece7d5;
+  background: #e3e9f2;
   flex: 1;
 }
 .ai-chat {
@@ -352,7 +364,7 @@ button {
   flex-direction: column;
   gap: 10px;
   padding: 16px;
-  background: #f7f3e6;
+  background: #f1f5fb;
 }
 .ai-bubble {
   height: 22px;
@@ -363,7 +375,7 @@ button {
 }
 .ai-bubble.out {
   align-self: flex-end;
-  background: #d9fdd3; /* a drawing on the yellow panel: the same in both themes */
+  background: #d9fdd3; /* a drawing on the blue panel: the same in both themes */
 }
 .ai-bubble.short {
   width: 34%;
@@ -603,7 +615,7 @@ button {
   opacity: 0.38;
 }
 /* "New to AgreemCRM? Create your company" / "Already on AgreemCRM? Log in to your company":
-   a soft box with the switch as a yellow pill and an arrow (the text comes from js/login.js). */
+   a soft box with the switch as a blue pill and an arrow (the text comes from js/login.js). */
 .login-signup {
   flex-wrap: wrap;
   gap: 8px 10px;
@@ -623,7 +635,7 @@ button {
   border: 1px solid var(--brand-dark);
   border-radius: var(--radius-pill);
   background: var(--brand);
-  color: #2c2c2e; /* dark text on yellow, in both themes */
+  color: var(--on-brand);
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
@@ -642,7 +654,7 @@ button {
 }
 .login-signup .login-link:hover {
   background: var(--brand-dark);
-  box-shadow: 0 4px 12px rgba(255, 199, 0, 0.35);
+  box-shadow: 0 4px 12px var(--brand-ring);
 }
 .login-signup .login-link:hover::after {
   transform: translateX(3px);
@@ -1366,8 +1378,8 @@ button {
   transform: translateX(1px);
 }
 .nav-item.active {
-  background: var(--brand);
-  color: var(--on-brand);
+  background: var(--brand-tonal);
+  color: var(--on-brand-tonal);
   font-weight: 700;
   box-shadow: var(--pop-2);
 }
@@ -2255,12 +2267,12 @@ tbody tr:hover {
 }
 .role-card:has(input:checked) {
   border-color: transparent;
-  background: var(--brand);
+  background: var(--brand-tonal);
   box-shadow: var(--pop-2);
 }
 .role-card:has(input:checked) i,
 .role-card:has(input:checked) span {
-  color: var(--on-brand);
+  color: var(--on-brand-tonal);
 }
 
 /* Module access grid */
@@ -2996,7 +3008,7 @@ html.i18n-pending body {
   padding: 10px 28px;
   font-size: 13px;
   background: var(--brand-light);
-  border-bottom: 1px solid rgba(255, 199, 0, 0.35);
+  border-bottom: 1px solid var(--brand-ring);
   color: var(--text);
 }
 .plan-banner.locked {
@@ -3086,7 +3098,7 @@ html.i18n-pending body {
   z-index: 210;
   width: min(460px, calc(100vw - 32px));
   background: var(--surface);
-  border: 1px solid rgba(255, 199, 0, 0.55);
+  border: 1px solid var(--brand-ring);
   border-radius: var(--radius-md);
   box-shadow: var(--pop-4, var(--pop-3));
   padding: 14px 16px;
@@ -3233,8 +3245,8 @@ html.i18n-pending body {
   cursor: pointer;
 }
 .plan-interval-btn.is-active {
-  background: var(--brand);
-  color: var(--on-brand);
+  background: var(--brand-tonal);
+  color: var(--on-brand-tonal);
   font-weight: 600;
 }
 .plan-grid {
@@ -4858,9 +4870,9 @@ a.c360-list-item.c360-record:hover .c360-list-title {
   cursor: pointer;
 }
 .c360-hist-filters .chip.active {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: var(--on-brand);
+  background: var(--brand-tonal);
+  border-color: var(--brand-tonal);
+  color: var(--on-brand-tonal);
 }
 .c360-hist-text {
   font-size: 13px;

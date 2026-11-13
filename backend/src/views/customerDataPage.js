@@ -9,7 +9,7 @@ const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&
 const link = (url) => (/^https?:\/\//i.test(String(url || '')) ? `<a href="${esc(url)}" rel="noopener noreferrer">${esc(url)}</a>` : esc(url));
 
 const CSS = `
-  :root { color-scheme: light; --text: #1d1d1f; --muted: #5f5f66; --line: #e3e3e8; --soft: #f6f6f8; --accent: #8a6500; --in: #ffffff; --out: #fff6d6; }
+  :root { color-scheme: light; --text: #1d1d1f; --muted: #5f5f66; --line: #e3e3e8; --soft: #f6f6f8; --accent: #0842a0; --in: #ffffff; --out: #e8f0fe; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--soft); color: var(--text); font: 15px/1.55 -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", "Nirmala UI", Mangal, Arial, sans-serif; }
   main { max-width: 860px; margin: 0 auto; padding: 24px 16px 40px; }

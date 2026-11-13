@@ -1,18 +1,19 @@
 /* ============================================================
    The public home page (index.html, CP4). Its own small stylesheet,
-   so the page loads fast: the login page's look (yellow, soft
+   so the page loads fast: the login page's look (Gmail blue, soft
    shadows, Inter) without the app's style.css or Font Awesome.
    ============================================================ */
 :root {
-  --brand: #ffde59;
-  --brand-dark: #ffc700;
-  --brand-light: #fffaea;
-  --brand-ring: rgba(255, 199, 0, 0.35);
+  --brand: #0b57d0; /* Gmail's Send blue */
+  --brand-dark: #0842a0;
+  --brand-light: #e9f0fd;
+  --brand-ring: rgba(11, 87, 208, 0.3);
+  --brand-tonal: #c2e7ff; /* Gmail's Compose blue */
   --ink: #1d1d1f;
-  --ink-warm: #1f1a05;
+  --ink-navy: #001d35; /* text on the light blue */
   --muted: #6e6e73;
   --faint: #a1a1a6;
-  --bg: #fbfbfd;
+  --bg: #f6f8fc;
   --surface: #ffffff;
   --border: rgba(60, 60, 67, 0.13);
   --border-soft: #f0f0f2;
@@ -155,8 +156,8 @@ html.i18n-pending body {
 }
 .lp-btn-brand {
   background: var(--brand);
-  color: var(--ink-warm);
-  box-shadow: 0 6px 16px rgba(217, 163, 0, 0.25);
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(11, 87, 208, 0.25);
 }
 .lp-btn-lg {
   min-height: 52px;
@@ -290,8 +291,8 @@ html.i18n-pending body {
   padding: 72px 0 96px;
   background:
     radial-gradient(620px 360px at 0% 0%, rgba(255, 255, 255, 0.55), transparent),
-    linear-gradient(160deg, var(--brand) 0%, #ffd23f 55%, var(--brand-dark) 100%);
-  color: var(--ink-warm);
+    linear-gradient(160deg, #c2e7ff 0%, #d3e3fd 55%, #a8c7fa 100%);
+  color: var(--ink-navy);
 }
 .lp-hero-grid {
   display: grid;
@@ -317,7 +318,7 @@ html.i18n-pending body {
   margin: 20px 0 0;
   max-width: 540px;
   font-size: clamp(16px, 1.5vw, 18.5px);
-  color: rgba(31, 26, 5, 0.8);
+  color: rgba(0, 29, 53, 0.8);
 }
 .lp-cta {
   display: flex;
@@ -328,7 +329,7 @@ html.i18n-pending body {
 .lp-note {
   margin: 16px 0 0;
   font-size: 14px;
-  color: rgba(31, 26, 5, 0.72);
+  color: rgba(0, 29, 53, 0.72);
 }
 .lp-hero-shots {
   position: relative;
@@ -340,7 +341,7 @@ html.i18n-pending body {
   overflow: hidden;
   border-radius: 14px;
   background: #fff;
-  box-shadow: 0 24px 60px rgba(80, 60, 0, 0.25);
+  box-shadow: 0 24px 60px rgba(8, 40, 90, 0.25);
 }
 .lp-frame-bar {
   display: flex;
@@ -393,7 +394,7 @@ html.i18n-pending body {
   padding: 8px;
   border-radius: 11px;
   background: var(--brand-light);
-  color: #b38600;
+  color: var(--brand);
 }
 
 /* --- sections --- */
@@ -433,8 +434,8 @@ html.i18n-pending body {
   width: 46px;
   height: 46px;
   border-radius: 14px;
-  background: linear-gradient(160deg, var(--brand), var(--brand-dark));
-  color: var(--ink-warm);
+  background: linear-gradient(160deg, var(--brand-tonal), #a8c7fa);
+  color: var(--ink-navy);
 }
 .lp-card-icon .lp-ico {
   width: 22px;
@@ -499,7 +500,7 @@ html.i18n-pending body {
 
 /* screens */
 .lp-screens {
-  background: linear-gradient(180deg, var(--bg), #fff8dc 55%, var(--bg));
+  background: linear-gradient(180deg, var(--bg), #eaf1fb 55%, var(--bg));
 }
 .lp-gallery {
   display: grid;
@@ -607,7 +608,7 @@ html.i18n-pending body {
   padding: 3px 10px;
   border-radius: 999px;
   background: var(--brand);
-  color: var(--ink-warm);
+  color: #ffffff;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -667,7 +668,7 @@ html.i18n-pending body {
   padding: 28px;
   border-radius: var(--radius-lg);
   background: var(--brand-light);
-  border: 1px solid #f6e7a6;
+  border: 1px solid #c9dcf7;
 }
 .lp-included h3 {
   margin: 0 0 14px;
@@ -738,8 +739,8 @@ html.i18n-pending body {
   border-radius: 28px;
   background:
     radial-gradient(420px 220px at 0% 0%, rgba(255, 255, 255, 0.5), transparent),
-    linear-gradient(160deg, var(--brand) 0%, #ffd23f 55%, var(--brand-dark) 100%);
-  color: var(--ink-warm);
+    linear-gradient(160deg, #c2e7ff 0%, #d3e3fd 55%, #a8c7fa 100%);
+  color: var(--ink-navy);
 }
 .lp-final-box h2 {
   margin: 0;
@@ -748,7 +749,7 @@ html.i18n-pending body {
 }
 .lp-final-box p {
   margin: 8px 0 0;
-  color: rgba(31, 26, 5, 0.78);
+  color: rgba(0, 29, 53, 0.78);
 }
 .lp-final-box .lp-cta {
   margin-top: 0;

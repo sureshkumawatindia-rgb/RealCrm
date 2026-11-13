@@ -127,13 +127,13 @@
   color: var(--text-muted);
 }
 .inbox-tab.active {
-  background: var(--brand);
-  border-color: var(--brand-dark);
-  color: var(--on-brand);
+  background: var(--brand-tonal);
+  border-color: var(--brand-tonal);
+  color: var(--on-brand-tonal);
 }
 .inbox-tab.active .count {
-  background: rgba(255, 255, 255, 0.6);
-  color: var(--on-brand);
+  background: var(--surface);
+  color: var(--on-brand-tonal);
 }
 .inbox-list-body {
   flex: 1;
@@ -1543,7 +1543,7 @@ a.ctx-link:hover {
 .ai-suggest {
   margin: 0 12px 8px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 199, 0, 0.45);
+  border: 1px solid var(--brand-ring);
   border-radius: var(--radius-sm);
   background: var(--brand-light);
   display: grid;

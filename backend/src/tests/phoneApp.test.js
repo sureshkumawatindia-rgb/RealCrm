@@ -91,7 +91,7 @@ describe('The phone app\'s files (D119)', () => {
     const en = read('manifest.webmanifest');
     const hi = read('manifest-hi.webmanifest');
     for (const manifest of [en, hi]) {
-      expect(manifest).toMatchObject({ id: '/crm/frontend/', start_url: 'Inbox.html', scope: './', display: 'standalone', theme_color: '#ffde59' });
+      expect(manifest).toMatchObject({ id: '/crm/frontend/', start_url: 'Inbox.html', scope: './', display: 'standalone', theme_color: '#0b57d0' });
       expect(manifest.icons.map((icon) => `${icon.sizes} ${icon.purpose}`)).toEqual(['192x192 any', '512x512 any', '192x192 maskable', '512x512 maskable']);
       manifest.icons.forEach((icon) => expect(fs.existsSync(path.join(FRONTEND, icon.src))).toBe(true));
       expect(manifest.shortcuts).toHaveLength(4);

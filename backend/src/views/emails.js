@@ -214,11 +214,11 @@ function html(language, { subject, heading, paragraphs, button, note }, footer) 
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(paragraphs[0] || '')}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden">
-<tr><td style="background:#ffde59;padding:14px 24px;font-size:16px;font-weight:800;letter-spacing:0.5px;color:#1d1d1f">${BRAND}</td></tr>
+<tr><td style="background:#0b57d0;padding:14px 24px;font-size:16px;font-weight:800;letter-spacing:0.5px;color:#ffffff">${BRAND}</td></tr>
 <tr><td style="padding:28px 24px 12px">
 <h1 style="margin:0 0 14px;font-size:20px;line-height:1.35">${escapeHtml(heading)}</h1>
 ${paragraphs.map((text) => p(text)).join('\n')}
-${button ? `<p style="margin:22px 0 10px"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 22px;border-radius:999px">${escapeHtml(button.label)}</a></p>
+${button ? `<p style="margin:22px 0 10px"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:#0b57d0;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 22px;border-radius:999px">${escapeHtml(button.label)}</a></p>
 ${p(`${fallback} ${button.url}`, 'margin:0 0 12px;font-size:12px;line-height:1.5;color:#6e6e73;word-break:break-all')}` : ''}
 ${note ? p(note, 'margin:16px 0 0;font-size:13px;line-height:1.5;color:#6e6e73') : ''}
 </td></tr>

@@ -632,9 +632,9 @@
   color: var(--brand-darker);
 }
 .nav-bar-kanban-card button.active {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: var(--on-brand);
+  background: var(--brand-tonal);
+  border-color: var(--brand-tonal);
+  color: var(--on-brand-tonal);
 }
 /* Pipelines (D84): the picker, the cards' next step and flags, Won / Lost drop zones, history */
 .pipe-picker {

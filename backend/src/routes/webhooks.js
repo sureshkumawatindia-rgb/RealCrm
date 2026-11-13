@@ -162,7 +162,7 @@ function testPayPage(link, note = '') {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Test payment</title>
     <style>body{font-family:system-ui,sans-serif;background:#f5f6f8;margin:0;display:grid;place-items:center;min-height:100vh}
     main{background:#fff;border-radius:12px;padding:28px;max-width:360px;width:calc(100% - 32px);box-shadow:0 4px 20px rgba(0,0,0,.08);text-align:center}
-    h1{margin:8px 0;font-size:32px}.muted{color:#777;font-size:13px;margin:0}.note{background:#fff7d6;border-radius:8px;padding:8px}
+    h1{margin:8px 0;font-size:32px}.muted{color:#777;font-size:13px;margin:0}.note{background:#e8f0fe;border-radius:8px;padding:8px}
     input{display:block;width:100%;box-sizing:border-box;margin:6px 0 12px;padding:10px;font-size:16px;border:1px solid #ccc;border-radius:8px}
     button{width:100%;padding:12px;font-size:16px;border:0;border-radius:8px;background:#1a7f37;color:#fff;cursor:pointer}</style></head>
     <body><main>${body}</main></body></html>`;
@@ -209,7 +209,7 @@ function testBillingPage(sub, note = '') {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Test subscription</title>
     <style>body{font-family:system-ui,sans-serif;background:#f5f6f8;margin:0;display:grid;place-items:center;min-height:100vh}
     main{background:#fff;border-radius:12px;padding:28px;max-width:380px;width:calc(100% - 32px);box-shadow:0 4px 20px rgba(0,0,0,.08);text-align:center}
-    h1{margin:8px 0;font-size:32px}h1 small{font-size:14px;color:#777}.muted{color:#777;font-size:13px}.note{background:#fff7d6;border-radius:8px;padding:8px}
+    h1{margin:8px 0;font-size:32px}h1 small{font-size:14px;color:#777}.muted{color:#777;font-size:13px}.note{background:#e8f0fe;border-radius:8px;padding:8px}
     form{margin:8px 0}button{width:100%;padding:12px;font-size:16px;border:0;border-radius:8px;background:#1a7f37;color:#fff;cursor:pointer}
     button.secondary{background:#fff;color:#b42318;border:1px solid #f1b8b2}</style></head>
     <body><main>${body}</main></body></html>`;

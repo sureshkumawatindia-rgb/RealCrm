@@ -21,12 +21,12 @@
   margin-left: 4px;
 }
 .o-tab.active {
-  background: var(--brand);
-  border-color: var(--brand-dark);
-  color: var(--on-brand);
+  background: var(--brand-tonal);
+  border-color: var(--brand-tonal);
+  color: var(--on-brand-tonal);
   font-weight: 600;
 }
-/* On the yellow tab the count takes the tab's dark text (the muted grey is unreadable there in dark mode). */
+/* On the selected (light blue) tab the count takes the tab's text (the muted grey is unreadable there in dark mode). */
 .o-tab.active .count {
   color: inherit;
   opacity: 0.75;

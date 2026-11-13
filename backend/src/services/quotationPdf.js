@@ -21,7 +21,7 @@ const LEFT = MARGIN;
 const RIGHT = PAGE_WIDTH - MARGIN;
 const WIDTH = RIGHT - LEFT;
 const CONTENT_BOTTOM = PAGE_HEIGHT - MARGIN - 22; // room for the footer
-const COLOR = { text: '#1d1d1f', muted: '#6e6e73', line: '#d9d9de', head: '#fff3c4', accent: '#a37800', light: '#f6f6f8' };
+const COLOR = { text: '#1d1d1f', muted: '#6e6e73', line: '#d9d9de', head: '#d3e3fd', accent: '#0842a0', light: '#f6f6f8' };
 // Kerning only: ligatures ("ff" in "Round off") would break copying and searching the text.
 const FEATURES = { liga: false, clig: false };
 const TITLE = { Quotation: 'QUOTATION', Estimate: 'ESTIMATE', 'Proforma Invoice': 'PROFORMA INVOICE' };

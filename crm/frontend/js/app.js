@@ -2770,7 +2770,7 @@ function fillSearchFromAddress() {
   add("link", { rel: "manifest", href: crmPreferences().language === "hi" ? "manifest-hi.webmanifest" : "manifest.webmanifest" });
   add("link", { rel: "icon", type: "image/png", href: "img/icons/icon-192.png" });
   add("link", { rel: "apple-touch-icon", href: "img/icons/icon-192.png" });
-  add("meta", { rel: "theme-color", name: "theme-color", content: "#ffde59" });
+  add("meta", { rel: "theme-color", name: "theme-color", content: "#0b57d0" });
   add("meta", { name: "mobile-web-app-capable", content: "yes" });
   add("meta", { name: "apple-mobile-web-app-capable", content: "yes" });
   add("meta", { name: "apple-mobile-web-app-title", content: "AgreemCRM" });

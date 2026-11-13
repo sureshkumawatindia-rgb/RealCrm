@@ -11,7 +11,7 @@ const MARGIN = 40;
 const LEFT = MARGIN;
 const RIGHT = 595.28 - MARGIN;
 const WIDTH = RIGHT - LEFT;
-const COLOR = { text: '#1d1d1f', muted: '#6e6e73', line: '#d9d9de', head: '#fff3c4' };
+const COLOR = { text: '#1d1d1f', muted: '#6e6e73', line: '#d9d9de', head: '#d3e3fd' };
 const FEATURES = { liga: false, clig: false };
 
 const num = (paise) => (Math.round(Number(paise) || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

@@ -16,7 +16,7 @@ const qty = (value) => Number(value || 0).toLocaleString('en-IN', { maximumFract
 const day = (value, timeZone = 'Asia/Kolkata') => (value ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone }) : '');
 
 const STYLE = `
-  :root { --brand: #ffde59; --ink: #1d1d1f; --muted: #6e6e73; --line: #e6e6ea; --bg: #f6f6f8; --ok: #1fa971; --warn: #b26a00; }
+  :root { --brand: #0b57d0; --ink: #1d1d1f; --muted: #6e6e73; --line: #e6e6ea; --bg: #f6f6f8; --ok: #1fa971; --warn: #b26a00; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif; }
   main { max-width: 820px; margin: 0 auto; padding: 16px; }
@@ -28,7 +28,7 @@ const STYLE = `
   h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
   .muted { color: var(--muted); font-size: 13px; }
   .doc { text-align: right; }
-  .doc .type { font-weight: 700; letter-spacing: .08em; color: #a37800; }
+  .doc .type { font-weight: 700; letter-spacing: .08em; color: #0842a0; }
   .doc .no { font-size: 18px; font-weight: 700; }
   .banner { border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
   .banner.ok { background: #eaf8f2; color: #0f6b46; }
@@ -42,7 +42,7 @@ const STYLE = `
   .row.grand { border-top: 2px solid var(--ink); margin-top: 8px; padding-top: 10px; font-size: 20px; font-weight: 700; }
   .pay { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
   .pay img { width: 150px; height: 150px; }
-  .btn { display: inline-block; padding: 12px 18px; border-radius: 999px; background: var(--brand); color: var(--ink); font-weight: 700; text-decoration: none; margin: 6px 8px 0 0; }
+  .btn { display: inline-block; padding: 12px 18px; border-radius: 999px; background: var(--brand); color: #ffffff; font-weight: 700; text-decoration: none; margin: 6px 8px 0 0; }
   .btn.outline { background: #fff; border: 1.5px solid var(--line); }
   pre { white-space: pre-wrap; font: inherit; margin: 0; }
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 8px 0 24px; }
