@@ -768,3 +768,290 @@ describe('Choosing Solar Installer sets the same CRM up for it', () => {
     expect((await read(owner, '/project-templates'))[0].name).toBe('रूफ़टॉप सोलर: 30 दिन');
   });
 });
+
+describe('Choosing AC / Appliance Repair sets the same CRM up for it', () => {
+  it('adds its stages and replies, the services at 18% GST, request fields, AMC contracts and the AMC template', async () => {
+    const owner = await login('repair-setup@example.com');
+    expect((await change(owner, { crmType: 'repair' })).status).toBe(200);
+
+    expect(await stagesOf(owner)).toEqual(['New request', 'Technician assigned', 'Visit done', 'Estimate shared', 'Approved, parts awaited']);
+    expect((await replies(owner)).map((reply) => reply.shortcut)).toEqual(expect.arrayContaining(['details', 'visit', 'estimate', 'parts', 'done', 'amc', 'service', 'review']));
+    expect((await read(owner, '/organization/billing')).terms).toContain('visit charge');
+    const services = await productsOf(owner);
+    expect(services).toHaveLength(10);
+    expect(services.every((one) => one.gstRatePct === 18 && one.hsnSac === '9987' && one.pricePaise === 0)).toBe(true);
+
+    const enquiryFields = await leadFields(owner);
+    expect(enquiryFields.map((field) => [field.label, field.type])).toEqual([
+      ['Appliance', 'dropdown'], ['Brand', 'text'], ['Problem', 'text'], ['Service type', 'dropdown'], ['Visit date', 'date'], ['Technician', 'text'], ['Under warranty', 'checkbox'],
+    ]);
+    const [amc] = await objects(owner);
+    expect(amc).toMatchObject({ singular: 'AMC contract', plural: 'AMC contracts' });
+    expect((await read(owner, `/custom-fields?object=${amc.key}`)).map((field) => field.label)).toEqual(['Appliance', 'Units', 'Start date', 'End date', 'Services in a year', 'Next service date', 'Contract amount (₹)', 'Status']);
+
+    const [threeServices] = await read(owner, '/project-templates');
+    expect(threeServices).toMatchObject({ name: 'AMC: 3 services a year', days: 365 });
+    expect(threeServices.tasks.map((task) => task.dueAfterDays)).toEqual([0, 118, 120, 238, 240, 335, 365]);
+
+    expect(await hiddenPages(owner)).toEqual([]);
+    expect((await read(owner, '/organization/getting-started')).kit).toBe('repair');
+  });
+
+  it('a pest control company that also repairs keeps one AMC contracts kind, with both sets of fields', async () => {
+    const owner = await login('pest-to-repair@example.com');
+    await change(owner, { crmType: 'pest_control' });
+    await change(owner, { crmType: 'repair' });
+    const amcs = (await objects(owner)).filter((object) => object.plural === 'AMC contracts');
+    expect(amcs).toHaveLength(1);
+    const labels = (await read(owner, `/custom-fields?object=${amcs[0].key}`)).map((field) => field.label);
+    expect(labels).toEqual(expect.arrayContaining(['Visits in a year', 'Appliance', 'Units', 'Services in a year']));
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it('is in Hindi for a Hindi user', async () => {
+    const owner = await login('repair-hindi@example.com');
+    await send(owner, 'patch', '/auth/preferences', { language: 'hi' });
+    await change(owner, { crmType: 'repair' });
+    expect((await stagesOf(owner))[1]).toBe('टेक्नीशियन तय');
+    expect((await productsOf(owner)).map((one) => one.name)).toContain('AC सर्विस');
+    expect((await read(owner, '/project-templates'))[0].name).toBe('AMC: साल में 3 सर्विस');
+  });
+});
+
+describe('Choosing Home Cleaning sets the same CRM up for it', () => {
+  it('adds its stages and replies, the services at 18% GST, enquiry fields and the monthly contract template', async () => {
+    const owner = await login('cleaning-setup@example.com');
+    expect((await change(owner, { crmType: 'cleaning' })).status).toBe(200);
+
+    expect(await stagesOf(owner)).toEqual(['New enquiry', 'Requirement understood', 'Rate shared', 'Slot booked']);
+    expect((await replies(owner)).map((reply) => reply.shortcut)).toEqual(expect.arrayContaining(['details', 'rate', 'booking', 'prepare', 'reminder', 'done', 'repeat', 'review']));
+    expect((await read(owner, '/organization/billing')).terms).toContain('12 hours ahead');
+    const services = await productsOf(owner);
+    expect(services).toHaveLength(10);
+    expect(services.every((one) => one.gstRatePct === 18 && one.hsnSac === '9985' && one.pricePaise === 0)).toBe(true);
+
+    expect((await leadFields(owner)).map((field) => [field.label, field.type])).toEqual([
+      ['Property type', 'dropdown'], ['BHK or area', 'text'], ['Cleaning date', 'date'], ['Preferred time', 'dropdown'], ['Pets at home', 'checkbox'],
+    ]);
+    expect(await objects(owner)).toEqual([]);
+    const [monthly] = await read(owner, '/project-templates');
+    expect(monthly).toMatchObject({ name: 'Monthly cleaning: 6 visits', days: 151 });
+    expect(monthly.tasks).toHaveLength(12);
+
+    expect(await hiddenPages(owner)).toEqual([]);
+    expect((await read(owner, '/organization/getting-started')).kit).toBe('cleaning');
+  });
+
+  it('is in Hindi for a Hindi user', async () => {
+    const owner = await login('cleaning-hindi@example.com');
+    await send(owner, 'patch', '/auth/preferences', { language: 'hi' });
+    await change(owner, { crmType: 'cleaning' });
+    expect((await stagesOf(owner))[3]).toBe('स्लॉट बुक');
+    expect((await productsOf(owner)).map((one) => one.name)).toContain('सोफ़ा की सफ़ाई');
+    expect((await read(owner, '/project-templates'))[0].name).toBe('हर महीने सफ़ाई: 6 विज़िट');
+  });
+});
+
+describe('Choosing Car Dealer / Service Centre sets the same CRM up for it', () => {
+  it('adds its stages and replies, workshop services at 18% GST, enquiry fields, Vehicles and the first-year template', async () => {
+    const owner = await login('car-setup@example.com');
+    expect((await change(owner, { crmType: 'car' })).status).toBe(200);
+
+    expect(await stagesOf(owner)).toEqual(['New enquiry', 'Test drive done', 'Quotation sent', 'Finance and exchange', 'Ready to book']);
+    expect((await replies(owner)).map((reply) => reply.shortcut)).toEqual(expect.arrayContaining(['details', 'testdrive', 'quote', 'finance', 'booking', 'delivery', 'service', 'insurance']));
+    expect((await read(owner, '/organization/billing')).terms).toContain('ex-showroom');
+    const services = await productsOf(owner);
+    expect(services).toHaveLength(6);
+    expect(services.every((one) => one.gstRatePct === 18 && one.hsnSac === '9987')).toBe(true);
+
+    const enquiryFields = await leadFields(owner);
+    expect(enquiryFields.map((field) => field.label)).toEqual(['Enquiry for', 'Model', 'Variant or colour', 'Fuel', 'Test drive date', 'Exchange vehicle', 'Finance needed', 'Registration number']);
+    expect(enquiryFields.filter((field) => field.listColumn).map((field) => field.label)).toEqual(['Enquiry for', 'Model', 'Test drive date']);
+    const [vehicles] = await objects(owner);
+    expect(vehicles).toMatchObject({ singular: 'Vehicle', plural: 'Vehicles', icon: 'truck' });
+    expect((await read(owner, `/custom-fields?object=${vehicles.key}`)).map((field) => field.label)).toEqual(['Registration number', 'Model', 'Purchase date', 'Last service date', 'Next service due', 'Insurance ends', 'Kilometres']);
+
+    const [firstYear] = await read(owner, '/project-templates');
+    expect(firstYear).toMatchObject({ name: 'New vehicle: first year', days: 365 });
+    expect(firstYear.tasks).toHaveLength(9);
+
+    expect(await hiddenPages(owner)).toEqual([]);
+    expect((await read(owner, '/organization/getting-started')).kit).toBe('car');
+  });
+
+  it('is in Hindi for a Hindi user', async () => {
+    const owner = await login('car-hindi@example.com');
+    await send(owner, 'patch', '/auth/preferences', { language: 'hi' });
+    await change(owner, { crmType: 'car' });
+    expect((await stagesOf(owner))[1]).toBe('टेस्ट ड्राइव हो गई');
+    expect((await objects(owner))[0].plural).toBe('गाड़ियाँ');
+    expect((await read(owner, '/project-templates'))[0].name).toBe('नई गाड़ी: पहला साल');
+  });
+});
+
+describe('Choosing Digital Marketing Agency sets the same CRM up for it', () => {
+  it('adds its stages and replies, the services at 18% GST, client and enquiry fields, Retainers and the onboarding template', async () => {
+    const owner = await login('agency-setup@example.com');
+    expect((await change(owner, { crmType: 'agency' })).status).toBe(200);
+
+    expect(await stagesOf(owner)).toEqual(['New enquiry', 'Discovery call done', 'Proposal sent', 'Negotiation', 'Agreement and advance']);
+    expect((await replies(owner)).map((reply) => reply.shortcut)).toEqual(expect.arrayContaining(['details', 'call', 'proposal', 'onboarding', 'report', 'invoice', 'renewal', 'review']));
+    expect((await read(owner, '/organization/billing')).terms).toContain('Ad spend');
+    const services = await productsOf(owner);
+    expect(services).toHaveLength(8);
+    expect(services.every((one) => one.gstRatePct === 18 && one.hsnSac === '9983')).toBe(true);
+
+    expect((await read(owner, '/custom-fields?object=contact')).map((field) => field.label)).toEqual(['Industry', 'Website']);
+    expect((await leadFields(owner)).map((field) => field.label)).toEqual(['Monthly budget (₹)', 'Goal', 'Website or social link', 'Call date', 'Competitors']);
+    const [retainers] = await objects(owner);
+    expect(retainers).toMatchObject({ singular: 'Retainer', plural: 'Retainers' });
+    expect((await read(owner, `/custom-fields?object=${retainers.key}`)).map((field) => field.label)).toEqual(['Services', 'Monthly fee (₹)', 'Start date', 'Renewal date', 'Account manager', 'Status']);
+
+    const [onboarding] = await read(owner, '/project-templates');
+    expect(onboarding).toMatchObject({ name: 'Client onboarding: first month', days: 30 });
+    expect(onboarding.tasks).toHaveLength(7);
+
+    expect(await hiddenPages(owner)).toEqual([]);
+    expect((await read(owner, '/organization/getting-started')).kit).toBe('agency');
+  });
+
+  it('is in Hindi for a Hindi user', async () => {
+    const owner = await login('agency-hindi@example.com');
+    await send(owner, 'patch', '/auth/preferences', { language: 'hi' });
+    await change(owner, { crmType: 'agency' });
+    expect((await stagesOf(owner))[2]).toBe('प्रपोज़ल भेजा');
+    expect((await objects(owner))[0].plural).toBe('रिटेनर');
+    expect((await read(owner, '/project-templates'))[0].name).toBe('नया क्लाइंट: पहला महीना');
+  });
+});
+
+describe('Choosing Event / Wedding Planner sets the same CRM up for it', () => {
+  it('adds its stages and replies, the packages, enquiry fields, Vendors and the 60-day wedding template', async () => {
+    const owner = await login('event-setup@example.com');
+    expect((await change(owner, { crmType: 'event' })).status).toBe(200);
+
+    expect(await stagesOf(owner)).toEqual(['New enquiry', 'Requirement understood', 'Meeting or venue visit', 'Proposal sent', 'Negotiation']);
+    expect((await replies(owner)).map((reply) => reply.shortcut)).toEqual(expect.arrayContaining(['details', 'meeting', 'proposal', 'advance', 'checklist', 'payment', 'eventday', 'thanks']));
+    expect((await read(owner, '/organization/billing')).terms).toContain('already paid to vendors');
+    const packages = await productsOf(owner);
+    expect(packages).toHaveLength(7);
+    expect(packages.some((one) => /catering/i.test(one.name))).toBe(false);
+    expect(packages.every((one) => one.gstRatePct === 18)).toBe(true);
+
+    expect((await leadFields(owner)).map((field) => field.label)).toEqual(['Occasion', 'Event date', 'Guests', 'Budget (₹)', 'City', 'Venue', 'Functions']);
+    const [vendors] = await objects(owner);
+    expect(vendors).toMatchObject({ singular: 'Vendor', plural: 'Vendors' });
+    expect((await read(owner, `/custom-fields?object=${vendors.key}`)).map((field) => field.label)).toEqual(['Category', 'City', 'Phone', 'Rates and notes']);
+
+    const [wedding] = await read(owner, '/project-templates');
+    expect(wedding).toMatchObject({ name: 'Wedding: 60 days of planning', days: 62 });
+    expect(wedding.milestones).toHaveLength(6);
+    expect(wedding.tasks).toHaveLength(10);
+
+    expect(await hiddenPages(owner)).toEqual([]);
+    expect((await read(owner, '/organization/getting-started')).kit).toBe('event');
+  });
+
+  it('is in Hindi for a Hindi user', async () => {
+    const owner = await login('event-hindi@example.com');
+    await send(owner, 'patch', '/auth/preferences', { language: 'hi' });
+    await change(owner, { crmType: 'event' });
+    expect((await stagesOf(owner))[2]).toBe('मीटिंग या वेन्यू विज़िट');
+    expect((await leadFields(owner))[0].label).toBe('मौका');
+    expect((await read(owner, '/project-templates'))[0].name).toBe('शादी: 60 दिन की तैयारी');
+  });
+});
+
+describe('Choosing Transport / Logistics sets the same CRM up for it', () => {
+  it('adds its stages and replies, load fields, Vehicles and Transporters, and hides Projects', async () => {
+    const owner = await login('transport-setup@example.com');
+    expect((await change(owner, { crmType: 'transport' })).status).toBe(200);
+
+    expect(await stagesOf(owner)).toEqual(['New enquiry', 'Load details taken', 'Rate shared', 'Negotiation', 'Vehicle arranged']);
+    expect((await replies(owner)).map((reply) => reply.shortcut)).toEqual(expect.arrayContaining(['details', 'rate', 'vehicle', 'loaded', 'tracking', 'delivered', 'payment', 'thanks']));
+    const billing = await read(owner, '/organization/billing');
+    expect(billing.terms).toContain('detention');
+    expect(billing.validityDays).toBe(3);
+    expect(await productsOf(owner)).toEqual([]); // a transporter's GST depends on its option and the payer
+
+    const enquiryFields = await leadFields(owner);
+    expect(enquiryFields.map((field) => field.label)).toEqual(['From', 'To', 'Goods', 'Weight (tonnes)', 'Load type', 'Vehicle needed', 'Loading date', 'LR number']);
+    expect(enquiryFields.filter((field) => field.listColumn).map((field) => field.label)).toEqual(['From', 'To', 'Loading date']);
+    expect((await objects(owner)).map((object) => object.plural)).toEqual(['Vehicles', 'Transporters']);
+    const [vehicles] = await objects(owner);
+    expect((await read(owner, `/custom-fields?object=${vehicles.key}`)).map((field) => field.label)).toEqual(['Registration number', 'Vehicle type', 'Capacity (tonnes)', 'Driver', 'Driver phone', 'Insurance ends', 'Permit and fitness end', 'Status']);
+
+    expect(await read(owner, '/project-templates')).toEqual([]);
+    expect(await hiddenPages(owner)).toEqual(['projects']);
+    expect((await read(owner, '/organization/getting-started')).kit).toBe('transport');
+  });
+
+  it('a car dealer that also moves goods keeps one Vehicles kind, with both sets of fields once', async () => {
+    const owner = await login('car-to-transport@example.com');
+    await change(owner, { crmType: 'car' });
+    await change(owner, { crmType: 'transport' });
+    const vehicles = (await objects(owner)).filter((object) => object.plural === 'Vehicles');
+    expect(vehicles).toHaveLength(1);
+    const labels = (await read(owner, `/custom-fields?object=${vehicles[0].key}`)).map((field) => field.label);
+    expect(labels).toEqual(expect.arrayContaining(['Model', 'Next service due', 'Driver', 'Permit and fitness end']));
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it('is in Hindi for a Hindi user', async () => {
+    const owner = await login('transport-hindi@example.com');
+    await send(owner, 'patch', '/auth/preferences', { language: 'hi' });
+    await change(owner, { crmType: 'transport' });
+    expect((await stagesOf(owner))[4]).toBe('गाड़ी तय');
+    expect((await leadFields(owner)).slice(0, 2).map((field) => field.label)).toEqual(['कहाँ से', 'कहाँ तक']);
+    expect((await objects(owner))[0].plural).toBe('गाड़ियाँ');
+  });
+});
+
+describe('Choosing CA / Legal Services sets the same CRM up for it', () => {
+  it('adds its stages and replies (none asking for a review), CA services at 18% GST, fields, Compliances and the GST template', async () => {
+    const owner = await login('legal-setup@example.com');
+    expect((await change(owner, { crmType: 'legal' })).status).toBe(200);
+
+    expect(await stagesOf(owner)).toEqual(['New enquiry', 'Consultation done', 'Documents received', 'Fee quoted', 'Engagement letter sent']);
+    const shortcuts = (await replies(owner)).map((reply) => reply.shortcut);
+    expect(shortcuts).toEqual(expect.arrayContaining(['details', 'meeting', 'documents', 'fee', 'itr', 'gst', 'filed', 'invoice']));
+    expect(shortcuts).not.toContain('review'); // the professions' rules restrict soliciting work
+    expect((await read(owner, '/organization/billing')).terms).toContain('penalties');
+    const services = await productsOf(owner);
+    expect(services).toHaveLength(8);
+    expect(services.every((one) => one.gstRatePct === 18 && one.hsnSac === '9982')).toBe(true);
+
+    expect((await read(owner, '/custom-fields?object=contact')).map((field) => field.label)).toEqual(['Client type']);
+    expect((await leadFields(owner)).map((field) => [field.label, field.type])).toEqual([
+      ['Work area', 'dropdown'], ['Due date', 'date'], ['Financial or assessment year', 'text'], ['Documents received', 'checkbox'],
+    ]);
+    const [compliances] = await objects(owner);
+    expect(compliances).toMatchObject({ singular: 'Compliance', plural: 'Compliances' });
+    expect((await read(owner, `/custom-fields?object=${compliances.key}`)).map((field) => field.label)).toEqual(['Filing', 'How often', 'Next due date', 'Handled by', 'Status']);
+
+    const [gst] = await read(owner, '/project-templates');
+    expect(gst).toMatchObject({ name: 'GST returns: 3 months', days: 90 });
+    expect(gst.tasks.map((task) => task.dueAfterDays)).toEqual([3, 10, 19, 33, 40, 49, 63, 70, 79]);
+
+    expect(await hiddenPages(owner)).toEqual([]);
+    expect((await read(owner, '/organization/getting-started')).kit).toBe('legal');
+  });
+
+  it('is in Hindi for a Hindi user', async () => {
+    const owner = await login('legal-hindi@example.com');
+    await send(owner, 'patch', '/auth/preferences', { language: 'hi' });
+    await change(owner, { crmType: 'legal' });
+    expect((await stagesOf(owner))[2]).toBe('कागज़ मिल गए');
+    expect((await productsOf(owner)).map((one) => one.name)).toContain('इनकम टैक्स रिटर्न फ़ाइलिंग');
+    expect((await read(owner, '/project-templates'))[0].name).toBe('GST रिटर्न: 3 महीने');
+  });
+
+  it('all twenty types are in place: every one has its set-up, its kit, an option on both forms and a name in both languages', () => {
+    const { KITS } = require('../constants/businessKits');
+    expect(CRM_TYPE_IDS).toHaveLength(20);
+    for (const id of CRM_TYPE_IDS.filter((one) => one !== 'business')) {
+      expect(CRM_TYPE_SETUPS[id]).toBeTruthy();
+      expect(KITS[id]).toBeTruthy();
+    }
+  });
+});

@@ -17,9 +17,16 @@ const salon = require('./crmTypeSetups/salon');
 const gym = require('./crmTypeSetups/gym');
 const interior = require('./crmTypeSetups/interior');
 const solar = require('./crmTypeSetups/solar');
+const repair = require('./crmTypeSetups/repair');
+const cleaning = require('./crmTypeSetups/cleaning');
+const car = require('./crmTypeSetups/car');
+const agency = require('./crmTypeSetups/agency');
+const event = require('./crmTypeSetups/event');
+const transport = require('./crmTypeSetups/transport');
+const legal = require('./crmTypeSetups/legal');
 
-const CRM_TYPE_IDS = Object.freeze(['business', 'pest_control', 'trader', 'manufacturer', 'real_estate', 'education', 'clinic', 'travel', 'insurance', 'salon', 'gym', 'interior', 'solar']);
+const CRM_TYPE_IDS = Object.freeze(['business', 'pest_control', 'trader', 'manufacturer', 'real_estate', 'education', 'clinic', 'travel', 'insurance', 'salon', 'gym', 'interior', 'solar', 'repair', 'cleaning', 'car', 'agency', 'event', 'transport', 'legal']);
 const DEFAULT_CRM_TYPE = 'business';
-const CRM_TYPE_SETUPS = Object.freeze({ pest_control: pestControl, trader, manufacturer, real_estate: realEstate, education, clinic, travel, insurance, salon, gym, interior, solar });
+const CRM_TYPE_SETUPS = Object.freeze({ pest_control: pestControl, trader, manufacturer, real_estate: realEstate, education, clinic, travel, insurance, salon, gym, interior, solar, repair, cleaning, car, agency, event, transport, legal });
 
 module.exports = { CRM_TYPE_IDS, DEFAULT_CRM_TYPE, CRM_TYPE_SETUPS };

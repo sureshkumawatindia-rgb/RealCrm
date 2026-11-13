@@ -13,6 +13,13 @@ const salon = require('./crmTypeSetups/salon');
 const gym = require('./crmTypeSetups/gym');
 const interior = require('./crmTypeSetups/interior');
 const solar = require('./crmTypeSetups/solar');
+const repair = require('./crmTypeSetups/repair');
+const cleaning = require('./crmTypeSetups/cleaning');
+const car = require('./crmTypeSetups/car');
+const agency = require('./crmTypeSetups/agency');
+const event = require('./crmTypeSetups/event');
+const transport = require('./crmTypeSetups/transport');
+const legal = require('./crmTypeSetups/legal');
 
 const KIT_LANGUAGES = Object.freeze(['en', 'hi']);
 
@@ -201,6 +208,13 @@ const KITS = Object.freeze({
   gym: gym.kit,
   interior: interior.kit,
   solar: solar.kit,
+  repair: repair.kit,
+  cleaning: cleaning.kit,
+  car: car.kit,
+  agency: agency.kit,
+  event: event.kit,
+  transport: transport.kit,
+  legal: legal.kit,
 });
 const KIT_IDS = Object.freeze(Object.keys(KITS));
 // The kits offered in "Ready settings"; the others come with a CRM type (constants/crmTypes.js).

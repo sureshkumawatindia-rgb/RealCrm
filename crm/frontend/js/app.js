@@ -720,6 +720,47 @@ const CRM_TYPE_WORDS = {
     en: { lead: ["enquiry", "enquiries"], deal: ["case", "cases"], customer: ["client", "clients"] },
     hi: { "लीड": "पूछताछ" },
   },
+  // A repair business's deals are jobs (जॉब is feminine like डील) and its products are services
+  // (English only: सर्विस is feminine, प्रोडक्ट masculine).
+  repair: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["job", "jobs"], product: ["service", "services"] },
+    hi: { "लीड": "पूछताछ", "डील": "जॉब" },
+  },
+  // A cleaning business's deals are bookings (बुकिंग is feminine like डील) and its products are
+  // services (English only: सर्विस is feminine, प्रोडक्ट masculine).
+  cleaning: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["booking", "bookings"], product: ["service", "services"] },
+    hi: { "लीड": "पूछताछ", "डील": "बुकिंग" },
+  },
+  // A vehicle dealer's deals are bookings (बुकिंग is feminine like डील). Products keep their name:
+  // they are the workshop's services and the accessories.
+  car: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["booking", "bookings"] },
+    hi: { "लीड": "पूछताछ", "डील": "बुकिंग" },
+  },
+  // An agency's customers are clients and its products are services (both in English only).
+  agency: {
+    en: { lead: ["enquiry", "enquiries"], product: ["service", "services"], customer: ["client", "clients"] },
+    hi: { "लीड": "पूछताछ" },
+  },
+  // A planner's customers are clients (English only), its deals are bookings and its products are
+  // packages (बुकिंग and पैकेज in Hindi too). Not "events": the Calendar's events are something else.
+  event: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["booking", "bookings"], product: ["package", "packages"], customer: ["client", "clients"] },
+    hi: { "लीड": "पूछताछ", "डील": "बुकिंग", "प्रोडक्ट": "पैकेज" },
+  },
+  // A transporter's deals are bookings (बुकिंग is feminine like डील) and its products are services
+  // (English only).
+  transport: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["booking", "bookings"], product: ["service", "services"] },
+    hi: { "लीड": "पूछताछ", "डील": "बुकिंग" },
+  },
+  // A CA's or a lawyer's customers are clients, its deals are cases and its products are services
+  // (all three in English only).
+  legal: {
+    en: { lead: ["enquiry", "enquiries"], deal: ["case", "cases"], product: ["service", "services"], customer: ["client", "clients"] },
+    hi: { "लीड": "पूछताछ" },
+  },
   // A salon's customers are clients (English only), its deals are bookings (बुकिंग is feminine
   // like डील) and its products are services (English only: सर्विस is feminine, प्रोडक्ट masculine).
   salon: {

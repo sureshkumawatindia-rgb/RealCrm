@@ -27,7 +27,7 @@ test.describe.serial('CRM type', () => {
     await page.goto(at('company.html'));
     const type = page.locator('#cCrmType');
     await expect(type).toHaveValue('business');
-    await expect(type.locator('option')).toHaveText(['Business', 'Pest Control', 'Trader / Wholesaler', 'Manufacturer', 'Real Estate', 'Education / Coaching', 'Clinic / Hospital', 'Travel Agency', 'Insurance / Loan Agent', 'Salon / Spa', 'Gym / Fitness', 'Interior / Construction', 'Solar Installer']);
+    await expect(type.locator('option')).toHaveText(['Business', 'Pest Control', 'Trader / Wholesaler', 'Manufacturer', 'Real Estate', 'Education / Coaching', 'Clinic / Hospital', 'Travel Agency', 'Insurance / Loan Agent', 'Salon / Spa', 'Gym / Fitness', 'Interior / Construction', 'Solar Installer', 'AC / Appliance Repair', 'Home Cleaning', 'Car Dealer / Service Centre', 'Digital Marketing Agency', 'Event / Wedding Planner', 'Transport / Logistics', 'CA / Legal Services']);
     const nameBox = await page.locator('#cName').boundingBox();
     const typeBox = await type.boundingBox();
     expect(Math.abs(typeBox.y - nameBox.y)).toBeLessThan(4);
@@ -66,7 +66,7 @@ test.describe.serial('CRM type', () => {
     await signIn(hindi, hindiOwner);
     await hindiPage.goto(at('company.html'));
     await expect(hindiPage.locator('label[for="cCrmType"]')).toHaveText('CRM का प्रकार');
-    await expect(hindiPage.locator('#cCrmType option')).toHaveText(['बिज़नेस', 'पेस्ट कंट्रोल', 'ट्रेडर / होलसेलर', 'मैन्युफ़ैक्चरर', 'रियल एस्टेट', 'शिक्षा / कोचिंग', 'क्लिनिक / अस्पताल', 'ट्रैवल एजेंसी', 'इंश्योरेंस / लोन एजेंट', 'सैलून / स्पा', 'जिम / फ़िटनेस', 'इंटीरियर / कंस्ट्रक्शन', 'सोलर इंस्टॉलर']);
+    await expect(hindiPage.locator('#cCrmType option')).toHaveText(['बिज़नेस', 'पेस्ट कंट्रोल', 'ट्रेडर / होलसेलर', 'मैन्युफ़ैक्चरर', 'रियल एस्टेट', 'शिक्षा / कोचिंग', 'क्लिनिक / अस्पताल', 'ट्रैवल एजेंसी', 'इंश्योरेंस / लोन एजेंट', 'सैलून / स्पा', 'जिम / फ़िटनेस', 'इंटीरियर / कंस्ट्रक्शन', 'सोलर इंस्टॉलर', 'AC / अप्लायंस रिपेयर', 'होम क्लीनिंग', 'कार डीलर / सर्विस सेंटर', 'डिजिटल मार्केटिंग एजेंसी', 'इवेंट / वेडिंग प्लानर', 'ट्रांसपोर्ट / लॉजिस्टिक्स', 'CA / लीगल सर्विस']);
     await hindi.close();
   });
 
@@ -346,6 +346,130 @@ test.describe.serial('CRM type', () => {
     await installerPage.locator('#pjManage').click();
     await expect(installerPage.locator('#pjTplDialog [data-tpl-open]', { hasText: 'Rooftop solar: 30 days' })).toBeVisible();
     await installerContext.close();
+  });
+
+  test('a repair business reads Enquiries, Jobs (जॉब in Hindi) and Services, and has AMC contracts', async ({ browser }) => {
+    const shop = { email: 'repair@crmtype.test', name: 'Imran Khan' };
+    const shopContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const shopPage = await shopContext.newPage();
+    const { token } = await signIn(shopContext, shop);
+    await api(shopContext, token, 'PATCH', '/organization', { crmType: 'repair' });
+    await shopPage.goto(at('dashboard.html'));
+    const link = (href) => shopPage.locator(`.sidebar a.nav-item[href$="${href}"]`);
+    await expect(link('leads.html')).toHaveText(/Enquiries/);
+    await expect(link('Deals.html')).toHaveText(/Jobs/);
+    await expect(link('Products.html')).toHaveText(/Services/);
+    await expect(shopPage.locator('.sidebar a.nav-item', { hasText: 'AMC contracts' })).toBeVisible();
+    await shopContext.close();
+  });
+
+  test('a cleaning business reads Enquiries, Bookings and Services', async ({ browser }) => {
+    const cleaner = { email: 'cleaning@crmtype.test', name: 'Sunil Yadav' };
+    const cleanerContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const cleanerPage = await cleanerContext.newPage();
+    const { token } = await signIn(cleanerContext, cleaner);
+    await api(cleanerContext, token, 'PATCH', '/organization', { crmType: 'cleaning' });
+    await cleanerPage.goto(at('dashboard.html'));
+    const link = (href) => cleanerPage.locator(`.sidebar a.nav-item[href$="${href}"]`);
+    await expect(link('leads.html')).toHaveText(/Enquiries/);
+    await expect(link('Deals.html')).toHaveText(/Bookings/);
+    await expect(link('Products.html')).toHaveText(/Services/);
+    await expect(link('projects.html')).not.toHaveCSS('display', 'none');
+    await cleanerContext.close();
+  });
+
+  test('a vehicle dealer reads Enquiries and Bookings, and has Vehicles', async ({ browser }) => {
+    const dealer = { email: 'car@crmtype.test', name: 'Harpreet Singh' };
+    const dealerContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const dealerPage = await dealerContext.newPage();
+    const { token } = await signIn(dealerContext, dealer);
+    await api(dealerContext, token, 'PATCH', '/organization', { crmType: 'car' });
+    await dealerPage.goto(at('dashboard.html'));
+    const link = (href) => dealerPage.locator(`.sidebar a.nav-item[href$="${href}"]`);
+    await expect(link('leads.html')).toHaveText(/Enquiries/);
+    await expect(link('Deals.html')).toHaveText(/Bookings/);
+    await expect(link('Products.html')).toHaveText(/Products/);
+    await expect(dealerPage.locator('.sidebar a.nav-item', { hasText: 'Vehicles' })).toBeVisible();
+    await dealerContext.close();
+  });
+
+  test('an agency reads Clients, Enquiries and Services, and has Retainers', async ({ browser }) => {
+    const agencyOwner = { email: 'agency@crmtype.test', name: 'Tanya Bose' };
+    const agencyContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const agencyPage = await agencyContext.newPage();
+    const { token } = await signIn(agencyContext, agencyOwner);
+    await api(agencyContext, token, 'PATCH', '/organization', { crmType: 'agency' });
+    await agencyPage.goto(at('dashboard.html'));
+    const link = (href) => agencyPage.locator(`.sidebar a.nav-item[href$="${href}"]`);
+    await expect(link('customers.html')).toHaveText(/Clients/);
+    await expect(link('leads.html')).toHaveText(/Enquiries/);
+    await expect(link('Products.html')).toHaveText(/Services/);
+    await expect(agencyPage.locator('.sidebar a.nav-item', { hasText: 'Retainers' })).toBeVisible();
+    await agencyContext.close();
+  });
+
+  test('a planner reads Clients, Enquiries, Bookings and Packages (बुकिंग, पैकेज in Hindi), and has Vendors', async ({ browser }) => {
+    const planner = { email: 'event@crmtype.test', name: 'Simran Kaur' };
+    const plannerContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const plannerPage = await plannerContext.newPage();
+    const { token } = await signIn(plannerContext, planner);
+    await api(plannerContext, token, 'PATCH', '/organization', { crmType: 'event' });
+    await plannerPage.goto(at('dashboard.html'));
+    const link = (href) => plannerPage.locator(`.sidebar a.nav-item[href$="${href}"]`);
+    await expect(link('customers.html')).toHaveText(/Clients/);
+    await expect(link('leads.html')).toHaveText(/Enquiries/);
+    await expect(link('Deals.html')).toHaveText(/Bookings/);
+    await expect(link('Products.html')).toHaveText(/Packages/);
+    await expect(link('Calendar.html')).toHaveText(/Calendar/);
+    await expect(plannerPage.locator('.sidebar a.nav-item', { hasText: 'Vendors' })).toBeVisible();
+    await plannerContext.close();
+
+    const hindiPlanner = { email: 'event-hi@crmtype.test', name: 'Neelam Joshi' };
+    const setup = await browser.newContext();
+    const { token: hindiToken } = await signIn(setup, hindiPlanner);
+    await api(setup, hindiToken, 'PATCH', '/auth/preferences', { language: 'hi' });
+    await api(setup, hindiToken, 'PATCH', '/organization', { crmType: 'event' });
+    await setup.close();
+    const hindi = await browser.newContext();
+    const hindiPage = await hindi.newPage();
+    await signIn(hindi, hindiPlanner);
+    await hindiPage.goto(at('dashboard.html'));
+    await expect(hindiPage.locator('.sidebar a.nav-item[href$="Deals.html"]')).toHaveText(/बुकिंग/);
+    await expect(hindiPage.locator('.sidebar a.nav-item[href$="Products.html"]')).toHaveText(/पैकेज/);
+    await hindi.close();
+  });
+
+  test('a transporter reads Enquiries, Bookings and Services, and has Vehicles and Transporters', async ({ browser }) => {
+    const fleet = { email: 'transport@crmtype.test', name: 'Baldev Yadav' };
+    const fleetContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const fleetPage = await fleetContext.newPage();
+    const { token } = await signIn(fleetContext, fleet);
+    await api(fleetContext, token, 'PATCH', '/organization', { crmType: 'transport' });
+    await fleetPage.goto(at('dashboard.html'));
+    const link = (href) => fleetPage.locator(`.sidebar a.nav-item[href$="${href}"]`);
+    await expect(link('leads.html')).toHaveText(/Enquiries/);
+    await expect(link('Deals.html')).toHaveText(/Bookings/);
+    await expect(link('Products.html')).toHaveText(/Services/);
+    await expect(link('projects.html')).toBeHidden();
+    await expect(fleetPage.locator('.sidebar a.nav-item', { hasText: 'Vehicles' })).toBeVisible();
+    await expect(fleetPage.locator('.sidebar a.nav-item', { hasText: 'Transporters' })).toBeVisible();
+    await fleetContext.close();
+  });
+
+  test('a CA firm reads Clients, Enquiries, Cases and Services, and has Compliances', async ({ browser }) => {
+    const firm = { email: 'legal@crmtype.test', name: 'CA Rakesh Gupta' };
+    const firmContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const firmPage = await firmContext.newPage();
+    const { token } = await signIn(firmContext, firm);
+    await api(firmContext, token, 'PATCH', '/organization', { crmType: 'legal' });
+    await firmPage.goto(at('dashboard.html'));
+    const link = (href) => firmPage.locator(`.sidebar a.nav-item[href$="${href}"]`);
+    await expect(link('customers.html')).toHaveText(/Clients/);
+    await expect(link('leads.html')).toHaveText(/Enquiries/);
+    await expect(link('Deals.html')).toHaveText(/Cases/);
+    await expect(link('Products.html')).toHaveText(/Services/);
+    await expect(firmPage.locator('.sidebar a.nav-item', { hasText: 'Compliances' })).toBeVisible();
+    await firmContext.close();
   });
 
   test('in Hindi too, with the screen names of other companies left alone', async ({ browser }) => {

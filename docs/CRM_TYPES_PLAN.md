@@ -1,6 +1,6 @@
 # CRM types: one CRM, set up for each kind of business
 
-Decided with the owner on 2026-11-09 (D122, D123); Trader added on 2026-11-11 (D124), Manufacturer on 2026-11-11 (D126), Pest Control's AMC visits template on 2026-11-11 (D127), Real Estate on 2026-11-11 (D128), Education / Coaching on 2026-11-11 (D129), Clinic / Hospital on 2026-11-11 (D130), Travel Agency on 2026-11-11 (D131), Insurance / Loan Agent on 2026-11-11 (D132), Salon / Spa on 2026-11-11 (D133), Gym / Fitness on 2026-11-11 (D134), Interior / Construction on 2026-11-11 (D135), Solar Installer on 2026-11-11 (D136).
+Decided with the owner on 2026-11-09 (D122, D123); Trader added on 2026-11-11 (D124), Manufacturer on 2026-11-11 (D126), Pest Control's AMC visits template on 2026-11-11 (D127), Real Estate on 2026-11-11 (D128), Education / Coaching on 2026-11-11 (D129), Clinic / Hospital on 2026-11-11 (D130), Travel Agency on 2026-11-11 (D131), Insurance / Loan Agent on 2026-11-11 (D132), Salon / Spa on 2026-11-11 (D133), Gym / Fitness on 2026-11-11 (D134), Interior / Construction on 2026-11-11 (D135), Solar Installer on 2026-11-11 (D136), AC / Appliance Repair on 2026-11-11 (D137), Home Cleaning on 2026-11-11 (D138), Car Dealer / Service Centre on 2026-11-11 (D139), Digital Marketing Agency on 2026-11-11 (D140), Event / Wedding Planner on 2026-11-11 (D142; D141 is the go-live on agreem360.com), Transport / Logistics on 2026-11-13 (D143), CA / Legal Services on 2026-11-13 (D144) — all 20 built.
 
 There is **one CRM**. No separate product is built for any category. A company chooses its **CRM Type** on the company form (and can change it in Settings → Company), and the CRM that already exists is set up for that kind of work. Every category follows the same pattern as Pest Control.
 
@@ -189,6 +189,105 @@ For rooftop solar installers serving homes, housing societies and businesses.
 - **Menu:** everything stays.
 - **Words:** Leads → Enquiries.
 
+### AC / Appliance Repair (D137)
+
+For AC service and installation, and washing machine, refrigerator, RO and geyser repair.
+
+- **Stages:** New request → Technician assigned → Visit done → Estimate shared → Approved, parts awaited (its own kit, only with this CRM type).
+- **Quick replies:** `/details`, `/visit`, `/estimate`, `/parts`, `/done`, `/amc`, `/service`, `/review`.
+- **Terms:** the visit charge (adjusted when the repair goes ahead), estimates after inspection, parts warranty per makers and repair warranty per the bill, old parts returned on request, gas and installation material as used, GST extra; valid 7 days.
+- **Services:** Visit charge, AC service, gas refilling, installation and uninstallation, washing machine, refrigerator, RO and geyser repair, AC AMC — price ₹0, SAC heading 9987, **GST 18%** (repair and maintenance, unchanged on 22 September 2025).
+- **Enquiry fields:** Appliance (list column), Brand, Problem, Service type (repair, service, installation, uninstallation, gas refilling; list column), Visit date (list column), Technician, Under warranty (a tick box).
+- **AMC contracts** (under "Your records"): Appliance, Units, Start date, End date, Services in a year, Next service date, Contract amount (₹), Status. A company that is also pest control keeps one AMC contracts kind with both sets of fields.
+- **Project template "AMC: 3 services a year":** services on days 0, 120 and 240, a `/service` reminder two days before services 2 and 3, the renewal offer (`/amc`) on day 335 and the renewal on day 365.
+- **Menu:** everything stays.
+- **Words:** Leads → Enquiries, Deals → Jobs (जॉब in Hindi too), Products → Services (English only).
+
+### Home Cleaning (D138)
+
+For home and office cleaning: deep cleaning, kitchens, bathrooms, sofas, carpets, water tanks.
+
+- **Stages:** New enquiry → Requirement understood → Rate shared → Slot booked (its own kit, only with this CRM type).
+- **Quick replies:** `/details`, `/rate`, `/booking`, `/prepare` (keep valuables away, water and power on), `/reminder`, `/done`, `/repeat`, `/review`.
+- **Terms:** charges as quoted plus GST, our equipment and materials with the customer's water and power, valuables away, old stains may stay, 12 hours to change or cancel, payment when done; valid 7 days.
+- **Services:** full home deep cleaning, kitchen, bathroom, sofa, carpet, mattress, water tank, office, after-construction cleaning, sanitisation — price ₹0, SAC heading 9985, **GST 18%** (cleaning services, unchanged on 22 September 2025).
+- **Enquiry fields:** Property type, BHK or area (list column), Cleaning date (list column), Preferred time (list column), Pets at home (a tick box).
+- **Project template "Monthly cleaning: 6 visits":** for a regular contract, a task for each monthly visit, a `/reminder` the day before visits 2 to 6, and a renewal offer (`/repeat`) after the last. 7 milestones, 12 tasks, 151 days.
+- **Menu:** everything stays.
+- **Words:** Leads → Enquiries, Deals → Bookings (बुकिंग in Hindi too), Products → Services (English only).
+
+### Car Dealer / Service Centre (D139)
+
+For car and two-wheeler dealers, new and used, and their workshops.
+
+- **Stages:** New enquiry → Test drive done → Quotation sent → Finance and exchange → Ready to book (its own kit, only with this CRM type).
+- **Quick replies:** `/details`, `/testdrive`, `/quote` (on-road price), `/finance` (EMI and documents), `/booking`, `/delivery`, `/service`, `/insurance`.
+- **Terms:** ex-showroom prices with insurance, registration and accessories as shown, the price on the invoice date, the booking amount adjusted and refunds per the booking policy, delivery per the maker's supply, loans per the bank, the maker's warranty; valid 7 days.
+- **Workshop services:** General service, Oil and filter change, Wheel alignment and balancing, Car wash and polish, Car AC service, Denting and painting — heading 9987, **GST 18%**. Vehicles for sale are not added: their GST depends on the vehicle since 22 September 2025.
+- **Enquiry fields:** Enquiry for (new, used, service, insurance, accessories), Model, Variant or colour, Fuel, Test drive date, Exchange vehicle, Finance needed (a tick box), Registration number. List columns: Enquiry for, Model, Test drive date.
+- **Vehicles** (under "Your records"; the record's customer is the owner): Registration number, Model, Purchase date, Last service date, Next service due, Insurance ends, Kilometres — for service and insurance reminders.
+- **Project template "New vehicle: first year":** the delivery, a first-week call, the first and second services with `/service` reminders, and the insurance renewal (`/insurance`) with the third service on day 365.
+- **Menu:** everything stays.
+- **Words:** Leads → Enquiries, Deals → Bookings (बुकिंग in Hindi too). Products keep their name: they are the workshop's services and the accessories.
+
+### Digital Marketing Agency (D140)
+
+For agencies doing SEO, social media, Google and Meta ads, websites and branding.
+
+- **Stages:** New enquiry → Discovery call done → Proposal sent → Negotiation → Agreement and advance (its own kit, only with this CRM type).
+- **Quick replies:** `/details`, `/call`, `/proposal`, `/onboarding` (brand files and accesses), `/report` (the monthly report), `/invoice`, `/renewal`, `/review`.
+- **Terms:** a monthly fee for the scope plus GST, ad spend paid by the client to the platforms, work after the advance and onboarding, no promised number of leads or sales, extra work quoted separately, 30 days' notice, the client owns their accounts and data; valid 15 days.
+- **Services:** SEO, Social media management, Google Ads management, Meta ads management, Website design, Logo and branding, Content writing, Video editing — price ₹0, heading 9983, **GST 18%**.
+- **Client fields:** Industry (list column), Website.
+- **Enquiry fields:** Monthly budget (₹), Goal (more leads, more sales, brand, traffic, app installs; both list columns), Website or social link, Call date, Competitors.
+- **Retainers** (under "Your records"; the record's customer is the client): Services, Monthly fee (₹), Start date, Renewal date, Account manager, Status.
+- **Project template "Client onboarding: first month":** kick-off and accesses (day 0), audit (3), strategy and content calendar approved (7), campaigns live (10), a mid-month check (20), the first report (`/report`) and the next invoice (`/invoice`) on day 30.
+- **Menu:** everything stays.
+- **Words:** Customers → Clients, Products → Services (both English only), Leads → Enquiries.
+
+### Event / Wedding Planner (D142)
+
+For wedding planners and event managers: weddings, engagements, birthdays, corporate events.
+
+- **Stages:** New enquiry → Requirement understood → Meeting or venue visit → Proposal sent → Negotiation (its own kit, only with this CRM type).
+- **Quick replies:** `/details`, `/meeting`, `/proposal`, `/advance`, `/checklist`, `/payment`, `/eventday`, `/thanks`.
+- **Terms:** the quote for the date, venue, guests and items, booking on the advance, vendor and venue terms, amounts paid to vendors not refundable on cancellation, extras at actuals, permissions per local rules, GST extra; valid 7 days.
+- **Packages:** Full wedding planning, Event management, Decoration, Photography and video, Sound, lights and DJ, Mehendi and haldi set-up, Birthday party package — price ₹0, **GST 18%**, the SAC left for the planner. Catering is left out: its GST depends on how and where it is served.
+- **Enquiry fields:** Occasion (wedding, engagement, reception, birthday, anniversary, corporate, religious), Event date, Guests, Budget (₹), City, Venue, Functions. List columns: Occasion, Event date, Budget.
+- **Vendors** (under "Your records"): Category (venue, caterer, decorator, photographer, DJ and sound, makeup, mehendi, band or dhol, transport), City, Phone, Rates and notes.
+- **Project template "Wedding: 60 days of planning":** Booking → Venue and vendors locked (day 14) → Decor and menu final (30) → Guests and logistics (45) → Event day (60) → Settlement (62), with 10 tasks incl. the second payment, the checklist, the rehearsal and the review.
+- **Menu:** everything stays.
+- **Words:** Customers → Clients (English only), Leads → Enquiries, Deals → Bookings (बुकिंग), Products → Packages (पैकेज). Not "Events": the Calendar's events are something else.
+
+### Transport / Logistics (D143)
+
+For fleet owners, goods transport agencies and brokers, and packers and movers.
+
+- **Stages:** New enquiry → Load details taken → Rate shared → Negotiation → Vehicle arranged (its own kit, only with this CRM type).
+- **Quick replies:** `/details`, `/rate`, `/vehicle`, `/loaded` (LR/bilty), `/tracking`, `/delivered` (POD), `/payment` (freight), `/thanks`.
+- **Terms:** the rate for the route, vehicle and weight with detention, loading and tolls extra, declared goods and no hazardous goods, owner's risk unless insured, advance at loading and balance on delivery, delivery times as estimates, GST as it applies to goods transport; valid 3 days.
+- **Enquiry fields:** From, To, Goods, Weight (tonnes), Load type (full, part, shifting), Vehicle needed (pickup to trailer), Loading date, LR number. List columns: From, To, Loading date.
+- **Vehicles** (the company's own fleet): Registration number, Vehicle type, Capacity, Driver, Driver phone, Insurance ends, Permit and fitness end, Status (available, on a trip, in repair). Shared by name with the Car Dealer type, so a company with both keeps one Vehicles kind.
+- **Transporters** (the ones it hires): as for a trader.
+- **Services:** none added: a goods transport agency's GST depends on its option and on who pays (reverse or forward charge).
+- **Menu:** Projects hidden (a load is booked, moved and delivered in days).
+- **Words:** Leads → Enquiries, Deals → Bookings (बुकिंग in Hindi too), Products → Services (English only).
+
+### CA / Legal Services (D144)
+
+For chartered accountants, tax consultants, GST practitioners, company secretaries and lawyers.
+
+- **Stages:** New enquiry → Consultation done → Documents received → Fee quoted → Engagement letter sent (its own kit, only with this CRM type).
+- **Quick replies:** `/details`, `/meeting`, `/documents`, `/fee`, `/itr` (return due date), `/gst` (GST return reminder), `/filed` (acknowledgement), `/invoice`. None asks for a review: the professions' own rules (ICAI, the Bar Council) restrict soliciting work.
+- **Terms:** the fee for the work described with government fees and penalties at actuals, GST extra, work after documents and any advance, due dates depending on documents in time, the client answerable for the information, recurring work billed monthly or quarterly; valid 15 days.
+- **Services:** Income tax return filing, GST registration, GST return filing, TDS return filing, Bookkeeping, Company or LLP registration, Tax audit, Tax notice reply — heading 9982, **GST 18%**. An advocate's legal services are not added: their GST works differently (reverse charge for a business, exempt for an individual).
+- **Client field:** Client type (individual, proprietor, partnership or LLP, company, trust or society).
+- **Enquiry fields:** Work area (income tax, GST, company or LLP, audit, accounting, legal matter), Due date, Financial or assessment year, Documents received (a tick box).
+- **Compliances** (under "Your records"; the record's customer is the client): Filing (GST, TDS, income tax, ROC, audit), How often, Next due date, Handled by, Status (pending, filed, late).
+- **Project template "GST returns: 3 months":** started on the 1st of a month, each month gives the bills (`/gst`) on day 3, GSTR-1 by the 11th and GSTR-3B by the 20th (`/filed`).
+- **Menu:** everything stays.
+- **Words:** Customers → Clients, Deals → Cases, Products → Services (all English only), Leads → Enquiries.
+
 The words change in every text of the CRM except `{placeholders}`, HTML tags, and the names other companies give their own screens (Facebook "Lead Ads", IndiaMART "Lead Manager", Google's "lead form").
 
 ## Adding a category
@@ -215,13 +314,13 @@ The words change in every text of the CRM except `{placeholders}`, HTML tags, an
 | 11 | Gym / Fitness | Built |
 | 12 | Interior / Construction | Built |
 | 13 | Solar Installer | Built |
-| 14 | AC and appliance repair | Not started |
-| 15 | Home cleaning | Not started |
-| 16 | Car dealer and service centre | Not started |
-| 17 | Digital marketing agency | Not started |
-| 18 | Event and wedding planner | Not started |
-| 19 | Transport and logistics | Not started |
-| 20 | CA and legal services | Not started |
+| 14 | AC / Appliance Repair | Built |
+| 15 | Home Cleaning | Built |
+| 16 | Car Dealer / Service Centre | Built |
+| 17 | Digital Marketing Agency | Built |
+| 18 | Event / Wedding Planner | Built |
+| 19 | Transport / Logistics | Built |
+| 20 | CA / Legal Services | Built |
 
 ## AMC visits for Pest Control
 
