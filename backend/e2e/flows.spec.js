@@ -13,7 +13,10 @@ test.describe.serial('The ten flows that must never break', () => {
   let orderUrl = '';
   const pageErrors = [];
 
-  test.beforeAll(async ({ browser }) => {
+  test.beforeAll(async ({ browser }, testInfo) => {
+    // A retry (on GitHub) or a repeat signs up again as a new owner: the first try's company is
+    // still on the server, and its owner would skip the first steps.
+    if (testInfo.retry || testInfo.repeatEachIndex) owner.email = `owner-${testInfo.repeatEachIndex}-${testInfo.retry}@flows.test`;
     context = await browser.newContext();
     page = await context.newPage();
     page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -52,9 +55,15 @@ test.describe.serial('The ten flows that must never break', () => {
     await page.locator('#waSimFrom').fill(customer.phone);
     await page.locator('#waSimName').fill(customer.name);
     await page.locator('#waSimText').fill('Jeera ka rate kya hai? 25 kg chahiye.');
+    // The message must reach the server before the page is left (leaving cancels the request),
+    // and the lead may come a moment later: the Leads page is opened again until it shows.
+    const received = page.waitForResponse((res) => res.url().includes('/dev/simulate/whatsapp-inbound') && res.request().method() === 'POST');
     await page.locator('#waSimulateForm [type="submit"]').click();
-    await page.goto(at('leads.html'));
-    await expect(page.locator('#leadsTable')).toContainText(customer.name);
+    expect((await received).ok()).toBe(true);
+    await expect(async () => {
+      await page.goto(at('leads.html'));
+      await expect(page.locator('#leadsTable')).toContainText(customer.name, { timeout: 3000 });
+    }).toPass({ timeout: 30 * 1000 });
   });
 
   test('4. a reply goes from the Inbox', async () => {
