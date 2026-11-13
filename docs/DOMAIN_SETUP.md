@@ -3,7 +3,7 @@
 How to put the CRM on its own address, step by step. It fills in **GO_LIVE_CHECKLIST step 2**
 and gets steps 6, 7, 8 and 13 ready.
 
-The domain is **agreem360.com** (D137, 2026-11-11). The product's name stays **AgreemCRM**; only
+The domain is **agreem360.com** (D141, 2026-11-11). The product's name stays **AgreemCRM**; only
 the address is new. It replaces the earlier agreemcrm.com plan (D121).
 
 ## The plan (decide once, never change)

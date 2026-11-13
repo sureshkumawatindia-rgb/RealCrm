@@ -46,7 +46,10 @@ test.describe.serial('The phone app', () => {
     return session;
   }
 
-  test.beforeAll(async ({ browser }) => {
+  test.beforeAll(async ({ browser }, testInfo) => {
+    // A retry (on GitHub) or a repeat starts again in a company of its own: the first try's chats
+    // and replies stay on the same server and would show twice.
+    if (testInfo.retry || testInfo.repeatEachIndex) owner.email = `owner-${testInfo.repeatEachIndex}-${testInfo.retry}@phone-app.test`;
     context = await browser.newContext({ ...devices['Pixel 7'], serviceWorkers: 'allow' });
     // The owner works in Hindi: saved on the account before the browser's sign-in.
     const first = await context.request.post('/api/v1/auth/google', { data: { credential: `test:e2e-${owner.email}:${owner.email}:${owner.name}` } });
@@ -121,8 +124,12 @@ test.describe.serial('The phone app', () => {
     expect(await textsOf(chats[meena.name])).not.toContain(text);
     await context.setOffline(false);
     await expect(page.locator('#crmNet')).toHaveClass(/is-back/); // "फिर से ऑनलाइन", for a moment
-    await expect(waiting).toHaveCount(0, { timeout: 30 * 1000 });
-    await expect(page.locator('#messageList .msg.out', { hasText: text })).toBeVisible();
+    // Sent when the phone's outbox is empty. The bubbles alone can mislead: the chat opened from
+    // the phone's copy, so it is drawn again ("loading…", no bubbles for a moment) when the network
+    // is back, and for a moment the sent reply and its waiting bubble can both be there.
+    await expect.poll(() => page.evaluate(() => crmOutbox.list().then((items) => items.length)), { timeout: 30 * 1000 }).toBe(0);
+    await expect(page.locator('#messageList .msg.out:not(.pending)', { hasText: text })).toHaveCount(1, { timeout: 15 * 1000 });
+    await expect(waiting).toHaveCount(0);
     expect((await textsOf(chats[meena.name])).filter((t) => t === text)).toHaveLength(1);
     await expect(page.locator('#crmNet')).toBeHidden({ timeout: 10 * 1000 });
     // The page opened with no network, and its live updates came back by themselves.

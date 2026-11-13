@@ -49,7 +49,7 @@ describe('Home page', () => {
       expect(page).toContain(`href="${link}"`);
     }
     const login = fs.readFileSync(path.join(FRONTEND, 'login.html'), 'utf8');
-    // A shared link's card needs full addresses (D137): the CRM's own domain, and a picture that exists.
+    // A shared link's card needs full addresses (D141): the CRM's own domain, and a picture that exists.
     expect(page).toContain('<meta property="og:image" content="https://crm.agreem360.com/crm/frontend/img/icons/icon-512.png" />');
     expect(login).toContain('<meta property="og:image" content="https://crm.agreem360.com/crm/frontend/img/icons/icon-512.png" />');
     expect(page).toContain('<link rel="canonical" href="https://crm.agreem360.com/crm/frontend/index.html" />');
@@ -78,7 +78,7 @@ describe('Home page', () => {
     }
   });
 
-  it('tells search engines the public pages only, at the address in PUBLIC_URL (D137)', async () => {
+  it('tells search engines the public pages only, at the address in PUBLIC_URL (D141)', async () => {
     const robots = await api().get('/robots.txt');
     expect(robots.status).toBe(200);
     expect(robots.headers['content-type']).toMatch(/^text\/plain/);
