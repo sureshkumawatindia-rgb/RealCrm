@@ -76,9 +76,12 @@ describe('Assignment rules', () => {
     await api().post('/api/v1/assignment-rules').set(bearer(owner.token))
       .send({ name: 'Website', priority: 2, conditions: { sources: ['Website'] }, strategy: 'specific', memberIds: [ids.c] });
 
+    // Each lead's assignment runs before the next lead comes: the queue runs jobs side by side, so
+    // three at once could take their turns in any order (GitHub once gave Bela the first lead).
     const created = [];
     for (const [i, phone] of ['98290 00001', '98290 00002', '98290 00003'].entries()) {
       created.push((await lead(owner.token, { source: 'IndiaMART', name: `Buyer ${i}`, phone, state: 'Rajasthan' })).body.data);
+      await queue.runDue();
     }
     const web = (await lead(owner.token, { source: 'Website', name: 'Web buyer', phone: '98290 00004' })).body.data;
     const gujarat = (await lead(owner.token, { source: 'IndiaMART', name: 'Far buyer', phone: '98290 00005', state: 'Gujarat' })).body.data;
