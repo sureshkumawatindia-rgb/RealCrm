@@ -117,7 +117,7 @@ async function dispatch({ organizationId, connection, contact, lead, template, v
   let message;
   const fields = {
     organizationId, contactId: contact._id, leadId: lead?._id, memberId, direction: 'out', source, templateKey: template.key, templateName: template.name,
-    text: render(template.text, values).slice(0, 2000), to, status: 'queued', provider: connection.provider, idempotencyKey, enrollmentId, runId,
+    text: render(template.text, values).slice(0, 2000), to, status: 'queued', provider: connection.provider, idempotencyKey, enrollmentId, runId, values,
   };
   try {
     message = await SmsMessage.create(fields);
@@ -142,8 +142,68 @@ async function dispatch({ organizationId, connection, contact, lead, template, v
     const retryable = Boolean(error.retryable);
     await SmsMessage.updateOne({ _id: message._id }, { $set: { status: 'failed', error: String(error.message).slice(0, 500), retryable } });
     if (error.code === 'SMS_AUTH') await SmsConnection.updateOne({ _id: connection._id }, { $set: { status: 'error', lastError: error.message } });
+    if (retryable) await queueTry(message._id, 1, organizationId).catch((e) => logger.error(`Queuing an SMS try failed: ${e.message}`));
     throw error;
   }
+}
+
+// D151: an SMS MSG91 could not take for a reason that may pass goes again by itself (2, 10, 30 and
+// 60 minutes later); "Try again" in Settings → Failed sends works any time.
+const RETRY_JOB = 'sms.retry';
+const RETRY_DELAYS_MIN = [2, 10, 30, 60];
+function queueTry(id, tries, organizationId, queue = require('../jobs/queue')) { // eslint-disable-line global-require
+  const delay = RETRY_DELAYS_MIN[tries - 1];
+  if (!delay) return null;
+  return queue.enqueue(RETRY_JOB, { id: String(id), tries }, { runAt: new Date(Date.now() + delay * 60 * 1000), uniqueKey: `${RETRY_JOB}:${id}:${tries}`, organizationId, maxAttempts: 1 });
+}
+
+// One more try of a failed SMS. → the message.
+async function sendAgain(message, tries) {
+  const connection = await connectionOf(message.organizationId);
+  const template = templateOf(connection, message.templateKey);
+  const provider = connection ? sms.providerFor(connection.provider) : null;
+  const contact = message.contactId ? await Contact.findOne({ _id: message.contactId, organizationId: message.organizationId }).select('smsOptOut') : null;
+  const stop = !provider || !template ? 'The SMS account or template was changed.' : !message.values ? 'This SMS cannot be sent again.' : contact?.smsOptOut?.at ? 'The customer asked not to get SMS.' : '';
+  if (stop) {
+    await SmsMessage.updateOne({ _id: message._id }, { $set: { status: 'failed', error: stop, retryable: false } });
+    throw httpError(409, 'CANNOT_RESEND', stop);
+  }
+  // One caller only: a double click, or a click just as the timed try starts, cannot pay for two.
+  const taken = await SmsMessage.updateOne({ _id: message._id, status: 'failed' }, { $set: { status: 'queued', error: '', retryable: false, tries } });
+  if (!taken.modifiedCount) throw httpError(409, 'ALREADY_SENDING', 'This SMS is already on its way.');
+  try {
+    const result = await provider.send(credentialsOf(connection), { to: message.to, template, values: message.values });
+    await SmsMessage.updateOne({ _id: message._id }, { $set: { status: 'sent', providerMessageId: result.providerMessageId || undefined, sentAt: new Date(), error: '', retryable: false, tries } });
+    await SmsConnection.updateOne({ _id: connection._id }, { $set: { lastSentAt: new Date(), status: 'active', lastError: '' } });
+  } catch (error) {
+    await SmsMessage.updateOne({ _id: message._id }, { $set: { status: 'failed', error: String(error.message).slice(0, 500), retryable: Boolean(error.retryable), tries } });
+    throw error;
+  }
+  return SmsMessage.findById(message._id);
+}
+
+// The job: the next try, if it is still waiting for one.
+async function runTry({ id, tries }) {
+  const message = await SmsMessage.findOne({ _id: id, status: 'failed', retryable: true });
+  if (!message) return 'stale';
+  try {
+    await sendAgain(message, tries + 1);
+    return 'sent';
+  } catch (error) {
+    if (error.retryable) await queueTry(id, tries + 1, message.organizationId);
+    return 'failed';
+  }
+}
+
+// POST /delivery-problems/sms/:id/retry
+async function retryFailed(req, id) {
+  const message = await SmsMessage.findOne({ _id: id, organizationId: req.tenant.organizationId, direction: 'out', status: 'failed' });
+  if (!message) throw httpError(404, 'NOT_FOUND', 'SMS not found');
+  return serialize(await sendAgain(message, (message.tries || 1) + 1));
+}
+
+function register(queue) {
+  queue.define(RETRY_JOB, runTry, { maxAttempts: 1 });
 }
 
 const templateOf = (connection, key) => connection?.templates.find((t) => t.key === key);
@@ -243,4 +303,5 @@ const repliedSince = (organizationId, contactId, since) => SmsMessage.exists({ o
 module.exports = {
   getConnection, saveConnection, testConnection, removeConnection, send, sendFromStep, list, setConsent, setOptOut, receiveWebhook, repliedSince,
   serialize, serializeConnection, render, blanksOf, webhookUrlOf, connectionOf, templateOf,
+  retryFailed, register, // D151
 };

@@ -129,6 +129,16 @@ const messageSchema = new mongoose.Schema(
       title: { type: String },
       message: { type: String },
     },
+    // Phase 9 (D151): a send that may work later (Meta in trouble, too many at once) stays "queued".
+    // attempts: tries so far; nextAt: the next one by itself (none: it failed for good);
+    // body: what goes to WhatsApp, also for "Try again" (its file id "pending" until the file is
+    // up); cleared once it is sent.
+    retry: {
+      attempts: { type: Number },
+      nextAt: { type: Date },
+      body: { type: mongoose.Schema.Types.Mixed },
+      lastError: { type: String },
+    },
     pricing: {
       billable: { type: Boolean },
       category: { type: String },
@@ -154,6 +164,9 @@ messageSchema.index({ providerMessageId: 1 }, { unique: true, sparse: true });
 messageSchema.index({ organizationId: 1, conversationId: 1, createdAt: -1 });
 // Reports (Phase 9): messages of a date range.
 messageSchema.index({ organizationId: 1, createdAt: -1 });
+// D151: what did not go (a company's list), and messages stuck half-way (the sweep).
+messageSchema.index({ organizationId: 1, status: 1, createdAt: -1 }, { partialFilterExpression: { status: { $in: ['queued', 'failed'] } } });
+messageSchema.index({ status: 1, createdAt: 1 }, { partialFilterExpression: { status: 'queued' } });
 // G6 (D110): the form a customer's answers belong to, by the token sent with it.
 messageSchema.index({ organizationId: 1, 'form.token': 1 }, { partialFilterExpression: { 'form.token': { $exists: true } } });
 

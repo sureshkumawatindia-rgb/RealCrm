@@ -34,8 +34,8 @@ const fromBackend = (file) => require(path.join(BACKEND, file)); // eslint-disab
     // The browser tests click quickly and from one address: the per-minute limits stay out of the way.
     RATE_LIMIT_API_PER_MINUTE: '100000',
     RATE_LIMIT_AUTH_PER_MINUTE: '100000',
-    // The platform admin page's own admins in the help and data trust tests (D118, D120).
-    PLATFORM_ADMIN_EMAILS: 'admin@help.test,admin@trust.test',
+    // The platform admin page's own admins in the help, data trust and reliability tests (D118, D120, D151).
+    PLATFORM_ADMIN_EMAILS: 'admin@help.test,admin@trust.test,admin@status.test,admin-again@status.test',
     R2_ENDPOINT: s3.endpoint,
     R2_ACCESS_KEY_ID: s3.accessKeyId,
     R2_SECRET_ACCESS_KEY: s3.secretAccessKey,

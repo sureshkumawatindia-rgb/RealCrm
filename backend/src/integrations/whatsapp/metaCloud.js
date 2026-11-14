@@ -1,5 +1,7 @@
 const env = require('../../config/env');
 const httpError = require('../../utils/httpError');
+const serviceStatus = require('../../services/serviceStatusService');
+const { META_TROUBLE_CODES, META_TRY_AGAIN_CODES } = require('../../constants/serviceStatus');
 
 // WhatsApp Cloud API client (Meta Graph API, version WHATSAPP_GRAPH_VERSION).
 // https://developers.facebook.com/documentation/business-messaging/whatsapp/messages/send-messages
@@ -11,7 +13,8 @@ const DOWNLOAD_TIMEOUT_MS = 120000;
 const TEMPLATE_FIELDS = 'id,name,language,status,category,components,parameter_format,rejected_reason,quality_score';
 const TEMPLATE_PAGES = 20; // 100 per page
 
-const unreachable = () => httpError(502, 'WHATSAPP_UNREACHABLE', 'Could not reach WhatsApp (Meta). Check the internet connection and try again.');
+// temporary (D151): it may work in a while, so a message is tried again by itself.
+const unreachable = () => Object.assign(httpError(502, 'WHATSAPP_UNREACHABLE', 'Could not reach WhatsApp (Meta). Check the internet connection and try again.'), { temporary: true });
 
 // body: a JSON object, or FormData for uploads.
 async function graph(path, { accessToken, method = 'GET', body, timeoutMs = TIMEOUT_MS } = {}) {
@@ -26,20 +29,25 @@ async function graph(path, { accessToken, method = 'GET', body, timeoutMs = TIME
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
+    serviceStatus.record('whatsapp', false, 'no answer');
     throw unreachable();
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     // { error: { message, type, code, error_user_msg, error_data: { details }, fbtrace_id } }
     const problem = data.error || {};
+    const trouble = response.status >= 500 || META_TROUBLE_CODES.includes(problem.code);
+    serviceStatus.record('whatsapp', !trouble, `answered ${response.status}${problem.code ? `, code ${problem.code}` : ''}`);
     const error = httpError(
       response.status >= 500 ? 502 : 400,
       'WHATSAPP_ERROR',
       problem.error_user_msg || problem.error_data?.details || problem.message || `WhatsApp answered with status ${response.status}.`,
     );
     error.providerCode = problem.code;
+    error.temporary = trouble || META_TRY_AGAIN_CODES.includes(problem.code);
     throw error;
   }
+  serviceStatus.record('whatsapp', true);
   return data;
 }
 

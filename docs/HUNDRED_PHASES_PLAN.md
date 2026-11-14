@@ -53,7 +53,7 @@ JustDial and their website, and run on GST quotations, orders and Tally.
    privacy settings, and the backup restore drill shown on the platform admin page. — done
    2026-11-08 (D120, `docs/DATA_TRUST.md`)
 9. **Reliability.** A public status page, clear banners when Meta or a payment gateway is down,
-   failed sends and webhooks visible and retried.
+   failed sends and webhooks visible and retried. — done 2026-11-14 (D151, `docs/RELIABILITY.md`)
 10. **Launch rehearsal.** A full go-live run on staging with the owner's real test accounts, then
     the launch (the owner's `GO_LIVE_CHECKLIST.md` tasks).
 

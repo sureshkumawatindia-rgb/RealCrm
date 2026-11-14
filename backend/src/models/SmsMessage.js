@@ -24,6 +24,9 @@ const smsMessageSchema = new mongoose.Schema(
     providerMessageId: { type: String },
     idempotencyKey: { type: String },
     retryable: { type: Boolean, default: false },
+    // D151: what fills the template (for a later try), and how many tries so far.
+    values: { type: mongoose.Schema.Types.Mixed },
+    tries: { type: Number, default: 1 },
     enrollmentId: { type: ObjectId, ref: 'SequenceEnrollment' },
     runId: { type: ObjectId, ref: 'AutomationRun' },
     error: { type: String, default: '' },

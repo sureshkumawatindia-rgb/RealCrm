@@ -30,6 +30,8 @@ const { previewOf } = require('./whatsappInboundService');
 const { visibilityFilter, privacyFilter } = require('./access');
 const { documentStorage } = require('../storage');
 const { isOggOpusMono } = require('../utils/oggOpus');
+const messageRetry = require('./messageRetryService');
+const notificationService = require('./notificationService');
 
 // The shared WhatsApp inbox. Who sees which chat (D24): owners, admins and members with
 // inbox:view_all see every chat; other inbox members see chats assigned to them and chats
@@ -115,6 +117,14 @@ function serializeConversation(conversation, viewerId = null) {
   };
 }
 
+// D151: "Try again" on a message that failed in the last 7 days and can be put together again.
+const RETRY_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const FILE_TYPES = ['image', 'video', 'audio', 'document'];
+function canRetry(message) {
+  if (message.direction !== 'out' || message.status !== 'failed' || Date.now() - new Date(message.createdAt) > RETRY_DAYS_MS) return false;
+  return Boolean(message.retry?.body || message.type === 'text' || (FILE_TYPES.includes(message.type) && message.media?.storageKey));
+}
+
 function serializeMessage(message) {
   return {
     id: message._id,
@@ -170,6 +180,9 @@ function serializeMessage(message) {
     playedAt: message.playedAt || null,
     failedAt: message.failedAt || null,
     error: message.error?.message || message.error?.title ? message.error : null,
+    // D151: waiting for its next try (when), or failed and able to go again.
+    retry: message.status === 'queued' && message.retry?.nextAt ? { nextAt: message.retry.nextAt, attempts: message.retry.attempts } : null,
+    canRetry: canRetry(message),
     sentByMemberId: message.sentByMemberId || null,
     automation: message.automation?.kind ? { kind: message.automation.kind, ruleId: message.automation.ruleId || null } : null,
     at: message.providerTimestamp || message.createdAt,
@@ -431,26 +444,30 @@ const AS_SYSTEM_QUIETLY = Object.freeze({ memberId: null, takesChat: false, keep
 // The message is saved first (queued), then handed to WhatsApp: accepted → sent, refused →
 // failed with WhatsApp's reason (the message stays in the chat either way). buildBody(message)
 // returns the Cloud API message object (it may upload a file first). send(body) hands it over
-// (G8: Instagram and Messenger pass their own) → { providerMessageId }.
-async function deliver(sender, { conversation, account, contact }, fields, buildBody, send = null) {
+// (G8: Instagram and Messenger pass their own) → { providerMessageId }. D151: a failure that may
+// pass (Meta in trouble) leaves it queued for the next try; draft: the body with the file id
+// still PENDING_MEDIA, kept when the upload itself is what failed.
+async function deliver(sender, { conversation, account, contact }, fields, buildBody, send = null, { draft = null } = {}) {
   const message = await Message.create({
     organizationId: conversation.organizationId, conversationId: conversation._id, contactId: contact._id,
     whatsappAccountId: account._id, direction: 'out', status: 'queued', ...(sender.memberId && { sentByMemberId: sender.memberId }),
     ...(conversation.private && { private: true }), ...fields,
   });
+  let body = null;
+  let waiting = false;
   try {
-    const body = await buildBody(message);
+    body = await buildBody(message);
     const { providerMessageId } = send ? await send(body) : await providerFor(account).sendMessage(credentials(account), { to: contact.phoneE164.slice(1), ...body });
     message.providerMessageId = providerMessageId || undefined;
     message.status = 'sent';
     message.sentAt = new Date();
   } catch (error) {
     logger.warn(`WhatsApp send failed for conversation ${conversation._id}: ${error.message}`);
-    message.status = 'failed';
-    message.failedAt = new Date();
-    message.error = { code: Number(error.providerCode) || undefined, message: String(error.message || 'Sending failed').slice(0, 500) };
+    if (fields.type === 'reaction') error.temporary = false; // a reaction hours later means nothing
+    waiting = messageRetry.afterFailedTry(message, error, body || draft);
   }
   await message.save();
+  if (waiting) await messageRetry.enqueue(message);
 
   // The first reply takes an unassigned chat; a reply reopens a closed one.
   const set = { lastMessageAt: message.createdAt, lastMessagePreview: previewOf(fields), lastMessageDirection: 'out', lastMessageOrigin: '', ...(!sender.keepStatus && { status: 'open' }) };
@@ -537,6 +554,15 @@ async function sendTemplate(req, id, { templateId, variables }) {
   }));
 }
 
+// The Cloud API's message for a file. D151: saved with the id PENDING_MEDIA when the file has not
+// reached Meta yet (the upload is what failed): a later try uploads it from the CRM's copy.
+const PENDING_MEDIA = 'pending';
+const mediaBody = (type, id, { caption = '', fileName = '', voice = false, replyTo = null } = {}) => ({
+  type,
+  [type]: { id, ...(caption && { caption }), ...(type === 'document' && { filename: fileName }), ...(voice && { voice: true }) },
+  ...quoting(replyTo),
+});
+
 // A photo, video, audio file or document. A copy stays in the CRM's storage.
 // voice: a note recorded on the page (CP3), sent as a WhatsApp voice message (Ogg Opus, mono).
 async function sendMedia(req, id, { caption = '', replyToMessageId, voice = false }, file) {
@@ -556,15 +582,12 @@ async function sendMedia(req, id, { caption = '', replyToMessageId, voice = fals
     media: { mimeType: info.mimeType, fileName: info.fileName, sizeBytes: file.buffer.length, storageKey, sha256: mediaService.sha256Hex(file.buffer), ...(voice && { voice: true }) },
     replyToProviderMessageId: replyTo || undefined,
   };
+  const parts = { caption, fileName: info.fileName, voice, replyTo };
   return deliver(asMember(req), context, fields, async (message) => {
     const { mediaId } = await providerFor(context.account).uploadMedia(credentials(context.account), { buffer: file.buffer, mimeType: info.mimeType, fileName: info.fileName });
     message.media.providerMediaId = mediaId;
-    return {
-      type: info.type,
-      [info.type]: { id: mediaId, ...(caption && { caption }), ...(info.type === 'document' && { filename: info.fileName }), ...(voice && { voice: true }) },
-      ...quoting(replyTo),
-    };
-  });
+    return mediaBody(info.type, mediaId, parts);
+  }, null, { draft: mediaBody(info.type, PENDING_MEDIA, parts) });
 }
 
 // D103: a quick reply's file (from Documents) with the reply's text as its caption; a text longer
@@ -632,15 +655,149 @@ async function sendGeneratedDocument(req, id, { buffer, fileName, caption = '', 
   if (!template) {
     return deliver(asMember(req), context, { type: 'document', text: caption, media }, async (message) => {
       const mediaId = await upload(message);
-      return { type: 'document', document: { id: mediaId, filename: fileName, ...(caption && { caption }) } };
-    });
+      return mediaBody('document', mediaId, { caption, fileName });
+    }, null, { draft: mediaBody('document', PENDING_MEDIA, { caption, fileName }) });
   }
   const fields = { type: 'template', text: checked.text, template: { name: template.name, language: template.language, variables: checked.values }, ...(media && { media }) };
   return deliver(asMember(req), context, fields, async (message) => {
     if (!shape.documentHeader) return { type: 'template', template: checked.payload };
     const mediaId = await upload(message);
     return { type: 'template', template: templateService.buildSend(template, variables, { document: { id: mediaId, filename: fileName } }).payload };
-  });
+  }, null, { draft: { type: 'template', template: checked.payload } }); // its document id says PENDING_MEDIA
+}
+
+// --- sending a stored message again (D151) -----------------------------------------------------------
+
+// What a later try needs, or why it cannot go now: { code, reason }.
+async function contextOfStored(message) {
+  const O = { organizationId: message.organizationId };
+  const conversation = await Conversation.findOne({ _id: message.conversationId, ...O });
+  if (!conversation) return { code: 'NOT_FOUND', reason: 'The chat was removed.' };
+  const contact = await Contact.findOne({ _id: message.contactId, ...O });
+  if (!contact) return { code: 'NO_CONTACT', reason: 'This chat\'s customer was deleted.' };
+  if (contact.blocked?.at) return { code: 'CONTACT_BLOCKED', reason: 'This customer is blocked. Unblock them first to write.' };
+  const social = isSocialChannel(message.channel);
+  const account = social ? await SocialAccount.findOne({ _id: conversation.socialAccountId, ...O }) : await WhatsAppAccount.findOne({ _id: message.whatsappAccountId, ...O });
+  if (social ? !socialAccounts.isConnected(account) : !account) return { code: 'NUMBER_REMOVED', reason: social ? 'This chat\'s Instagram or Messenger account is not connected any more.' : 'This chat\'s WhatsApp number was removed from Settings.' };
+  if (!social && !contact.phoneE164) return { code: 'NO_PHONE', reason: 'This contact has no WhatsApp number.' };
+  const window = serviceWindow(conversation);
+  if (message.type !== 'template' && !window.open) {
+    return { code: 'WINDOW_CLOSED', reason: social ? 'The customer has not written for 7 days: Instagram and Messenger allow no message now.' : 'The customer has not written in the last 24 hours; only an approved template can go now.' };
+  }
+  return { conversation, contact, account, window };
+}
+
+const hasPendingMedia = (body) => JSON.stringify(body).includes(`"id":"${PENDING_MEDIA}"`);
+const fillPendingMedia = (body, id) => JSON.parse(JSON.stringify(body).split(`"id":"${PENDING_MEDIA}"`).join(`"id":${JSON.stringify(id)}`));
+
+// What goes to WhatsApp: as kept, or put together again from the stored message.
+function bodyOfStored(message) {
+  if (message.retry?.body) return message.retry.body;
+  if (message.type === 'text') return { type: 'text', text: { body: message.text, preview_url: /https?:\/\//i.test(message.text) }, ...quoting(message.replyToProviderMessageId) };
+  if (FILE_TYPES.includes(message.type) && message.media?.storageKey) {
+    return mediaBody(message.type, PENDING_MEDIA, { caption: message.text || '', fileName: message.media.fileName || '', voice: Boolean(message.media.voice), replyTo: message.replyToProviderMessageId });
+  }
+  return null;
+}
+
+async function uploadStored(message, account) {
+  const stream = await documentStorage.open(message.media.storageKey);
+  if (!stream) throw httpError(404, 'FILE_MISSING', 'The file is missing from storage.');
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const { mediaId } = await providerFor(account).uploadMedia(credentials(account), { buffer: Buffer.concat(chunks), mimeType: message.media.mimeType, fileName: message.media.fileName });
+  message.media.providerMediaId = mediaId;
+  return mediaId;
+}
+
+// One try → the provider's id of the message.
+async function tryStored(message, { conversation, contact, account, window }) {
+  if (isSocialChannel(message.channel)) {
+    const { messageId } = await socialProviderFor(account).sendText(socialAccounts.credentials(account), {
+      channel: conversation.channel, recipientId: conversation.socialUserId, text: message.text, humanAgent: Boolean(window.humanAgent), replyToMid: message.replyToProviderMessageId || '',
+    });
+    return messageId;
+  }
+  let body = bodyOfStored(message);
+  if (!body) throw httpError(409, 'CANNOT_RESEND', 'This message cannot be sent again.');
+  if (hasPendingMedia(body)) {
+    body = fillPendingMedia(body, await uploadStored(message, account));
+    message.set('retry.body', body); // a later try does not upload again
+  }
+  const { providerMessageId } = await providerFor(account).sendMessage(credentials(account), { to: contact.phoneE164.slice(1), ...body });
+  return providerMessageId;
+}
+
+// The person who wrote it hears when it finally did not go.
+async function tellNotSent(message, reason) {
+  if (!message.sentByMemberId) return;
+  const contact = await Contact.findById(message.contactId).select('name');
+  const text = message.text || message.media?.fileName || '';
+  await notificationService.notify(message.organizationId, [message.sentByMemberId], {
+    title: 'Message not sent',
+    body: `${text ? `"${text.length > 60 ? `${text.slice(0, 57)}…` : text}" to ` : 'To '}${contact?.name || 'the customer'} did not go: ${reason}`,
+    link: `Inbox.html?c=${message.conversationId}`,
+    source: 'inbox',
+  }).catch((error) => logger.error(`Telling about a message not sent failed: ${error.message}`));
+}
+
+// A try of a stored message (the job, or "Try again"): sent, waiting for the next try, or failed.
+async function resendStored(message, { manual = false, context: known = null } = {}) {
+  const context = known || await contextOfStored(message);
+  let waiting = false;
+  if (context.reason) {
+    messageRetry.failForGood(message, context.reason);
+  } else {
+    try {
+      const providerMessageId = await tryStored(message, context);
+      message.providerMessageId = providerMessageId || undefined;
+      message.status = 'sent';
+      message.sentAt = new Date();
+      message.set('retry', undefined);
+      message.set('failedAt', undefined);
+      message.set('error', undefined);
+    } catch (error) {
+      logger.warn(`Message ${message._id} not sent on this try: ${error.message}`);
+      waiting = messageRetry.afterFailedTry(message, error);
+    }
+  }
+  await message.save();
+  if (waiting) await messageRetry.enqueue(message);
+  bus.emit('message:status', { organizationId: message.organizationId, message });
+  if (message.status === 'failed' && !manual) await tellNotSent(message, message.error?.message || 'unknown reason');
+  return message;
+}
+
+// POST /conversations/:id/messages/:messageId/retry — "Try again" on a message that failed.
+async function retryFailed(req, id, messageId) {
+  const conversation = await findVisible(req, id);
+  const message = await Message.findOne({ _id: messageId, conversationId: conversation._id });
+  if (!message) throw httpError(404, 'NOT_FOUND', 'Message not found');
+  if (!canRetry(message)) throw httpError(409, 'CANNOT_RESEND', 'This message cannot be sent again.');
+  const context = await contextOfStored(message);
+  if (context.reason) throw httpError(context.code === 'WINDOW_CLOSED' ? 422 : 409, context.code, context.reason);
+  // One click at a time.
+  const { modifiedCount } = await Message.updateOne({ _id: message._id, status: 'failed' }, { $set: { status: 'queued' } });
+  if (!modifiedCount) throw httpError(409, 'CANNOT_RESEND', 'This message is already being sent.');
+  message.status = 'queued';
+  message.set('retry.attempts', 0); // a fresh round of tries
+  message.set('error', undefined);
+  message.set('failedAt', undefined);
+  return serializeMessage(await resendStored(message, { manual: true, context }));
+}
+
+// POST /conversations/:id/messages/:messageId/stop-retry — "Don't send": a message waiting for its
+// next try stops there.
+async function stopRetry(req, id, messageId) {
+  const conversation = await findVisible(req, id);
+  const message = await Message.findOneAndUpdate(
+    { _id: messageId, conversationId: conversation._id, status: 'queued', 'retry.nextAt': { $exists: true } },
+    { $set: { status: 'failed', failedAt: new Date(), error: { title: 'stopped', message: 'Stopped before it was sent.' } }, $unset: { 'retry.nextAt': 1 } },
+    { returnDocument: 'after' },
+  );
+  if (!message) throw httpError(409, 'NOT_WAITING', 'This message is no longer waiting.');
+  bus.emit('message:status', { organizationId: message.organizationId, message });
+  return serializeMessage(message);
 }
 
 // The chat of a contact on a number, opened if needed (auto-replies). A new chat goes to
@@ -859,4 +1016,5 @@ module.exports = {
   ensureConversation, sendTemplateAutomatically, sendTextAutomatically, sendInteractiveAutomatically, sendGeneratedDocument, sendProducts, sendForm, announce, findVisible, setBot,
   serializeConversation, serializeMessage, serviceWindow, seesAll,
   sendContext, claimCustomer, callPermissionOf, sendCallPermissionRequest, // G7 (D111): WhatsApp calls
+  resendStored, retryFailed, stopRetry, canRetry, // D151
 };

@@ -84,6 +84,13 @@ router.post('/:id/typing', can('create'), byId, async (req, res) => {
 router.post('/:id/messages/:messageId/reaction', can('create'), validate({ params: schemas.messageParams, body: schemas.reaction }), async (req, res) => {
   res.status(201).json({ success: true, data: await conversationService.react(req, req.valid.params.id, req.valid.params.messageId, req.body) });
 });
+// D151: "Try again" on a message that failed; "Don't send" on one waiting for its next try.
+router.post('/:id/messages/:messageId/retry', can('create'), validate({ params: schemas.messageParams }), async (req, res) => {
+  res.json({ success: true, data: await conversationService.retryFailed(req, req.valid.params.id, req.valid.params.messageId) });
+});
+router.post('/:id/messages/:messageId/stop-retry', can('create'), validate({ params: schemas.messageParams }), async (req, res) => {
+  res.json({ success: true, data: await conversationService.stopRetry(req, req.valid.params.id, req.valid.params.messageId) });
+});
 router.get('/:id/messages', can('view'), validate({ params: idParams, query: schemas.messageList }), async (req, res) => {
   const { items, hasMore, nextBefore } = await conversationService.listMessages(req, req.valid.params.id, req.valid.query);
   res.json({ success: true, data: items, hasMore, nextBefore });

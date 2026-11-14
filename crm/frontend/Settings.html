@@ -940,6 +940,9 @@
             <button class="settings-tab" data-panel="integrations" id="integrationsTab" style="display: none">
               <i class="fa-solid fa-plug"></i> <span data-i18n="set.tab.integrations">API & webhooks</span>
             </button>
+            <button class="settings-tab" data-panel="delivery" id="deliveryTab" style="display: none">
+              <i class="fa-solid fa-triangle-exclamation"></i> <span data-i18n="deliv.tab">Failed sends</span> <span class="conn-tab-count" id="deliveryCount" hidden></span>
+            </button>
             <button class="settings-tab" data-panel="audit" id="auditTab" style="display: none">
               <i class="fa-solid fa-clipboard-list"></i> <span data-i18n="set.tab.audit">Audit log</span>
             </button>
@@ -2456,6 +2459,33 @@
           </div>
 
           <!-- AUDIT LOG (Phase 10F, owners and admins) -->
+          <!-- Phase 9 (D151): everything of the last 7 days that did not go (js/settings-delivery.js) -->
+          <div class="settings-panel" data-settings-panel="delivery">
+            <div class="panel">
+              <div class="panel-head">
+                <h3 data-i18n="deliv.tab">Failed sends</h3>
+              </div>
+              <div style="padding: 20px">
+                <p class="settings-hint" data-i18n="deliv.intro">Everything of the last 7 days that did not go: chat messages, SMS, webhooks to your own systems and broadcasts, with the reason. Messages that could not go for now are tried again by themselves.</p>
+                <div class="field">
+                  <label for="deliveryKind" data-i18n="deliv.show">Show</label>
+                  <select id="deliveryKind">
+                    <option value="all" data-i18n="set.everything">Everything</option>
+                    <option value="chat" data-i18n="deliv.kind.chat">Chat message</option>
+                    <option value="sms" data-i18n="deliv.kind.sms">SMS</option>
+                    <option value="webhook" data-i18n="deliv.kind.webhook">Webhook</option>
+                    <option value="broadcast" data-i18n="deliv.kind.broadcast">Broadcast</option>
+                  </select>
+                </div>
+                <p class="deliv-summary" id="deliverySummary"></p>
+                <div id="deliveryList"><p data-i18n="bulkbar.loading" class="settings-hint">Loading…</p></div>
+                <div class="data-actions" style="justify-content: center; margin-top: 12px">
+                  <button data-i18n="list.more" class="btn btn-outline" id="deliveryMore" type="button" hidden>Show more</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="settings-panel" data-settings-panel="audit">
             <div class="panel">
               <div class="panel-head">
@@ -2691,6 +2721,7 @@
     <script src="./js/settings-phone.js"></script>
     <script src="./js/settings-devices.js"></script>
     <script src="./js/settings-audit.js"></script>
+    <script src="./js/settings-delivery.js"></script>
     <script src="./js/settings-fields.js"></script>
     <script src="./js/settings-pages.js"></script>
     <script src="./js/settings-approvals.js"></script>

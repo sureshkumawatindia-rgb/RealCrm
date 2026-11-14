@@ -607,7 +607,7 @@ async function crmDownload(path, fileName, options = {}) {
 // ---------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------
-const PUBLIC_PAGES = new Set(["", "index.html", "login.html", "privacy.html", "terms.html", "refund.html", "delivery.html", "contact.html"]);
+const PUBLIC_PAGES = new Set(["", "index.html", "login.html", "privacy.html", "terms.html", "refund.html", "delivery.html", "contact.html", "status.html"]);
 
 function currentPageName() {
   return decodeURIComponent(window.location.pathname.split("/").pop()).toLowerCase();
@@ -2221,6 +2221,7 @@ const crmPlan = (() => {
       return; // the banner is a convenience
     }
     document.getElementById("planBanner")?.remove();
+    crmBannerRoom();
     const today = new Date().toDateString();
     if (!banner || (banner.dismissible && getPreference("planBannerHiddenOn", "") === today)) return;
     const el = document.createElement("div");
@@ -2232,15 +2233,13 @@ const crmPlan = (() => {
       ${banner.link && isOrgManager() ? `<a class="btn btn-primary" href="${banner.link}">${escapeHtml(banner.action)}</a>` : ""}
       ${!banner.link && isOrgManager() && !onPlanPage() ? `<a class="btn btn-primary" href="${PLANS_LINK}">${escapeHtml(t("plan.choose"))}</a>` : ""}
       ${banner.dismissible ? `<button class="plan-banner-close" type="button" aria-label="${escapeHtml(t("plan.hideTomorrow"))}">&times;</button>` : ""}`;
-    // Full-height pages (the inbox) leave room for it.
-    const room = (px) => document.documentElement.style.setProperty("--plan-banner-h", `${px}px`);
     el.querySelector(".plan-banner-close")?.addEventListener("click", () => {
       setPreference("planBannerHiddenOn", today);
       el.remove();
-      room(0);
+      crmBannerRoom();
     });
     topbar.insertAdjacentElement("afterend", el);
-    room(el.offsetHeight);
+    crmBannerRoom();
   }
 
   // The prompt when the server says the plan stops something.
@@ -2399,6 +2398,7 @@ async function mountTwoFactorBanner(twoFactor) {
     <span class="plan-banner-text">${escapeHtml(t("tfa.banner", { date: by }))}</span>
     <a class="btn btn-primary" href="two-factor.html">${escapeHtml(t("tfa.turnOn"))}</a>`;
   topbar.insertAdjacentElement("afterend", el);
+  crmBannerRoom();
 }
 
 // Staging (F2): a band on every page so nobody takes it for the real CRM, and for owners and
@@ -2476,9 +2476,91 @@ async function mountWhatsAppReminder() {
   el.querySelector(".plan-banner-close").addEventListener("click", () => {
     setPreference("whatsappBannerHiddenOn", today);
     el.remove();
+    crmBannerRoom();
   });
   (document.getElementById("planBanner") || topbar).insertAdjacentElement("afterend", el);
+  crmBannerRoom();
 }
+
+// Full-height pages (the inbox) leave room for the banners under the top bar, however many.
+function crmBannerRoom() {
+  const total = [...document.querySelectorAll(".plan-banner")].reduce((sum, el) => sum + el.offsetHeight, 0);
+  document.documentElement.style.setProperty("--plan-banner-h", `${total}px`);
+}
+
+// ---------------------------------------------------------------
+// Banners when something this company depends on is in trouble (Phase 9, D151;
+// docs/RELIABILITY.md): Meta, a payment gateway, the CRM's background work, or a notice from the
+// platform. Asked on load, every 3 minutes and when the internet is back; each can be hidden.
+// ---------------------------------------------------------------
+const crmServiceBanners = (() => {
+  const EVERY_MS = 3 * 60 * 1000;
+  const NOT_AGAIN_MS = 45 * 1000;
+  const HIDDEN = "statusBannersHidden";
+  const ICONS = { whatsapp: "fa-brands fa-whatsapp", razorpay: "fa-solid fa-credit-card", cashfree: "fa-solid fa-credit-card", jobs: "fa-solid fa-hourglass-half" };
+  let started = false;
+  let drawn = "";
+  let checkedAt = 0;
+
+  const wordsOf = (both) => both?.[crmI18n.language()] || both?.en || "";
+  function textOf(notice) {
+    if (notice.source === "manual") return [wordsOf(notice.title), wordsOf(notice.body)].filter(Boolean).join(" ");
+    if (notice.service === "whatsapp") return t(`status.banner.whatsapp.${notice.level === "down" ? "down" : "slow"}`);
+    if (notice.service === "jobs") return t("status.banner.jobs");
+    return t("status.banner.gateway", { name: t(`status.svc.${notice.service}`) });
+  }
+
+  function draw(notices) {
+    document.querySelectorAll(".status-banner").forEach((el) => el.remove());
+    const topbar = document.querySelector(".main > .topbar");
+    if (!topbar) return;
+    const hidden = getPreference(HIDDEN, []);
+    [...notices].reverse().filter((notice) => !hidden.includes(notice.id)).forEach((notice) => {
+      const el = document.createElement("div");
+      el.className = `plan-banner status-banner status-${notice.level}`;
+      el.dataset.notice = notice.id;
+      el.setAttribute("role", notice.level === "down" ? "alert" : "status");
+      el.innerHTML = `<i class="${ICONS[notice.service] || "fa-solid fa-circle-info"}" aria-hidden="true"></i>
+        <span class="plan-banner-text">${escapeHtml(textOf(notice))}</span>
+        <a class="btn btn-outline" href="status.html" target="_blank" rel="noopener">${escapeHtml(t("status.banner.details"))}</a>
+        <button class="plan-banner-close" type="button" aria-label="${escapeHtml(t("status.banner.hide"))}" title="${escapeHtml(t("status.banner.hide"))}">&times;</button>`;
+      el.querySelector(".plan-banner-close").addEventListener("click", () => {
+        setPreference(HIDDEN, [...getPreference(HIDDEN, []), notice.id].slice(-30));
+        el.remove();
+        crmBannerRoom();
+      });
+      topbar.insertAdjacentElement("afterend", el);
+    });
+    crmBannerRoom();
+  }
+
+  async function check() {
+    if (document.hidden || Date.now() - checkedAt < NOT_AGAIN_MS) return;
+    checkedAt = Date.now();
+    let notices;
+    try {
+      notices = await crmApi("/status/notices");
+      await crmI18n.ready;
+    } catch {
+      return; // the banners are a convenience
+    }
+    const shape = JSON.stringify(notices.map((n) => [n.id, n.level]));
+    if (shape === drawn) return;
+    drawn = shape;
+    draw(notices);
+  }
+
+  function start() {
+    if (started || !document.querySelector(".main > .topbar")) return;
+    started = true;
+    check();
+    setInterval(check, EVERY_MS);
+    document.addEventListener("crm:online", () => { checkedAt = 0; check(); });
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("resize", crmBannerRoom);
+  }
+  return { start };
+})();
 
 // ---------------------------------------------------------------
 // Search the whole CRM (top bar; Ctrl+K or "/" anywhere): customers, leads, chats, quotations,
@@ -3587,7 +3669,10 @@ document.addEventListener("DOMContentLoaded", () => {
   hideUnavailableModules();
   renderSidebarBrand();
   renderSidebarUser(); // Quotations, Orders, Team live and My performance never called it
-  if (isAuthenticated() && document.querySelector(".sidebar")) syncMembership();
+  if (isAuthenticated() && document.querySelector(".sidebar")) {
+    syncMembership();
+    crmServiceBanners.start(); // D151
+  }
   crmRefreshRecordNav();
   explainNoAccess();
   // The top bar's buttons and the menu once the texts are in (i18n/*.json).

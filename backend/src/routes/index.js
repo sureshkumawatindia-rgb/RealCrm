@@ -98,6 +98,8 @@ router.use('/dev', devRoutes);
 router.use('/conversations', conversationRoutes);
 router.use('/scheduled-messages', scheduledMessageRoutes); // D103
 router.use('/platform', require('./platform')); // D104: the platform admin page
+router.use('/status', require('./status')); // D151: is the CRM working? (public)
+router.use('/delivery-problems', require('./deliveryProblems')); // D151: Settings → Failed sends
 router.use('/help', require('./help')); // D118: help inside the CRM
 router.use('/quick-replies', quickReplyRoutes);
 router.use('/templates', templateRoutes);

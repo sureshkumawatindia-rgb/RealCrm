@@ -173,12 +173,26 @@ function flowProblems(flowJson) {
   return problems;
 }
 
+// D151: pretend Meta is in trouble (the developer tools, the browser tests).
+let trouble = false;
+let troubleUsed = false;
+
 module.exports = {
   async getPhoneNumber() {
     return { displayPhone: '+91 90000 00000', verifiedName: 'Test Business (mock)', qualityRating: 'GREEN', messagingLimit: 'TIER_250' };
   },
 
+  setTrouble(on) {
+    trouble = Boolean(on);
+    troubleUsed = true;
+  },
+
   async sendMessage() {
+    if (trouble) {
+      require('../../services/serviceStatusService').record('whatsapp', false, 'test number: simulated trouble'); // eslint-disable-line global-require
+      throw Object.assign(httpError(502, 'WHATSAPP_UNREACHABLE', 'Could not reach WhatsApp (Meta). Check the internet connection and try again.'), { temporary: true });
+    }
+    if (troubleUsed) require('../../services/serviceStatusService').record('whatsapp', true); // eslint-disable-line global-require
     return { providerMessageId: `wamid.MOCK${crypto.randomBytes(12).toString('hex')}` };
   },
 

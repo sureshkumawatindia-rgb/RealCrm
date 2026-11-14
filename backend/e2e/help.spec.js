@@ -46,7 +46,7 @@ test.describe.serial('Help inside the CRM', () => {
 
   test('the help centre finds a question by its words', async () => {
     await page.goto(at('help.html'));
-    await expect(page.locator('#helpFaq .help-item')).toHaveCount(12); // Phase 8 (D120): a customer's data on request
+    await expect(page.locator('#helpFaq .help-item')).toHaveCount(13); // Phase 9 (D151): when messages do not go
     await expect(page.locator('#helpTopics .help-item')).toHaveCount(25);
     await page.locator('#helpSearch').fill('quotation whatsapp');
     await expect(page.locator('#faq-quotation')).toBeVisible();

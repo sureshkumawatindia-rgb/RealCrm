@@ -406,6 +406,17 @@ crmI18n.ready.then(function inbox() {
     return `<div class="call-line ${missed ? "missed" : ""}"><i class="fa-solid ${off ? "fa-phone-slash" : "fa-phone"}" aria-hidden="true"></i><span>${escapeHtml(t(key, { duration: crmWhatsAppCalls.clockText(durationSec) }))}</span></div>`;
   }
 
+  // D151: could not go for now — it goes by itself, "Don't send" stops it; failed — "Try again".
+  function retryHtml(m) {
+    const id = escapeHtml(m.id);
+    if (m.status === "queued" && m.retry?.nextAt) {
+      const time = new Date(m.retry.nextAt).toLocaleTimeString(crmI18n.locale(), { hour: "numeric", minute: "2-digit" });
+      return `<div class="msg-wait"><span>${escapeHtml(t("inbox.retry.waiting", { time }))}</span><button type="button" class="btn btn-outline msg-wait-btn" data-retry-stop="${id}">${escapeHtml(t("outbox.cancel"))}</button></div>`;
+    }
+    if (m.canRetry) return `<div class="msg-wait-actions"><button type="button" class="btn btn-outline msg-wait-btn" data-retry-send="${id}"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> ${escapeHtml(t("outbox.retry"))}</button></div>`;
+    return "";
+  }
+
   function messageHtml(m) {
     const quoted = m.replyToProviderMessageId ? state.messages.find((other) => other.providerMessageId === m.replyToProviderMessageId) : null;
     // Sent by a teammate, or by the CRM itself (an auto-reply rule).
@@ -433,7 +444,8 @@ crmI18n.ready.then(function inbox() {
           ${m.referral ? `<div class="msg-ad"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> ${escapeHtml(t("inbox.came.fromAd"))}: <strong>${escapeHtml(m.referral.headline || t("inbox.came.adNoName"))}</strong></div>` : ""}
           <div class="bubble-body">${messageBody(m)}</div>
           <div class="bubble-meta">${m.type === "template" ? `<span class="tpl-tag">${escapeHtml(t("inbox.template"))}</span>` : ""}${who}${escapeHtml(time)} ${m.direction === "out" && m.type !== "call" ? TICKS[m.status] || "" : ""}</div>
-          ${m.status === "failed" && m.error ? `<div class="msg-error">${escapeHtml(m.error.message || m.error.title || t("inbox.notAccepted"))}</div>` : ""}
+          ${m.status === "failed" && m.error ? `<div class="msg-error">${escapeHtml(m.error.title === "stopped" ? t("inbox.retry.stopped") : m.error.message || m.error.title || t("inbox.notAccepted"))}</div>` : ""}
+          ${retryHtml(m)}
           ${reactions.length ? `<div class="msg-reactions" title="${escapeHtml(t("inbox.reactions"))}">${reactions.map(escapeHtml).join(" ")}</div>` : ""}
         </div>
         ${replyButton}${reactButton}${reactionBar}
@@ -1182,6 +1194,10 @@ crmI18n.ready.then(function inbox() {
     if (retry) return crmOutbox.retry(retry.dataset.waitRetry);
     const drop = e.target.closest("[data-wait-delete]");
     if (drop) return crmOutbox.remove(drop.dataset.waitDelete);
+    const tryAgain = e.target.closest("[data-retry-send]");
+    if (tryAgain) return retryStored(tryAgain, tryAgain.dataset.retrySend, "retry");
+    const stop = e.target.closest("[data-retry-stop]");
+    if (stop) return retryStored(stop, stop.dataset.retryStop, "stop-retry");
     const photo = e.target.closest("[data-photo]");
     if (photo) {
       const url = mediaUrls.get(photo.dataset.photo);
@@ -1208,6 +1224,22 @@ crmI18n.ready.then(function inbox() {
     $("replyBar").hidden = false;
     composer.focus();
   });
+  // D151: "Try again" on a message that failed, "Don't send" on one waiting for its next try.
+  async function retryStored(button, messageId, action) {
+    const conversation = state.current;
+    button.disabled = true;
+    try {
+      const updated = await crmApi(`/conversations/${conversation.id}/messages/${messageId}/${action}`, jsonRequest("POST", {}));
+      if (state.current && String(state.current.id) === String(conversation.id)) {
+        addOrReplaceMessage(updated);
+        renderMessages({ stickToBottom: false });
+      }
+    } catch (error) {
+      button.disabled = false;
+      showToast(apiErrorMessage(error, t("inbox.retry.failed")), "error");
+    }
+  }
+
   async function sendReaction(messageId, emoji) {
     const conversation = state.current;
     state.reactingTo = null;

@@ -3066,6 +3066,19 @@ html.i18n-pending body {
   gap: 10px;
   margin-top: 6px;
 }
+/* Phase 9 (D151): Meta, a gateway or the CRM's background work in trouble; the platform's notices */
+.plan-banner.status-down {
+  background: var(--danger-bg);
+  border-bottom-color: rgba(255, 69, 58, 0.3);
+}
+.plan-banner.status-degraded {
+  background: var(--warning-bg);
+  border-bottom-color: rgba(255, 159, 10, 0.35);
+}
+.plan-banner.status-info {
+  background: var(--info-bg);
+  border-bottom-color: rgba(74, 108, 247, 0.25);
+}
 /* "Connect WhatsApp" on the dashboard (D60) */
 .plan-banner.whatsapp-banner {
   background: var(--wa-soft);
@@ -6328,6 +6341,73 @@ a.c360-list-item.c360-record:hover .c360-list-title {
 .field label.priv-confirm-label {
   text-transform: none;
   letter-spacing: normal;
+}
+/* Settings → Failed sends (Phase 9, D151) */
+.deliv-summary {
+  font-weight: 600;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+.deliv-summary:empty {
+  display: none;
+}
+.deliv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.deliv-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.deliv-icon {
+  margin-top: 3px;
+  color: var(--text-muted);
+}
+.deliv-body {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 13.5px;
+}
+.deliv-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.deliv-what {
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+.deliv-reason {
+  margin-top: 3px;
+  color: var(--danger-text);
+  overflow-wrap: anywhere;
+}
+.deliv-when {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.deliv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.deliv-actions .btn {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
+.deliv-empty {
+  margin: 12px 0 0;
 }
 .priv-settings-grid {
   display: grid;

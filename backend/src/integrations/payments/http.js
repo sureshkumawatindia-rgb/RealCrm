@@ -1,4 +1,5 @@
 const httpError = require('../../utils/httpError');
+const serviceStatus = require('../../services/serviceStatusService');
 
 // A JSON call to a payment gateway. Keys go in headers only (never in a URL or a log line).
 // Gateway refusals become 400 PAYMENT_GATEWAY_ERROR with the gateway's own words; a bad key
@@ -6,6 +7,7 @@ const httpError = require('../../utils/httpError');
 const TIMEOUT_MS = 15000;
 
 async function call(name, url, { method = 'GET', headers = {}, body } = {}) {
+  const service = name.toLowerCase(); // D151: its answers count towards the status page
   let response;
   try {
     response = await fetch(url, {
@@ -15,9 +17,11 @@ async function call(name, url, { method = 'GET', headers = {}, body } = {}) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
+    serviceStatus.record(service, false, 'no answer');
     throw httpError(502, 'PAYMENT_GATEWAY_UNREACHABLE', `Could not reach ${name}. Check the internet connection and try again.`);
   }
   const data = await response.json().catch(() => ({}));
+  serviceStatus.record(service, response.status < 500, `answered ${response.status}`);
   if (response.ok) return data;
   // Razorpay: { error: { code, description } }; Cashfree: { message, code, type }.
   const said = data?.error?.description || data?.message || `${name} answered with status ${response.status}.`;

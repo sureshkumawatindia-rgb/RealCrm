@@ -233,6 +233,17 @@ router.post('/test-error', () => {
   throw new Error('Test error from the developer tools (F3)');
 });
 
+// D151: pretend Meta is in trouble (test numbers), and run the status check now.
+router.post('/simulate/service-trouble', validate({ body: Joi.object({ on: Joi.boolean().required() }) }), async (req, res) => {
+  mock.setTrouble(req.body.on);
+  res.json({ success: true, data: { on: req.body.on } });
+});
+router.post('/status-check', async (req, res) => {
+  const serviceStatus = require('../services/serviceStatusService'); // eslint-disable-line global-require
+  await serviceStatus.evaluate({ ask: async () => !req.body?.down });
+  res.json({ success: true, data: await serviceStatus.openIncidents() });
+});
+
 // D120: a weekly backup copy now, so the platform admin page's restore drill has one to restore
 // (the browser tests: e2e/privacy.spec.js, with a stand-in R2).
 router.post('/backup-now', async (req, res) => {

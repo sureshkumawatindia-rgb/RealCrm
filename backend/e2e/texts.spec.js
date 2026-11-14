@@ -9,7 +9,7 @@ const { signIn, api, page: at } = require('./helpers');
 // words or in its tooltips, placeholders and labels.
 const KEYS = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'crm', 'frontend', 'i18n', 'en.json'), 'utf8'))));
 const SETTINGS_TABS = ['profile', 'company', 'team', 'whatsapp', 'leadsources', 'leadrules', 'pipelines', 'fields', 'connections', 'calling', 'sms',
-  'payments', 'ai', 'integrations', 'approvals', 'audit', 'billing', 'plan', 'data'];
+  'payments', 'ai', 'integrations', 'approvals', 'delivery', 'audit', 'billing', 'plan', 'data'];
 const PAGES = [
   'invite-team.html', 'company.html', 'dashboard.html', 'Inbox.html', 'customers.html', 'leads.html', 'Deals.html', 'Quotations.html', 'Orders.html',
   'Products.html', 'Tasks.html', 'projects.html', 'Support.html', 'Reports & Analytics.html', 'my-performance.html', 'team-live.html',

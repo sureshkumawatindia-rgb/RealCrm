@@ -3,6 +3,8 @@ const platformService = require('../services/platformService');
 const emailService = require('../services/emailService');
 const helpService = require('../services/helpService');
 const backups = require('../services/backupService');
+const serviceStatus = require('../services/serviceStatusService');
+const platformHealth = require('../services/platformHealthService');
 const httpError = require('../utils/httpError');
 const { audit } = require('../utils/audit');
 const { authenticate } = require('../middleware/auth');
@@ -48,6 +50,24 @@ router.get('/support', async (req, res) => {
 });
 router.put('/support', validate({ body: schemas.support }), async (req, res) => {
   res.json({ success: true, data: await helpService.setSupport(req, req.body), message: 'Support contact saved' });
+});
+
+// D151: is everything working, what could not be processed, and notices (docs/RELIABILITY.md).
+router.get('/health', async (req, res) => {
+  res.json({ success: true, data: { ...(await serviceStatus.health()), ...(await platformHealth.problems()) } });
+});
+router.post('/health/inbound/retry', async (req, res) => {
+  res.json({ success: true, data: await platformHealth.retryInbound(req), message: 'Trying them again' });
+});
+router.post('/health/jobs/:id/retry', validate({ params: idParams }), async (req, res) => {
+  res.json({ success: true, data: await platformHealth.retryJob(req, req.valid.params.id), message: 'Trying it again' });
+});
+router.post('/notices', validate({ body: schemas.notice }), async (req, res) => {
+  res.status(201).json({ success: true, data: await serviceStatus.postNotice(req, req.body), message: 'Notice posted' });
+});
+router.post('/incidents/:id/end', validate({ params: idParams }), async (req, res) => {
+  await serviceStatus.endIncident(req, req.valid.params.id);
+  res.json({ success: true, data: { ended: true }, message: 'Ended' });
 });
 
 // D120: the backups and the restore drill (docs/DATA_TRUST.md).

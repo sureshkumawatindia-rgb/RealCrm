@@ -55,6 +55,7 @@ function pageHeaders(req, res, next) {
 }
 // The root address: agreem360's own website on its names (D149, SITE_HOSTS), else the CRM's home page.
 app.get('/', (req, res) => res.redirect(env.siteHosts.includes(req.hostname) ? '/crm/frontend/agreem360.html' : '/crm/frontend/index.html'));
+app.get('/status', (req, res) => res.redirect('/crm/frontend/status.html')); // the public status page (D151)
 // Browsers ask for /favicon.ico on every page that names no icon: the app's own icon.
 app.get('/favicon.ico', pageHeaders, (req, res) => res.sendFile(path.join(frontendDir, 'img', 'icons', 'icon-192.png'), { maxAge: '7d' }));
 // Search engines (D141): only the public pages (the home page, sign-in and the policy pages), at

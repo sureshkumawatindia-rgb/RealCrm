@@ -115,6 +115,7 @@
                 <button class="report-tab" data-tab="checklist" type="button" role="tab"><i class="fa-solid fa-list-check"></i> <span data-i18n="padmin.go-live-checklist">Go-live checklist</span></button>
                 <button class="report-tab" data-tab="support" type="button" role="tab"><i class="fa-solid fa-headset"></i> <span data-i18n="padmin.support">Support</span></button>
                 <button class="report-tab" data-tab="backups" type="button" role="tab"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="padmin.bk.tab">Backups</span></button>
+                <button class="report-tab" data-tab="health" type="button" role="tab"><i class="fa-solid fa-heart-pulse"></i> <span data-i18n="padmin.health.tab">Health</span></button>
               </div>
             </div>
 
@@ -185,6 +186,79 @@
               <div class="panel">
                 <div class="panel-head"><h3 data-i18n="padmin.bk.list">Backups</h3></div>
                 <div class="report-table" id="paBackupTable"></div>
+              </div>
+            </section>
+
+            <!-- D151: is everything working, what could not be processed, and notices (docs/RELIABILITY.md) -->
+            <section class="report-panel" id="paPanel-health">
+              <div class="stat-grid" id="paHealthKpis"></div>
+              <div class="panel">
+                <div class="panel-head"><h3 data-i18n="padmin.health.open">Open now</h3></div>
+                <div class="report-table" id="paHealthOpen"></div>
+              </div>
+              <div class="panel pa-drill">
+                <div class="panel-head pa-drill-head">
+                  <h3 data-i18n="padmin.health.inbound">Webhooks that could not be processed</h3>
+                  <button class="btn btn-primary" id="paInboundRetry" type="button" disabled><i class="fa-solid fa-rotate-right"></i> <span data-i18n="padmin.health.retryAll">Try them all again</span></button>
+                </div>
+                <div class="report-table" id="paHealthInbound"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-head"><h3 data-i18n="padmin.health.jobs">Background jobs that gave up</h3></div>
+                <div class="report-table" id="paHealthJobs"></div>
+              </div>
+              <div class="panel pa-support">
+                <h3 data-i18n="padmin.health.notice">Post a notice</h3>
+                <p class="pa-note" data-i18n="padmin.health.noticeText">Shown on the public status page and as a banner inside the CRM, in both languages. Choose WhatsApp or a gateway and only the companies using it see the banner.</p>
+                <form id="paNoticeForm" class="pa-support-form" novalidate>
+                  <div class="field">
+                    <label for="paNoticeService" data-i18n="padmin.health.about">About</label>
+                    <select id="paNoticeService">
+                      <option value="notice" data-i18n="padmin.health.everyone">Everyone (general notice)</option>
+                      <option value="crm" data-i18n="status.svc.crm">The CRM</option>
+                      <option value="jobs" data-i18n="status.svc.jobs">Background work</option>
+                      <option value="whatsapp" data-i18n="status.svc.whatsapp">WhatsApp (Meta)</option>
+                      <option value="razorpay" data-i18n="status.svc.razorpay">Razorpay (payments)</option>
+                      <option value="cashfree" data-i18n="status.svc.cashfree">Cashfree (payments)</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="paNoticeLevel" data-i18n="padmin.health.level">How serious</label>
+                    <select id="paNoticeLevel">
+                      <option value="info" data-i18n="padmin.health.level.info">Information only</option>
+                      <option value="degraded" data-i18n="status.level.degraded">Trouble at times</option>
+                      <option value="down" data-i18n="status.level.down">Not working</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="paNoticeTitleEn" data-i18n="padmin.health.titleEn">Title in English</label>
+                    <input type="text" id="paNoticeTitleEn" maxlength="120" autocomplete="off" />
+                  </div>
+                  <div class="field">
+                    <label for="paNoticeTitleHi" data-i18n="padmin.health.titleHi">Title in Hindi</label>
+                    <input type="text" id="paNoticeTitleHi" maxlength="120" autocomplete="off" />
+                  </div>
+                  <div class="field">
+                    <label for="paNoticeBodyEn" data-i18n="padmin.health.bodyEn">Details in English (optional)</label>
+                    <textarea id="paNoticeBodyEn" rows="2" maxlength="500"></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="paNoticeBodyHi" data-i18n="padmin.health.bodyHi">Details in Hindi (optional)</label>
+                    <textarea id="paNoticeBodyHi" rows="2" maxlength="500"></textarea>
+                  </div>
+                  <div class="field">
+                    <label for="paNoticeHours" data-i18n="padmin.health.hours">Ends by itself after (hours, optional)</label>
+                    <input type="number" id="paNoticeHours" min="1" max="168" step="1" autocomplete="off" />
+                  </div>
+                  <p class="form-error" id="paNoticeError" hidden></p>
+                  <div class="data-actions">
+                    <button class="btn btn-primary" type="submit" id="paNoticePost" data-i18n="padmin.health.post">Post the notice</button>
+                  </div>
+                </form>
+              </div>
+              <div class="panel">
+                <div class="panel-head"><h3 data-i18n="padmin.health.recent">Recently ended</h3></div>
+                <div class="report-table" id="paHealthRecent"></div>
               </div>
             </section>
 

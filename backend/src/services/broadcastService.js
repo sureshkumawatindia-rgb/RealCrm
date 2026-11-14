@@ -40,6 +40,7 @@ const DAILY_LIMITS = { TIER_250: 250, TIER_1K: 1000, TIER_2K: 2000, TIER_10K: 10
 const dailyLimitOf = (account) => DAILY_LIMITS[account?.messagingLimit] ?? 250;
 const EDITABLE = ['draft', 'scheduled'];
 const STOPPABLE = ['scheduled', 'sending', 'paused'];
+const META_DOWN_WAIT_MS = 10 * 60 * 1000; // D151
 
 const { monthStart } = planService;
 
@@ -323,6 +324,15 @@ async function sendBatch({ broadcastId }) {
     WhatsAppAccount.findOne({ _id: broadcast.whatsappAccountId, organizationId }),
   ]);
   if (!template || !account) return fail(broadcast, `Stopped: the ${template ? 'WhatsApp number' : 'template'} was removed.`);
+
+  // D151: Meta is down: nothing goes for now, and the rest follows when it is back.
+  if (await require('./serviceStatusService').isDown('whatsapp')) { // eslint-disable-line global-require
+    broadcast.waitUntil = new Date(Date.now() + META_DOWN_WAIT_MS);
+    broadcast.error = 'WhatsApp (Meta) is having trouble: the rest goes when it is back.';
+    await broadcast.save();
+    return nextBatch(broadcast, broadcast.waitUntil);
+  }
+  if (broadcast.error) broadcast.error = '';
 
   // Meta's daily limit: wait for room when it is used up.
   const limit = dailyLimitOf(account);

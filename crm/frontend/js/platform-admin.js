@@ -6,7 +6,8 @@
  * company), the platform's emails, and the go-live checklist (which keys are set, never values).
  * GET /platform/status, POST /platform/unlock|lock, GET /platform/overview|companies|emails|checklist,
  * POST /platform/companies/:id/actions. D120: the weekly backups and the restore drill
- * (GET /platform/backups, POST /platform/backups/drill).
+ * (GET /platform/backups, POST /platform/backups/drill). D151: Health — calls to Meta and the
+ * gateways, incidents, what could not be processed, and notices (GET /platform/health …).
  */
 (function platformAdmin() {
   const $ = (id) => document.getElementById(id);
@@ -125,6 +126,7 @@
     if (state.tab === "checklist") loadChecklist();
     if (state.tab === "support") loadSupport();
     if (state.tab === "backups") loadBackups();
+    if (state.tab === "health") loadHealth();
   }
 
   // --- overview ------------------------------------------------------------------------------
@@ -332,6 +334,85 @@
       handle(error, t("padm.couldn-t-load-the-checklist"));
     }
   }
+
+  // --- health (D151) --------------------------------------------------------------------------------
+  const STATUS_CLASS = { ok: "success", degraded: "warning", down: "danger", info: "info" };
+  const levelBadge = (level) => `<span class="badge badge-${STATUS_CLASS[level] || "info"}">${escapeHtml(t(level === "info" ? "padmin.health.level.info" : `status.level.${level}`))}</span>`;
+  const incidentName = (i) => i.title?.en || t(`status.svc.${i.service === "notice" ? "crm" : i.service}`);
+  const incidentRows = (list, withEnd) => `<table><thead><tr><th>${escapeHtml(t("padmin.health.what"))}</th><th>${escapeHtml(t("padmin.health.level"))}</th><th>${escapeHtml(t("padmin.health.since"))}</th><th></th></tr></thead><tbody>${list.map((i) => `<tr>
+      <td>${escapeHtml(incidentName(i))}<span class="pa-cell-sub">${escapeHtml(t(i.source === "manual" ? "padmin.health.byHand" : "padmin.health.auto"))}</span></td>
+      <td>${levelBadge(i.level)}</td>
+      <td>${escapeHtml(dateText(i.startedAt))} ${escapeHtml(timeText(i.startedAt))}${i.endedAt ? `<span class="pa-cell-sub">${escapeHtml(t("padmin.health.endedAt", { v: `${dateText(i.endedAt)} ${timeText(i.endedAt)}` }))}</span>` : ""}</td>
+      <td>${withEnd ? `<button class="btn btn-outline" type="button" data-pa-end="${escapeHtml(i.id)}">${escapeHtml(t("padmin.health.end"))}</button>` : ""}</td>
+    </tr>`).join("")}</tbody></table>`;
+
+  async function loadHealth() {
+    let data;
+    try {
+      data = await crmApi("/platform/health");
+    } catch (error) {
+      handle(error, t("padmin.health.err"));
+      return;
+    }
+    $("paHealthKpis").innerHTML = data.services.map((s) => kpi(
+      t(`status.svc.${s.key}`),
+      t(`status.level.${s.status}`),
+      `${t("padmin.health.calls", { ok: s.ok, failed: s.failed })}${s.lastError ? ` · ${s.lastError}` : ""}`,
+      s.status === "ok" ? "success" : "warning",
+    )).join("");
+    $("paHealthOpen").innerHTML = data.open.length ? incidentRows(data.open, true) : empty(t("padmin.health.allGood"));
+    $("paHealthRecent").innerHTML = data.recent.length ? incidentRows(data.recent, false) : empty(t("padmin.health.noneRecent"));
+    $("paInboundRetry").disabled = !data.inbound.total;
+    $("paHealthInbound").innerHTML = data.inbound.groups.length
+      ? `<table><thead><tr><th>${escapeHtml(t("padmin.health.source"))}</th><th class="num">${escapeHtml(t("padmin.health.count"))}</th><th>${escapeHtml(t("padmin.health.lastError"))}</th><th>${escapeHtml(t("padmin.health.lastAt"))}</th></tr></thead><tbody>${data.inbound.groups.map((g) => `<tr><td>${escapeHtml(g.provider)}<span class="pa-cell-sub">${escapeHtml(g.kind)}</span></td><td class="num">${g.count}</td><td>${escapeHtml(g.error)}</td><td>${escapeHtml(ago(g.latestAt))}</td></tr>`).join("")}</tbody></table>`
+      : empty(t("padmin.health.noInbound"));
+    $("paHealthJobs").innerHTML = data.jobs.latest.length
+      ? `<table><thead><tr><th>${escapeHtml(t("padmin.health.job"))}</th><th>${escapeHtml(t("padmin.health.lastError"))}</th><th>${escapeHtml(t("padmin.health.lastAt"))}</th><th></th></tr></thead><tbody>${data.jobs.latest.map((j) => `<tr><td>${escapeHtml(j.name)}</td><td>${escapeHtml(j.error)}</td><td>${escapeHtml(ago(j.at))}</td><td><button class="btn btn-outline" type="button" data-pa-job="${escapeHtml(j.id)}">${escapeHtml(t("outbox.retry"))}</button></td></tr>`).join("")}</tbody></table>`
+      : empty(t("padmin.health.noJobs"));
+  }
+
+  async function healthAction(button, path, body, done) {
+    button.disabled = true;
+    try {
+      await crmApi(`/platform${path}`, { method: "POST", ...(body && { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }) });
+      showToast(t(done), "success");
+      await loadHealth();
+      return true;
+    } catch (error) {
+      button.disabled = false;
+      handle(error, t("padmin.health.err"));
+      return false;
+    }
+  }
+  $("paPanel-health").addEventListener("click", (event) => {
+    const end = event.target.closest("[data-pa-end]");
+    if (end) return healthAction(end, `/incidents/${end.dataset.paEnd}/end`, null, "padmin.health.ended");
+    const job = event.target.closest("[data-pa-job]");
+    if (job) return healthAction(job, `/health/jobs/${job.dataset.paJob}/retry`, null, "padmin.health.tried");
+    return undefined;
+  });
+  $("paInboundRetry").addEventListener("click", (event) => healthAction(event.currentTarget, "/health/inbound/retry", null, "padmin.health.tried"));
+  $("paNoticeForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = (id) => $(id).value.trim();
+    const error = (key) => {
+      $("paNoticeError").textContent = key ? t(key) : "";
+      $("paNoticeError").hidden = !key;
+    };
+    if (value("paNoticeTitleEn").length < 3 || value("paNoticeTitleHi").length < 3) return error("padmin.health.needTitles");
+    error("");
+    const hours = Number(value("paNoticeHours"));
+    const posted = await healthAction($("paNoticePost"), "/notices", {
+      service: value("paNoticeService"),
+      level: value("paNoticeLevel"),
+      title: { en: value("paNoticeTitleEn"), hi: value("paNoticeTitleHi") },
+      body: { en: value("paNoticeBodyEn"), hi: value("paNoticeBodyHi") },
+      ...(hours >= 1 && { untilHours: Math.min(168, Math.round(hours)) }),
+    }, "padmin.health.posted");
+    $("paNoticePost").disabled = false;
+    if (posted) event.target.reset();
+    return undefined;
+  });
 
   // --- the backups and the restore drill (D120) ---------------------------------------------------
   const BACKUP_WARNINGS = { // the keys of their texts
