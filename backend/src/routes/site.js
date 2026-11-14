@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
   res.json({
     success: true,
     data: {
-      name: seller.name || 'AgreemCRM',
+      name: seller.name || 'agreem360',
       email: seller.email || '',
       address: seller.address || '',
       gstin: seller.gstin || '',

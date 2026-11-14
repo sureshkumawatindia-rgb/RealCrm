@@ -88,7 +88,7 @@ async function providerPlanFor(planKey, interval = 'monthly') {
   const plan = PLANS[planKey];
   const yearly = interval === 'yearly';
   const made = await gateway().createPlan(keys(), {
-    name: `AgreemCRM ${plan.name}${yearly ? ' (yearly)' : ''}`,
+    name: `agreem360 ${plan.name}${yearly ? ' (yearly)' : ''}`,
     amountPaise: filter.amountPaise,
     period: interval,
     description: `${plan.name} plan: ${formatRupees(yearly ? plan.yearlyPricePaise : plan.pricePaise)} + ${PLAN_GST_PCT}% GST a ${yearly ? 'year' : 'month'}`,
@@ -259,7 +259,7 @@ async function applyPlan(organization, planKey) {
 function sellerParty() {
   const { name, gstin, address, email } = env.billing.seller;
   const stateCode = stateCodeFromGstin(gstin) || '';
-  return { name: name || 'AgreemCRM', gstin, address, stateCode, state: stateName(stateCode), email };
+  return { name: name || 'agreem360', gstin, address, stateCode, state: stateName(stateCode), email };
 }
 function buyerParty(organization) {
   const gstin = String(organization.gstin || organization.get('gst') || '').toUpperCase();

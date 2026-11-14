@@ -83,10 +83,10 @@
         showToast(t("tfa.copied"), "success");
       }
       if (action === "download") {
-        const text = `AgreemCRM — ${t("tfa.title")}\n${getCurrentUser()?.email || ""}\n\n${card.dataset.codes}\n`;
+        const text = `agreem360 — ${t("tfa.title")}\n${getCurrentUser()?.email || ""}\n\n${card.dataset.codes}\n`;
         const link = document.createElement("a");
         link.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-        link.download = "agreemcrm-backup-codes.txt";
+        link.download = "agreem360-backup-codes.txt";
         link.click();
         URL.revokeObjectURL(link.href);
       }

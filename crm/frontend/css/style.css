@@ -278,7 +278,7 @@ button {
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   background: var(--bg);
 }
-/* The left half: what AgreemCRM is */
+/* The left half: what agreem360 is */
 .auth-showcase {
   display: flex;
   flex-direction: column;
@@ -614,7 +614,7 @@ button {
   flex-shrink: 0;
   opacity: 0.38;
 }
-/* "New to AgreemCRM? Create your company" / "Already on AgreemCRM? Log in to your company":
+/* "New to agreem360? Create your company" / "Already on agreem360? Log in to your company":
    a soft box with the switch as a blue pill and an arrow (the text comes from js/login.js). */
 .login-signup {
   flex-wrap: wrap;
@@ -1321,7 +1321,7 @@ button {
   letter-spacing: -0.3px;
   color: var(--text);
 }
-/* The company's own name over "AgreemCRM" (app.js renderSidebarBrand) */
+/* The company's own name over "agreem360" (app.js renderSidebarBrand) */
 .sidebar-brand .sidebar-brand__name {
   display: flex;
   flex-direction: column;

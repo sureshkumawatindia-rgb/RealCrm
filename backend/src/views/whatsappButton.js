@@ -226,7 +226,7 @@ function browser(cfg, script) {
 function scriptFor(config) {
   // "<" as < keeps the JSON from ever closing a <script> tag.
   const json = JSON.stringify(config).replace(/</g, '\\u003c');
-  return `/* AgreemCRM WhatsApp button */\n(${browser.toString()})(${json}, document.currentScript);\n`;
+  return `/* agreem360 WhatsApp button */\n(${browser.toString()})(${json}, document.currentScript);\n`;
 }
 
 // The ref code in a customer's message ("Ref: 7K2Q9X"), or ''.

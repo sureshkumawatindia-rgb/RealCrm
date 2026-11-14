@@ -1,10 +1,10 @@
-# Domain setup: AgreemCRM on crm.agreem360.com
+# Domain setup: agreem360 on crm.agreem360.com
 
 How to put the CRM on its own address, step by step. It fills in **GO_LIVE_CHECKLIST step 2**
 and gets steps 6, 7, 8 and 13 ready.
 
-The domain is **agreem360.com** (D141, 2026-11-11). The product's name stays **AgreemCRM**; only
-the address is new. It replaces the earlier agreemcrm.com plan (D121).
+The domain is **agreem360.com** (D141, 2026-11-11). Since D150 (2026-11-14) the name people read
+everywhere is **agreem360** too (AgreemCRM before). It replaces the earlier agreemcrm.com plan (D121).
 
 ## The plan (decide once, never change)
 
@@ -200,7 +200,7 @@ Every address below is also shown inside the CRM on the new domain.
 to **DNS only**. Then add the DMARC record (`_dmarc.mail.agreem360.com`). On Render:
 
 ```
-EMAIL_FROM=AgreemCRM <hello@mail.agreem360.com>
+EMAIL_FROM=agreem360 <hello@mail.agreem360.com>
 ```
 
 `RESEND_API_KEY` goes only into Render's Environment, never into a chat.

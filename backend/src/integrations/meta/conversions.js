@@ -11,7 +11,7 @@ const httpError = require('../../utils/httpError');
 // custom_data { event_source: "crm", lead_event_source: <the CRM's name> }.
 // Same Graph API (and version) as WhatsApp; the token goes in a header, never in a URL.
 const TIMEOUT_MS = 15000;
-const LEAD_EVENT_SOURCE = 'AgreemCRM';
+const LEAD_EVENT_SOURCE = 'agreem360';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function graph(path, { accessToken, method = 'GET', body } = {}) {

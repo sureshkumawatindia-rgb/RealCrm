@@ -31,7 +31,7 @@ const nextDay = (date) => new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).t
 function outlookEventOf(event) {
   const timeZone = !event.timezone || event.timezone === 'Asia/Kolkata' ? IST_ZONE : event.timezone;
   const timed = Boolean(event.startTime);
-  const lines = [event.description, event.relatedName && `About: ${event.relatedName}`, 'From AgreemCRM'].filter(Boolean);
+  const lines = [event.description, event.relatedName && `About: ${event.relatedName}`, 'From agreem360'].filter(Boolean);
   return {
     subject: event.title,
     body: { contentType: 'text', content: lines.join('\n') },

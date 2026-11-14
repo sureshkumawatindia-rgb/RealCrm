@@ -134,7 +134,7 @@ window.crmWhatsAppCalls = (function whatsappCalls() {
     render();
     // A note on the computer when this tab is in the background (if notifications are allowed).
     if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-      const note = new Notification(t("inbox.call.incoming"), { body: nameOf(conversation), tag: `wa-call-${id}`, icon: "./img/logo/logo.png" });
+      const note = new Notification(t("inbox.call.incoming"), { body: nameOf(conversation), tag: `wa-call-${id}`, icon: "./img/icons/icon-192.png" });
       note.onclick = () => {
         window.focus();
         note.close();

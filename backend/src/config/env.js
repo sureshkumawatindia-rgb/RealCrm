@@ -111,7 +111,7 @@ const schema = Joi.object({
   BILLING_SELLER_ADDRESS: Joi.string().allow('').default(''),
   BILLING_SELLER_EMAIL: Joi.string().allow('').default(''),
   BILLING_SAC: Joi.string().pattern(/^\d{4,8}$/).default('998315'),
-  BILLING_INVOICE_PREFIX: Joi.string().pattern(/^[A-Z0-9-]{1,8}$/).default('AC'), // AgreemCRM (D125; YC before)
+  BILLING_INVOICE_PREFIX: Joi.string().pattern(/^[A-Z0-9-]{1,8}$/).default('AC'), // from AgreemCRM (D125; YC before), kept with the agreem360 name (D150) so the series goes on
   // The platform's own emails (D104, docs/EMAIL_SETUP.md): invites, trial and payment notes, plan
   // invoices, deletion warnings and new-login alerts, sent through Resend. Without both keys
   // nothing is emailed (the bell and the links keep working); EMAIL_FROM is "Name <address>" or

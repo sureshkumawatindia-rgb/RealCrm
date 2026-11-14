@@ -130,7 +130,7 @@ Google's Inter and Noto Sans Devanagari (about 250 KB), each downloaded once.
 On the live address (https), on an Android phone in Chrome:
 
 1. Open the CRM and sign in; the half-circle button at the top → **Install the app**.
-2. Open **AgreemCRM** from the home screen: it opens at the Inbox. Open two or three chats.
+2. Open **agreem360** from the home screen: it opens at the Inbox. Open two or three chats.
 3. Turn on airplane mode and open the app again: the chats show, and the top bar says Offline.
 4. Write a reply: it shows "Waiting for the internet". Turn airplane mode off: it goes by itself.
 

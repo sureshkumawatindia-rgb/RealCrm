@@ -54,7 +54,7 @@ Add two lines to `backend/.env` (and, on Render, under the service's **Environme
 
 ```
 RESEND_API_KEY=<the key>
-EMAIL_FROM=AgreemCRM <hello@mail.yourdomain.in>
+EMAIL_FROM=agreem360 <hello@mail.yourdomain.in>
 ```
 
 `EMAIL_FROM` must be an address on the verified domain; the name before `<` is what people see.

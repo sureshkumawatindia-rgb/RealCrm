@@ -96,7 +96,7 @@ async function remove(req, id) {
 
 // --- the card ---------------------------------------------------------------------------------
 // Teams Workflows (and the older incoming webhooks) take an Adaptive Card in a "message".
-function cardMessage({ title, facts = [], link, linkTitle = 'Open in AgreemCRM' }) {
+function cardMessage({ title, facts = [], link, linkTitle = 'Open in agreem360' }) {
   return {
     type: 'message',
     attachments: [{
@@ -156,7 +156,7 @@ async function send(channel, message) {
   const url = await assertPublicHttps(decrypt(channel.urlEnc));
   let response;
   try {
-    response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'AgreemCRM-Teams/1' }, body: JSON.stringify(message), redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
+    response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'agreem360-Teams/1' }, body: JSON.stringify(message), redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
   } catch {
     throw Object.assign(new Error(`Teams at ${url.host} did not answer.`), { retry: true });
   }
@@ -194,7 +194,7 @@ async function post({ channelId, type, event }) {
 async function test(req, id) {
   const channel = await findOwn(req, id);
   try {
-    const { status } = await send(channel, cardMessage({ title: 'AgreemCRM is connected to this channel', facts: [['Events', channel.events.map((key) => TEAMS_EVENT_LABELS[key]).join(', ') || 'none chosen yet']], link: crmLink('Settings.html?tab=integrations') }));
+    const { status } = await send(channel, cardMessage({ title: 'agreem360 is connected to this channel', facts: [['Events', channel.events.map((key) => TEAMS_EVENT_LABELS[key]).join(', ') || 'none chosen yet']], link: crmLink('Settings.html?tab=integrations') }));
     const ok = await record(channel, { status });
     return { sent: ok, status };
   } catch (error) {

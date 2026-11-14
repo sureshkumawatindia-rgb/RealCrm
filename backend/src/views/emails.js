@@ -4,7 +4,7 @@ const { formatRupees } = require('../utils/money');
 // The platform's emails (D104): a subject, a branded HTML part and a plain-text part, in English
 // or Hindi (the person's language in Settings). Everything that comes from people or companies
 // is escaped. No images or tracking: a yellow bar with the product's name is the brand.
-const BRAND = 'AgreemCRM';
+const BRAND = 'agreem360';
 const LINKS = {
   plan: () => `${env.frontendUrl}/Settings.html?tab=plan`,
   data: () => `${env.frontendUrl}/Settings.html?tab=data`,

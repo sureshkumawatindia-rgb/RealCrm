@@ -70,7 +70,7 @@ function verify(secret, code, { now = Date.now(), window = 1, after = -1 } = {})
 const newSecret = () => crypto.randomBytes(20);
 
 // What the app scans: otpauth://totp/<issuer>:<account>?secret=…&issuer=…
-function otpauthUrl({ secret, account, issuer = 'AgreemCRM' }) {
+function otpauthUrl({ secret, account, issuer = 'agreem360' }) {
   const label = `${encodeURIComponent(issuer)}:${encodeURIComponent(account)}`;
   return `otpauth://totp/${label}?secret=${base32Encode(secret)}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=${STEP_SECONDS}`;
 }

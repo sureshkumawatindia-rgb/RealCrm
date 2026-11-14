@@ -24,7 +24,7 @@ describe('The phone app\'s files (D119)', () => {
     expect(build.files['i18n/hi.json']).toMatch(/^[0-9a-f]{12}$/);
     expect(build.files['sw.js']).toBeUndefined();
     // The Inbox and everything it loads, the texts, the help box, the no-network page.
-    expect(build.precache).toEqual(expect.arrayContaining(['Inbox.html', 'js/boot.js', 'js/app.js', 'js/inbox.js', 'css/style.css', 'css/inbox.css', 'img/logo/logo.png', 'i18n/en.json', 'i18n/hi.json', 'js/help.js', 'offline.html', 'login.html', 'manifest-hi.webmanifest']));
+    expect(build.precache).toEqual(expect.arrayContaining(['Inbox.html', 'js/boot.js', 'js/app.js', 'js/inbox.js', 'css/style.css', 'css/inbox.css', 'img/icons/icon-192.png', 'i18n/en.json', 'i18n/hi.json', 'js/help.js', 'offline.html', 'login.html', 'manifest-hi.webmanifest']));
     expect(build.precache.every((name) => build.files[name])).toBe(true);
     // The large icons are the browser's to fetch at install, not part of the first download.
     expect(build.precache).not.toContain('img/icons/icon-512.png');

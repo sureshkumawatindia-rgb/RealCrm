@@ -71,7 +71,7 @@ describe('Meta Conversions API for CRM (Phase 10C)', () => {
     expect(event).toMatchObject({
       event_name: 'New', action_source: 'system_generated',
       user_data: { lead_id: '987654321098765', em: [sha('ravi@example.com')], ph: [sha('919829011111')] },
-      custom_data: { event_source: 'crm', lead_event_source: 'AgreemCRM' },
+      custom_data: { event_source: 'crm', lead_event_source: 'agreem360' },
     });
     expect(Math.abs(event.event_time - Date.now() / 1000)).toBeLessThan(60);
     expect(sent[0].test_event_code).toBeUndefined();

@@ -1,6 +1,6 @@
 {
-  "name": "AgreemCRM",
-  "short_name": "AgreemCRM",
+  "name": "agreem360",
+  "short_name": "agreem360",
   "description": "WhatsApp वाला CRM: चैट, लीड, कोटेशन, ऑर्डर और पेमेंट। बिना इंटरनेट के भी खुलता है।",
   "id": "/crm/frontend/",
   "start_url": "Inbox.html",

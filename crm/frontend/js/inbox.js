@@ -304,7 +304,7 @@ crmI18n.ready.then(function inbox() {
     $("countUnassigned").textContent = summary.unassigned;
     $("countAll").textContent = summary.all;
     state.unread = summary.unread;
-    document.title = `${summary.unread ? `(${summary.unread}) ` : ""}${t("nav.inbox")} | AgreemCRM`;
+    document.title = `${summary.unread ? `(${summary.unread}) ` : ""}${t("nav.inbox")} | agreem360`;
     if (typeof setInboxNavBadge === "function") setInboxNavBadge(summary.unread);
   }
   async function loadSummary() {
@@ -2283,7 +2283,7 @@ crmI18n.ready.then(function inbox() {
     const notification = new Notification(conversation.contact.name || conversation.contact.phone, {
       body: message.text || conversation.lastMessagePreview || t("inbox.newMessage"),
       tag: `conversation-${conversation.id}`,
-      icon: "./img/logo/logo.png",
+      icon: "./img/icons/icon-192.png",
     });
     notification.onclick = () => {
       window.focus();

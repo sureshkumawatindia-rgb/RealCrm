@@ -165,7 +165,7 @@ crmReady(["members"], async () => {
   }
   recObject = objects.find((o) => o.key === recParams.get("object")) || objects[0];
   document.getElementById("recTitle").textContent = recObject.plural;
-  document.title = `${recObject.plural} | AgreemCRM`;
+  document.title = `${recObject.plural} | agreem360`;
   document.getElementById("addLabel").textContent = t("rec.new", { name: recObject.singular });
   document.getElementById("addBtn").hidden = !recCanWrite;
   recFilters = cfFilterBar({

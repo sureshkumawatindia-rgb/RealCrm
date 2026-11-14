@@ -42,7 +42,7 @@ describe('2-step login with an authenticator app', () => {
     const agent = await inviteAndJoin(owner.token, email, { role: 'agent' });
     const setup = (await api().post('/api/v1/auth/totp/setup').set(bearer(agent.token))).body.data;
     expect(setup.qr).toMatch(/^data:image\/png;base64,/);
-    expect(setup.url).toMatch(/^otpauth:\/\/totp\/AgreemCRM:f7-agent%40example\.com\?secret=[A-Z2-7]{32}&issuer=AgreemCRM/);
+    expect(setup.url).toMatch(/^otpauth:\/\/totp\/agreem360:f7-agent%40example\.com\?secret=[A-Z2-7]{32}&issuer=agreem360/);
     expect((await api().post('/api/v1/auth/totp/enable').set(bearer(agent.token)).send({ code: '000000' })).body.code).toBe('TOTP_WRONG_CODE');
     const on = await api().post('/api/v1/auth/totp/enable').set(bearer(agent.token)).send({ code: codeNow(setup.secret) });
     expect(on.status).toBe(200);
