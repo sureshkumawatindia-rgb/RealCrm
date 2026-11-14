@@ -9,7 +9,8 @@
     "test": "jest",
     "e2e": "playwright test",
     "bench:scale": "node scripts/scale-benchmark.js",
-    "bench:phone": "node scripts/phone-benchmark.js"
+    "bench:phone": "node scripts/phone-benchmark.js",
+    "rehearsal": "node scripts/launch-rehearsal.js"
   },
   "keywords": [],
   "author": "",

@@ -146,6 +146,10 @@
       else link.removeAttribute("aria-current");
     });
   const typeName = () => t(`crmType.${crmType}`);
+  // D152: "Start free trial" on a CRM type's page carries the type to sign-up (the company form
+  // then has it chosen).
+  const SIGNUP = "login.html?signup=1";
+  const signupHref = () => (crmType && !productId ? `${SIGNUP}&crm=${encodeURIComponent(crmType)}` : SIGNUP);
   // A product's name as the Products menu shows it (most are the same in both languages).
   const productName = () => $("productList").querySelector(`[data-product="${productId}"] b`).textContent.trim();
 
@@ -160,6 +164,7 @@
     }
     $("subbar").setAttribute("aria-label", t("lp.sub.label", { name: "CRM" }));
     if (!crmType) return;
+    document.querySelectorAll(`a[href="${SIGNUP}"]`).forEach((link) => link.setAttribute("href", signupHref()));
     const type = typeName();
     $("heroEyebrow").textContent = t("lp.crm.eyebrow", { type });
     $("heroTitle").textContent = t(`lp.crm.${crmType}.h1`);
@@ -315,7 +320,7 @@
         <p class="lp-gst">${escapeText(t("lp.withGst", { total: rupees(price.totalPaise), gst: catalog.gstPct }))}</p>
         <ul>${limits.map((text) => `<li>${escapeText(text)}</li>`).join("")}</ul>
         <ul class="lp-features">${features.join("")}</ul>
-        <a class="lp-btn ${trial ? "lp-btn-dark" : "lp-btn-light"} lp-btn-block" href="login.html?signup=1">${escapeText(t("lp.startTrial"))}</a>
+        <a class="lp-btn ${trial ? "lp-btn-dark" : "lp-btn-light"} lp-btn-block" href="${escapeText(signupHref())}">${escapeText(t("lp.startTrial"))}</a>
       </article>`;
   }
 

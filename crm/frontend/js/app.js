@@ -13,6 +13,8 @@ const KEYS = {
   COMPANY: "crm_company",
   PREFS: "crm_prefs", // this browser's page preferences (e.g. inbox sound), never business data
 };
+// D152: the CRM type chosen on the home page, kept for this tab from sign-up to the company form.
+const SIGNUP_TYPE_KEY = "crm_signup_type";
 
 // When the backend serves this page (http://127.0.0.1:3000/crm/frontend/ or a real domain) the
 // API is on the same origin. VS Code Live Server (ports 5500/5501) falls back to the local backend.

@@ -488,4 +488,35 @@ test.describe.serial('CRM type', () => {
     await expect(hindiPage.locator('.sidebar a.nav-item[href$="Products.html"]')).toHaveText(/ट्रीटमेंट/);
     await hindi.close();
   });
+
+  // D152: the home page's line has no "WhatsApp", and a CRM type chosen there goes along to
+  // sign-up: the new company's form has it chosen.
+  test('a type chosen on the home page is chosen on the company form after sign-up', async ({ browser }, testInfo) => {
+    const visitor = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const tab = await visitor.newPage();
+    tab.on('pageerror', (error) => pageErrors.push(error.message));
+    await tab.goto(at('index.html'));
+    await expect(tab.locator('#heroEyebrow')).toHaveText('The CRM for growing businesses');
+
+    await tab.goto(at('index.html?crm=pest_control'));
+    await expect(tab.locator('#heroEyebrow')).toHaveText('CRM for Pest Control');
+    const start = tab.locator('a[href="login.html?signup=1&crm=pest_control"]');
+    await expect(start.first()).toBeVisible();
+    await expect(tab.locator('a[href="login.html?signup=1"]')).toHaveCount(0);
+    await start.first().click();
+    await expect(tab).toHaveURL(/login\.html\?signup=1&crm=pest_control$/);
+    await tab.waitForLoadState('load'); // login.js has run
+    await expect.poll(() => tab.evaluate(() => sessionStorage.getItem('crm_signup_type'))).toBe('pest_control');
+
+    const newOwner = { email: `owner-${testInfo.retry}-${testInfo.repeatEachIndex}@signup-type.test`, name: 'Imran Khan' };
+    await signIn(visitor, newOwner);
+    await tab.goto(at('company.html'));
+    await expect(tab.locator('#cCrmType')).toHaveValue('pest_control');
+    await tab.locator('#cName').fill('Khan Pest Solutions');
+    await tab.locator('#saveBtn').click();
+    await expect(tab).toHaveURL(/dashboard\.html/);
+    expect(await tab.evaluate(() => sessionStorage.getItem('crm_signup_type'))).toBeNull();
+    await expect(tab.locator('.sidebar a.nav-item[href$="Products.html"]')).toHaveText(/Treatments/);
+    await visitor.close();
+  });
 });

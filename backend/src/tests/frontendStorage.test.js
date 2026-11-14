@@ -10,7 +10,8 @@ const path = require('path');
 // answers and the replies waiting for the network in IndexedDB (crmDevice), for the signed-in
 // member, for when the network is gone — never instead of the server, deleted at sign-out.
 const FRONTEND = path.resolve(__dirname, '..', '..', '..', 'crm', 'frontend');
-const SIGN_IN_KEYS = new Set(['crm_session', 'crm_user', 'crm_member', 'crm_company', 'crm_prefs', 'crm_pending_invite', 'crm_session_expired', 'crm_pending_link']);
+// crm_signup_type (D152): the CRM type chosen on the home page, from sign-up to the company form.
+const SIGN_IN_KEYS = new Set(['crm_session', 'crm_user', 'crm_member', 'crm_company', 'crm_prefs', 'crm_pending_invite', 'crm_session_expired', 'crm_pending_link', 'crm_signup_type']);
 const MIGRATION_SCREEN = 'js/settings.js';
 // The home page keeps only its language in crm_prefs (CP5), as the login page does.
 const MAY_WRITE_STORAGE = new Set(['js/app.js', 'js/login.js', 'js/landing.js', 'js/site.js', MIGRATION_SCREEN]);

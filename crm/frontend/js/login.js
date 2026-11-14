@@ -37,6 +37,8 @@ const withPhone = (function captureParams() {
   const invite = params.get("invite");
   if (invite) sessionStorage.setItem(INVITE_KEY, invite);
   if (params.has("expired")) sessionStorage.setItem("crm_session_expired", "1");
+  // D152: the CRM type chosen on the home page (?crm=), for the company form after sign-up.
+  if (params.get("signup") === "1" && /^[a-z_]{2,40}$/.test(params.get("crm") || "")) sessionStorage.setItem(SIGNUP_TYPE_KEY, params.get("crm"));
   if (invite || params.has("expired") || params.has("with")) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }

@@ -9,6 +9,9 @@ Secrets (keys, tokens, passwords) go only into `backend/.env` on your computer a
 service's **Environment** on Render — never into a chat, an email or a document. After changing
 `backend/.env`: keep a copy first, edit, save, restart the backend.
 
+When the steps are done, rehearse the launch on staging and check production from outside:
+`npm run rehearsal -- <address>` and the by-hand run in [LAUNCH_REHEARSAL.md](LAUNCH_REHEARSAL.md) (D153).
+
 ## 1. The server on Render (production settings)
 
 - **Do:** create the production service and set its variables: `NODE_ENV=production`, `PUBLIC_URL`
