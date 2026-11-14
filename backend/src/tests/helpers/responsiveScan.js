@@ -9,7 +9,7 @@ const FRONTEND = path.resolve(__dirname, '..', '..', '..', '..', 'crm', 'fronten
 // The user's own files (2026-10-24): scanned and listed in the guide, never failed on, never
 // edited by the assistant.
 const OWNER_FILES = new Set([
-  'Sales Automation.html', 'Calendar.html', 'Marketing.html', 'accounts.html', 'Al Insights.html',
+  'Sales Automation.html', 'Calendar.html', 'Marketing.html',
   'js/automation.js', 'js/marketing.js', 'js/marketing-broadcasts.js',
 ]);
 const OK = /responsive-ok/;

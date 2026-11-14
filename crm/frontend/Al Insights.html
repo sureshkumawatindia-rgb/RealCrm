@@ -140,13 +140,13 @@
             >
               <i class="fa-solid fa-bars"></i>
             </button>
-            <h2>AI Insights</h2>
+            <h2 data-i18n="nav.aiInsights">AI Insights</h2>
           </div>
           <div class="ai-topbar-meta">
             <span class="ai-live-dot"></span>
-            <span id="aiLastUpdated">Updated just now</span>
+            <span id="aiLastUpdated" data-i18n="aiin.page.updatedNow">Updated just now</span>
             <button class="btn btn-outline" id="refreshInsightsBtn">
-              <i class="fa-solid fa-arrow-rotate-right"></i> Refresh
+              <i class="fa-solid fa-arrow-rotate-right"></i> <span data-i18n="app.updated.refresh">Refresh</span>
             </button>
           </div>
         </header>
@@ -160,12 +160,11 @@
             <div class="ai-briefing-body">
               <div class="ai-briefing-head">
                 <span class="badge badge-brand"
-                  ><i class="fa-solid fa-wand-magic-sparkles"></i> AI Executive
-                  Briefing</span
+                  ><i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="aiin.page.briefing">AI Executive Briefing</span></span
                 >
                 <span class="text-muted" id="briefingDate"></span>
               </div>
-              <p class="ai-briefing-text" id="briefingText">
+              <p class="ai-briefing-text" id="briefingText" data-i18n="aiin.page.loadingBrief">
                 Loading your latest pipeline summary…
               </p>
               <div class="ai-briefing-tags">
@@ -183,8 +182,8 @@
           <div class="ai-two-col">
             <div class="panel">
               <div class="panel-head">
-                <h3><i class="fa-solid fa-list-check"></i> AI Recommended Actions</h3>
-                <span class="text-muted" style="font-size: 12.5px"
+                <h3><i class="fa-solid fa-list-check"></i> <span data-i18n="aiin.page.actions">AI Recommended Actions</span></h3>
+                <span class="text-muted" style="font-size: 12.5px" data-i18n="aiin.page.ranked"
                   >Ranked by expected impact</span
                 >
               </div>
@@ -193,22 +192,22 @@
 
             <div class="panel">
               <div class="panel-head">
-                <h3><i class="fa-solid fa-chart-line"></i> Pipeline Forecast</h3>
-                <span class="text-muted" style="font-size: 12.5px">By stage, from open deals</span>
+                <h3><i class="fa-solid fa-chart-line"></i> <span data-i18n="aiin.page.forecast">Pipeline Forecast</span></h3>
+                <span class="text-muted" style="font-size: 12.5px" data-i18n="aiin.page.byStage">By stage, from open deals</span>
               </div>
               <div class="ai-forecast-body">
                 <div class="ai-forecast-figures">
                   <div>
-                    <div class="ai-forecast-figure-label">Weighted Pipeline Forecast</div>
+                    <div class="ai-forecast-figure-label" data-i18n="aiin.page.weighted">Weighted Pipeline Forecast</div>
                     <div class="ai-forecast-figure-value" id="forecastValue">₹0</div>
-                    <div class="ai-forecast-figure-sub text-muted" id="forecastValueSub">
+                    <div class="ai-forecast-figure-sub text-muted" id="forecastValueSub" data-i18n="aiin.page.noOpen">
                       No open deals yet
                     </div>
                   </div>
                   <div>
-                    <div class="ai-forecast-figure-label">Open Deals</div>
+                    <div class="ai-forecast-figure-label" data-i18n="aiin.page.openDeals">Open Deals</div>
                     <div class="ai-forecast-figure-value" id="forecastOpenCount">0</div>
-                    <div class="ai-forecast-figure-sub text-muted" id="forecastOpenSub">
+                    <div class="ai-forecast-figure-sub text-muted" id="forecastOpenSub" data-i18n="aiin.across-all-stages">
                       Across all stages
                     </div>
                   </div>
@@ -227,8 +226,8 @@
           <!-- HIGH PRIORITY DEALS -->
           <div class="panel" style="margin-top: 18px">
             <div class="panel-head">
-              <h3><i class="fa-solid fa-handshake"></i> High Priority Deals</h3>
-              <span class="text-muted" style="font-size: 12.5px"
+              <h3><i class="fa-solid fa-handshake"></i> <span data-i18n="aiin.page.priority">High Priority Deals</span></h3>
+              <span class="text-muted" style="font-size: 12.5px" data-i18n="aiin.page.priorityHelp"
                 >AI-ranked by probability &amp; value</span
               >
             </div>
@@ -238,8 +237,8 @@
           <!-- ASK Agreem AI -->
           <div class="panel ai-ask-panel" style="margin-top: 18px">
             <div class="panel-head">
-              <h3><i class="fa-solid fa-robot"></i> Ask Agreem AI</h3>
-              <span class="text-muted" style="font-size: 12.5px"
+              <h3><i class="fa-solid fa-robot"></i> <span data-i18n="aiin.page.ask">Ask agreem360 AI</span></h3>
+              <span class="text-muted" style="font-size: 12.5px" data-i18n="aiin.page.askHelp"
                 >Ask about sales, customers, or revenue</span
               >
             </div>
@@ -252,10 +251,11 @@
                   type="text"
                   id="aiAskInput"
                   placeholder="e.g. Which deals are most likely to close this month?"
+                  data-i18n-placeholder="aiin.page.askPh"
                   autocomplete="off"
                 />
                 <button class="btn btn-primary" type="submit">
-                  <i class="fa-solid fa-paper-plane"></i> Ask
+                  <i class="fa-solid fa-paper-plane"></i> <span data-i18n="aiin.page.askBtn">Ask</span>
                 </button>
               </form>
             </div>

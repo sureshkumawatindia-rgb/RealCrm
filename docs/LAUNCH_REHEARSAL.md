@@ -101,4 +101,5 @@ customers' data.
 4. Post the launch on WhatsApp; keep the status page link for customers who ask "is it down?".
 
 When A–G are done with nothing wrong left, phase 10 is complete: the CRM is live. Phases 11–100
-follow what the first customers ask for (docs/HUNDRED_PHASES_PLAN.md).
+follow what the first customers ask for (docs/HUNDRED_PHASES_PLAN.md), one update every Saturday
+(docs/SATURDAY_UPDATES.md).

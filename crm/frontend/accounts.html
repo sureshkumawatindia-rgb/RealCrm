@@ -118,32 +118,32 @@
     <div class="main">
       <header class="topbar">
         <div style="display: flex; align-items: center; gap: 12px">
-          <button id="menu-toggle" class="icon-btn" style="display: none" type="button" aria-label="Open navigation">
+          <button id="menu-toggle" class="icon-btn" style="display: none" type="button" aria-label="Open navigation" data-i18n-aria-label="leads.open-navigation">
             <i class="fa-solid fa-bars"></i>
           </button>
-          <h2>Account Champions</h2>
+          <h2 data-i18n="nav.accounts">Account Champions</h2>
         </div>  
       </header>
 
       <div class="page">
         <div class="toolbar" style="justify-content: flex-end">
           <button class="btn btn-primary" id="addAgentBtn">
-            <i class="fa-solid fa-user-plus"></i> Add Agent
+            <i class="fa-solid fa-user-plus"></i> <span data-i18n="acct.page.addAgent">Add Agent</span>
           </button>
         </div>
 
         <div class="panel" id="inviteLinkBox" hidden style="margin-bottom: 16px">
           <div class="panel-head">
-            <h3>Share this invite link with <span id="inviteLinkEmail"></span></h3>
-            <button class="icon-btn" id="inviteLinkClose" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            <h3><span data-i18n="acct.page.shareWith">Share this invite link with</span> <span id="inviteLinkEmail"></span></h3>
+            <button class="icon-btn" id="inviteLinkClose" type="button" aria-label="Close" data-i18n-aria-label="common.close"><i class="fa-solid fa-xmark"></i></button>
           </div>
-          <p class="text-muted" style="font-size: 12.5px; margin: 0 0 8px">
+          <p class="text-muted" style="font-size: 12.5px; margin: 0 0 8px" data-i18n="acct.page.linkHelp">
             They can open this link, or simply sign in with Google using that email. The link works for 7 days.
           </p>
           <div id="inviteLinkText" style="word-break: break-all; font-size: 12.5px; margin-bottom: 10px"></div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap">
             <button class="btn btn-outline" type="button" id="copyInviteBtn">
-              <i class="fa-solid fa-copy"></i> Copy
+              <i class="fa-solid fa-copy"></i> <span data-i18n="pl.copy">Copy</span>
             </button>
             <a class="btn btn-outline" id="whatsappInviteLink" target="_blank" rel="noopener">
               <i class="fa-brands fa-whatsapp"></i> WhatsApp
@@ -153,8 +153,8 @@
 
         <div class="panel agents-panel">
           <div class="panel-head">
-            <h3>Agents &amp; Access</h3>
-            <span class="text-muted" style="font-size: 12.5px" id="agentCount">0 agents</span>
+            <h3 data-i18n="acct.page.agentsAccess">Agents &amp; Access</h3>
+            <span class="text-muted" style="font-size: 12.5px" id="agentCount"></span>
           </div>
           <div id="agentsGrid"></div>
         </div>
@@ -166,10 +166,10 @@
     <div class="modal modal--wide">
       <div class="modal-head">
         <div>
-          <h3 id="agentModalTitle">Add New Agent</h3>
+          <h3 id="agentModalTitle" data-i18n="acct.page.addNewAgent">Add New Agent</h3>
           <p class="modal-subtitle">
-            Step <span id="agentStepCurrent">1</span> of 5 —
-            <span id="agentStepLabel">Overview</span>
+            <span data-i18n-html="acct.page.stepOf">Step <span id="agentStepCurrent">1</span> of 5 —</span>
+            <span id="agentStepLabel" data-i18n="acct.step.welcome">Welcome</span>
           </p>
         </div>
         <button class="icon-btn" id="agentModalClose">
@@ -178,24 +178,24 @@
       </div>
       <div class="stepper" id="agentStepper">
         <div class="stepper-dot stepper-dot--active" data-step="1">
-          <span class="stepper-num">1</span><span class="stepper-label">Overview</span>
+          <span class="stepper-num">1</span><span class="stepper-label" data-i18n="c360.overview">Overview</span>
         </div>
         <div class="stepper-line"></div>
         <div class="stepper-dot" data-step="2">
-          <span class="stepper-num">2</span><span class="stepper-label">Info</span>
+          <span class="stepper-num">2</span><span class="stepper-label" data-i18n="acct.page.info">Info</span>
         </div>
         <div class="stepper-line"></div>
         <div class="stepper-dot" data-step="3">
-          <span class="stepper-num">3</span><span class="stepper-label">Role</span>
+          <span class="stepper-num">3</span><span class="stepper-label" data-i18n="acct.step.role">Role</span>
         </div>
         <div class="stepper-line"></div>
         <div class="stepper-dot" data-step="4">
-          <span class="stepper-num">4</span><span class="stepper-label">Access</span>
+          <span class="stepper-num">4</span><span class="stepper-label" data-i18n="acct.step.access">Access</span>
         </div>
         <div class="stepper-line"></div>
         <div class="stepper-dot" data-step="5">
         
-          <span class="stepper-num">5</span><span class="stepper-label">Permissions</span>
+          <span class="stepper-num">5</span><span class="stepper-label" data-i18n="setint.permissions">Permissions</span>
         </div>
       </div>
       <div class="modal-body">
@@ -208,8 +208,8 @@
                 <i class="fa-solid fa-circle-info"></i>
               </div>
               <div>
-                <p class="info-banner__title">What is an Agent?</p>
-                <p class="info-banner__text">
+                <p class="info-banner__title" data-i18n="acct.page.whatIs">What is an Agent?</p>
+                <p class="info-banner__text" data-i18n="acct.page.whatIsText">
                   An agent is a team member you add to this CRM. You can
                   assign them a role that matches their day-to-day
                   responsibility, grant them access to only the CRM modules
@@ -223,51 +223,48 @@
             </div>
             <ul class="info-checklist">
               <li>
-                <i class="fa-solid fa-check"></i> Assign a role or
-                responsibility
+                <i class="fa-solid fa-check"></i> <span data-i18n="acct.page.check1">Assign a role or responsibility</span>
               </li>
               <li>
-                <i class="fa-solid fa-check"></i> Grant access to specific CRM
-                modules only
+                <i class="fa-solid fa-check"></i> <span data-i18n="acct.page.check2">Grant access to specific CRM modules only</span>
               </li>
               <li>
-                <i class="fa-solid fa-check"></i> Set granular View / Create /
-                Edit / Delete permissions
+                <i class="fa-solid fa-check"></i> <span data-i18n="acct.page.check3">Set granular View / Create / Edit / Delete permissions</span>
               </li>
             </ul>
           </div>
           <!-- STEP 2 — AGENT INFORMATION -->
           <div class="agent-step" data-step-panel="2">
-            <p class="step-heading">Agent Information</p>
+            <p class="step-heading" data-i18n="acct.page.infoTitle">Agent Information</p>
             <div class="field">
-              <label>Full Name</label><input type="text" id="agName" placeholder="e.g. Rohan Mehta" required />
+              <label for="agName" data-i18n="customers.full-name">Full Name</label><input type="text" id="agName" placeholder="e.g. Rohan Mehta" data-i18n-placeholder="acct.page.namePh" required />
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Mobile Number</label><input type="tel" id="agMobile" placeholder="+91 98765 43210" />
+                <label for="agMobile" data-i18n="acct.page.mobile">Mobile Number</label><input type="tel" id="agMobile" placeholder="+91 98765 43210" />
               </div>
               <div class="field">
-                <label>Email Address (their Google account)</label><input type="email" id="agEmail" placeholder="name@gmail.com" />
+                <label for="agEmail" data-i18n="acct.page.email">Email Address (their Google account)</label><input type="email" id="agEmail" placeholder="name@gmail.com" />
               </div>
             </div>
           </div>
           <!-- STEP 3 — ROLE / RESPONSIBILITY -->
           <div class="agent-step" data-step-panel="3">
-            <p class="step-heading">Agent Role / Responsibility</p>
-            <p class="step-subheading">
+            <p class="step-heading" data-i18n="acct.page.roleTitle">Agent Role / Responsibility</p>
+            <p class="step-subheading" data-i18n="acct.page.roleHelp">
               Pick the responsibility that best matches this agent.
             </p>
             <div class="role-grid" id="roleGrid">
               <label class="role-card"><input type="radio" name="agRole" value="Sales" checked /><i
-                  class="fa-solid fa-chart-line"></i><span>Sales</span></label>
+                  class="fa-solid fa-chart-line"></i><span data-i18n="nav.group.sales">Sales</span></label>
               <label class="role-card"><input type="radio" name="agRole" value="Lead Management" /><i
-                  class="fa-solid fa-bullseye"></i><span>Lead Management</span></label>
+                  class="fa-solid fa-bullseye"></i><span data-i18n="acct.page.role.leads">Lead Management</span></label>
               <label class="role-card"><input type="radio" name="agRole" value="Customer Management" /><i
-                  class="fa-solid fa-users"></i><span>Customer Management</span></label>
+                  class="fa-solid fa-users"></i><span data-i18n="acct.page.role.customers">Customer Management</span></label>
               <label class="role-card"><input type="radio" name="agRole" value="Deal Management" /><i
-                  class="fa-solid fa-handshake"></i><span>Deal Management</span></label>
+                  class="fa-solid fa-handshake"></i><span data-i18n="acct.page.role.deals">Deal Management</span></label>
               <label class="role-card"><input type="radio" name="agRole" value="Support" /><i
-                  class="fa-solid fa-headset"></i><span>Support</span></label>
+                  class="fa-solid fa-headset"></i><span data-i18n="nav.support">Support</span></label>
             </div>
           </div>
 
@@ -275,17 +272,17 @@
           <div class="agent-step" data-step-panel="4">
             <div class="step-heading-row">
               <div>
-                <p class="step-heading">Workspace Access</p>
-                <p class="step-subheading">
+                <p class="step-heading" data-i18n="acct.page.accessTitle">Workspace Access</p>
+                <p class="step-subheading" data-i18n="acct.page.accessHelp">
                   Only the modules checked below will appear in this agent's
                   sidebar.
                 </p>
               </div>
               <div class="step-heading-actions">
-                <button type="button" class="link-mini" id="selectAllModules">
+                <button type="button" class="link-mini" id="selectAllModules" data-i18n="bulk.selectAll">
                   Select all
                 </button>
-                <button type="button" class="link-mini" id="clearAllModules">
+                <button type="button" class="link-mini" id="clearAllModules" data-i18n="acct.page.clearAll">
                   Clear all
                 </button>
               </div>
@@ -297,23 +294,23 @@
 
           <!-- STEP 5 — PERMISSIONS -->
           <div class="agent-step" data-step-panel="5">
-            <p class="step-heading">Permissions</p>
-            <p class="step-subheading">
+            <p class="step-heading" data-i18n="setint.permissions">Permissions</p>
+            <p class="step-subheading" data-i18n="acct.page.permHelp">
               These permissions apply across every module this agent has
               access to. Create or Edit makes them an Agent; View alone makes
               them a Viewer who can only look.
             </p>
             <div class="permission-grid" id="permissionGrid">
               <label class="permission-card"><input type="checkbox" value="View" checked /><i
-                  class="fa-solid fa-eye"></i><span>View</span></label>
+                  class="fa-solid fa-eye"></i><span data-i18n="acct.perm.view">View</span></label>
               <label class="permission-card"><input type="checkbox" value="Create" /><i
-                  class="fa-solid fa-plus"></i><span>Create</span></label>
+                  class="fa-solid fa-plus"></i><span data-i18n="acct.perm.create">Create</span></label>
               <label class="permission-card"><input type="checkbox" value="Edit" /><i
-                  class="fa-solid fa-pen"></i><span>Edit</span></label>
+                  class="fa-solid fa-pen"></i><span data-i18n="acct.perm.edit">Edit</span></label>
               <label class="permission-card"><input type="checkbox" value="Delete" /><i
-                  class="fa-solid fa-trash"></i><span>Delete</span></label>
+                  class="fa-solid fa-trash"></i><span data-i18n="acct.perm.delete">Delete</span></label>
               <label class="permission-card"><input type="checkbox" value="ViewAll" /><i
-                  class="fa-solid fa-binoculars"></i><span>See all records</span></label>
+                  class="fa-solid fa-binoculars"></i><span data-i18n="acct.perm.viewAll">See all records</span></label>
             </div>
 
             <div class="review-box" id="agentReviewBox"></div>
@@ -322,17 +319,17 @@
       </div>
       <div class="modal-foot modal-foot--split">
         <button class="btn btn-outline" id="agentBackBtn" type="button" style="visibility: hidden">
-          <i class="fa-solid fa-arrow-left"></i> Back
+          <i class="fa-solid fa-arrow-left"></i> <span data-i18n="pl.back">Back</span>
         </button>
         <div style="display: flex; gap: 10px">
-          <button class="btn btn-outline" id="agentCancelBtn" type="button">
+          <button class="btn btn-outline" id="agentCancelBtn" type="button" data-i18n="common.cancel">
             Cancel
           </button>
           <button class="btn btn-primary" id="agentNextBtn" type="button">
-            Continue <i class="fa-solid fa-arrow-right"></i>
+            <span data-i18n="invite.continue">Continue</span> <i class="fa-solid fa-arrow-right"></i>
           </button>
           <button class="btn btn-primary" id="agentCreateBtn" type="submit" form="agentForm" style="display: none">
-            <i class="fa-solid fa-check"></i> Create Agent
+            <i class="fa-solid fa-check"></i> <span data-i18n="acct.page.createAgent">Create Agent</span>
           </button>
         </div>
       </div>
