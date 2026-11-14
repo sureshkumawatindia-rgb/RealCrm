@@ -247,7 +247,7 @@ describe('Phase 6 acceptance: workflows, sequences and the FAQ bot working toget
       expect({ path, data: res.body.data }).toEqual({ path, data: [] });
     }
     expect((await api().get(`/api/v1/automation-runs/${run._id}`).set(as(stranger))).status).toBe(404);
-    // Nothing of this company's reaches the other one (its own 3-day trial note aside, D125).
+    // Nothing of this company's reaches the other one (its own trial notes aside, D125).
     expect((await api().get('/api/v1/notifications').set(as(stranger))).body.data.items.filter((n) => n.source !== 'billing')).toEqual([]);
     expect(strangerHears.every((events) => events.filter((event) => event?.source !== 'billing').length === 0)).toBe(true);
   }, 180000);

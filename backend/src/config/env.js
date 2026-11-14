@@ -21,6 +21,9 @@ const schema = Joi.object({
   GOOGLE_CLIENT_ID: Joi.string().required(),
   GOOGLE_CLIENT_SECRET: Joi.string().allow('').default(''),
   PUBLIC_URL: Joi.string().uri({ scheme: ['http', 'https'] }).default('http://127.0.0.1:3000'),
+  // agreem360's own website (D149): the names whose root address opens it (agreem360.html); any
+  // other name (the CRM's, crm.agreem360.com) opens the CRM's home page.
+  SITE_HOSTS: Joi.string().allow('').default('agreem360.com,www.agreem360.com'),
   GOOGLE_REDIRECT_URI: Joi.string().uri({ scheme: ['http', 'https'] }),
   // Microsoft 365 (Phase 4B, D83): an app registered in Microsoft Entra ID. Without a client id the
   // Microsoft connection is off, or the mock when DEV_TOOLS=on (never in production).
@@ -199,6 +202,7 @@ const env = {
   gmailTokenEncryptionKey: value.GMAIL_TOKEN_ENCRYPTION_KEY,
   dataEncryptionKey: value.DATA_ENCRYPTION_KEY,
   publicUrl,
+  siteHosts: value.SITE_HOSTS.split(',').map((name) => name.trim().toLowerCase()).filter(Boolean),
   uploadDir: value.UPLOAD_DIR,
   documentDir: value.DOCUMENT_DIR,
   storage: {

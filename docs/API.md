@@ -26,6 +26,7 @@ Common error codes are listed in `backend/src/constants/errorCodes.js`.
 | --- | --- | --- | --- |
 | `GET` | `/site` | none | Who runs this CRM, for the Privacy Policy and Terms pages (D60): `{ name, email, address, publicUrl }` from `BILLING_SELLER_*`. |
 | `GET` | `/site/plans` | none | The plans for the public home page (D71): exactly what `GET /billing/plans` returns, from `constants/plans.js`; nothing about any company. `Cache-Control: public, max-age=300`. |
+| `GET` | `/site/crm-types` | none | What each CRM type adds (D146), for its own home page `index.html?crm=<id>`: `[{ id, about, stages, quickReplies, products, fields, records, templates }]`, every name as `{ en, hi }` (stages, quick reply titles, product names, lead field labels, record lists, project templates), from `constants/crmTypeSetups/` and `KITS`; `business` is not in it. Names only, nothing about any company. `Cache-Control: public, max-age=300`. |
 | `GET` | `/health` | none | `{ status, dbState, timestamp }`. 200 when MongoDB is connected, 503 otherwise. `start-crm.vbs` looks for `"dbState"`. Not rate limited. |
 
 ## Auth

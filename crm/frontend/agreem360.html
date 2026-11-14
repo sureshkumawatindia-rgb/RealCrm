@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // In Hindi the page waits (at most 2 seconds) for js/site.js to put the Hindi texts in, like
+      // the CRM's home page (CP5).
+      (function () {
+        try {
+          var prefs = JSON.parse(localStorage.getItem("crm_prefs") || "null") || {};
+          var language = prefs.language || prefs.loginLanguage || (/^hi\b/i.test(navigator.language || "") ? "hi" : "en");
+          if (language === "hi") {
+            document.documentElement.lang = "hi";
+            document.documentElement.classList.add("i18n-pending");
+            setTimeout(function () {
+              document.documentElement.classList.remove("i18n-pending");
+            }, 2000);
+          }
+        } catch (e) {
+          /* storage blocked: the page in English */
+        }
+        document.documentElement.classList.add("js");
+      })();
+    </script>
+    <title>agreem360 — one platform for your whole business</title>
+    <meta name="description" content="agreem360 brings sales, operations, people and numbers together for Indian businesses, in English and Hindi. Start today with agreem360 CRM." />
+    <meta name="theme-color" content="#0b57d0" />
+    <link rel="canonical" href="https://crm.agreem360.com/crm/frontend/agreem360.html" />
+    <meta property="og:url" content="https://crm.agreem360.com/crm/frontend/agreem360.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="agreem360" />
+    <meta property="og:title" content="agreem360 — one platform for your whole business" />
+    <meta property="og:description" content="Sales, operations, people and numbers in one place, for Indian businesses. agreem360 CRM is live today; ten more products are on the way." />
+    <meta property="og:image" content="https://crm.agreem360.com/crm/frontend/img/icons/icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" type="image/png" href="img/icons/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/site.css" />
+  </head>
+  <body>
+    <!-- agreem360's own website (D149), the "mother" of the product pages: what agreem360 is, its
+         eleven products (agreem360 CRM live, ten coming), how they fit together, and how to start.
+         Nothing here is made up: no customer counts or quotes, real screenshots of the CRM only,
+         and every coming product says so. Texts site.* in i18n/en.json and hi.json. -->
+    <a class="s-skip" href="#main" data-i18n="lp.skip-to-content">Skip to content</a>
+
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
+      <symbol id="p-crm" viewBox="0 0 24 24"><path d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-5A8 8 0 1 1 20.5 11.5z" /><path d="M8.5 10.5h7M8.5 13.5h4.5" /></symbol>
+      <symbol id="p-erp" viewBox="0 0 24 24"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z" /><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" /></symbol>
+      <symbol id="p-marketing" viewBox="0 0 24 24"><path d="M3.5 10v4h3l7.5 4.5v-13L6.5 10z" /><path d="M17.5 9a4 4 0 0 1 0 6M6.5 14l1 5h2.5l-1-4.2" /></symbol>
+      <symbol id="p-hrm" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8" /><path d="M18.2 14.2A6.5 6.5 0 0 1 21.5 20" /></symbol>
+      <symbol id="p-scm" viewBox="0 0 24 24"><path d="M2.5 6.5h11v9h-11z" /><path d="M13.5 9.5h4l3 3v3h-7" /><circle cx="6.5" cy="17.5" r="1.8" /><circle cx="17" cy="17.5" r="1.8" /></symbol>
+      <symbol id="p-cms" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2.5" /><path d="M3.5 9h17M9 9v11" /></symbol>
+      <symbol id="p-bi" viewBox="0 0 24 24"><path d="M3.5 3.5v17h17" /><path d="M7.5 16v-4M11.5 16V8M15.5 16v-6M19.5 16V6" /></symbol>
+      <symbol id="p-itsm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="3.5" /><path d="m6 6 3.5 3.5M14.5 14.5 18 18M18 6l-3.5 3.5M9.5 14.5 6 18" /></symbol>
+      <symbol id="p-lms" viewBox="0 0 24 24"><path d="M2.5 9.5 12 5l9.5 4.5L12 14z" /><path d="M6.5 11.5v4c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3v-4" /><path d="M21.5 9.5v5" /></symbol>
+      <symbol id="p-pm" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="5" height="15" rx="1.5" /><rect x="10.5" y="4.5" width="5" height="10" rx="1.5" /><rect x="17.5" y="4.5" width="3" height="7" rx="1.2" /></symbol>
+      <symbol id="p-bpm" viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="5" rx="1.5" /><rect x="15" y="4" width="6" height="5" rx="1.5" /><rect x="15" y="15" width="6" height="5" rx="1.5" /><path d="M9 6.5h6M18 9v6" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></symbol>
+      <symbol id="i-caret" viewBox="0 0 24 24"><path d="m6.5 9.5 5.5 5.5 5.5-5.5" /></symbol>
+      <symbol id="i-india" viewBox="0 0 24 24"><path d="M6.5 4h11M6.5 8.5h11" /><path d="M9 4h1.5a4.5 4.5 0 0 1 0 9H6.5l8 7" /></symbol>
+      <symbol id="i-language" viewBox="0 0 24 24"><path d="M4 5.5h8M8 3.5v2M10.5 5.5c-.8 3.5-3 6.5-6 8" /><path d="M6 9.5c1.2 2 3 3.5 5 4.5" /><path d="m12.5 20 3.8-9 3.7 9M13.8 17h5" /></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5" /><path d="M11 18h2" /></symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.5V4h8.5l8.5 8.5-8.5 8.5z" /><circle cx="8" cy="8.5" r="1.3" /></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.5 3.2 8.2 7.5 9.5 4.3-1.3 7.5-5 7.5-9.5V6z" /><path d="m9 12 2.2 2.2L15.5 10" /></symbol>
+      <symbol id="i-whatsapp" viewBox="0 0 24 24"><path d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-5A8 8 0 1 1 20.5 11.5z" /><path d="M9 8.5c0 3.5 2.5 6.5 6 6.5l1-1.5-2-1-1 1c-1-.5-2.5-2-3-3l1-1-1-2z" /></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m3.5 6.5 8.5 6.5 8.5-6.5" /></symbol>
+      <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z" /></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18" /></symbol>
+    </svg>
+
+    <header class="s-header" id="header">
+      <div class="s-wrap s-header-row">
+        <a class="s-brand" href="agreem360.html"><img src="img/icons/icon-192.png" alt="" width="34" height="34" /> <span translate="no">agreem360</span></a>
+        <nav class="s-nav" aria-label="agreem360" data-i18n-aria-label="site.nav.label">
+          <details class="s-dd" id="productsMenu">
+            <summary><span data-i18n="site.nav.products">Products</span> <svg class="s-ico s-caret" aria-hidden="true"><use href="#i-caret" /></svg></summary>
+            <div class="s-mega">
+              <p class="s-mega-title" data-i18n="site.mega.title">One platform, eleven products</p>
+              <ul class="s-mega-list" id="megaList">
+                <li><a href="index.html" data-product="crm"><span class="s-mega-icon is-live"><svg class="s-ico"><use href="#p-crm" /></svg></span><span><b translate="no">CRM</b> <small data-i18n="lp.prod.crm.full">Customer Relationship Management</small></span><i class="s-live" data-i18n="site.live">Live</i></a></li>
+                <li><a href="index.html?product=erp" data-product="erp"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-erp" /></svg></span><span><b translate="no">ERP</b> <small data-i18n="lp.prod.erp.full">Enterprise Resource Planning</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=marketing" data-product="marketing"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-marketing" /></svg></span><span><b data-i18n="lp.prod.marketing.name">Marketing Automation</b> <small data-i18n="lp.prod.marketing.full">Campaigns that run by themselves</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=hrm" data-product="hrm"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-hrm" /></svg></span><span><b translate="no">HRM / HRIS</b> <small data-i18n="lp.prod.hrm.full">Human Resource Management</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=scm" data-product="scm"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-scm" /></svg></span><span><b translate="no">SCM</b> <small data-i18n="lp.prod.scm.full">Supply Chain Management</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=cms" data-product="cms"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-cms" /></svg></span><span><b translate="no">CMS</b> <small data-i18n="lp.prod.cms.full">Content Management System</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=bi" data-product="bi"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-bi" /></svg></span><span><b translate="no">BI</b> <small data-i18n="lp.prod.bi.full">Business Intelligence</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=itsm" data-product="itsm"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-itsm" /></svg></span><span><b translate="no">ITS / ITIL</b> <small data-i18n="lp.prod.itsm.full">IT Service Management</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=lms" data-product="lms"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-lms" /></svg></span><span><b translate="no">LMS</b> <small data-i18n="lp.prod.lms.full">Learning Management System</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=pm" data-product="pm"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-pm" /></svg></span><span><b translate="no">PM</b> <small data-i18n="lp.prod.pm.full">Project Management</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=bpm" data-product="bpm"><span class="s-mega-icon"><svg class="s-ico"><use href="#p-bpm" /></svg></span><span><b translate="no">BPM</b> <small data-i18n="lp.prod.bpm.full">Business Process Management</small></span><i class="s-soon" data-i18n="lp.soon">Soon</i></a></li>
+              </ul>
+            </div>
+          </details>
+          <a href="#journey" data-i18n="site.nav.journey">How it fits</a>
+          <a href="#industries" data-i18n="site.nav.industries">Industries</a>
+          <a href="#why" data-i18n="site.nav.why">Why agreem360</a>
+          <a href="#company" data-i18n="site.nav.company">Company</a>
+          <a href="#contact" data-i18n="site.nav.contact">Contact</a>
+        </nav>
+        <div class="s-actions">
+          <button class="s-lang" id="langBtn" type="button" aria-label="Change language" data-i18n-aria-label="lp.langLabel" lang="hi">हिंदी</button>
+          <a class="s-link" id="signInLink" href="login.html" data-i18n="lp.logIn">Log in</a>
+          <a class="s-btn s-btn-primary" id="startLink" href="login.html?signup=1"><span class="s-long" data-i18n="lp.startTrial">Start free trial</span><span class="s-short" data-i18n="lp.freeTrial">Free trial</span></a>
+        </div>
+        <details class="s-menu" id="menu">
+          <summary aria-label="Menu" data-i18n-aria-label="lp.nav.menu"><svg class="s-ico"><use href="#i-menu" /></svg></summary>
+          <nav aria-label="Menu" data-i18n-aria-label="lp.home-page-menu">
+            <details class="s-menu-group"><summary data-i18n="site.nav.products">Products</summary><div data-copy-of="megaList"></div></details>
+            <a href="#journey" data-i18n="site.nav.journey">How it fits</a>
+            <a href="#industries" data-i18n="site.nav.industries">Industries</a>
+            <a href="#why" data-i18n="site.nav.why">Why agreem360</a>
+            <a href="#company" data-i18n="site.nav.company">Company</a>
+            <a href="#contact" data-i18n="site.nav.contact">Contact</a>
+            <a href="login.html" data-i18n="lp.logIn">Log in</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- 1. What agreem360 is, around its ring of products -->
+      <section class="s-hero" aria-labelledby="heroTitle">
+        <div class="s-wrap s-hero-grid">
+          <div class="s-hero-text">
+            <p class="s-eyebrow"><svg class="s-ico" aria-hidden="true"><use href="#i-spark" /></svg> <span data-i18n="site.hero.eyebrow">The 360° platform for Indian businesses</span></p>
+            <h1 id="heroTitle" data-i18n="site.hero.title">Your whole business, one platform.</h1>
+            <p class="s-lead" data-i18n="site.hero.lead">agreem360 brings sales, operations, people and numbers together, made for Indian businesses in English and Hindi. Start today with agreem360 CRM; ten more products are on the way.</p>
+            <div class="s-cta">
+              <a class="s-btn s-btn-primary s-btn-lg" href="login.html?signup=1"><span data-i18n="lp.startTrial">Start free trial</span> <svg class="s-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
+              <a class="s-btn s-btn-soft s-btn-lg" href="#products" data-i18n="site.hero.explore">Explore the products</a>
+            </div>
+            <p class="s-note" data-i18n-html="site.hero.note"><span class="js-trial-days">45</span>-day free trial of agreem360 CRM. No card needed.</p>
+          </div>
+          <div class="s-hero-art" aria-hidden="true">
+            <div class="s-ring">
+              <div class="s-orbit">
+                <a class="s-node is-live" href="index.html" style="--i: 0" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-crm" /></svg><b translate="no">CRM</b></span></a>
+                <a class="s-node" href="index.html?product=erp" style="--i: 1" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-erp" /></svg><b translate="no">ERP</b></span></a>
+                <a class="s-node" href="index.html?product=marketing" style="--i: 2" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-marketing" /></svg><b data-i18n="site.ring.marketing">Marketing</b></span></a>
+                <a class="s-node" href="index.html?product=hrm" style="--i: 3" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-hrm" /></svg><b translate="no">HRM</b></span></a>
+                <a class="s-node" href="index.html?product=scm" style="--i: 4" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-scm" /></svg><b translate="no">SCM</b></span></a>
+                <a class="s-node" href="index.html?product=cms" style="--i: 5" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-cms" /></svg><b translate="no">CMS</b></span></a>
+                <a class="s-node" href="index.html?product=bi" style="--i: 6" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-bi" /></svg><b translate="no">BI</b></span></a>
+                <a class="s-node" href="index.html?product=itsm" style="--i: 7" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-itsm" /></svg><b translate="no">ITSM</b></span></a>
+                <a class="s-node" href="index.html?product=lms" style="--i: 8" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-lms" /></svg><b translate="no">LMS</b></span></a>
+                <a class="s-node" href="index.html?product=pm" style="--i: 9" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-pm" /></svg><b translate="no">PM</b></span></a>
+                <a class="s-node" href="index.html?product=bpm" style="--i: 10" tabindex="-1"><span class="s-node-in"><svg class="s-ico"><use href="#p-bpm" /></svg><b translate="no">BPM</b></span></a>
+              </div>
+              <div class="s-core">
+                <img src="img/icons/icon-192.png" alt="" width="64" height="64" />
+                <strong translate="no">360°</strong>
+                <span data-i18n="site.ring.core">one platform</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Facts, all true today -->
+      <section class="s-facts" aria-label="In short" data-i18n-aria-label="lp.in-short">
+        <ul class="s-wrap">
+          <li><strong>11</strong> <span data-i18n="site.fact.products">products in one platform: 1 live today, 10 on the way</span></li>
+          <li><strong>20</strong> <span data-i18n="site.fact.types">kinds of business set up in agreem360 CRM</span></li>
+          <li><strong>2</strong> <span data-i18n="site.fact.languages">languages: English and Hindi</span></li>
+          <li><strong class="js-trial-days">45</strong> <span data-i18n="site.fact.trial">days of free trial, no card needed</span></li>
+        </ul>
+      </section>
+
+      <!-- 3. The products -->
+      <section class="s-section" id="products" aria-labelledby="productsTitle">
+        <div class="s-wrap">
+          <p class="s-kicker" data-i18n="site.products.kicker">Products</p>
+          <h2 id="productsTitle" data-i18n="site.products.title">One platform. Eleven products.</h2>
+          <p class="s-sub" data-i18n="site.products.sub">Start with what your business needs today. Each product is being built to work with the others, with one sign-in.</p>
+          <article class="s-feature-card" data-reveal>
+            <div class="s-feature-text">
+              <p class="s-badges"><i class="s-live" data-i18n="site.live">Live</i> <span data-i18n="site.products.crmSince">Ready to use today</span></p>
+              <h3><span translate="no">agreem360 CRM</span></h3>
+              <p class="s-feature-full" data-i18n="lp.prod.crm.full">Customer Relationship Management</p>
+              <p data-i18n="site.products.crmText">Every WhatsApp enquiry, lead, GST quotation, order and payment of your business in one team inbox.</p>
+              <ul class="s-ticks">
+                <li><svg class="s-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="site.products.crm1">A shared WhatsApp inbox for the whole team</span></li>
+                <li><svg class="s-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="site.products.crm2">Leads from IndiaMART, JustDial, Facebook and your website</span></li>
+                <li><svg class="s-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="site.products.crm3">GST quotations, orders and payment links in the chat</span></li>
+              </ul>
+              <div class="s-cta">
+                <a class="s-btn s-btn-primary" href="index.html"><span data-i18n="site.products.seeCrm">See agreem360 CRM</span> <svg class="s-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
+                <a class="s-btn s-btn-soft" href="login.html?signup=1" data-i18n="lp.startTrial">Start free trial</a>
+              </div>
+            </div>
+            <div class="s-feature-shot">
+              <div class="s-frame">
+                <div class="s-frame-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                <img src="img/landing/inbox.webp" width="1280" height="800" loading="lazy" alt="The agreem360 CRM inbox: the team's WhatsApp chats, a customer's messages and the replies, and the customer's lead and quotation." data-i18n-alt="site.products.crmShot" />
+              </div>
+            </div>
+          </article>
+          <div class="s-product-grid">
+            <a class="s-product" href="index.html?product=erp" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-erp" /></svg></span><span class="s-product-head"><b translate="no">ERP</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.erp.full">Enterprise Resource Planning</small><span class="s-product-text" data-i18n="lp.prod.erp.h1">Stock, purchases, sales and accounts in one system.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=marketing" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-marketing" /></svg></span><span class="s-product-head"><b data-i18n="lp.prod.marketing.name">Marketing Automation</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.marketing.full">Campaigns that run by themselves</small><span class="s-product-text" data-i18n="lp.prod.marketing.h1">Campaigns that reach the right customer at the right time.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=hrm" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-hrm" /></svg></span><span class="s-product-head"><b translate="no">HRM / HRIS</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.hrm.full">Human Resource Management</small><span class="s-product-text" data-i18n="lp.prod.hrm.h1">Your people, attendance and salaries in one place.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=scm" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-scm" /></svg></span><span class="s-product-head"><b translate="no">SCM</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.scm.full">Supply Chain Management</small><span class="s-product-text" data-i18n="lp.prod.scm.h1">From supplier to customer, every step in view.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=cms" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-cms" /></svg></span><span class="s-product-head"><b translate="no">CMS</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.cms.full">Content Management System</small><span class="s-product-text" data-i18n="lp.prod.cms.h1">Your website and its pages, without a developer.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=bi" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-bi" /></svg></span><span class="s-product-head"><b translate="no">BI</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.bi.full">Business Intelligence</small><span class="s-product-text" data-i18n="lp.prod.bi.h1">Your business in numbers, on one dashboard.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=itsm" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-itsm" /></svg></span><span class="s-product-head"><b translate="no">ITS / ITIL</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.itsm.full">IT Service Management</small><span class="s-product-text" data-i18n="lp.prod.itsm.h1">IT requests and issues, handled the ITIL way.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=lms" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-lms" /></svg></span><span class="s-product-head"><b translate="no">LMS</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.lms.full">Learning Management System</small><span class="s-product-text" data-i18n="lp.prod.lms.h1">Courses, classes and tests, online.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=pm" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-pm" /></svg></span><span class="s-product-head"><b translate="no">PM</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.pm.full">Project Management</small><span class="s-product-text" data-i18n="lp.prod.pm.h1">Every project on time, every task with an owner.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+            <a class="s-product" href="index.html?product=bpm" data-reveal><span class="s-product-icon"><svg class="s-ico"><use href="#p-bpm" /></svg></span><span class="s-product-head"><b translate="no">BPM</b> <i class="s-soon" data-i18n="lp.prod.comingSoon">Coming soon</i></span><small data-i18n="lp.prod.bpm.full">Business Process Management</small><span class="s-product-text" data-i18n="lp.prod.bpm.h1">Your business's processes, drawn once and run every day.</span><span class="s-more" data-i18n="site.products.more">See what it will do</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. How the products fit: the full circle of a business -->
+      <section class="s-section s-journey" id="journey" aria-labelledby="journeyTitle">
+        <div class="s-wrap">
+          <p class="s-kicker" data-i18n="site.journey.kicker">How it fits</p>
+          <h2 id="journeyTitle" data-i18n="site.journey.title">The full circle of your business</h2>
+          <p class="s-sub" data-i18n="site.journey.sub">agreem360 follows your customers and your work all the way round, from the first enquiry to the numbers at the end of the month.</p>
+          <ol class="s-steps">
+            <li class="s-step" data-reveal>
+              <span class="s-step-no">01</span>
+              <h3 data-i18n="site.journey.s1">Attract</h3>
+              <p data-i18n="site.journey.s1Text">Campaigns and your website bring enquiries in.</p>
+              <p class="s-chips"><a class="s-chip" href="index.html?product=marketing" data-i18n="lp.prod.marketing.name">Marketing Automation</a><a class="s-chip" href="index.html?product=cms" translate="no">CMS</a></p>
+            </li>
+            <li class="s-step is-live" data-reveal>
+              <span class="s-step-no">02</span>
+              <h3 data-i18n="site.journey.s2">Sell</h3>
+              <p data-i18n="site.journey.s2Text">Every enquiry answered, quoted and followed up until it is won.</p>
+              <p class="s-chips"><a class="s-chip is-live" href="index.html"><span translate="no">CRM</span> <i class="s-live" data-i18n="site.live">Live</i></a></p>
+            </li>
+            <li class="s-step" data-reveal>
+              <span class="s-step-no">03</span>
+              <h3 data-i18n="site.journey.s3">Deliver</h3>
+              <p data-i18n="site.journey.s3Text">Make, stock and ship what you sold, on time.</p>
+              <p class="s-chips"><a class="s-chip" href="index.html?product=erp" translate="no">ERP</a><a class="s-chip" href="index.html?product=scm" translate="no">SCM</a><a class="s-chip" href="index.html?product=pm" translate="no">PM</a></p>
+            </li>
+            <li class="s-step" data-reveal>
+              <span class="s-step-no">04</span>
+              <h3 data-i18n="site.journey.s4">Run</h3>
+              <p data-i18n="site.journey.s4Text">Your people, their training, your IT and your processes.</p>
+              <p class="s-chips"><a class="s-chip" href="index.html?product=hrm" translate="no">HRM</a><a class="s-chip" href="index.html?product=lms" translate="no">LMS</a><a class="s-chip" href="index.html?product=itsm" translate="no">ITSM</a><a class="s-chip" href="index.html?product=bpm" translate="no">BPM</a></p>
+            </li>
+            <li class="s-step" data-reveal>
+              <span class="s-step-no">05</span>
+              <h3 data-i18n="site.journey.s5">Understand</h3>
+              <p data-i18n="site.journey.s5Text">See the whole business in numbers, and decide faster.</p>
+              <p class="s-chips"><a class="s-chip" href="index.html?product=bi" translate="no">BI</a></p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- 5. The product that is live, with its real screens -->
+      <section class="s-section s-spotlight" id="crm" aria-labelledby="crmTitle">
+        <div class="s-wrap s-spotlight-grid">
+          <div data-reveal>
+            <p class="s-kicker" data-i18n="site.crm.kicker">Live today</p>
+            <h2 id="crmTitle" data-i18n="site.crm.title">agreem360 CRM: sales on WhatsApp, for the whole team</h2>
+            <p class="s-text" data-i18n="site.crm.text">Connect the WhatsApp number you already use. Leads from every source come in by themselves, quotations go out with the GST worked out, and payments come back into the same chat.</p>
+            <ul class="s-ticks">
+              <li><svg class="s-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="site.crm.t1">A shared WhatsApp inbox with notes and assignment</span></li>
+              <li><svg class="s-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="site.crm.t2">Leads from IndiaMART, JustDial, TradeIndia, Facebook and your website</span></li>
+              <li><svg class="s-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="site.crm.t3">GST quotations, orders, tax invoices and payment links</span></li>
+              <li><svg class="s-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="site.crm.t4">Follow-ups, broadcasts and a FAQ bot</span></li>
+              <li><svg class="s-ico" aria-hidden="true"><use href="#i-check" /></svg> <span data-i18n="site.crm.t5">Team live, reports and a phone app</span></li>
+            </ul>
+            <div class="s-cta">
+              <a class="s-btn s-btn-primary" href="index.html"><span data-i18n="site.products.seeCrm">See agreem360 CRM</span> <svg class="s-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
+              <a class="s-btn s-btn-soft" href="index.html#pricing" data-i18n="lp.see-the-plans">See the plans</a>
+            </div>
+          </div>
+          <div class="s-shots" data-reveal>
+            <div class="s-frame">
+              <div class="s-frame-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+              <img src="img/landing/leads.webp" width="1280" height="800" loading="lazy" alt="The agreem360 CRM leads page: leads from TradeIndia, Facebook, the website, JustDial and IndiaMART, each with its product, owner, stage and value." data-i18n-alt="site.crm.leadsShot" />
+            </div>
+            <div class="s-frame s-frame-phone">
+              <img src="img/landing/inbox-phone.webp" width="780" height="1688" loading="lazy" alt="A customer's chat in agreem360 CRM on a phone." data-i18n-alt="site.crm.phoneShot" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. Kinds of business: the CRM's real set-ups -->
+      <section class="s-section" id="industries" aria-labelledby="industriesTitle">
+        <div class="s-wrap">
+          <p class="s-kicker" data-i18n="site.nav.industries">Industries</p>
+          <h2 id="industriesTitle" data-i18n="site.industries.title">Set up for your kind of business</h2>
+          <p class="s-sub" data-i18n="site.industries.sub">Choose your kind of business when you start, and agreem360 CRM comes with its sales stages, fields, services and ready WhatsApp replies.</p>
+          <ul class="s-industries" data-reveal>
+            <li><a href="index.html?crm=trader" data-i18n="crmType.trader">Trader / Wholesaler</a></li>
+            <li><a href="index.html?crm=manufacturer" data-i18n="crmType.manufacturer">Manufacturer</a></li>
+            <li><a href="index.html?crm=real_estate" data-i18n="crmType.real_estate">Real Estate</a></li>
+            <li><a href="index.html?crm=education" data-i18n="crmType.education">Education / Coaching</a></li>
+            <li><a href="index.html?crm=clinic" data-i18n="crmType.clinic">Clinic / Hospital</a></li>
+            <li><a href="index.html?crm=travel" data-i18n="crmType.travel">Travel Agency</a></li>
+            <li><a href="index.html?crm=insurance" data-i18n="crmType.insurance">Insurance / Loan Agent</a></li>
+            <li><a href="index.html?crm=salon" data-i18n="crmType.salon">Salon / Spa</a></li>
+            <li><a href="index.html?crm=gym" data-i18n="crmType.gym">Gym / Fitness</a></li>
+            <li><a href="index.html?crm=interior" data-i18n="crmType.interior">Interior / Construction</a></li>
+            <li><a href="index.html?crm=solar" data-i18n="crmType.solar">Solar Installer</a></li>
+            <li><a href="index.html?crm=repair" data-i18n="crmType.repair">AC / Appliance Repair</a></li>
+            <li><a href="index.html?crm=cleaning" data-i18n="crmType.cleaning">Home Cleaning</a></li>
+            <li><a href="index.html?crm=car" data-i18n="crmType.car">Car Dealer / Service Centre</a></li>
+            <li><a href="index.html?crm=agency" data-i18n="crmType.agency">Digital Marketing Agency</a></li>
+            <li><a href="index.html?crm=event" data-i18n="crmType.event">Event / Wedding Planner</a></li>
+            <li><a href="index.html?crm=transport" data-i18n="crmType.transport">Transport / Logistics</a></li>
+            <li><a href="index.html?crm=legal" data-i18n="crmType.legal">CA / Legal Services</a></li>
+            <li><a href="index.html?crm=pest_control" data-i18n="crmType.pest_control">Pest Control</a></li>
+            <li><a href="index.html" data-i18n="crmType.business">Business</a></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 7. Why agreem360: what is true of agreem360 CRM today, and the rule for every product -->
+      <section class="s-section s-why" id="why" aria-labelledby="whyTitle">
+        <div class="s-wrap">
+          <p class="s-kicker" data-i18n="site.nav.why">Why agreem360</p>
+          <h2 id="whyTitle" data-i18n="site.why.title">Made for the way Indian businesses work</h2>
+          <p class="s-sub" data-i18n="site.why.sub">What agreem360 CRM does today, and what every agreem360 product will do.</p>
+          <div class="s-why-grid">
+            <article class="s-card" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-india" /></svg></span><h3 data-i18n="site.why.w1">GST and rupees, built in</h3><p data-i18n="site.why.w1Text">GST quotations and invoices, prices in rupees, UPI payment links, and leads from IndiaMART, JustDial and TradeIndia.</p></article>
+            <article class="s-card" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-language" /></svg></span><h3 data-i18n="site.why.w2">English and Hindi</h3><p data-i18n="site.why.w2Text">agreem360 CRM works in English and Hindi, and each person picks their own, so the whole team can use it.</p></article>
+            <article class="s-card" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-whatsapp" /></svg></span><h3 data-i18n="site.why.w3">WhatsApp where your customers are</h3><p data-i18n="site.why.w3Text">Your team answers from your own WhatsApp number in one shared inbox, with nothing lost when someone is away.</p></article>
+            <article class="s-card" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-phone" /></svg></span><h3 data-i18n="site.why.w4">On the computer and the phone</h3><p data-i18n="site.why.w4Text">Add it to the phone's home screen like an app, with notifications. Nothing to install from a store.</p></article>
+            <article class="s-card" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-tag" /></svg></span><h3 data-i18n="site.why.w5">Clear prices</h3><p data-i18n="site.why.w5Text">Plans in rupees with the GST shown, a free trial to start, and you can change or cancel your plan when you want.</p></article>
+            <article class="s-card" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-shield" /></svg></span><h3 data-i18n="site.why.w6">Your data stays yours</h3><p data-i18n="site.why.w6Text">2-step login, numbers hidden from agents if you want, and the owner can download or delete all the company's data at any time.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. The company: what it believes, with no made-up history -->
+      <section class="s-section s-about" id="company" aria-labelledby="companyTitle">
+        <div class="s-wrap s-about-grid">
+          <div data-reveal>
+            <p class="s-kicker" data-i18n="site.nav.company">Company</p>
+            <h2 id="companyTitle" data-i18n="site.about.title">Software that the whole team can use</h2>
+            <p class="s-text" data-i18n="site.about.text">agreem360 began with a CRM for Indian traders, manufacturers and service businesses that sell on WhatsApp. We are growing it into one platform for the whole business, product by product, in English and Hindi.</p>
+          </div>
+          <div class="s-values">
+            <article class="s-value" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-spark" /></svg></span><div><h3 data-i18n="site.about.v1">Simple first</h3><p data-i18n="site.about.v1Text">If the whole team cannot use it on the first day, we make it simpler.</p></div></article>
+            <article class="s-value" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-shield" /></svg></span><div><h3 data-i18n="site.about.v2">Honest by default</h3><p data-i18n="site.about.v2Text">No made-up numbers, no hidden charges, and your data stays yours.</p></div></article>
+            <article class="s-value" data-reveal><span class="s-card-icon"><svg class="s-ico"><use href="#i-heart" /></svg></span><div><h3 data-i18n="site.about.v3">Built with you</h3><p data-i18n="site.about.v3Text">What our customers ask for decides what we build next.</p></div></article>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Questions -->
+      <section class="s-section" id="faq" aria-labelledby="faqTitle">
+        <div class="s-wrap">
+          <h2 id="faqTitle" data-i18n="lp.questions-answered">Questions, answered</h2>
+          <div class="s-faq">
+            <details>
+              <summary><span data-i18n="site.faq.q1">Which agreem360 products can I use today?</span> <svg class="s-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="site.faq.a1">agreem360 CRM is ready today. The other ten products are being built; each one has its own page that says what it will do.</p>
+            </details>
+            <details>
+              <summary><span data-i18n="site.faq.q2">Do I have to take every product?</span> <svg class="s-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="site.faq.a2">No. Today you start with agreem360 CRM and pay only for its plan. When the other products open, you choose the ones you need.</p>
+            </details>
+            <details>
+              <summary><span data-i18n="site.faq.q3">Will the products work together?</span> <svg class="s-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="site.faq.a3">That is how we are building them: one sign-in, and your company's customers and team shared between them.</p>
+            </details>
+            <details>
+              <summary><span data-i18n="site.faq.q4">Is there a free trial?</span> <svg class="s-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="site.faq.a4">Yes. agreem360 CRM starts with a free trial of its Growth plan, and you need no card to start.</p>
+            </details>
+            <details>
+              <summary><span data-i18n="site.faq.q5">Can my team use it in Hindi?</span> <svg class="s-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n="site.faq.a5">Yes. agreem360 CRM works in English and Hindi, and each person chooses their own language.</p>
+            </details>
+            <details>
+              <summary><span data-i18n="site.faq.q6">Can I take my data out?</span> <svg class="s-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
+              <p data-i18n-html="site.faq.a6">Yes. The owner can download all the company's data, or delete the company, at any time from Settings. See the <a href="privacy.html">Privacy Policy</a>.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10. Talk to us, and start -->
+      <section class="s-section s-contact" id="contact" aria-labelledby="contactTitle">
+        <div class="s-wrap">
+          <div class="s-final" data-reveal>
+            <div>
+              <h2 id="contactTitle" data-i18n="site.final.title">Start with agreem360 CRM today</h2>
+              <p data-i18n-html="site.final.text"><span class="js-trial-days">45</span>-day free trial, no card needed. Questions first? Write to us.</p>
+              <p class="s-hours" id="supportHours" hidden></p>
+            </div>
+            <div class="s-cta">
+              <a class="s-btn s-btn-primary s-btn-lg" href="login.html?signup=1"><span data-i18n="lp.startTrial">Start free trial</span> <svg class="s-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
+              <a class="s-btn s-btn-soft s-btn-lg" id="whatsappLink" href="contact.html" hidden><svg class="s-ico" aria-hidden="true"><use href="#i-whatsapp" /></svg> <span data-i18n="site.final.whatsapp">WhatsApp us</span></a>
+              <a class="s-btn s-btn-soft s-btn-lg" id="contactLink" href="contact.html"><svg class="s-ico" aria-hidden="true"><use href="#i-mail" /></svg> <span data-i18n="lp.contact-us">Contact us</span></a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="s-footer">
+      <div class="s-wrap">
+        <div class="s-footer-grid">
+          <div>
+            <a class="s-brand" href="agreem360.html"><img src="img/icons/icon-192.png" alt="" width="34" height="34" loading="lazy" /> <span translate="no">agreem360</span></a>
+            <p data-i18n="site.footer.tagline">One platform for your whole business.</p>
+          </div>
+          <nav aria-label="Products" data-i18n-aria-label="site.nav.products">
+            <h3 data-i18n="site.nav.products">Products</h3>
+            <a href="index.html"><span translate="no">CRM</span> <i class="s-live" data-i18n="site.live">Live</i></a>
+            <a href="index.html?product=erp" translate="no">ERP</a>
+            <a href="index.html?product=marketing" data-i18n="lp.prod.marketing.name">Marketing Automation</a>
+            <a href="index.html?product=hrm" translate="no">HRM / HRIS</a>
+            <a href="index.html?product=scm" translate="no">SCM</a>
+            <a href="index.html?product=cms" translate="no">CMS</a>
+            <a href="index.html?product=bi" translate="no">BI</a>
+            <a href="index.html?product=itsm" translate="no">ITS / ITIL</a>
+            <a href="index.html?product=lms" translate="no">LMS</a>
+            <a href="index.html?product=pm" translate="no">PM</a>
+            <a href="index.html?product=bpm" translate="no">BPM</a>
+          </nav>
+          <nav aria-label="Company" data-i18n-aria-label="site.nav.company">
+            <h3 data-i18n="site.nav.company">Company</h3>
+            <a href="#company" data-i18n="site.footer.about">About agreem360</a>
+            <a href="contact.html" data-i18n="lp.contact-us">Contact us</a>
+            <a href="privacy.html" data-i18n="lp.privacy-policy">Privacy Policy</a>
+            <a href="terms.html" data-i18n="lp.terms-of-service">Terms of Service</a>
+            <a href="refund.html" data-i18n="lp.refunds">Cancellation &amp; refunds</a>
+            <a href="delivery.html" data-i18n="lp.delivery">Delivery</a>
+          </nav>
+          <nav aria-label="Get started" data-i18n-aria-label="site.footer.start">
+            <h3 data-i18n="site.footer.start">Get started</h3>
+            <a href="login.html?signup=1" data-i18n="lp.startTrial">Start free trial</a>
+            <a href="login.html" data-i18n="lp.logIn">Log in</a>
+            <a href="index.html#pricing" data-i18n="lp.see-the-plans">See the plans</a>
+          </nav>
+        </div>
+        <p class="s-copy">© <span id="year"></span> <span translate="no">agreem360</span></p>
+      </div>
+    </footer>
+
+    <script src="js/site.js" defer></script>
+  </body>
+</html>

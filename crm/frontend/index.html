@@ -12,8 +12,10 @@
           if (session && session.split(".").length === 3) window.location.replace("dashboard.html");
           var prefs = JSON.parse(localStorage.getItem("crm_prefs") || "null") || {};
           var language = prefs.language || prefs.loginLanguage || (/^hi\b/i.test(navigator.language || "") ? "hi" : "en");
-          if (language === "hi") {
-            document.documentElement.lang = "hi";
+          // A CRM type's or a product's own page (D146) waits the same way for its texts.
+          var ownPage = /[?&](crm|product)=/.test(window.location.search);
+          if (language === "hi") document.documentElement.lang = "hi";
+          if (language === "hi" || ownPage) {
             document.documentElement.classList.add("i18n-pending");
             setTimeout(function () {
               document.documentElement.classList.remove("i18n-pending");
@@ -24,16 +26,16 @@
         }
       })();
     </script>
-    <title>AgreemCRM — WhatsApp team inbox, leads and GST quotations</title>
-    <meta name="description" content="AgreemCRM puts every WhatsApp enquiry, lead, GST quotation, order and payment of your business in one team inbox. Start with a free trial." />
+    <title>agreem360 CRM — WhatsApp team inbox, leads and GST quotations</title>
+    <meta name="description" content="agreem360 CRM puts every WhatsApp enquiry, lead, GST quotation, order and payment of your business in one team inbox. Start with a free trial." />
     <meta name="theme-color" content="#0b57d0" />
     <!-- The card WhatsApp, Facebook and others show when the link is shared (the same as login.html).
          They need full addresses: the CRM's own (docs/DOMAIN_SETUP.md, D141). -->
     <link rel="canonical" href="https://crm.agreem360.com/crm/frontend/index.html" />
     <meta property="og:url" content="https://crm.agreem360.com/crm/frontend/index.html" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="AgreemCRM" />
-    <meta property="og:title" content="AgreemCRM — your business on WhatsApp, in one team inbox" />
+    <meta property="og:site_name" content="agreem360" />
+    <meta property="og:title" content="agreem360 CRM — your business on WhatsApp, in one team inbox" />
     <meta property="og:description" content="Every WhatsApp enquiry, lead, quotation and payment of your business in one place, for the whole team." />
     <meta property="og:image" content="https://crm.agreem360.com/crm/frontend/img/icons/icon-512.png" />
     <meta property="og:image:width" content="512" />
@@ -65,32 +67,102 @@
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></symbol>
       <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></symbol>
+      <symbol id="i-caret" viewBox="0 0 24 24"><path d="m6.5 9.5 5.5 5.5 5.5-5.5" /></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" /><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" /></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24"><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z" /><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" /></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></symbol>
+      <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9.5 8 4.5 12.5l5 4.5" /><path d="M4.5 12.5h9a6 6 0 0 1 6 6v1" /></symbol>
     </svg>
 
     <header class="lp-header" id="header">
       <div class="lp-wrap lp-header-row">
-        <a class="lp-brand" href="#top"><img src="img/icons/icon-192.png" alt="" width="32" height="32" /> <span>AgreemCRM</span></a>
-        <nav class="lp-nav" aria-label="Home page" data-i18n-aria-label="lp.home-page">
-          <a href="#features" data-i18n="lp.nav.features">Features</a>
-          <a href="#screens" data-i18n="lp.nav.screens">Screens</a>
-          <a href="#pricing" data-i18n="lp.nav.pricing">Pricing</a>
-          <a href="#faq" data-i18n="lp.nav.faq">FAQ</a>
+        <a class="lp-brand" href="agreem360.html"><img src="img/icons/icon-192.png" alt="" width="32" height="32" /> <span translate="no">agreem360</span></a>
+        <!-- The products (D148): CRM, ERP, Marketing Automation and HRM / HRIS always, then one more
+             place for the product last chosen from Other (SCM at first); the one it replaces goes
+             back into Other. Drawn by js/landing.js from the list under Products. -->
+        <nav class="lp-bar" id="productBar" aria-label="agreem360 products" data-i18n-aria-label="lp.bar.label">
+          <ul id="barList"></ul>
+          <details class="lp-dd" id="otherMenu">
+            <summary><span data-i18n="lp.bar.other">Other</span> <svg class="lp-ico lp-caret" aria-hidden="true"><use href="#i-caret" /></svg></summary>
+            <div class="lp-dd-panel lp-dd-products lp-dd-right"><ul id="otherList"></ul></div>
+          </details>
         </nav>
         <div class="lp-header-actions">
           <button class="lp-lang" id="langBtn" type="button" aria-label="Change language" data-i18n-aria-label="lp.langLabel" lang="hi">हिंदी</button>
           <a class="lp-link" href="login.html" data-i18n="lp.logIn">Log in</a>
-          <a class="lp-btn lp-btn-dark" href="login.html?signup=1" data-i18n="lp.startTrial">Start free trial</a>
+          <a class="lp-btn lp-btn-dark" href="login.html?signup=1"><span class="lp-long" data-i18n="lp.startTrial">Start free trial</span><span class="lp-short" data-i18n="lp.freeTrial">Free trial</span></a>
         </div>
         <details class="lp-menu" id="menu">
           <summary aria-label="Menu" data-i18n-aria-label="lp.nav.menu"><svg class="lp-ico"><use href="#i-menu" /></svg></summary>
           <nav aria-label="Home page menu" data-i18n-aria-label="lp.home-page-menu">
-            <a href="#features" data-i18n="lp.nav.features">Features</a>
-            <a href="#screens" data-i18n="lp.nav.screens">Screens</a>
-            <a href="#pricing" data-i18n="lp.nav.pricing">Pricing</a>
-            <a href="#faq" data-i18n="lp.nav.faq">FAQ</a>
+            <!-- The header's lists, copied in by js/landing.js -->
+            <details class="lp-menu-group"><summary data-i18n="lp.nav.products">Products</summary><div data-copy-of="productList"></div></details>
+            <details class="lp-menu-group"><summary data-i18n="lp.sub.forBusiness">For your business</summary><div data-copy-of="typeLists"></div></details>
+            <a href="#features" data-sub="features" data-i18n="lp.nav.features">Features</a>
+            <a href="#screens" data-sub="screens" data-i18n="lp.nav.screens">Screens</a>
+            <a href="#pricing" data-sub="pricing" data-i18n="lp.nav.pricing">Pricing</a>
+            <a href="#faq" data-sub="faq" data-i18n="lp.nav.faq">FAQ</a>
             <a href="login.html" data-i18n="lp.logIn">Log in</a>
           </nav>
         </details>
+      </div>
+      <!-- The box under the bar (D148): the open product's own menu. "For your business" opens its
+           kinds of business (the CRM's 20 types, each other product's ten), then every product, and
+           the page's sections. -->
+      <div class="lp-subbar">
+        <nav class="lp-wrap lp-subbar-row" id="subbar" aria-label="This product" data-i18n-aria-label="lp.sub.label">
+          <details class="lp-dd lp-dd-lead" id="typesMenu">
+            <summary><span data-i18n="lp.sub.forBusiness">For your business</span> <svg class="lp-ico lp-caret" aria-hidden="true"><use href="#i-caret" /></svg></summary>
+            <div class="lp-dd-panel lp-dd-types" id="typeLists">
+              <p class="lp-dd-title" id="typesTitle" data-i18n="lp.crmTypesTitle">One CRM, set up for your kind of business</p>
+              <ul id="crmTypeList">
+                <li><a href="index.html" data-crm="business" data-i18n="crmType.business">Business</a></li>
+                <li><a href="index.html?crm=pest_control" data-crm="pest_control" data-i18n="crmType.pest_control">Pest Control</a></li>
+                <li><a href="index.html?crm=trader" data-crm="trader" data-i18n="crmType.trader">Trader / Wholesaler</a></li>
+                <li><a href="index.html?crm=manufacturer" data-crm="manufacturer" data-i18n="crmType.manufacturer">Manufacturer</a></li>
+                <li><a href="index.html?crm=real_estate" data-crm="real_estate" data-i18n="crmType.real_estate">Real Estate</a></li>
+                <li><a href="index.html?crm=education" data-crm="education" data-i18n="crmType.education">Education / Coaching</a></li>
+                <li><a href="index.html?crm=clinic" data-crm="clinic" data-i18n="crmType.clinic">Clinic / Hospital</a></li>
+                <li><a href="index.html?crm=travel" data-crm="travel" data-i18n="crmType.travel">Travel Agency</a></li>
+                <li><a href="index.html?crm=insurance" data-crm="insurance" data-i18n="crmType.insurance">Insurance / Loan Agent</a></li>
+                <li><a href="index.html?crm=salon" data-crm="salon" data-i18n="crmType.salon">Salon / Spa</a></li>
+                <li><a href="index.html?crm=gym" data-crm="gym" data-i18n="crmType.gym">Gym / Fitness</a></li>
+                <li><a href="index.html?crm=interior" data-crm="interior" data-i18n="crmType.interior">Interior / Construction</a></li>
+                <li><a href="index.html?crm=solar" data-crm="solar" data-i18n="crmType.solar">Solar Installer</a></li>
+                <li><a href="index.html?crm=repair" data-crm="repair" data-i18n="crmType.repair">AC / Appliance Repair</a></li>
+                <li><a href="index.html?crm=cleaning" data-crm="cleaning" data-i18n="crmType.cleaning">Home Cleaning</a></li>
+                <li><a href="index.html?crm=car" data-crm="car" data-i18n="crmType.car">Car Dealer / Service Centre</a></li>
+                <li><a href="index.html?crm=agency" data-crm="agency" data-i18n="crmType.agency">Digital Marketing Agency</a></li>
+                <li><a href="index.html?crm=event" data-crm="event" data-i18n="crmType.event">Event / Wedding Planner</a></li>
+                <li><a href="index.html?crm=transport" data-crm="transport" data-i18n="crmType.transport">Transport / Logistics</a></li>
+                <li><a href="index.html?crm=legal" data-crm="legal" data-i18n="crmType.legal">CA / Legal Services</a></li>
+              </ul>
+              <ul id="fieldList" hidden></ul>
+            </div>
+          </details>
+          <details class="lp-dd" id="productsMenu">
+            <summary><span data-i18n="lp.nav.products">Products</span> <svg class="lp-ico lp-caret" aria-hidden="true"><use href="#i-caret" /></svg></summary>
+            <div class="lp-dd-panel lp-dd-products">
+              <ul id="productList">
+                <li><a href="index.html" data-product="crm"><b translate="no">CRM</b> <small data-i18n="lp.prod.crm.full">Customer Relationship Management</small></a></li>
+                <li><a href="index.html?product=erp" data-product="erp"><b translate="no">ERP</b> <small data-i18n="lp.prod.erp.full">Enterprise Resource Planning</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=marketing" data-product="marketing"><b data-i18n="lp.prod.marketing.name">Marketing Automation</b> <small data-i18n="lp.prod.marketing.full">Campaigns that run by themselves</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=hrm" data-product="hrm"><b translate="no">HRM / HRIS</b> <small data-i18n="lp.prod.hrm.full">Human Resource Management</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=scm" data-product="scm"><b translate="no">SCM</b> <small data-i18n="lp.prod.scm.full">Supply Chain Management</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=cms" data-product="cms"><b translate="no">CMS</b> <small data-i18n="lp.prod.cms.full">Content Management System</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=bi" data-product="bi"><b translate="no">BI</b> <small data-i18n="lp.prod.bi.full">Business Intelligence</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=itsm" data-product="itsm"><b translate="no">ITS / ITIL</b> <small data-i18n="lp.prod.itsm.full">IT Service Management</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=lms" data-product="lms"><b translate="no">LMS</b> <small data-i18n="lp.prod.lms.full">Learning Management System</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=pm" data-product="pm"><b translate="no">PM</b> <small data-i18n="lp.prod.pm.full">Project Management</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+                <li><a href="index.html?product=bpm" data-product="bpm"><b translate="no">BPM</b> <small data-i18n="lp.prod.bpm.full">Business Process Management</small> <i class="lp-soon" data-i18n="lp.soon">Soon</i></a></li>
+              </ul>
+            </div>
+          </details>
+          <a href="#features" data-sub="features" data-i18n="lp.nav.features">Features</a>
+          <a href="#screens" data-sub="screens" data-i18n="lp.nav.screens">Screens</a>
+          <a href="#pricing" data-sub="pricing" data-i18n="lp.nav.pricing">Pricing</a>
+          <a href="#faq" data-sub="faq" data-i18n="lp.nav.faq">FAQ</a>
+        </nav>
       </div>
     </header>
 
@@ -98,16 +170,29 @@
       <section class="lp-hero" id="top">
         <div class="lp-wrap lp-hero-grid">
           <div>
-            <p class="lp-eyebrow" data-i18n="lp.the-whatsapp-crm-for-growing-businesses">The WhatsApp CRM for growing businesses</p>
-            <h1 data-i18n="lp.every-whatsapp-enquiry-one-team-inbox">Every WhatsApp enquiry, one team inbox.</h1>
-            <p class="lp-lead" data-i18n="lp.chats-leads-gst-quotations-orders-and">Chats, leads, GST quotations, orders and payments of your business in one place. Your whole team answers from your WhatsApp number, new leads go to the right person, and you always see which quotations still wait for an answer.</p>
-            <div class="lp-cta">
+            <p class="lp-eyebrow" id="heroEyebrow" data-i18n="lp.the-whatsapp-crm-for-growing-businesses">The WhatsApp CRM for growing businesses</p>
+            <h1 id="heroTitle" data-i18n="lp.every-enquiry-one-team-inbox">Every enquiry, one team inbox.</h1>
+            <p class="lp-lead" id="heroLead" data-i18n="lp.chats-leads-gst-quotations-orders-and">Chats, leads, GST quotations, orders and payments of your business in one place. Your whole team answers from your WhatsApp number, new leads go to the right person, and you always see which quotations still wait for an answer.</p>
+            <div class="lp-cta lp-crm-only">
               <a class="lp-btn lp-btn-dark lp-btn-lg" href="login.html?signup=1"><span data-i18n="lp.startTrial">Start free trial</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
               <a class="lp-btn lp-btn-light lp-btn-lg" href="#pricing" data-i18n="lp.see-the-plans">See the plans</a>
             </div>
-            <p class="lp-note" id="trialNote" data-i18n="lp.sign-in-with-google-to-start">Sign in with Google to start. No card needed.</p>
+            <p class="lp-note lp-crm-only" id="trialNote" data-i18n="lp.sign-in-with-google-to-start">Sign in with Google to start. No card needed.</p>
+            <!-- A product that is coming (D146): what it is for, and the CRM meanwhile -->
+            <div class="lp-cta lp-product-only" hidden>
+              <a class="lp-btn lp-btn-dark lp-btn-lg" href="index.html"><span data-i18n="lp.prod.useCrm">Start with agreem360 CRM</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
+              <a class="lp-btn lp-btn-light lp-btn-lg" href="contact.html" data-i18n="lp.prod.askUs">Tell us you need it</a>
+            </div>
+            <p class="lp-note lp-product-only" id="productNote" hidden></p>
           </div>
-          <div class="lp-hero-shots">
+          <div class="lp-hero-product lp-product-only" hidden>
+            <div class="lp-product-card">
+              <p class="lp-soon lp-soon-lg" data-i18n="lp.prod.comingSoon">Coming soon</p>
+              <h2 id="productCardTitle"></h2>
+              <ul class="lp-ticks" id="productPoints"></ul>
+            </div>
+          </div>
+          <div class="lp-hero-shots lp-crm-only">
             <figure class="lp-frame">
               <div class="lp-frame-bar" aria-hidden="true"><i></i><i></i><i></i></div>
               <img
@@ -115,17 +200,17 @@
                 width="1280"
                 height="800"
                 fetchpriority="high"
-                alt="The AgreemCRM inbox on a computer: the team's WhatsApp chats on the left, a customer asking the price of cumin and the agent's replies in the middle, and the customer's lead and quotation on the right." data-i18n-alt="lp.the-yellow-crm-inbox-on-a"
+                alt="The agreem360 CRM inbox on a computer: the team's WhatsApp chats on the left, a customer asking the price of cumin and the agent's replies in the middle, and the customer's lead and quotation on the right." data-i18n-alt="lp.the-yellow-crm-inbox-on-a"
               />
             </figure>
             <figure class="lp-frame lp-frame-phone">
-              <img src="img/landing/inbox-phone.webp" width="780" height="1688" loading="lazy" alt="The same chat in AgreemCRM on a phone." data-i18n-alt="lp.the-same-chat-in-yellow-crm" />
+              <img src="img/landing/inbox-phone.webp" width="780" height="1688" loading="lazy" alt="The same chat in agreem360 CRM on a phone." data-i18n-alt="lp.the-same-chat-in-yellow-crm" />
             </figure>
           </div>
         </div>
       </section>
 
-      <section class="lp-points" aria-label="In short" data-i18n-aria-label="lp.in-short">
+      <section class="lp-points lp-crm-only" aria-label="In short" data-i18n-aria-label="lp.in-short">
         <ul class="lp-wrap">
           <li><svg class="lp-ico" aria-hidden="true"><use href="#i-chat" /></svg> <span data-i18n="lp.works-with-your-whatsapp-business-app">Works with your WhatsApp Business app number</span></li>
           <li><svg class="lp-ico" aria-hidden="true"><use href="#i-users" /></svg> <span data-i18n="lp.your-team-replies-from-one-shared">Your team replies from one shared inbox</span></li>
@@ -134,7 +219,18 @@
         </ul>
       </section>
 
-      <section class="lp-section" id="features" aria-labelledby="featuresTitle">
+      <!-- One CRM type's own page (D146): what choosing it on the company form adds, from
+           GET /api/v1/site/crm-types (the same set-ups the CRM applies), so nothing is made up. -->
+      <section class="lp-section lp-made" id="made-for" aria-labelledby="madeTitle" hidden>
+        <div class="lp-wrap">
+          <h2 id="madeTitle"></h2>
+          <p class="lp-sub" id="madeSub"></p>
+          <div class="lp-made-grid" id="madeGrid"></div>
+          <p class="lp-made-note" id="madeNote"></p>
+        </div>
+      </section>
+
+      <section class="lp-section lp-crm-only" id="features" aria-labelledby="featuresTitle">
         <div class="lp-wrap">
           <h2 id="featuresTitle" data-i18n="lp.from-the-first-message-to-the">From the first message to the payment</h2>
           <p class="lp-sub" data-i18n="lp.everything-a-sales-team-needs-around">Everything a sales team needs around WhatsApp, in one CRM made for Indian businesses.</p>
@@ -201,7 +297,7 @@
             </article>
           </div>
           <div class="lp-also">
-            <h3 data-i18n="lp.also-in-yellow-crm">Also in AgreemCRM</h3>
+            <h3 data-i18n="lp.also-in-yellow-crm">Also in agreem360 CRM</h3>
             <ul class="lp-chips">
               <li data-i18n="lp.customer-360">Customer 360°</li>
               <li data-i18n="lp.tasks-and-calendar">Tasks and calendar</li>
@@ -216,10 +312,10 @@
         </div>
       </section>
 
-      <section class="lp-section lp-screens" id="screens" aria-labelledby="screensTitle">
+      <section class="lp-section lp-screens lp-crm-only" id="screens" aria-labelledby="screensTitle">
         <div class="lp-wrap">
           <h2 id="screensTitle" data-i18n="lp.see-it-before-you-sign-up">See it before you sign up</h2>
-          <p class="lp-sub" data-i18n="lp.real-screens-of-yellow-crm-filled">Real screens of AgreemCRM, filled with a sample shop's data.</p>
+          <p class="lp-sub" data-i18n="lp.real-screens-of-yellow-crm-filled">Real screens of agreem360 CRM, filled with a sample shop's data.</p>
           <div class="lp-gallery">
             <figure>
               <div class="lp-frame">
@@ -253,7 +349,7 @@
         </div>
       </section>
 
-      <section class="lp-section" id="pricing" aria-labelledby="pricingTitle">
+      <section class="lp-section lp-crm-only" id="pricing" aria-labelledby="pricingTitle">
         <div class="lp-wrap">
           <h2 id="pricingTitle" data-i18n="lp.plans-for-every-team-size">Plans for every team size</h2>
           <p class="lp-sub" id="pricingSub" data-i18n="lp.monthly-prices-in-rupees-gst-is">Monthly prices in rupees. GST is extra.</p>
@@ -272,7 +368,7 @@
         </div>
       </section>
 
-      <section class="lp-section" id="faq" aria-labelledby="faqTitle">
+      <section class="lp-section lp-crm-only" id="faq" aria-labelledby="faqTitle">
         <div class="lp-wrap">
           <h2 id="faqTitle" data-i18n="lp.questions-answered">Questions, answered</h2>
           <div class="lp-faq-list">
@@ -282,7 +378,7 @@
             </details>
             <details>
               <summary><span data-i18n="lp.who-pays-for-whatsapp-messages">Who pays for WhatsApp messages?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p data-i18n="lp.meta-charges-for-some-messages-mainly">Meta charges for some messages, mainly templates such as broadcasts, at Meta's own rates, and bills your business directly on your Meta account. AgreemCRM adds nothing on top: the plan price is for the CRM.</p>
+              <p data-i18n="lp.meta-charges-for-some-messages-mainly">Meta charges for some messages, mainly templates such as broadcasts, at Meta's own rates, and bills your business directly on your Meta account. agreem360 CRM adds nothing on top: the plan price is for the CRM.</p>
             </details>
             <details>
               <summary><span data-i18n="lp.what-happens-when-the-free-trial">What happens when the free trial ends?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
@@ -302,7 +398,7 @@
             </details>
             <details>
               <summary><span data-i18n="lp.is-there-a-phone-app">Is there a phone app?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
-              <p data-i18n="lp.yellow-crm-works-in-the-phone">AgreemCRM works in the phone's browser and can be added to the home screen like an app, with notifications on the phone. Nothing to download from a store.</p>
+              <p data-i18n="lp.yellow-crm-works-in-the-phone">agreem360 CRM works in the phone's browser and can be added to the home screen like an app, with notifications on the phone. Nothing to download from a store.</p>
             </details>
             <details>
               <summary><span data-i18n="lp.can-i-take-my-data-out">Can I take my data out, or delete it?</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-plus" /></svg></summary>
@@ -312,12 +408,60 @@
         </div>
       </section>
 
+      <!-- A coming product's own page (D148): what it will do, the kinds of business it is shaped
+           for (each with its own page, ?product=<id>&field=<field>), and honest screens, pricing
+           and questions until it opens. Texts lp.prod.<id>.*; drawn by js/landing.js. -->
+      <section class="lp-section lp-product-only" id="p-features" aria-labelledby="pFeaturesTitle" hidden>
+        <div class="lp-wrap">
+          <h2 id="pFeaturesTitle"></h2>
+          <p class="lp-sub" id="pFeaturesSub"></p>
+          <div class="lp-features-grid" id="pFeatures"></div>
+        </div>
+      </section>
+
+      <section class="lp-section lp-product-only lp-fields" id="p-fields" aria-labelledby="pFieldsTitle" hidden>
+        <div class="lp-wrap">
+          <h2 id="pFieldsTitle"></h2>
+          <p class="lp-sub" id="pFieldsSub"></p>
+          <div class="lp-fields-grid" id="pFields"></div>
+        </div>
+      </section>
+
+      <section class="lp-section lp-product-only lp-soon-section" id="p-screens" aria-labelledby="pScreensTitle" hidden>
+        <div class="lp-wrap">
+          <div class="lp-soon-box">
+            <p class="lp-soon lp-soon-lg" data-i18n="lp.prod.comingSoon">Coming soon</p>
+            <h2 id="pScreensTitle"></h2>
+            <p id="pScreensText"></p>
+            <a class="lp-btn lp-btn-light" href="index.html#screens" data-i18n="lp.prod.seeCrmScreens">See agreem360 CRM's screens</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-section lp-product-only lp-soon-section" id="p-pricing" aria-labelledby="pPricingTitle" hidden>
+        <div class="lp-wrap">
+          <div class="lp-soon-box">
+            <p class="lp-soon lp-soon-lg" data-i18n="lp.prod.comingSoon">Coming soon</p>
+            <h2 id="pPricingTitle"></h2>
+            <p id="pPricingText"></p>
+            <a class="lp-btn lp-btn-light" href="index.html#pricing" data-i18n="lp.prod.seeCrmPricing">See agreem360 CRM's plans</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-section lp-product-only" id="p-faq" aria-labelledby="pFaqTitle" hidden>
+        <div class="lp-wrap">
+          <h2 id="pFaqTitle"></h2>
+          <div class="lp-faq-list" id="pFaq"></div>
+        </div>
+      </section>
+
       <section class="lp-final" aria-labelledby="finalTitle">
         <div class="lp-wrap">
           <div class="lp-final-box">
             <div>
               <h2 id="finalTitle" data-i18n="lp.bring-your-team-s-whatsapp-into">Bring your team's WhatsApp into one place</h2>
-              <p data-i18n="lp.set-up-your-company-in-minutes">Set up your company in minutes and invite your team.</p>
+              <p id="finalText" data-i18n="lp.set-up-your-company-in-minutes">Set up your company in minutes and invite your team.</p>
             </div>
             <div class="lp-cta">
               <a class="lp-btn lp-btn-dark lp-btn-lg" href="login.html?signup=1"><span data-i18n="lp.startTrial">Start free trial</span> <svg class="lp-ico" aria-hidden="true"><use href="#i-arrow" /></svg></a>
@@ -331,8 +475,8 @@
     <footer class="lp-footer">
       <div class="lp-wrap lp-footer-row">
         <div>
-          <a class="lp-brand" href="#top"><img src="img/icons/icon-192.png" alt="" width="32" height="32" loading="lazy" /> <span>AgreemCRM</span></a>
-          <p>© <span id="year"></span> <span class="js-operator-name">AgreemCRM</span><span id="operatorEmail"></span></p>
+          <a class="lp-brand" href="agreem360.html"><img src="img/icons/icon-192.png" alt="" width="32" height="32" loading="lazy" /> <span translate="no">agreem360</span></a>
+          <p>© <span id="year"></span> <span translate="no">agreem360</span><span id="operatorEmail"></span></p>
         </div>
         <nav aria-label="Legal and account" data-i18n-aria-label="lp.legal-and-account">
           <a href="#pricing" data-i18n="lp.nav.pricing">Pricing</a>

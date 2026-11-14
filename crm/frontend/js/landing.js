@@ -3,6 +3,8 @@
  * (the same list as Settings → Plan & usage, from backend constants/plans.js, so prices live in
  * one place), fills in the operator's name for the footer, and runs the header and menu.
  * No sign-in and no app.js, so the page stays light.
+ * D146: the same page is each CRM type's own home page (?crm=<id>: its words, and what choosing
+ * the type adds, from GET /site/crm-types) and each coming product's (?product=<id>).
  */
 (function landingPage() {
   // Like app.js: the API is on the same origin, except under VS Code Live Server.
@@ -58,9 +60,205 @@
     document.title = t("lp.title");
     $("langBtn").textContent = language === "hi" ? "English" : "हिंदी"; // i18n-ok: each language by its own name
     $("langBtn").lang = language === "hi" ? "en" : "hi";
+    applyPage();
     document.documentElement.classList.remove("i18n-pending");
   }
   const locale = () => (language === "hi" ? "hi-IN" : "en-IN");
+
+  // --- which page this is (D146, D148) -------------------------------------------------------
+  // agreem360's products: the CRM (its 20 business types, ?crm=<id>) and ten that are coming, each
+  // with ten kinds of business of its own (?product=<id>&field=<field>, texts lp.prod.<id>.*).
+  const FIELDS = {
+    erp: ["manufacturing", "trading", "retail", "pharma", "food", "textile", "engineering", "chemicals", "construction", "jewellery"],
+    marketing: ["retail", "ecommerce", "education", "realestate", "health", "restaurants", "travel", "finance", "salon", "b2b"],
+    hrm: ["factories", "it", "retail", "hospitals", "schools", "hotels", "security", "construction", "logistics", "staffing"],
+    scm: ["fmcg", "manufacturing", "pharma", "ecommerce", "cold", "agri", "auto", "building", "electronics", "textile"],
+    cms: ["business", "store", "schools", "hospitals", "realestate", "restaurants", "news", "ngo", "manufacturers", "professionals"],
+    bi: ["retail", "manufacturing", "distribution", "finance", "health", "education", "ecommerce", "logistics", "hospitality", "sales"],
+    itsm: ["it", "msp", "banks", "hospitals", "education", "manufacturing", "retail", "government", "bpo", "hotels"],
+    lms: ["schools", "coaching", "colleges", "corporate", "creators", "skills", "health", "sales", "compliance", "languages"],
+    pm: ["construction", "interior", "software", "agencies", "events", "manufacturing", "consulting", "architecture", "solar", "ngo"],
+    bpm: ["manufacturing", "banks", "insurance", "health", "education", "retail", "logistics", "realestate", "government", "services"],
+  };
+  const FEATURE_ICONS = ["box", "doc", "users", "calendar", "chart", "bolt"];
+  const FIXED = ["crm", "erp", "marketing", "hrm"]; // always in the bar, in this order
+  const LAST_KEY = "agreem360_last_product";
+  const params = new URLSearchParams(window.location.search);
+  const known = (attribute, id) => Boolean(id) && Boolean(document.querySelector(`[${attribute}="${CSS.escape(id)}"]`));
+  // A product that is coming (and one of its kinds of business), or one of the CRM's business types.
+  const productId = params.get("product") !== "crm" && known("data-product", params.get("product")) ? params.get("product") : "";
+  const fieldId = productId && (FIELDS[productId] || []).includes(params.get("field")) ? params.get("field") : "";
+  const crmType = !productId && params.get("crm") !== "business" && known("data-crm", params.get("crm")) ? params.get("crm") : "";
+  let crmTypes = null; // GET /site/crm-types, once
+
+  // The bar (D148): the four that always show, then one more place for the product last chosen
+  // from Other (SCM at first, kept in this browser); the product it replaces goes back into Other.
+  const products = [...$("productList").querySelectorAll("[data-product]")].map((link) => link.dataset.product);
+  let fifth = "scm";
+  try {
+    const kept = localStorage.getItem(LAST_KEY);
+    if (products.includes(kept) && !FIXED.includes(kept)) fifth = kept;
+  } catch {
+    /* nothing kept: SCM */
+  }
+  if (productId && !FIXED.includes(productId) && productId !== fifth) {
+    fifth = productId;
+    try {
+      localStorage.setItem(LAST_KEY, fifth);
+    } catch {
+      /* this page shows it all the same */
+    }
+  }
+  const itemOf = (id) => {
+    const item = document.createElement("li");
+    item.append($("productList").querySelector(`[data-product="${id}"]`).cloneNode(true));
+    return item;
+  };
+  const inBar = [...FIXED, fifth];
+  $("barList").append(...inBar.map(itemOf));
+  $("otherList").append(...products.filter((id) => !inBar.includes(id)).map(itemOf));
+
+  // A coming product: its kinds of business in the box's first menu (all of it first), and the
+  // page's sections are its own.
+  if (productId) {
+    $("crmTypeList").hidden = true;
+    $("fieldList").hidden = false;
+    $("fieldList").innerHTML = ["", ...FIELDS[productId]]
+      .map((field) => `<li><a href="index.html?product=${productId}${field ? `&field=${field}` : ""}" data-field="${field || "all"}" data-i18n="${field ? `lp.prod.${productId}.field.${field}.name` : "lp.sub.every"}"></a></li>`)
+      .join("");
+    document.querySelectorAll("[data-sub]").forEach((link) => {
+      link.href = `#p-${link.dataset.sub}`;
+    });
+  }
+  // The header's lists, copied into the phone menu (before the texts go in, so both get them).
+  document.querySelectorAll("[data-copy-of]").forEach((box) => {
+    const copy = $(box.dataset.copyOf).cloneNode(true);
+    copy.removeAttribute("id");
+    copy.removeAttribute("class");
+    copy.querySelectorAll("[id], .lp-dd-title").forEach((el) => (el.matches(".lp-dd-title") ? el.remove() : el.removeAttribute("id")));
+    box.replaceWith(copy);
+  });
+
+  const show = (selector, on) => document.querySelectorAll(selector).forEach((el) => { el.hidden = !on; });
+  const markCurrent = (attribute, id) =>
+    document.querySelectorAll(`[${attribute}]`).forEach((link) => {
+      if (link.getAttribute(attribute) === id) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    });
+  const typeName = () => t(`crmType.${crmType}`);
+  // A product's name as the Products menu shows it (most are the same in both languages).
+  const productName = () => $("productList").querySelector(`[data-product="${productId}"] b`).textContent.trim();
+
+  function applyPage() {
+    document.body.classList.toggle("is-product", Boolean(productId));
+    markCurrent("data-crm", productId ? "" : crmType || "business");
+    markCurrent("data-product", productId || "crm");
+    markCurrent("data-field", productId ? fieldId || "all" : "");
+    if (productId) {
+      drawProduct();
+      return;
+    }
+    $("subbar").setAttribute("aria-label", t("lp.sub.label", { name: "CRM" }));
+    if (!crmType) return;
+    const type = typeName();
+    $("heroEyebrow").textContent = t("lp.crm.eyebrow", { type });
+    $("heroTitle").textContent = t(`lp.crm.${crmType}.h1`);
+    $("heroLead").textContent = t(`lp.crm.${crmType}.lead`);
+    document.title = t("lp.crm.title", { type });
+    drawMadeFor();
+  }
+
+  // A coming product's page (D148): what it is for, what it will do, the kinds of business it is
+  // shaped for, and honest screens, pricing and questions until it opens.
+  function drawProduct() {
+    const name = productName();
+    const key = (part) => `lp.prod.${productId}.${part}`;
+    const field = fieldId ? t(key(`field.${fieldId}.name`)) : "";
+    show(".lp-crm-only", false);
+    show(".lp-product-only", true);
+    $("subbar").setAttribute("aria-label", t("lp.sub.label", { name }));
+    $("typesTitle").textContent = t("lp.sub.fieldsTitle", { name });
+    $("heroEyebrow").textContent = field ? t("lp.prod.fieldEyebrow", { name, field }) : t("lp.prod.eyebrow", { name });
+    $("heroTitle").textContent = t(key(fieldId ? `field.${fieldId}.h1` : "h1"));
+    $("heroLead").textContent = t(key(fieldId ? `field.${fieldId}.lead` : "about"));
+    $("productNote").textContent = t("lp.prod.note", { name });
+    $("productCardTitle").textContent = t("lp.prod.covers", { name });
+    $("productPoints").innerHTML = [1, 2, 3, 4].map((n) => `<li>${icon("check")}<span>${escapeText(t(key(`p${n}`)))}</span></li>`).join("");
+    // What it will do: six parts, three things in each.
+    $("pFeaturesTitle").textContent = t("lp.prod.featuresTitle", { name });
+    $("pFeaturesSub").textContent = t("lp.prod.featuresSub");
+    $("pFeatures").innerHTML = FEATURE_ICONS.map((iconName, index) => {
+      const part = (p) => escapeText(t(key(`f${index + 1}.${p}`)));
+      return `<article class="lp-card">
+          <div class="lp-card-icon">${icon(iconName)}</div>
+          <h3>${part("title")}</h3>
+          <p>${part("text")}</p>
+          <ul class="lp-ticks">${["t1", "t2", "t3"].map((p) => `<li>${icon("check")}<span>${part(p)}</span></li>`).join("")}</ul>
+        </article>`;
+    }).join("");
+    // Its kinds of business, each with its own page.
+    $("pFieldsTitle").textContent = t("lp.prod.fieldsTitle", { name });
+    $("pFieldsSub").textContent = t("lp.prod.fieldsSub", { name });
+    $("pFields").innerHTML = FIELDS[productId]
+      .map((id) => `<a class="lp-field" href="index.html?product=${productId}&field=${id}"${id === fieldId ? ' aria-current="page"' : ""}>
+          <b>${escapeText(t(key(`field.${id}.name`)))}</b>
+          <span>${escapeText(t(key(`field.${id}.h1`)))}</span>
+        </a>`)
+      .join("");
+    $("pScreensTitle").textContent = t("lp.prod.screensTitle", { name });
+    $("pScreensText").textContent = t("lp.prod.screensText", { name });
+    $("pPricingTitle").textContent = t("lp.prod.pricingTitle", { name });
+    $("pPricingText").textContent = t("lp.prod.pricingText", { name });
+    $("pFaqTitle").textContent = t("lp.prod.faqTitle", { name });
+    $("pFaq").innerHTML = [1, 2, 3, 4]
+      .map((n) => `<details>
+          <summary><span>${escapeText(t(`lp.prod.q${n}`, { name }))}</span> ${icon("plus")}</summary>
+          <p>${escapeText(t(`lp.prod.a${n}`, { name }))}</p>
+        </details>`)
+      .join("");
+    $("finalTitle").textContent = t("lp.prod.finalTitle");
+    $("finalText").textContent = t("lp.prod.finalText");
+    document.title = field ? t("lp.prod.fieldTitle", { name, field }) : t("lp.prod.title", { name });
+  }
+
+  // What choosing this CRM type on the company form adds, card by card (only the ones it has).
+  function drawMadeFor() {
+    const setup = crmTypes?.find((entry) => entry.id === crmType);
+    if (!setup) return;
+    const names = (list) => list.map((words) => words[language] || words.en);
+    const chips = (list) => `<ul class="lp-chips">${list.map((name) => `<li>${escapeText(name)}</li>`).join("")}</ul>`;
+    const card = (iconName, key, list, extra) =>
+      list.length
+        ? `<article class="lp-card">
+            <div class="lp-card-icon">${icon(iconName)}</div>
+            <h3>${escapeText(t(`lp.made.${key}`))}</h3>
+            <p>${escapeText(t(`lp.made.${key}Text`))}</p>
+            ${extra || chips(names(list))}
+          </article>`
+        : "";
+    const stages = `<ul class="lp-chips lp-stages">${names(setup.stages).map((name) => `<li>${escapeText(name)}</li>`).join("")}<li class="is-end">${escapeText(t("lp.made.won"))}</li></ul>`;
+    $("madeTitle").textContent = t("lp.made.title", { type: typeName() });
+    $("madeSub").textContent = t("lp.made.sub", { type: typeName() });
+    $("madeGrid").innerHTML = [
+      card("funnel", "stages", setup.stages, stages),
+      card("list", "fields", setup.fields),
+      card("box", "products", setup.products),
+      card("doc", "records", setup.records),
+      card("calendar", "templates", setup.templates),
+      card("reply", "replies", setup.quickReplies),
+    ].join("");
+    $("madeNote").textContent = t("lp.made.note");
+    $("made-for").hidden = false;
+  }
+  async function loadCrmTypes() {
+    if (!crmType) return;
+    try {
+      crmTypes = await getJson("/site/crm-types");
+      drawMadeFor();
+    } catch {
+      /* the page reads well without it */
+    }
+  }
 
   function escapeText(value) {
     return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -185,16 +383,23 @@
   window.addEventListener("scroll", markScrolled, { passive: true });
   markScrolled();
   const menu = $("menu");
-  menu.addEventListener("click", (event) => {
-    if (event.target.closest("a")) menu.open = false;
+  const menus = [menu, ...document.querySelectorAll(".lp-dd")];
+  menus.forEach((box) => {
+    box.addEventListener("toggle", () => {
+      if (box.open) menus.forEach((other) => { if (other !== box) other.open = false; });
+    });
+    box.addEventListener("click", (event) => {
+      if (event.target.closest("a")) box.open = false;
+    });
   });
   document.addEventListener("click", (event) => {
-    if (menu.open && !menu.contains(event.target)) menu.open = false;
+    menus.forEach((box) => { if (box.open && !box.contains(event.target)) box.open = false; });
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && menu.open) {
-      menu.open = false;
-      menu.querySelector("summary").focus();
+    const open = menus.find((box) => box.open);
+    if (event.key === "Escape" && open) {
+      open.open = false;
+      open.querySelector("summary").focus();
     }
   });
 
@@ -208,13 +413,14 @@
     }
     await loadTexts(language);
     applyTexts();
-    loadPlans();
+    if (!productId) loadPlans();
   });
 
   $("year").textContent = String(new Date().getFullYear());
   Promise.all([loadTexts("en"), language === "en" ? null : loadTexts(language)]).then(() => {
     applyTexts();
-    loadPlans();
+    if (!productId) loadPlans();
+    loadCrmTypes();
   });
   loadOperator();
 })();

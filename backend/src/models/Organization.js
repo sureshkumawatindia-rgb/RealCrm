@@ -29,7 +29,7 @@ const organizationSchema = new mongoose.Schema(
     description: { type: String, trim: true },
     // The SaaS plan (constants/plans.js) and where its subscription stands (Phase 10,
     // services/planService.js). No defaults on purpose: an organization from before billing has
-    // no status and counts as comped (D48); a new one starts a trial at sign-up (3 days since D125).
+    // no status and counts as comped (D48); a new one starts a trial at sign-up (45 days since D147, then a day at a time up to 90).
     plan: { type: String, enum: PLAN_KEYS, default: TRIAL_PLAN },
     subscription: {
       status: { type: String, enum: SUBSCRIPTION_STATUSES },

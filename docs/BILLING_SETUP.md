@@ -4,7 +4,7 @@ This guide is for **you, the owner of the CRM platform**. Companies that use the
 
 ## How it works
 
-- **New companies** get a **3-day free trial** of the Growth plan (D48; 30 days until D125). Companies that used the CRM before billing existed are **complimentary**: they keep their plan with no end date.
+- **New companies** get a **45-day free trial** of the Growth plan (D147; 3 days from D125, 30 before). A company that has not chosen a plan by day 45 keeps its trial **a day at a time, up to 90 days** from the start (the trial job, every 6 hours, adds a day when less than 12 hours are left); then it ends as before. A trial from before D147 (3 days) gets its 45 days at once. Companies that used the CRM before billing existed are **complimentary**: they keep their plan with no end date.
 - In **Settings → Plan & usage**, an owner or admin sees the plan, the usage meters and the five plans, with a **Monthly / Yearly** switch (D125). **Choose** opens Razorpay's payment page in a new tab (card, UPI or netbanking).
   - Choosing a plan **during the trial** keeps the rest of the trial free: Razorpay only sets up the mandate, and the first charge happens when the trial ends.
   - After that, Razorpay charges every month (or once a year, for a yearly plan) until the company cancels.

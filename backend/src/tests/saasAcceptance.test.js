@@ -63,11 +63,11 @@ describe('Phase 10 acceptance: the SaaS life of a company', () => {
     const post = (user, path, body) => api().post(`/api/v1${path}`).set(as(user)).send(body);
     const get = (user, path) => api().get(`/api/v1${path}`).set(as(user));
 
-    // --- 1. Sign-up: a 3-day Growth trial (D125) -----------------------------------------------------
+    // --- 1. Sign-up: a 45-day Growth trial (D147) ----------------------------------------------------
     const owner = await login('saas-owner@example.com', { name: 'Asha' });
     const orgId = owner.data.organizationId;
     await api().patch('/api/v1/organization').set(as(owner)).send({ name: 'Saffron Traders', gstin: '08AAACS1234C1Z5' });
-    expect((await get(owner, '/billing/subscription')).body.data).toMatchObject({ plan: { key: 'growth' }, subscription: { status: 'trialing', daysLeft: 3 } });
+    expect((await get(owner, '/billing/subscription')).body.data).toMatchObject({ plan: { key: 'growth' }, subscription: { status: 'trialing', daysLeft: 45 } });
 
     // --- 2. The trial ends; adding waits for a plan; Pro is paid on the test gateway --------------
     await Organization.updateOne({ _id: orgId }, { $set: { 'subscription.trialEndsAt': new Date(Date.now() - 1000) } });

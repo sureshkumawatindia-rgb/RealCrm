@@ -14,12 +14,12 @@ const orgOf = (user) => Organization.findById(user.data.organizationId);
 const setPlan = (organization, plan, subscription = { status: 'active' }) => Organization.updateOne({ _id: organization._id }, { $set: { plan, subscription } });
 
 describe('Plans, limits and the trial (Phase 10A)', () => {
-  it('starts a new company on a 3-day Growth trial and shows the usage to managers only', async () => {
+  it('starts a new company on a 45-day Growth trial and shows the usage to managers only', async () => {
     const owner = await login('plan-owner@example.com', { name: 'Asha' });
     const agent = await inviteAndJoin(owner.token, 'plan-agent@example.com', { role: 'agent' });
     const mine = (await api().get('/api/v1/billing/subscription').set(bearer(owner.token))).body.data;
     expect(mine.plan).toMatchObject({ key: 'growth', name: 'Growth', pricePaise: 399900, gstPaise: 71982, totalPaise: 471882 });
-    expect(mine.subscription).toMatchObject({ status: 'trialing', locked: false, daysLeft: 3 });
+    expect(mine.subscription).toMatchObject({ status: 'trialing', locked: false, daysLeft: 45 });
     const usage = Object.fromEntries(mine.usage.map((meter) => [meter.metric, meter]));
     expect(usage.users).toMatchObject({ used: 2, limit: 30, left: 28 });
     expect(usage.agents).toMatchObject({ used: 1, limit: 24, left: 23 });
@@ -42,7 +42,7 @@ describe('Plans, limits and the trial (Phase 10A)', () => {
     expect(catalog.plans[4]).toMatchObject({ name: 'Infinite', limits: { contacts: null, broadcastsPerMonth: null, quotesPerMonth: null, templates: null }, features: { api: true, agentNumbers: true } });
     expect(catalog.limits.map((l) => l.metric)).toContain('agents');
     expect(catalog.included).toContain('WhatsApp for every user: the whole team replies from the shared inbox');
-    expect(catalog).toMatchObject({ gstPct: 18, trialDays: 3 });
+    expect(catalog).toMatchObject({ gstPct: 18, trialDays: 45 });
   });
 
   it('keeps a Starter company inside its seats, numbers, templates, quotations and features', async () => {

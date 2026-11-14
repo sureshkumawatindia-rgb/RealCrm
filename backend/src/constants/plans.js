@@ -51,9 +51,12 @@ const PLANS = Object.freeze({
 const PLAN_KEYS = Object.freeze(Object.keys(PLANS));
 // How often a plan is paid for (D125): every month, or a year at once.
 const BILLING_INTERVALS = Object.freeze(['monthly', 'yearly']);
-// A new organization tries the Growth plan for 3 days (D48; 30 days until D125).
+// A new organization tries the Growth plan for 45 days (D147; 3 days from D125, 30 before). One
+// that has not chosen a plan by then keeps its trial a day at a time, up to 90 days from the start
+// (billingService.extendTrials).
 const TRIAL_PLAN = 'growth';
-const TRIAL_DAYS = 3;
+const TRIAL_DAYS = 45;
+const TRIAL_MAX_DAYS = 90;
 const PLAN_GST_PCT = 18;
 
 // What is counted, in the order the usage meters show it. monthly: counted from the 1st (India).
@@ -107,4 +110,4 @@ const SUBSCRIPTION_STATUSES = Object.freeze(['trialing', 'active', 'past_due', '
 
 const planOf = (organization) => PLANS[organization?.plan] || PLANS[TRIAL_PLAN];
 
-module.exports = { PLANS, PLAN_KEYS, BILLING_INTERVALS, MAX_WHATSAPP_NUMBERS, TRIAL_PLAN, TRIAL_DAYS, PLAN_GST_PCT, LIMITS, METERS, ALERT_LEVELS, FEATURES, INCLUDED, SUBSCRIPTION_STATUSES, planOf };
+module.exports = { PLANS, PLAN_KEYS, BILLING_INTERVALS, MAX_WHATSAPP_NUMBERS, TRIAL_PLAN, TRIAL_DAYS, TRIAL_MAX_DAYS, PLAN_GST_PCT, LIMITS, METERS, ALERT_LEVELS, FEATURES, INCLUDED, SUBSCRIPTION_STATUSES, planOf };

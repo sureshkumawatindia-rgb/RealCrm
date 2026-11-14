@@ -13,7 +13,7 @@ const { nextSequence } = require('../utils/counter');
 const { financialYear, formatRupees } = require('../utils/money');
 const { stateCodeFromGstin } = require('../utils/gstin');
 const { stateName } = require('../constants/gst');
-const { PLANS, PLAN_KEYS, PLAN_GST_PCT } = require('../constants/plans');
+const { PLANS, PLAN_KEYS, PLAN_GST_PCT, TRIAL_DAYS, TRIAL_MAX_DAYS } = require('../constants/plans');
 const razorpay = require('../integrations/billing/razorpay');
 const mock = require('../integrations/billing/mock');
 const notificationService = require('./notificationService');
@@ -413,6 +413,39 @@ async function syncAll() {
   for (const invoice of await BillingInvoice.find({ number: /^pending:/ }).limit(100)) await numberInvoice(invoice);
 }
 
+// D147: a trial that has run its 45 days with no plan chosen goes on a day at a time, up to 90 days
+// from its start. The job runs every 6 hours, so a trial with less than 12 hours left gets one more
+// day. A trial from before D147 (exactly 3 days long, D125) first gets its 45 days from its start;
+// one the platform gave by hand (scripts/plan.js) keeps its length and then goes on the same way.
+const EXTEND_WHEN_LEFT_MS = 12 * 60 * 60 * 1000;
+const OLD_TRIAL_MS = 3 * DAY_MS;
+async function extendTrials(now = new Date()) {
+  // An old trial ends within its 3 days; any other one is near its end within 12 hours.
+  const trials = await Organization.find({ 'subscription.status': 'trialing', 'subscription.trialEndsAt': { $lte: new Date(now.getTime() + OLD_TRIAL_MS) } })
+    .select('subscription plan createdAt');
+  let extended = 0;
+  for (const organization of trials) {
+    if (isPaying(organization)) continue; // a plan is chosen: its first payment ends the trial
+    const sub = organization.subscription;
+    const start = sub.since || organization.createdAt;
+    if (!start) continue;
+    const ends = sub.trialEndsAt.getTime();
+    const full = start.getTime() + TRIAL_DAYS * DAY_MS;
+    const last = start.getTime() + TRIAL_MAX_DAYS * DAY_MS;
+    const oldTrial = Math.abs(ends - start.getTime() - OLD_TRIAL_MS) < 60 * 60 * 1000 && full > now.getTime();
+    if (!oldTrial && ends - now.getTime() > EXTEND_WHEN_LEFT_MS) continue;
+    const next = oldTrial ? full : Math.min(Math.max(ends, now.getTime()) + DAY_MS, last);
+    if (next <= ends || next <= now.getTime()) continue; // its 90 days are over
+    // The old trial's reminders start again before its new end; a day more sends none.
+    const { modifiedCount } = await Organization.updateOne(
+      { _id: organization._id, 'subscription.trialEndsAt': sub.trialEndsAt },
+      { $set: { 'subscription.trialEndsAt': new Date(next) }, ...(oldTrial && { $unset: { 'subscription.remindedFor': 1 } }) },
+    );
+    extended += modifiedCount;
+  }
+  return extended;
+}
+
 // Trial reminders under the bell: 7, 3 and 1 days before the end, and when it ends (once each).
 const REMINDERS = ['7', '3', '1', 'ended'];
 async function remindTrials(now = new Date()) {
@@ -478,13 +511,13 @@ async function cancelForDeletion(organization) {
 function register(queue) {
   queue.define(JOBS.WEBHOOK, processWebhook, { maxAttempts: 6 });
   queue.define(JOBS.SYNC, () => syncAll(), { maxAttempts: 2 });
-  queue.define(JOBS.TRIAL, () => remindTrials(), { maxAttempts: 2 });
+  queue.define(JOBS.TRIAL, async () => { await extendTrials(); await remindTrials(); }, { maxAttempts: 2 });
   queue.every(JOBS.SYNC, SYNC_EVERY_MS).catch((error) => logger.error(`Scheduling ${JOBS.SYNC} failed: ${error.message}`));
   queue.every(JOBS.TRIAL, SYNC_EVERY_MS).catch((error) => logger.error(`Scheduling ${JOBS.TRIAL} failed: ${error.message}`));
 }
 
 module.exports = {
   JOBS, publicStatus, checkout, cancel, refresh, receiveWebhook, processWebhook, applySubscription, recordCharge,
-  syncOrganization, syncAll, remindTrials, listInvoices, invoicePdf, serializeInvoice, testSubscription, actOnTest, register, PLATFORM_ID,
+  syncOrganization, syncAll, extendTrials, remindTrials, listInvoices, invoicePdf, serializeInvoice, testSubscription, actOnTest, register, PLATFORM_ID,
   cancelForDeletion,
 };

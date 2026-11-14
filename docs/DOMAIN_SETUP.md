@@ -59,6 +59,14 @@ fine for now. If `https://agreem360.com` (with the "s") shows a certificate warn
 forwarding has no certificate for it; moving the DNS to Cloudflare later (steps 2 and 5) fixes
 that. Nobody pastes the root address anywhere, so this can wait.
 
+**G2b. agreem360.com opens agreem360's own website (D149).** The website is ready at
+`https://crm.agreem360.com/crm/frontend/agreem360.html`. In G2, put that whole address in
+**Forward to** (`https://` and `crm.agreem360.com/crm/frontend/agreem360.html`), **Permanent (301)**,
+**Forward only**, **Save**. When the DNS later moves to Cloudflare (or `agreem360.com` is added to
+the Render service itself), point `@` and `www` at the same server instead: the server opens the
+website for `agreem360.com` and `www.agreem360.com` by itself (`SITE_HOSTS`, nothing to set) and
+the CRM's home page for `crm.agreem360.com`.
+
 **G3. Email records (step 7).** Add Resend's records in GoDaddy's DNS the same way. GoDaddy adds
 `.agreem360.com` to the name itself: for a record Resend shows as `send.mail.agreem360.com`, type
 `send.mail` as the Name.

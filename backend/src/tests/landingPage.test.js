@@ -6,6 +6,8 @@ const { PLANS } = require('../constants/plans');
 const { api, bearer, login } = require('./helpers/api');
 const PlatformSetting = require('../models/PlatformSetting');
 const env = require('../config/env');
+const { CRM_TYPE_IDS } = require('../constants/crmTypes');
+const { KITS } = require('../constants/businessKits');
 
 // The public home page (CP4): plans from one place, nothing made up, and the links Meta's App
 // Review and visitors need.
@@ -19,7 +21,7 @@ describe('Home page', () => {
     expect(res.status).toBe(200);
     expect(res.headers['cache-control']).toBe('public, max-age=300');
     expect(res.body.data.plans.map((p) => p.key)).toEqual(['starter', 'pro', 'growth', 'scale', 'infinite']);
-    expect(res.body.data).toMatchObject({ gstPct: 18, trialDays: 3, trialPlan: 'growth' });
+    expect(res.body.data).toMatchObject({ gstPct: 18, trialDays: 45, trialPlan: 'growth' });
     expect(res.body.data.included.length).toBeGreaterThan(0);
 
     const owner = await login('landing-owner@example.com');
@@ -92,11 +94,64 @@ describe('Home page', () => {
     expect(sitemap.headers['content-type']).toMatch(/^application\/xml/);
     const xml = sitemap.text;
     expect(xml).toMatch(/^<\?xml version="1.0" encoding="UTF-8"\?>\n<urlset /);
-    for (const name of ['index.html', 'privacy.html', 'terms.html', 'refund.html', 'delivery.html', 'contact.html']) {
+    for (const name of ['agreem360.html', 'index.html', 'privacy.html', 'terms.html', 'refund.html', 'delivery.html', 'contact.html']) {
       expect(xml).toContain(`<loc>${env.publicUrl}/crm/frontend/${name}</loc>`);
       expect(robots.text).toContain(`Allow: /crm/frontend/${name}`); // each page in the sitemap may be read
       expect(fs.existsSync(path.join(FRONTEND, name))).toBe(true);
     }
+  });
+
+  // D146: agreem360's products; the CRM's business types each have their own home page.
+  it('lists every CRM type after "CRM" and the coming products under Products, each with its texts', () => {
+    const en = JSON.parse(fs.readFileSync(path.join(FRONTEND, 'i18n', 'en.json'), 'utf8'));
+    const types = [...page.matchAll(/<a href="index\.html(?:\?crm=(\w+))?" data-crm="(\w+)"/g)];
+    expect(types.map((m) => m[2])).toEqual(CRM_TYPE_IDS);
+    for (const [, inLink, id] of types) {
+      expect(inLink || 'business').toBe(id); // "business" is the plain page
+      if (id !== 'business') expect([en[`lp.crm.${id}.h1`], en[`lp.crm.${id}.lead`]]).toEqual([expect.any(String), expect.any(String)]);
+    }
+    // D148: CRM, then the ten coming products. The bar shows CRM, ERP, Marketing Automation, HRM / HRIS
+    // and one more (SCM until another is chosen from Other); each has six parts and ten kinds of business.
+    const products = [...page.matchAll(/data-product="(\w+)"/g)].map((m) => m[1]);
+    expect(products).toEqual(['crm', 'erp', 'marketing', 'hrm', 'scm', 'cms', 'bi', 'itsm', 'lms', 'pm', 'bpm']);
+    expect(script).toContain('const FIXED = ["crm", "erp", "marketing", "hrm"];');
+    expect(script).toContain('let fifth = "scm";');
+    const listed = /const FIELDS = \{([\s\S]*?)\n\s*\};/.exec(script)[1];
+    const fields = Object.fromEntries([...listed.matchAll(/(\w+): \[([^\]]*)\]/g)].map((m) => [m[1], [...m[2].matchAll(/"(\w+)"/g)].map((f) => f[1])]));
+    expect(Object.keys(fields)).toEqual(products.slice(1));
+    for (const id of products.slice(1)) {
+      expect(new Set(fields[id]).size).toBe(10);
+      const parts = ['full', 'h1', 'about', 'p1', 'p2', 'p3', 'p4'];
+      for (let n = 1; n <= 6; n += 1) parts.push(...['title', 'text', 't1', 't2', 't3'].map((part) => `f${n}.${part}`));
+      for (const field of fields[id]) parts.push(...['name', 'h1', 'lead'].map((part) => `field.${field}.${part}`));
+      for (const part of parts) expect({ id, part, text: typeof en[`lp.prod.${id}.${part}`] }).toEqual({ id, part, text: 'string' });
+    }
+    // A product that is not built yet says so, and offers the CRM meanwhile.
+    expect((page.match(/class="lp-soon" data-i18n="lp\.soon"/g) || []).length).toBe(10);
+    expect(page).toContain('<span translate="no">agreem360</span>');
+    expect(page).toContain('© <span id="year"></span> <span translate="no">agreem360</span>');
+  });
+
+  it('tells each CRM type\'s page what choosing the type adds, from the same set-ups, without signing in', async () => {
+    const res = await api().get('/api/v1/site/crm-types');
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toBe('public, max-age=300');
+    const types = res.body.data;
+    expect(types.map((type) => type.id)).toEqual(CRM_TYPE_IDS.filter((id) => id !== 'business'));
+    const pest = types.find((type) => type.id === 'pest_control');
+    expect(pest.stages.map((stage) => stage.en)).toEqual(KITS.pest_control.stages.map((stage) => stage.name.en));
+    expect(pest.products).toContainEqual({ en: 'Termite treatment', hi: 'दीमक ट्रीटमेंट' });
+    expect(pest.records).toEqual([{ en: 'AMC contracts', hi: 'AMC कॉन्ट्रैक्ट' }]);
+    expect(pest.templates).toEqual([{ en: 'AMC: 4 visits a year', hi: 'AMC: साल में 4 विज़िट' }]);
+    for (const type of types) {
+      expect(type.stages.length).toBeGreaterThan(0);
+      for (const words of [type.about, ...type.stages, ...type.products, ...type.fields, ...type.records, ...type.templates, ...type.quickReplies]) {
+        expect(words).toEqual({ en: expect.stringMatching(/\S/), hi: expect.stringMatching(/\S/) }); // in both languages ("BHK" stays "BHK")
+      }
+    }
+    // Names only: no prices, quick reply texts or anything of a company.
+    for (const type of types) expect(Object.keys(type).sort()).toEqual(['about', 'fields', 'id', 'products', 'quickReplies', 'records', 'stages', 'templates']);
+    expect(JSON.stringify(types)).not.toMatch(/organization|Paise|\{\{/);
   });
 
   it('stays light: only real screenshots that exist, small, with size and alt text; no app.js or icon font', () => {

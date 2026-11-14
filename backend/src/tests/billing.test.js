@@ -48,7 +48,7 @@ describe('Paying for the plan (Phase 10B)', () => {
     expect(checkout.status).toBe(200);
     const { checkoutUrl, startsAt } = checkout.body.data;
     expect(checkoutUrl).toMatch(/\/api\/v1\/webhooks\/billing-test\/mock_sub_/);
-    expect(new Date(startsAt).getTime()).toBeGreaterThan(Date.now() + 2 * DAY); // the 3-day trial's end (D125)
+    expect(new Date(startsAt).getTime()).toBeGreaterThan(Date.now() + 44 * DAY); // the 45-day trial's end (D147)
     let state = (await api().get('/api/v1/billing/subscription').set(bearer(owner.token))).body.data;
     expect(state.subscription).toMatchObject({ status: 'trialing', pendingPlan: 'pro', checkoutUrl });
     expect((await api().get(testPage(checkoutUrl))).text).toContain('Pro plan');
@@ -228,6 +228,54 @@ describe('Paying for the plan (Phase 10B)', () => {
     await Organization.updateOne({ _id: org._id }, { $set: { 'subscription.trialEndsAt': new Date(Date.now() - 1000) } });
     await billing.remindTrials();
     expect(await notes(org._id)).toEqual(['Your free trial ends in 3 days', 'Your free trial has ended']);
+  });
+
+  // D147: 45 days, then a day at a time up to 90 days from the start while no plan is chosen.
+  it('gives 45 days, then one more day at a time up to 90, and never to a company that chose a plan', async () => {
+    const owner = await login('bill-extend@example.com', { name: 'Kavya' });
+    let org = await orgOf(owner);
+    const start = org.subscription.since;
+    expect(org.subscription.trialEndsAt - start).toBe(45 * DAY);
+    const endsOf = async () => (await Organization.findById(org._id)).subscription.trialEndsAt.getTime();
+
+    // Day 45 is near: one more day, and no reminder starts again.
+    const day45 = new Date(start.getTime() + 45 * DAY - 6 * 60 * 60 * 1000);
+    await Organization.updateOne({ _id: org._id }, { $set: { 'subscription.remindedFor': '1' } });
+    await billing.extendTrials(day45);
+    expect(await endsOf()).toBe(start.getTime() + 46 * DAY);
+    await billing.extendTrials(day45); // more than 12 hours left now: nothing
+    expect(await endsOf()).toBe(start.getTime() + 46 * DAY);
+    expect((await Organization.findById(org._id)).subscription.remindedFor).toBe('1');
+
+    // Ended while the server was off (day 60): it goes on from now, for a day.
+    const day60 = new Date(start.getTime() + 60 * DAY);
+    await Organization.updateOne({ _id: org._id }, { $set: { 'subscription.trialEndsAt': new Date(day60.getTime() - 1000) } });
+    await billing.extendTrials(day60);
+    expect(await endsOf()).toBe(day60.getTime() + DAY);
+
+    // Never past 90 days from the start; then the trial ends as before.
+    const day89 = new Date(start.getTime() + 89.8 * DAY);
+    await Organization.updateOne({ _id: org._id }, { $set: { 'subscription.trialEndsAt': new Date(start.getTime() + 90 * DAY - 60 * 1000) } });
+    await billing.extendTrials(day89);
+    expect(await endsOf()).toBe(start.getTime() + 90 * DAY);
+    await billing.extendTrials(new Date(start.getTime() + 90 * DAY - 1000));
+    await billing.extendTrials(new Date(start.getTime() + 91 * DAY));
+    expect(await endsOf()).toBe(start.getTime() + 90 * DAY);
+
+    // A plan is chosen (the first charge waits for the trial's end): the trial is not moved.
+    await Organization.updateOne({ _id: org._id }, { $set: { 'subscription.trialEndsAt': new Date(start.getTime() + 45 * DAY), 'subscription.gatewayStatus': 'authenticated' } });
+    await billing.extendTrials(day45);
+    expect(await endsOf()).toBe(start.getTime() + 45 * DAY);
+
+    // A trial from before D147 (3 days) gets its 45 days at once, with its reminders again.
+    const old = await login('bill-old-trial@example.com', { name: 'Imran' });
+    org = await orgOf(old);
+    const oldStart = org.subscription.since;
+    await Organization.updateOne({ _id: org._id }, { $set: { 'subscription.trialEndsAt': new Date(oldStart.getTime() + 3 * DAY), 'subscription.remindedFor': '3' } });
+    await billing.extendTrials(new Date(oldStart.getTime() + DAY));
+    const after = (await Organization.findById(org._id)).subscription;
+    expect(after.trialEndsAt.getTime()).toBe(oldStart.getTime() + 45 * DAY);
+    expect(after.remindedFor).toBeUndefined();
   });
 
   it('says how to change the plan when paying online is off', async () => {
